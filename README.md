@@ -7,9 +7,12 @@
 **Frosted-glass camera frame for your photos — pure browser, no server.**
 
 [![Live demo](https://img.shields.io/badge/live_demo-anois.github.io%2Fphoto--tools-e5493a?style=flat-square)](https://anois.github.io/photo-tools/)
+[![CN mirror](https://img.shields.io/badge/CN_mirror-Aliyun_OSS-e5493a?style=flat-square)](https://photo-tools.oss-cn-hangzhou.aliyuncs.com/)
 [![No build step](https://img.shields.io/badge/build-vanilla_HTML/JS-1d2329?style=flat-square)](#stack)
 [![Node](https://img.shields.io/badge/node-%3E%3D18-1d2329?style=flat-square)](#quick-start)
 [![Repo](https://img.shields.io/badge/source-github-1d2329?style=flat-square&logo=github)](https://github.com/anois/photo-tools)
+
+[中文](README.zh-CN.md) · English
 
 </div>
 
@@ -126,6 +129,49 @@ The workflow lives in [.github/workflows/deploy.yml](.github/workflows/deploy.ym
 **One-time setup**: in repo Settings → Pages, set **Source** to `GitHub Actions`.
 
 **Other hosts** (S3 + CloudFront, Cloudflare Pages, Netlify, Vercel, …): same idea — point them at `public/` after running `npm run build`.
+
+### China-domestic mirror via Aliyun OSS
+
+GitHub Pages is intermittently slow / unreachable from mainland China. The same `public/` artifact is also synced to an Aliyun OSS bucket (mainland region, no ICP filing) for a domestic entry:
+
+```
+https://photo-tools.oss-cn-hangzhou.aliyuncs.com/
+```
+
+The deploy job ([deploy.yml](.github/workflows/deploy.yml) → `deploy-oss`) runs in parallel with the GitHub Pages job — a failure on one target doesn't block the other.
+
+**One-time Aliyun setup** (needed before the first OSS deploy):
+
+1. **Create bucket**: OSS Console → Create Bucket
+   - Region: `oss-cn-hangzhou` (or any mainland region)
+   - ACL: **Public Read** (`public-read`)
+   - In **Static Website** settings, set default index document to `index.html`
+2. **Create RAM sub-user**: RAM Console → Users → Create user `photo-tools-deploy`
+   - Access type: **OpenAPI Access**
+   - Attach a custom policy scoped to the bucket only (least-privilege):
+     ```json
+     {
+       "Version": "1",
+       "Statement": [{
+         "Effect": "Allow",
+         "Action": ["oss:PutObject", "oss:DeleteObject", "oss:GetObject", "oss:ListObjects"],
+         "Resource": ["acs:oss:*:*:photo-tools", "acs:oss:*:*:photo-tools/*"]
+       }]
+     }
+     ```
+   - Save the AccessKey ID and Secret (shown only once)
+3. **Add GitHub repo secrets** (Settings → Secrets and variables → Actions → New secret):
+   - `ALIYUN_ACCESS_KEY_ID`
+   - `ALIYUN_ACCESS_KEY_SECRET`
+   - `ALIYUN_OSS_BUCKET` = `photo-tools`
+   - `ALIYUN_OSS_ENDPOINT` = `oss-cn-hangzhou.aliyuncs.com`
+4. **Add a repo variable** to enable the OSS step:
+   - Settings → Secrets and variables → Actions → **Variables** → `ENABLE_OSS_DEPLOY` = `true`
+
+**Caveat**: Aliyun mainland-region direct OSS URLs (`*.oss-cn-<region>.aliyuncs.com`) sometimes display a security check page or get rate-limited when used as user-facing site endpoints, since the domain isn't ICP-filed. For low-volume personal use this typically works fine. If it triggers, fall back to:
+
+- **HK region** (`oss-cn-hongkong.aliyuncs.com`) — no filing, no security check, slightly slower (50–100 ms to mainland)
+- **Custom domain + Aliyun CDN** (requires ICP filing, 7–20 working days) — best CN performance long-term
 
 ## Stack
 
