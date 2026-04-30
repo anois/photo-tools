@@ -1346,19 +1346,23 @@ function applyHashPresetIfPresent() {
 }
 
 // ─── Boot ────────────────────────────────────────────────────────────────
-(async () => {
-  try {
-    setStatus('status.loadingAssets', 'busy');
-    await loadBundle();
-    populatePresetSelect();
-    applyHashPresetIfPresent();
-    setStatus('status.ready');
-    renderRail();
-  } catch (err) {
-    setStatus('status.bundleFail', 'err', { msg: err.message });
-    console.error(err);
-  }
-})();
+// Non-blocking: kick off the asset fetch in parallel with UI hydration. The
+// rest of the page (rail, preset list, hash preset) is interactive while
+// logos.json + fonts.css are still flying. requestRender already guards on
+// `state.logos`; once the bundle resolves we trigger a render of the active
+// photo (if any) so the user doesn't see an empty canvas after they import.
+setStatus('status.loadingAssets', 'busy');
+const bundlePromise = loadBundle();
+populatePresetSelect();
+applyHashPresetIfPresent();
+renderRail();
+bundlePromise.then(() => {
+  setStatus('status.ready');
+  if (state.activeIdx >= 0) requestRender();
+}).catch((err) => {
+  setStatus('status.bundleFail', 'err', { msg: err.message });
+  console.error(err);
+});
 
 // ─── Language switcher ──────────────────────────────────────────────────
 // Two-segment toggle in the topbar. Clicking flips the active locale, which
