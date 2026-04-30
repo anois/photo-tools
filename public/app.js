@@ -410,7 +410,9 @@ async function selectFile(idx) {
   if (!f.normalized) {
     try {
       setStatus('status.readingExif', 'busy');
-      const r = await uploadForExif(f.file);
+      // HEIC was already transcoded to JPEG; exifr can parse the original
+      // HEIC's metadata directly, so feed it the source when present.
+      const r = await uploadForExif(f.heicSource || f.file);
       f.normalized = r.normalized;
       f.rawExif = r.slim;
       populateExifInputs(f.normalized);
@@ -448,16 +450,45 @@ async function mergeFiles(newFiles) {
     seen.add(key);
     const cfg = cloneCfg(seedCfg);
     cfg.exifOverride = {};
-    const entry = { file, url: URL.createObjectURL(file), normalized: null, cfg };
+    // entry.heicSource (if set) keeps the original HEIC file around for
+    // exifr — exifr can parse HEIC EXIF directly, but the bitmap pipeline
+    // works on the transcoded JPEG (entry.file).
+    const entry = { file, url: URL.createObjectURL(file), normalized: null, cfg, heicSource: null };
     added.push(entry);
   }
 
+  // HEIC is decoded only via libheif-js — browsers don't natively decode it
+  // in createImageBitmap. Transcode to JPEG up front so the rest of the
+  // pipeline (preview, worker batch, EXIF rewrite) sees only standard formats.
+  const heicCount = added.filter((e) => window.HeicTools && window.HeicTools.isHeic(e.file)).length;
+  if (heicCount) {
+    setStatus('status.heicDecoding', 'busy', { n: heicCount });
+  }
+  await Promise.all(added.map(async (entry) => {
+    if (!window.HeicTools || !window.HeicTools.isHeic(entry.file)) return;
+    try {
+      const jpeg = await window.HeicTools.transcode(entry.file);
+      entry.heicSource = entry.file;
+      URL.revokeObjectURL(entry.url);
+      entry.file = jpeg;
+      entry.url = URL.createObjectURL(jpeg);
+    } catch (err) {
+      entry._heicFail = err;
+    }
+  }));
+
   // Probe each new file via createImageBitmap before adding to state.files.
-  // HEIC, truncated downloads, and renamed non-image files all surface here.
+  // Truncated downloads and renamed non-image files all surface here.
   // Probing in parallel keeps it fast for big batches; failures are dropped
-  // with a friendly Chinese error message reported via the status bar.
+  // with a friendly localized error message reported via the status bar.
   const rejected = [];
   await Promise.all(added.map(async (entry) => {
+    if (entry._heicFail) {
+      rejected.push({ name: entry.file.name, reason: humanizeDecodeError(entry._heicFail, entry.file) });
+      URL.revokeObjectURL(entry.url);
+      entry._broken = true;
+      return;
+    }
     try {
       // loadBitmap will populate the bitmap cache so the subsequent preview
       // render reuses the decoded ImageBitmap rather than decoding again.
@@ -476,7 +507,8 @@ async function mergeFiles(newFiles) {
   for (const entry of added) {
     if (entry._broken) continue;
     if (!entry.normalized) {
-      uploadForExif(entry.file).then((r) => { entry.normalized = r.normalized; entry.rawExif = r.slim; }).catch(() => {});
+      const exifSource = entry.heicSource || entry.file;
+      uploadForExif(exifSource).then((r) => { entry.normalized = r.normalized; entry.rawExif = r.slim; }).catch(() => {});
     }
   }
 
@@ -498,8 +530,11 @@ async function mergeFiles(newFiles) {
 function humanizeDecodeError(err, file) {
   const ext = (file.name.match(/\.([^.]+)$/) || ['',''])[1].toLowerCase();
   const mime = (file.type || '').toLowerCase();
+  // HEIC arrives here only when libheif-js itself failed (corrupt bitstream,
+  // wasm load error, etc.) — the import path transcodes successful HEICs to
+  // JPEG before probing.
   if (ext === 'heic' || ext === 'heif' || mime.includes('heic') || mime.includes('heif')) {
-    return T('status.decodeHeic');
+    return T('status.decodeHeicFail');
   }
   if (mime && mime !== 'image/jpeg' && mime !== 'image/png') {
     return T('status.decodeUnsupported', { mime });
@@ -939,9 +974,10 @@ document.addEventListener('keydown', (e) => {
   });
 });
 els.canvasPane.addEventListener('drop', async (e) => {
-  const files = Array.from(e.dataTransfer.files || []).filter(
-    (f) => f.type === 'image/jpeg' || f.type === 'image/png'
-  );
+  const files = Array.from(e.dataTransfer.files || []).filter((f) => {
+    if (f.type === 'image/jpeg' || f.type === 'image/png') return true;
+    return window.HeicTools && window.HeicTools.isHeic(f);
+  });
   if (!files.length) return;
   const prevLen = state.files.length;
   setStatus('status.reading', 'busy');

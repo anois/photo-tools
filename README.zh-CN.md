@@ -39,6 +39,7 @@
 - **EXIF 自动解析**，每张照片可独立手动覆盖；当 `LensModel` 缺失时用 `LensInfo` 数组反推镜头型号
 - **自定义签名水印** — 上传 SVG/PNG 钉在前景照片的某个角落；通过 `localStorage` 跨会话保留
 - **预设保存 / 分享** — 把当前的"风格"（相框 / 模板 / 边距 / 阴影 / 签名）存成命名预设，或复制分享链接（`#p=<code>`）发给朋友
+- **支持 HEIC / HEIF 输入** — iPhone 照片直接拖入即用，浏览器内通过懒加载的 libheif-js 转码（首次遇到 HEIC 才下载）
 - **实时预览** 走 Canvas2D + GPU 的 `ctx.filter` blur，不走服务端往返
 - **单张 + 批量导出** 都保留源图 EXIF（Make / Model / 焦距 / 光圈 / 快门 / ISO / 镜头 / 日期 / GPS）
 - **Web Worker 池** 把批量渲染挪出主线程

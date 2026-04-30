@@ -39,6 +39,7 @@ A single-page web app that wraps photos in a "frosted-glass" frame — blurred s
 - **Auto EXIF parsing** with per-photo manual override and `LensInfo` → lens-model fallback
 - **Custom signature overlay** — upload an SVG/PNG and pin it to a corner of the photo; persisted across sessions in `localStorage`
 - **Save / share presets** — snapshot the current look (frame / template / padding / shadow / signature) as a named local preset, or copy a share link (`#p=<code>`) for a friend
+- **HEIC / HEIF input** — iPhone photos transcode in-browser via lazy-loaded libheif-js (only fetched on first HEIC import)
 - **Live preview** via Canvas2D + GPU `ctx.filter` blur — no round-trip to a server
 - **Single + batch export** with EXIF round-trip preserved on JPEG (Make / Model / focal / aperture / shutter / ISO / lens / date / GPS)
 - **Web-Worker pool** for batch render off the main thread

@@ -55,6 +55,7 @@ When iterating on this project:
    - Export orchestration: `public/exporter.js` (single = main thread; batch = worker pool + JSZip).
    - Progress modal: `public/progressModal.js` (`<dialog id="export-modal">` controller).
    - EXIF I/O: `public/exifio.js` (read via exifr UMD, write via piexifjs).
+   - HEIC import shim: `public/heic.js` (lazy-loads libheif-js, transcodes HEIC → JPEG `File` at import).
    - Per-photo cfg model + UI wiring: `public/app.js`.
    - UI strings + locale switching: `public/i18n.js` (zh-CN + en dictionaries; nothing else owns user-visible copy).
    - Presets (save / load / share): a self-contained block in `public/app.js`, keyed off `LOOK_KEYS` and `localStorage['phototools.presets']`.
@@ -92,6 +93,7 @@ These are authoring-time helpers, not part of the runtime path.
 │  HTML index → <script> vendored libs (exifr, piexif, jszip)                 │
 │             → <script> shared/render.js   (layout + frames + caption SVG)   │
 │             → <script> exifio.js          (parse + write JPEG EXIF)         │
+│             → <script> heic.js            (lazy libheif-js shim — HEIC→JPEG)│
 │             → <script> clientRender.js    (Canvas pipeline; preview + final)│
 │             → <script> exporter.js        (single + batch + ZIP + download) │
 │             → <script> app.js             (UI wiring + per-photo cfg state) │
@@ -326,6 +328,21 @@ First-visit detection: if no localStorage key, look at `navigator.language` — 
 
 `createImageBitmap(file, { resizeWidth, resizeHeight, resizeQuality })` is used by `loadBitmap(file, maxEdge)` to deliver a **downsampled** ImageBitmap for preview (long edge ≤ 1440px). This keeps `ctx.filter='blur(...)'` and `drawImage` cheap even when the source JPEG is 6000+ px on long edge. The export path calls `loadBitmap(file)` without `maxEdge` to get the native bitmap. Both slots are cached per-File on the same WeakMap entry, so importing a 50-photo batch decodes 50 small bitmaps in the background (eager prefetch in `mergeFiles`) without blocking on full-resolution decodes.
 
+### HEIC import (`public/heic.js`)
+
+HEIC arrives only via the import path. `mergeFiles()` calls `HeicTools.isHeic(file)` and, on a hit, `await HeicTools.transcode(file)` before probing the bitmap.
+
+`HeicTools.transcode()`:
+1. Lazy-loads `public/vendor/libheif-bundle.js` (~1.2MB) by injecting a `<script>` tag on first call. Subsequent calls reuse the cached `window.libheif` global.
+2. `decoder.decode(arrayBuffer)` returns an array of HeifImage; we use the primary at index 0.
+3. `image.display({ data, width, height }, cb)` populates an RGBA `Uint8ClampedArray`.
+4. Paint into a Canvas2D / OffscreenCanvas, encode as JPEG at 0.95 quality.
+5. Wrap the Blob in a fresh `File({ type: 'image/jpeg', lastModified })` with `.heic` swapped to `.jpg` in the filename.
+
+The original HEIC `File` is kept on `entry.heicSource` so `uploadForExif` can feed it to exifr (exifr handles HEIC natively). Everything downstream — `loadBitmap`, worker render jobs, `Exporter.exportSingle`, `ExifIO.reattachExif` — sees only the transcoded JPEG, so no other module needs HEIC awareness.
+
+The lazy load means non-HEIC users never download the wasm bundle.
+
 ### EXIF round-trip (`public/exifio.js`)
 
 `canvas.toBlob('image/jpeg')` strips all metadata. To preserve the source photo's Make/Model/focal/aperture/shutter/ISO/lens/date in the export, `ExifIO.reattachExif(sourceFile, outputBlob)`:
@@ -349,7 +366,7 @@ If the source has no EXIF (social-platform-stripped images), the function silent
 - **EXIF merge rule:** `buildExifForFile()` in `app.js` reads `f.normalized` (auto-parsed by exifr) and overlays `f.cfg.exifOverride` (raw form strings) via the same shared formatters used by the caption renderer (`formatBrand`, `formatFocalLength`, `formatShutter`, etc.).
 - **EXIF passthrough:** preserved on JPEG export via piexifjs (see above). PNG export does **not** carry EXIF.
 - **JPEG encoder caveat:** `canvas.toBlob('image/jpeg', q)` is the browser's native encoder — not mozjpeg. Output JPEGs are ~5–15% larger than the previous sharp+mozjpeg path at equivalent visual quality. `q` is `0.92` / `0.95` / `0.98` for standard / high / original.
-- **Image input formats: JPEG + PNG only.** Trust the `<input type="file" accept="image/jpeg,image/png">` and the dropzone filter. `createImageBitmap` will throw for unsupported formats; that error surfaces to the user.
+- **Image input formats: JPEG, PNG, HEIC/HEIF.** HEIC arrives via `public/heic.js`, which lazy-loads the vendored libheif-js wasm bundle and transcodes the source to a JPEG `File` at import time. Once transcoded the rest of the pipeline (preview, worker batch, EXIF reattach) only ever sees standard formats. Other formats throw at `createImageBitmap` and surface to the user via the dropzone filter.
 
 ## Boot flow (`public/app.js`)
 
@@ -400,7 +417,8 @@ If the source has no EXIF (social-platform-stripped images), the function silent
 
 ## Known limitations / future work
 
-- HEIC / RAW inputs are not supported (browser `createImageBitmap` doesn't decode them; would need a HEIC.js decoder library).
+- HEIC inputs work (transcoded via libheif-js at import) but the exported JPEG carries **no embedded EXIF** when the source was HEIC: libheif-js doesn't surface the raw EXIF segment, and exifr's parsed output isn't trivially convertible to piexif's tag-id format. The caption text still renders correctly because exifr parses HEIC EXIF directly into `entry.normalized`.
+- RAW inputs are not supported.
 - `brand-logo` template renders the brand as text when no SVG slug matches — bundle more SVGs to expand coverage.
 - Job batching is in-memory only; for very large batches (50+ photos at original quality) the browser may run out of memory.
 - No automated test suite; verify changes by browser smoke (load → preview → export single → export batch → check EXIF round-trip).

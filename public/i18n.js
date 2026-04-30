@@ -37,8 +37,8 @@
       },
       source: {
         importTitle: '导入照片',
-        hintDesktop: 'JPEG / PNG · 可多选 · 拖到此处',
-        hintMobile: 'JPEG / PNG · 点击选择'
+        hintDesktop: 'JPEG / PNG / HEIC · 可多选 · 拖到此处',
+        hintMobile: 'JPEG / PNG / HEIC · 点击选择'
       },
       frame: {
         aspect: '画幅',
@@ -179,9 +179,10 @@
         exifFail: 'EXIF 解析失败：{msg}',
         reading: '读取中…',
         decodeFailMany: '{n} 张图片无法解码（已跳过）',
-        decodeHeic: 'HEIC/HEIF 浏览器不支持，请先转为 JPEG',
+        decodeHeicFail: 'HEIC 解码失败（文件可能已损坏）',
         decodeUnsupported: '不支持的格式 {mime}',
         decodeBroken: '图片无法解码（文件可能已损坏）',
+        heicDecoding: '解码 HEIC ({n} 张)…',
         noPhoto: '尚未载入照片',
         exifLoading: 'EXIF 仍在加载…',
         copiedRaw: '已复制原始 EXIF（{n} 个键）到剪贴板',
@@ -231,8 +232,8 @@
       },
       source: {
         importTitle: 'Import photos',
-        hintDesktop: 'JPEG / PNG · multi-select · drag here',
-        hintMobile: 'JPEG / PNG · tap to choose'
+        hintDesktop: 'JPEG / PNG / HEIC · multi-select · drag here',
+        hintMobile: 'JPEG / PNG / HEIC · tap to choose'
       },
       frame: {
         aspect: 'Aspect',
@@ -373,9 +374,10 @@
         exifFail: 'EXIF parse failed: {msg}',
         reading: 'reading…',
         decodeFailMany: '{n} files could not be decoded (skipped)',
-        decodeHeic: 'HEIC/HEIF not supported by browser — convert to JPEG first',
+        decodeHeicFail: 'HEIC decode failed (file may be corrupt)',
         decodeUnsupported: 'unsupported format {mime}',
         decodeBroken: 'image could not be decoded (file may be corrupt)',
+        heicDecoding: 'decoding HEIC ({n} file(s))…',
         noPhoto: 'no photo loaded',
         exifLoading: 'EXIF still loading…',
         copiedRaw: 'copied raw EXIF ({n} keys) to clipboard',
