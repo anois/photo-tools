@@ -1,0 +1,19 @@
+{
+  "name": "photo-tools",
+  "short_name": "photo-tools",
+  "description": "Frosted-glass camera frame for your photos — pure browser, no server.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "theme_color": "#0a0c0e",
+  "background_color": "#0a0c0e",
+  "icons": [
+    {
+      "src": "logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

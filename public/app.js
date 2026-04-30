@@ -1364,6 +1364,19 @@ bundlePromise.then(() => {
   console.error(err);
 });
 
+// ─── PWA service-worker registration ────────────────────────────────────
+// Precaches the SPA shell so the app loads instantly + works offline. The
+// SW is at public/service-worker.js so its scope is the deploy root. We
+// register asynchronously after first paint so SW install doesn't compete
+// with shell rendering.
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('service-worker.js').catch((err) => {
+      console.warn('[sw] register failed', err);
+    });
+  });
+}
+
 // ─── Language switcher ──────────────────────────────────────────────────
 // Two-segment toggle in the topbar. Clicking flips the active locale, which
 // re-walks all data-i18n hooks and fires our refresh hook for live readouts.

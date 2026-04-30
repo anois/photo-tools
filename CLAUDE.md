@@ -372,6 +372,21 @@ The original HEIC `File` is kept on `entry.heicSource` so `uploadForExif` can fe
 
 The lazy load means non-HEIC users never download the wasm bundle.
 
+### PWA / offline (`public/service-worker.js` + `public/manifest.webmanifest`)
+
+The app is a PWA — it can be installed to the home screen and runs offline after the first visit. Two pieces:
+
+- `manifest.webmanifest` declares the app metadata (name, icons, theme color, standalone display) so install prompts work in Chrome/Edge/Safari (iOS 16.4+).
+- `service-worker.js` precaches the SPA shell on install (cache-first, stale-while-revalidate on subsequent visits). On `activate` it purges any older caches whose names start with `phototools-shell-` but don't match the current `CACHE_VERSION`.
+
+What's precached: index.html, every `.js` and `.css` shipped, vendored libs (exifr, piexif, jszip — but NOT libheif-bundle.js), `fonts.css`, `logos.json`, `logo.svg`, the manifest itself.
+
+What isn't: `vendor/libheif-bundle.js` (~1.2MB) is excluded from precache because most users never touch HEIC. It's cached opportunistically the first time it's fetched, like any other same-origin GET.
+
+**Bumping the cache**: when you change shell behavior (new precache asset, change to render pipeline that breaks compat with old cached files), bump `CACHE_VERSION` in `service-worker.js`. The activate handler purges caches that don't match.
+
+**Dev caveat**: the SW caches files aggressively. During development run with DevTools "Update on reload" enabled, or unregister the SW via DevTools → Application → Service Workers. Otherwise edits to `app.js` etc. won't show up until the next stale-while-revalidate cycle completes.
+
 ### EXIF round-trip (`public/exifio.js`)
 
 `canvas.toBlob('image/jpeg')` strips all metadata. To preserve the source photo's Make/Model/focal/aperture/shutter/ISO/lens/date in the export, `ExifIO.reattachExif(sourceFile, outputBlob)`:
