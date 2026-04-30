@@ -32,7 +32,7 @@
   // Single-photo export, main thread (renderFinal already uses GPU canvas).
   async function exportSingle(entry, cfg, assets) {
     const blob = await CR.renderFinal({
-      file: entry.file, cfg, normExif: entry.normExif,
+      file: entry._converted || entry.file, cfg, normExif: entry.normExif,
       logos: assets.logos, fontFaceCss: assets.fontFaceCss,
       format: cfg.format, quality: cfg.quality
     });
@@ -132,7 +132,7 @@
       const e = items[i];
       try {
         const blob = await CR.renderFinal({
-          file: e.file, cfg: e.cfg, normExif: e.normExif,
+          file: e._converted || e.file, cfg: e.cfg, normExif: e.normExif,
           logos: assets.logos, fontFaceCss: assets.fontFaceCss,
           format: e.cfg.format, quality: e.cfg.quality
         });
@@ -162,7 +162,7 @@
       } else {
         results = await runPool(entries, p, async (e) => {
           return p.render({
-            file: e.file, cfg: e.cfg, normExif: e.normExif,
+            file: e._converted || e.file, cfg: e.cfg, normExif: e.normExif,
             format: e.cfg.format, quality: e.cfg.quality
           });
         }, (done, _t, item) => {

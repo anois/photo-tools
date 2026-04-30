@@ -243,7 +243,7 @@ async function doRender() {
   try {
     const c = active.cfg;
     await CR.renderPreview(els.canvas, {
-      file: active.file,
+      file: active._converted || active.file,
       cfg: {
         aspect: c.aspect,
         frame: c.frame,
@@ -368,13 +368,24 @@ async function mergeFiles(newFiles) {
   const merged = [...state.files];
   const seedCfg = activeCfg();
   const added = [];
-  for (const file of newFiles) {
+  for (let file of newFiles) {
     const key = file.name + ':' + file.size + ':' + file.lastModified;
     if (seen.has(key)) continue;
     seen.add(key);
+
+    const ext = (file.name.match(/\.([^.]+)$/) || ['',''])[1].toLowerCase();
+    const mime = (file.type || '').toLowerCase();
+    const isHeic = ext === 'heic' || ext === 'heif' || mime.includes('heic') || mime.includes('heif');
+
     const cfg = cloneCfg(seedCfg);
     cfg.exifOverride = {};
-    const entry = { file, url: URL.createObjectURL(file), normalized: null, cfg };
+    const entry = {
+      file,
+      url: isHeic ? null : URL.createObjectURL(file),
+      normalized: null,
+      cfg,
+      isHeic
+    };
     added.push(entry);
   }
 
@@ -385,12 +396,39 @@ async function mergeFiles(newFiles) {
   const rejected = [];
   await Promise.all(added.map(async (entry) => {
     try {
-      // loadBitmap will populate the bitmap cache so the subsequent preview
-      // render reuses the decoded ImageBitmap rather than decoding again.
-      await CR.loadBitmap(entry.file, 1440);
+      if (entry.isHeic) {
+        setStatus(`converting ${entry.file.name}…`, 'busy');
+        let blob;
+        try {
+          blob = await window.heic2any({
+            blob: entry.file,
+            toType: 'image/jpeg',
+            quality: 0.92
+          });
+        } catch (convErr) {
+          console.error('[heic] conversion failed:', entry.file.name, convErr);
+          throw new Error('HEIC 转换失败: ' + (convErr.message || '未知错误'));
+        }
+        // heic2any returns a single blob or array of blobs.
+        const convertedBlob = Array.isArray(blob) ? blob[0] : blob;
+        if (!convertedBlob) throw new Error('HEIC 转换结果为空');
+
+        entry._converted = new File([convertedBlob], entry.file.name.replace(/\.(heic|heif)$/i, '.jpg'), { type: 'image/jpeg' });
+        entry.url = URL.createObjectURL(entry._converted);
+        try {
+          await CR.loadBitmap(entry._converted, 1440);
+        } catch (loadErr) {
+          console.error('[heic] decode failed after conversion:', entry.file.name, loadErr);
+          throw loadErr;
+        }
+      } else {
+        // loadBitmap will populate the bitmap cache so the subsequent preview
+        // render reuses the decoded ImageBitmap rather than decoding again.
+        await CR.loadBitmap(entry.file, 1440);
+      }
     } catch (err) {
       rejected.push({ name: entry.file.name, reason: humanizeDecodeError(err, entry.file) });
-      URL.revokeObjectURL(entry.url);
+      if (entry.url) URL.revokeObjectURL(entry.url);
       entry._broken = true;
     }
   }));
@@ -402,6 +440,7 @@ async function mergeFiles(newFiles) {
   for (const entry of added) {
     if (entry._broken) continue;
     if (!entry.normalized) {
+      // Use original file for EXIF parsing even for HEIC (exifr supports it)
       uploadForExif(entry.file).then((r) => { entry.normalized = r.normalized; entry.rawExif = r.slim; }).catch(() => {});
     }
   }
@@ -422,12 +461,11 @@ async function mergeFiles(newFiles) {
 // `NotFoundError` / `NotSupportedError` depending on the browser; we treat
 // them all as "browser refused to decode".
 function humanizeDecodeError(err, file) {
-  const ext = (file.name.match(/\.([^.]+)$/) || ['',''])[1].toLowerCase();
-  const mime = (file.type || '').toLowerCase();
-  if (ext === 'heic' || ext === 'heif' || mime.includes('heic') || mime.includes('heif')) {
-    return 'HEIC/HEIF 浏览器不支持，请先转为 JPEG';
+  if (err && err.message && (err.message.includes('转换') || err.message.includes('结果为空'))) {
+    return err.message;
   }
-  if (mime && mime !== 'image/jpeg' && mime !== 'image/png') {
+  const mime = (file.type || '').toLowerCase();
+  if (mime && mime !== 'image/jpeg' && mime !== 'image/png' && !mime.includes('heic') && !mime.includes('heif')) {
     return `不支持的格式 ${mime}`;
   }
   console.warn('[decode]', file.name, err);
@@ -771,7 +809,7 @@ els.exportBtn.addEventListener('click', async () => {
   try {
     const cfg = buildConfigForFile(active);
     await window.Exporter.exportSingle(
-      { file: active.file, normExif: buildExifForFile(active) },
+      { file: active.file, _converted: active._converted, normExif: buildExifForFile(active) },
       cfg, assets()
     );
     setStatus('exported', null);
@@ -792,6 +830,7 @@ async function runBatch() {
   try {
     const entries = state.files.map((f) => ({
       file: f.file,
+      _converted: f._converted,
       normExif: buildExifForFile(f),
       cfg: buildConfigForFile(f)
     }));

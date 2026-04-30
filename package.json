@@ -26,5 +26,8 @@
   },
   "devDependencies": {
     "serve": "^14.2.4"
+  },
+  "dependencies": {
+    "heic2any": "^0.0.4"
   }
 }
