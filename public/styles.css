@@ -553,6 +553,36 @@ input[type="range"]::-moz-range-thumb {
 .frame-advanced > .row:first-of-type { margin-top: 10px; }
 .frame-advanced #reset-bg-btn { margin-top: 8px; }
 
+/* Preset panel — reuses the .exif / .frame-advanced collapsible look */
+.preset-panel { margin: 0 0 14px; }
+.preset-panel summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--bg-sunken);
+  font: 500 11px/1 var(--f-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.preset-panel summary::marker, .preset-panel summary::-webkit-details-marker { display: none; }
+.preset-panel summary::after {
+  content: '+';
+  font-family: var(--f-mono);
+  color: var(--text-dim);
+}
+.preset-panel[open] summary::after { content: '−'; }
+.preset-panel summary:hover { color: var(--text); border-color: var(--line-strong); }
+.preset-panel .summary-hint { color: var(--text-dim); font-weight: 400; text-transform: none; letter-spacing: 0.04em; }
+.preset-panel > .row:first-of-type { margin-top: 10px; }
+.preset-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.preset-actions .btn-ghost { flex: 1 1 auto; min-width: 0; }
+
 .exif-actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
 .exif-actions .btn-ghost { flex: 1 1 auto; }
 

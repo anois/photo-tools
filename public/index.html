@@ -72,6 +72,21 @@
     <!-- B · Frame -->
     <section class="group">
       <h2 class="sec-head"><i>B</i><span data-i18n="sections.frame">Frame</span></h2>
+      <details class="preset-panel" id="preset-panel">
+        <summary><span data-i18n="frame.presets">Presets</span> <span class="summary-hint" data-i18n="frame.presetsHint">save · apply · share</span></summary>
+        <div class="row">
+          <div class="field">
+            <select id="preset-select">
+              <option value="" data-i18n="frame.presetChoose">(Choose a preset)</option>
+            </select>
+          </div>
+        </div>
+        <div class="preset-actions">
+          <button id="preset-save-btn" type="button" class="btn-ghost" data-i18n="frame.presetSave">Save current as…</button>
+          <button id="preset-delete-btn" type="button" class="btn-ghost" data-i18n="frame.presetDelete">Delete</button>
+          <button id="preset-share-btn" type="button" class="btn-ghost" data-i18n="frame.presetShare">Copy share link</button>
+        </div>
+      </details>
       <div class="row">
         <div class="field">
           <label class="field-label" data-i18n="frame.aspect">Aspect</label>

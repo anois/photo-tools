@@ -57,6 +57,7 @@ When iterating on this project:
    - EXIF I/O: `public/exifio.js` (read via exifr UMD, write via piexifjs).
    - Per-photo cfg model + UI wiring: `public/app.js`.
    - UI strings + locale switching: `public/i18n.js` (zh-CN + en dictionaries; nothing else owns user-visible copy).
+   - Presets (save / load / share): a self-contained block in `public/app.js`, keyed off `LOOK_KEYS` and `localStorage['phototools.presets']`.
 
 6. **Delete aggressively.** Don't leave commented-out alternatives or "in case we need it" stubs. Prefer lean code over optionality.
 
@@ -228,6 +229,37 @@ Decoding:
 - Workers: each worker decodes on every job (no cache); cheap because PNG/SVG decode is fast and batch jobs typically share one signature.
 
 Storage: 2MB upload cap (pre-encoding); SVG dataURLs are usually <50KB, PNG can reach the cap. Larger files surface `status.signatureTooBig` and are rejected. The clear button (`#signature-clear-btn`) wipes the signature from every loaded photo + draftCfg + localStorage in one shot — there is no per-photo remove.
+
+### Presets (save / share)
+
+The preset panel at the top of B · Frame snapshots the "look" half of cfg (everything except per-photo `exifOverride` and global `format`/`quality`) into a named slot. Implementation lives entirely in `public/app.js` — no separate module. Two storage paths:
+
+| Storage | Where | Includes `customLogo`? | Use |
+|---|---|---|---|
+| Named local presets | `localStorage['phototools.presets'] = { name: preset }` | yes | long-term personal library |
+| Share code | URL hash `#p=<base64url-encoded-JSON>` | no | one-shot link to a friend |
+
+Schema:
+```js
+{
+  v: 1,
+  aspect, frame, template, padding, captionHeight,
+  bgBlur, bgBrightness, bgSaturation,
+  shadowBlur, shadowOffsetY, shadowOpacity,
+  showFields,
+  customLogo?  // local presets only; share codes strip this
+}
+```
+
+**Encode/decode**: plain JSON → UTF-8 → base64url (no compression). A typical preset is ~500 bytes JSON → ~700 bytes URL — well under any browser limit. `LOOK_KEYS` in `app.js` is the source of truth for which fields make the trip.
+
+**Apply scope**: applying a preset writes to `activeCfg()` + `state.draftCfg` so future imports inherit, but **does not** mutate other already-loaded photos. Users propagate via "Apply frame to all" if needed (matches the existing one-look-many-photos flow).
+
+**Hash boot**: `applyHashPresetIfPresent()` runs once after `loadBundle()` — decodes `#p=…`, applies to draftCfg, `history.replaceState`'s the hash away (so refresh doesn't reapply, and the URL doesn't leak into the user's next share). Auto-apply, no confirmation dialog. Decode failure surfaces `status.presetHashBad`.
+
+**Naming**: `prompt()` with default `Preset YYYY-MM-DD HH:MM`. Same-name save overwrites silently. 60-char cap.
+
+**Versioning**: `v: 1` field. Future schema changes bump to 2; old code refuses unknown versions and surfaces `presetHashBad`.
 
 ## Per-photo cfg model
 

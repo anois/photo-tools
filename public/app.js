@@ -79,6 +79,11 @@ const els = {
   bgSaturationVal: document.getElementById('bg-saturation-val'),
   resetBgBtn: document.getElementById('reset-bg-btn'),
   applyFrameAllBtn: document.getElementById('apply-frame-all-btn'),
+  presetPanel: document.getElementById('preset-panel'),
+  presetSelect: document.getElementById('preset-select'),
+  presetSaveBtn: document.getElementById('preset-save-btn'),
+  presetDeleteBtn: document.getElementById('preset-delete-btn'),
+  presetShareBtn: document.getElementById('preset-share-btn'),
   shadowBlur: document.getElementById('shadow-blur'),
   shadowBlurVal: document.getElementById('shadow-blur-val'),
   shadowOffset: document.getElementById('shadow-offset'),
@@ -166,6 +171,9 @@ function refreshLocaleSensitive() {
   renderRail();
   const active = state.files[state.activeIdx];
   updateExifWarn(active ? active.normalized : null);
+  // Preset select's "(Choose a preset)" placeholder needs re-localizing too,
+  // since it was rendered as plain <option> text rather than via data-i18n.
+  if (els.presetSelect) populatePresetSelect(els.presetSelect.value);
 }
 
 // ─── Asset bundle: pre-baked logos.json + base64-inlined fonts.css ───────
@@ -1021,11 +1029,218 @@ async function runBatch() {
 }
 els.batchBtn.addEventListener('click', runBatch);
 
+// ─── Presets ─────────────────────────────────────────────────────────────
+// A preset captures the "look" half of cfg (everything except per-photo EXIF
+// overrides + global format/quality). Local presets persist to localStorage
+// and may carry the user's signature; share codes (URL hash) intentionally
+// strip customLogo because dataURLs blow up URL length.
+const PRESET_STORAGE_KEY = 'phototools.presets';
+const PRESET_SCHEMA_VERSION = 1;
+const LOOK_KEYS = [
+  'aspect', 'frame', 'template', 'padding', 'captionHeight',
+  'bgBlur', 'bgBrightness', 'bgSaturation',
+  'shadowBlur', 'shadowOffsetY', 'shadowOpacity'
+];
+
+function presetFromCfg(cfg, opts) {
+  const out = { v: PRESET_SCHEMA_VERSION };
+  for (const k of LOOK_KEYS) out[k] = cfg[k];
+  out.showFields = { ...cfg.showFields };
+  if (opts && opts.includeCustomLogo && cfg.customLogo) {
+    out.customLogo = { ...cfg.customLogo };
+  }
+  return out;
+}
+
+function applyPresetToCfg(preset, cfg) {
+  if (!preset || preset.v !== PRESET_SCHEMA_VERSION) return false;
+  for (const k of LOOK_KEYS) if (k in preset) cfg[k] = preset[k];
+  if (preset.showFields) cfg.showFields = { ...preset.showFields };
+  // customLogo is optional in the preset; only applied when present so a
+  // share code without the signature doesn't wipe a local one the user has.
+  if (preset.customLogo) cfg.customLogo = { ...preset.customLogo };
+  return true;
+}
+
+function loadPresets() {
+  try {
+    const raw = localStorage.getItem(PRESET_STORAGE_KEY);
+    if (!raw) return {};
+    const obj = JSON.parse(raw);
+    return obj && typeof obj === 'object' ? obj : {};
+  } catch (_) { return {}; }
+}
+
+function savePresets(map) {
+  try { localStorage.setItem(PRESET_STORAGE_KEY, JSON.stringify(map)); }
+  catch (_) { /* private mode / quota — non-fatal */ }
+}
+
+// Base64url codec for the share code. JSON → UTF-8 → base64 → +/= swap.
+// Stays under URL length limits for any typical preset (~700 bytes when
+// customLogo is excluded).
+function b64urlEncode(str) {
+  const bytes = new TextEncoder().encode(str);
+  let bin = '';
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+function b64urlDecode(code) {
+  let s = code.replace(/-/g, '+').replace(/_/g, '/');
+  while (s.length % 4) s += '=';
+  const bin = atob(s);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return new TextDecoder().decode(bytes);
+}
+
+function nowDefaultPresetName() {
+  const d = new Date();
+  const ts = d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate())
+           + ' ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes());
+  return T('frame.presetDefaultName', { ts });
+}
+
+function populatePresetSelect(selectedName) {
+  const map = loadPresets();
+  const names = Object.keys(map);
+  els.presetSelect.innerHTML = '';
+  const placeholder = document.createElement('option');
+  placeholder.value = '';
+  placeholder.textContent = T('frame.presetChoose');
+  els.presetSelect.appendChild(placeholder);
+  for (const name of names) {
+    const opt = document.createElement('option');
+    opt.value = name;
+    opt.textContent = name;
+    els.presetSelect.appendChild(opt);
+  }
+  els.presetSelect.value = (selectedName && map[selectedName]) ? selectedName : '';
+}
+
+els.presetSelect.addEventListener('change', () => {
+  const name = els.presetSelect.value;
+  if (!name) return;
+  const map = loadPresets();
+  const preset = map[name];
+  if (!preset) return;
+  const target = activeCfg();
+  if (!applyPresetToCfg(preset, target)) return;
+  // draftCfg always tracks the latest applied look so future imports inherit.
+  if (target !== state.draftCfg) applyPresetToCfg(preset, state.draftCfg);
+  syncControlsFromCfg(target);
+  // customLogo lives outside syncControlsFromCfg's bg/shadow/showFields scope —
+  // mergeFiles already deep-clones it on import, but the visible preview img
+  // (`#signature-preview-img`) is owned by the signature handler block, which
+  // re-renders when applyCustomLogoEverywhere is called. Skip the cascade
+  // here so applying a preset only changes the active photo's signature; the
+  // user can hit "Apply frame to all" if they want it propagated.
+  if (preset.customLogo) {
+    els.signaturePreview.hidden = false;
+    els.signaturePreviewImg.src = preset.customLogo.data;
+    setSegActive(els.signaturePosSeg, preset.customLogo.position || 'br');
+    const sc = Math.round((preset.customLogo.scale != null ? preset.customLogo.scale : 0.06) * 100);
+    const op = preset.customLogo.opacity != null ? preset.customLogo.opacity : 1;
+    els.signatureScale.value = sc;
+    els.signatureScaleVal.textContent = sc + '%';
+    els.signatureOpacity.value = op;
+    els.signatureOpacityVal.textContent = Math.round(op * 100) + '%';
+    els.signaturePosSeg.querySelectorAll('button').forEach((b) => { b.disabled = false; });
+    els.signatureScale.disabled = false;
+    els.signatureOpacity.disabled = false;
+  }
+  requestRender();
+  setStatus('status.presetApplied', null, { name });
+  setTimeout(() => setStatus('status.ready'), 1500);
+});
+
+els.presetSaveBtn.addEventListener('click', () => {
+  const def = nowDefaultPresetName();
+  const raw = window.prompt(T('frame.presetSavePrompt'), def);
+  if (raw == null) return;   // cancel
+  const name = raw.trim().slice(0, 60);
+  if (!name) {
+    setStatus('status.presetEmptyName', 'err');
+    setTimeout(() => setStatus('status.ready'), 1500);
+    return;
+  }
+  const map = loadPresets();
+  map[name] = presetFromCfg(activeCfg(), { includeCustomLogo: true });
+  savePresets(map);
+  populatePresetSelect(name);
+  setStatus('status.presetSaved', null, { name });
+  setTimeout(() => setStatus('status.ready'), 1500);
+});
+
+els.presetDeleteBtn.addEventListener('click', () => {
+  const name = els.presetSelect.value;
+  if (!name) {
+    setStatus('status.presetNonePicked', 'err');
+    setTimeout(() => setStatus('status.ready'), 1500);
+    return;
+  }
+  const map = loadPresets();
+  delete map[name];
+  savePresets(map);
+  populatePresetSelect();
+  setStatus('status.presetDeleted', null, { name });
+  setTimeout(() => setStatus('status.ready'), 1500);
+});
+
+els.presetShareBtn.addEventListener('click', async () => {
+  // Share code intentionally drops customLogo to keep URL short.
+  const preset = presetFromCfg(activeCfg(), { includeCustomLogo: false });
+  const code = b64urlEncode(JSON.stringify(preset));
+  const url = location.origin + location.pathname + '#p=' + code;
+  try {
+    await navigator.clipboard.writeText(url);
+    setStatus('status.presetShareCopied');
+  } catch (_) {
+    // Clipboard API gated on user gesture + secure context. Try the legacy
+    // execCommand path before giving up.
+    const ta = document.createElement('textarea');
+    ta.value = url;
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand('copy'); setStatus('status.presetShareCopied'); }
+    catch (_) { setStatus('status.presetShareFail', 'err'); }
+    document.body.removeChild(ta);
+  }
+  setTimeout(() => setStatus('status.ready'), 2000);
+});
+
+// Decode and apply a #p=<code> hash on boot. Caller invokes this after
+// loadBundle() succeeds so the rest of the UI is interactive.
+function applyHashPresetIfPresent() {
+  const m = location.hash.match(/^#p=([A-Za-z0-9_-]+)/);
+  if (!m) return;
+  let preset;
+  try { preset = JSON.parse(b64urlDecode(m[1])); }
+  catch (_) {
+    setStatus('status.presetHashBad', 'err');
+    setTimeout(() => setStatus('status.ready'), 2500);
+    return;
+  }
+  if (!applyPresetToCfg(preset, state.draftCfg)) {
+    setStatus('status.presetHashBad', 'err');
+    setTimeout(() => setStatus('status.ready'), 2500);
+    return;
+  }
+  syncControlsFromCfg(state.draftCfg);
+  // Strip the hash so a refresh doesn't reapply (and so the user doesn't
+  // accidentally copy the preset URL into their next share).
+  history.replaceState(null, '', location.pathname + location.search);
+  setStatus('status.presetHashApplied');
+  setTimeout(() => setStatus('status.ready'), 2000);
+}
+
 // ─── Boot ────────────────────────────────────────────────────────────────
 (async () => {
   try {
     setStatus('status.loadingAssets', 'busy');
     await loadBundle();
+    populatePresetSelect();
+    applyHashPresetIfPresent();
     setStatus('status.ready');
     renderRail();
   } catch (err) {
