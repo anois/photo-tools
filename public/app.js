@@ -22,6 +22,11 @@ function defaultCfg() {
     bgBlur: null, bgBrightness: null, bgSaturation: null,   // null → use frame preset
     shadowBlur: sd.blur, shadowOffsetY: sd.offsetY, shadowOpacity: sd.opacity,
     showFields: { brand: true, model: true, focal: true, aperture: true, shutter: true, iso: true, lens: false, date: false, author: true, flash: false },
+    // Rotation applied at render time, in degrees clockwise. 0 / 90 / 180 / 270.
+    // Per-photo correction — not propagated by "Apply frame to all" or by
+    // presets, since it's more of a "this specific photo was shot wrong"
+    // fix than a stylistic choice.
+    rotation: 0,
     // User-uploaded signature image overlaid on the foreground photo. null means
     // no signature; otherwise { data: dataURL, type: 'svg'|'png',
     // position: 'br'|'bl'|'bc', scale: 0.06, opacity: 1 }.
@@ -109,6 +114,9 @@ const els = {
   signatureOpacityVal: document.getElementById('signature-opacity-val'),
   collageLayout: document.getElementById('collage-layout'),
   collageSlots: document.getElementById('collage-slots'),
+  rotateCcw: document.getElementById('rotate-ccw'),
+  rotateCw: document.getElementById('rotate-cw'),
+  rotateVal: document.getElementById('rotate-val'),
   exportBtn: document.getElementById('export-btn'),
   batchBtn: document.getElementById('batch-btn'),
   clearExifBtn: document.getElementById('clear-exif-btn'),
@@ -322,7 +330,8 @@ async function doRender() {
         shadowOpacity: c.shadowOpacity,
         showFields: c.showFields,
         customLogo: c.customLogo,
-        collage: c.collage
+        collage: c.collage,
+        rotation: c.rotation || 0
       },
       normExif: buildCurrentExif(),
       logos: state.logos,
@@ -384,6 +393,12 @@ function syncControlsFromCfg(cfg) {
   });
   syncSignatureFromCfg(cfg);
   syncCollageFromActive();
+  syncRotateFromCfg(cfg);
+}
+
+function syncRotateFromCfg(cfg) {
+  const r = ((cfg.rotation | 0) % 360 + 360) % 360;
+  els.rotateVal.textContent = r + '°';
 }
 
 // Layout → number of partner photos required.
@@ -915,6 +930,16 @@ els.signatureOpacity.addEventListener('input', () => {
   requestRender();
 });
 
+// ─── Rotation wiring (90° increments) ───────────────────────────────────
+function bumpRotation(delta) {
+  const cfg = activeCfg();
+  cfg.rotation = (((cfg.rotation | 0) + delta) % 360 + 360) % 360;
+  syncRotateFromCfg(cfg);
+  requestRender();
+}
+els.rotateCcw.addEventListener('click', () => bumpRotation(-90));
+els.rotateCw.addEventListener('click', () => bumpRotation(90));
+
 // ─── Collage (2–4 photos in one frame) wiring ───────────────────────────
 els.collageLayout.addEventListener('change', () => {
   const v = els.collageLayout.value;
@@ -1135,6 +1160,7 @@ function buildConfigForFile(f) {
   if (c.bgSaturation != null)  cfg.bgSaturation = c.bgSaturation;
   if (c.customLogo)            cfg.customLogo = { ...c.customLogo };
   if (c.collage)               cfg.collage = { ...c.collage };
+  if (c.rotation)              cfg.rotation = c.rotation;
   return cfg;
 }
 

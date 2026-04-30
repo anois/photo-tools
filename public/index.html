@@ -122,6 +122,16 @@
           <input id="caption-h" type="range" min="60" max="360" value="140" step="4" />
         </div>
       </div>
+      <div class="row">
+        <div class="field">
+          <label class="field-label"><span data-i18n="frame.rotate">Rotate</span></label>
+          <div class="rotate-row">
+            <button id="rotate-ccw" type="button" class="rotate-btn" data-i18n-aria-label="frame.rotateCcw" data-i18n-title="frame.rotateCcw" aria-label="Rotate 90° counter-clockwise">↶</button>
+            <button id="rotate-cw" type="button" class="rotate-btn" data-i18n-aria-label="frame.rotateCw" data-i18n-title="frame.rotateCw" aria-label="Rotate 90° clockwise">↷</button>
+            <span class="field-readout" id="rotate-val">0°</span>
+          </div>
+        </div>
+      </div>
       <details class="frame-advanced" id="frosted-advanced">
         <summary data-i18n="frame.advancedFrosted">Advanced · frosted bg</summary>
         <div class="row">

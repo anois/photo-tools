@@ -635,6 +635,28 @@ input[type="range"]::-moz-range-thumb {
 .collage-readout .btn-ghost { margin-left: auto; }
 .collage-drop { padding: 12px; }
 
+/* ── Rotate row (two icon buttons + readout) ─────────────────────────── */
+.rotate-row { display: flex; align-items: center; gap: 8px; }
+.rotate-btn {
+  appearance: none;
+  -webkit-appearance: none;
+  border: 1px solid var(--line);
+  background: var(--bg-sunken);
+  color: var(--text-muted);
+  width: 34px; height: 32px;
+  border-radius: var(--r-md);
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 120ms, border-color 120ms;
+}
+.rotate-btn:hover { color: var(--text); border-color: var(--line-strong); }
+.rotate-btn:active { background: var(--bg-chrome); }
+.rotate-row .field-readout { margin-left: auto; }
+
 /* ── Batch export progress modal ───────────────────────────────────────── */
 .export-modal {
   border: 1px solid var(--line-strong);

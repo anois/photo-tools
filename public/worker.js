@@ -60,6 +60,30 @@ function pathRoundRect(ctx, x, y, w, h, r) {
 }
 function clipRoundRect(ctx, x, y, w, h, r) { pathRoundRect(ctx, x, y, w, h, r); ctx.clip(); }
 
+function drawCellPhoto(ctx, cell, bm, rot, radius) {
+  ctx.save();
+  clipRoundRect(ctx, cell.x, cell.y, cell.w, cell.h, radius);
+  if (rot) {
+    const sw = (rot === 90 || rot === 270) ? bm.height : bm.width;
+    const sh = (rot === 90 || rot === 270) ? bm.width  : bm.height;
+    const ratio = Math.max(cell.w / sw, cell.h / sh);
+    const dw = bm.width  * ratio;
+    const dh = bm.height * ratio;
+    ctx.translate(cell.x + cell.w / 2, cell.y + cell.h / 2);
+    ctx.rotate(rot * Math.PI / 180);
+    ctx.drawImage(bm, -dw / 2, -dh / 2, dw, dh);
+  } else {
+    const ratio = Math.max(cell.w / bm.width, cell.h / bm.height);
+    const dw = bm.width  * ratio;
+    const dh = bm.height * ratio;
+    ctx.drawImage(bm,
+      cell.x + (cell.w - dw) / 2,
+      cell.y + (cell.h - dh) / 2,
+      dw, dh);
+  }
+  ctx.restore();
+}
+
 async function compose(canvas, args) {
   const { bitmap, layout, params, captionSvg } = args;
   const W = layout.canvas.W, H = layout.canvas.H;
@@ -67,14 +91,26 @@ async function compose(canvas, args) {
   canvas.height = H;
   const ctx = canvas.getContext('2d');
 
+  const rot = ((args.rotation | 0) + 360) % 360;
   if (params.bg.type === 'frosted') {
     const sigma = params.bg.blurSigma * layout.scale;
-    const ratio = Math.max(W / bitmap.width, H / bitmap.height);
-    const dw = bitmap.width * ratio;
-    const dh = bitmap.height * ratio;
     ctx.save();
     ctx.filter = `blur(${sigma}px) saturate(${params.bg.saturation}) brightness(${params.bg.brightness})`;
-    ctx.drawImage(bitmap, (W - dw) / 2, (H - dh) / 2, dw, dh);
+    if (rot) {
+      const sw = (rot === 90 || rot === 270) ? bitmap.height : bitmap.width;
+      const sh = (rot === 90 || rot === 270) ? bitmap.width  : bitmap.height;
+      const ratio = Math.max(W / sw, H / sh);
+      const dw = bitmap.width  * ratio;
+      const dh = bitmap.height * ratio;
+      ctx.translate(W / 2, H / 2);
+      ctx.rotate(rot * Math.PI / 180);
+      ctx.drawImage(bitmap, -dw / 2, -dh / 2, dw, dh);
+    } else {
+      const ratio = Math.max(W / bitmap.width, H / bitmap.height);
+      const dw = bitmap.width * ratio;
+      const dh = bitmap.height * ratio;
+      ctx.drawImage(bitmap, (W - dw) / 2, (H - dh) / 2, dw, dh);
+    }
     ctx.restore();
     if (params.bg.darken) {
       ctx.fillStyle = `rgba(0,0,0,${params.bg.darken})`;
@@ -100,30 +136,12 @@ async function compose(canvas, args) {
   const cells = R.collageCellRects(args.collage, layout);
   if (cells && Array.isArray(args.bitmaps) && args.bitmaps.length >= cells.length) {
     for (let i = 0; i < cells.length; i++) {
-      const cell = cells[i];
-      const cbm = args.bitmaps[i];
-      if (!cbm) continue;
-      ctx.save();
-      clipRoundRect(ctx, cell.x, cell.y, cell.w, cell.h, layout.radius);
-      const cr = Math.max(cell.w / cbm.width, cell.h / cbm.height);
-      const cdw = cbm.width * cr, cdh = cbm.height * cr;
-      ctx.drawImage(cbm,
-        cell.x + (cell.w - cdw) / 2,
-        cell.y + (cell.h - cdh) / 2,
-        cdw, cdh);
-      ctx.restore();
+      if (args.bitmaps[i]) drawCellPhoto(ctx, cells[i], args.bitmaps[i], rot, layout.radius);
     }
   } else {
-    ctx.save();
-    clipRoundRect(ctx, layout.fgLeft, layout.fgTop, layout.fgW, layout.fgH, layout.radius);
-    const fgRatio = Math.max(layout.fgW / bitmap.width, layout.fgH / bitmap.height);
-    const fdw = bitmap.width * fgRatio;
-    const fdh = bitmap.height * fgRatio;
-    ctx.drawImage(bitmap,
-      layout.fgLeft + (layout.fgW - fdw) / 2,
-      layout.fgTop  + (layout.fgH - fdh) / 2,
-      fdw, fdh);
-    ctx.restore();
+    drawCellPhoto(ctx, {
+      x: layout.fgLeft, y: layout.fgTop, w: layout.fgW, h: layout.fgH
+    }, bitmap, rot, layout.radius);
   }
 
   if (captionSvg) {
@@ -224,7 +242,11 @@ async function renderJob(msg) {
       quality: quality || 'standard',
       ...frame.layout
     };
-    const layout = R.computeLayout({ width: bitmap.width, height: bitmap.height }, layoutOpts);
+    const rot = ((cfg.rotation | 0) + 360) % 360;
+    const meta = (rot === 90 || rot === 270)
+      ? { width: bitmap.height, height: bitmap.width }
+      : { width: bitmap.width,  height: bitmap.height };
+    const layout = R.computeLayout(meta, layoutOpts);
     const effectiveTextStyle = layout.caption.placement === 'overlay' ? 'light' : frame.textStyle;
     const captionSvg = R.buildCaptionSvg(normExif, layout, {
       template: cfg.template,
@@ -238,7 +260,8 @@ async function renderJob(msg) {
     await compose(canvas, {
       bitmap, bitmaps, layout, params, captionSvg,
       customLogo: cfg.customLogo || null,
-      collage
+      collage,
+      rotation: rot
     });
     const mime = format === 'png' ? 'image/png' : 'image/jpeg';
     const q = quality === 'original' ? 0.98 : quality === 'high' ? 0.95 : 0.92;

@@ -276,6 +276,20 @@ Schema:
 
 **Versioning**: `v: 1` field. Future schema changes bump to 2; old code refuses unknown versions and surfaces `presetHashBad`.
 
+### Rotation (`cfg.rotation`)
+
+`cfg.rotation` (0 / 90 / 180 / 270, clockwise degrees) is a per-photo render-time correction. Two ↶ ↷ buttons at the bottom of B · Frame bump it by ±90°.
+
+The rotation is **not** baked into the source pixels — it lives on cfg and is applied at compose time:
+
+1. `buildLayoutAndCaption` swaps `bitmap.width` / `bitmap.height` when feeding `R.computeLayout` so the foreground rect ends up the right shape for the rotated photo (90°/270°).
+2. `compose()` rotates the frosted bg around the canvas center so the blurred backdrop tracks the rotated fg. The `bgCacheKey` mixes in rotation, so changing rotation invalidates only the rotated bg variant.
+3. `drawCellPhoto(ctx, cell, bm, rot, radius)` clips to the cell, translates to the cell center, rotates, and cover-fits the bitmap using post-rotation effective dims. Used by both single-photo and every collage cell.
+
+`drawCellPhoto` is duplicated in `clientRender.js` and `worker.js` (mirroring the existing compose duplication). Keep them in sync.
+
+Rotation is **not** carried by presets or by "Apply frame to all" — it's intentionally per-photo (a "this specific shot was framed wrong" fix, not a stylistic choice). Collage applies the same rotation to every cell uniformly; for v1 we don't expose per-cell rotation.
+
 ### Collage (2–4 photos in one frame)
 
 A photo entry can pair with up to three additional photos to render as a multi-cell collage inside a single frame. Two pieces:

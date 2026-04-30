@@ -116,13 +116,15 @@
   const bgCache = new Map();   // key → { bitmap, key }
   const BG_CACHE_MAX = 6;
 
-  function bgCacheKey(file, layout, params) {
+  function bgCacheKey(file, layout, params, rot) {
     const k = params.bg.type === 'frosted'
       ? `f|${layout.canvas.W}x${layout.canvas.H}|s${params.bg.blurSigma}|b${params.bg.brightness}|sat${params.bg.saturation}|d${params.bg.darken}|g${params.bg.grainOpacity}`
       : `s|${layout.canvas.W}x${layout.canvas.H}|c${params.bg.color}`;
     // File identity is required only for frosted bg (the photo IS the bg);
-    // solid frames don't need it, but mixing keys is harmless.
-    return k + '|' + (file ? (file.name + ':' + file.size + ':' + file.lastModified) : 'na');
+    // solid frames don't need it, but mixing keys is harmless. Rotation is
+    // mixed in too — rotating the primary should rotate the blurred bg with
+    // it, otherwise the bg goes out of sync with the rotated fg photo.
+    return k + '|r' + (rot || 0) + '|' + (file ? (file.name + ':' + file.size + ':' + file.lastModified) : 'na');
   }
 
   function bgCacheTouch(key, entry) {
@@ -238,6 +240,35 @@
     ctx.clip();
   }
 
+  // Draw `bm` cover-fit into `cell`, optionally rotating CW by `rot` (0/90/
+  // 180/270 degrees). Rotation is applied around the cell center, after
+  // clipping to a rounded rect of `radius`. Cover-fit is computed against
+  // the post-rotation effective dimensions so a 90°/270° rotation correctly
+  // covers a non-square cell.
+  function drawCellPhoto(ctx, cell, bm, rot, radius) {
+    ctx.save();
+    clipRoundRect(ctx, cell.x, cell.y, cell.w, cell.h, radius);
+    if (rot) {
+      const sw = (rot === 90 || rot === 270) ? bm.height : bm.width;
+      const sh = (rot === 90 || rot === 270) ? bm.width  : bm.height;
+      const ratio = Math.max(cell.w / sw, cell.h / sh);
+      const dw = bm.width  * ratio;
+      const dh = bm.height * ratio;
+      ctx.translate(cell.x + cell.w / 2, cell.y + cell.h / 2);
+      ctx.rotate(rot * Math.PI / 180);
+      ctx.drawImage(bm, -dw / 2, -dh / 2, dw, dh);
+    } else {
+      const ratio = Math.max(cell.w / bm.width, cell.h / bm.height);
+      const dw = bm.width  * ratio;
+      const dh = bm.height * ratio;
+      ctx.drawImage(bm,
+        cell.x + (cell.w - dw) / 2,
+        cell.y + (cell.h - dh) / 2,
+        dw, dh);
+    }
+    ctx.restore();
+  }
+
   // Core compose: draws the bg + foreground + caption on the given canvas
   // sized to layout.canvas.W × layout.canvas.H. Used by both preview and
   // export entry points.
@@ -248,20 +279,32 @@
     canvas.height = H;
     const ctx = canvas.getContext('2d');
 
+    const rotForBg = ((args.rotation | 0) + 360) % 360;
     // ─── Background ──────────────────────────────────────────────────────
-    const bgKey = args.cacheBg ? bgCacheKey(args.file, layout, params) : null;
+    const bgKey = args.cacheBg ? bgCacheKey(args.file, layout, params, rotForBg) : null;
     const bgHit = bgKey ? bgCache.get(bgKey) : null;
     if (bgHit) {
       bgCacheTouch(bgKey, bgHit);
       ctx.drawImage(bgHit.bitmap, 0, 0);
     } else if (params.bg.type === 'frosted') {
       const sigma = params.bg.blurSigma * layout.scale;
-      const ratio = Math.max(W / bitmap.width, H / bitmap.height);
-      const dw = bitmap.width * ratio;
-      const dh = bitmap.height * ratio;
       ctx.save();
       ctx.filter = `blur(${sigma}px) saturate(${params.bg.saturation}) brightness(${params.bg.brightness})`;
-      ctx.drawImage(bitmap, (W - dw) / 2, (H - dh) / 2, dw, dh);
+      if (rotForBg) {
+        const sw = (rotForBg === 90 || rotForBg === 270) ? bitmap.height : bitmap.width;
+        const sh = (rotForBg === 90 || rotForBg === 270) ? bitmap.width  : bitmap.height;
+        const ratio = Math.max(W / sw, H / sh);
+        const dw = bitmap.width  * ratio;
+        const dh = bitmap.height * ratio;
+        ctx.translate(W / 2, H / 2);
+        ctx.rotate(rotForBg * Math.PI / 180);
+        ctx.drawImage(bitmap, -dw / 2, -dh / 2, dw, dh);
+      } else {
+        const ratio = Math.max(W / bitmap.width, H / bitmap.height);
+        const dw = bitmap.width  * ratio;
+        const dh = bitmap.height * ratio;
+        ctx.drawImage(bitmap, (W - dw) / 2, (H - dh) / 2, dw, dh);
+      }
       ctx.restore();
       if (params.bg.darken) {
         ctx.fillStyle = `rgba(0,0,0,${params.bg.darken})`;
@@ -295,33 +338,16 @@
     }
 
     // ─── Foreground (rounded photo, or N-cell collage) ───────────────────
+    const rot = ((args.rotation | 0) + 360) % 360;
     const cells = R.collageCellRects(args.collage, layout);
     if (cells && Array.isArray(args.bitmaps) && args.bitmaps.length >= cells.length) {
       for (let i = 0; i < cells.length; i++) {
-        const cell = cells[i];
-        const cbm = args.bitmaps[i];
-        if (!cbm) continue;
-        ctx.save();
-        clipRoundRect(ctx, cell.x, cell.y, cell.w, cell.h, layout.radius);
-        const cr = Math.max(cell.w / cbm.width, cell.h / cbm.height);
-        const cdw = cbm.width * cr, cdh = cbm.height * cr;
-        ctx.drawImage(cbm,
-          cell.x + (cell.w - cdw) / 2,
-          cell.y + (cell.h - cdh) / 2,
-          cdw, cdh);
-        ctx.restore();
+        if (args.bitmaps[i]) drawCellPhoto(ctx, cells[i], args.bitmaps[i], rot, layout.radius);
       }
     } else {
-      ctx.save();
-      clipRoundRect(ctx, layout.fgLeft, layout.fgTop, layout.fgW, layout.fgH, layout.radius);
-      const fgRatio = Math.max(layout.fgW / bitmap.width, layout.fgH / bitmap.height);
-      const fdw = bitmap.width * fgRatio;
-      const fdh = bitmap.height * fgRatio;
-      ctx.drawImage(bitmap,
-        layout.fgLeft + (layout.fgW - fdw) / 2,
-        layout.fgTop  + (layout.fgH - fdh) / 2,
-        fdw, fdh);
-      ctx.restore();
+      drawCellPhoto(ctx, {
+        x: layout.fgLeft, y: layout.fgTop, w: layout.fgW, h: layout.fgH
+      }, bitmap, rot, layout.radius);
     }
 
     // ─── Caption (SVG → Image → drawImage) ───────────────────────────────
@@ -363,7 +389,14 @@
     };
     if (opts.customScale != null) layoutOpts.customScale = opts.customScale;
     if (opts.quality)             layoutOpts.quality     = opts.quality;
-    const layout = R.computeLayout({ width: bitmap.width, height: bitmap.height }, layoutOpts);
+    // Rotation pre-image: when the user rotates 90°/270° the effective aspect
+    // swaps. computeLayout needs to see the post-rotation dimensions so the
+    // foreground rect ends up the right shape for the rotated photo.
+    const rot = ((cfg.rotation | 0) + 360) % 360;
+    const meta = (rot === 90 || rot === 270)
+      ? { width: bitmap.height, height: bitmap.width }
+      : { width: bitmap.width,  height: bitmap.height };
+    const layout = R.computeLayout(meta, layoutOpts);
     const effectiveTextStyle = layout.caption.placement === 'overlay' ? 'light' : frame.textStyle;
     const captionArgs = {
       template: cfg.template,
@@ -385,7 +418,8 @@
     return {
       layout, params, captionSvg, captionKey,
       customLogo: cfg.customLogo || null,
-      collage: collage
+      collage: collage,
+      rotation: rot
     };
   }
 
