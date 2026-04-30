@@ -1002,8 +1002,12 @@ els.collageLayout.addEventListener('change', () => {
 // to throw it out is wasteful).
 const CUSTOMBG_STORAGE_KEY = 'phototools.customBg';
 const CUSTOMBG_HARD_CAP = 32 * 1024 * 1024;
-const CUSTOMBG_MAX_EDGE = 1920;
-const CUSTOMBG_QUALITY = 0.85;
+// The bg layer renders behind a sigma-60..90 blur, so detail below ~4 px
+// in the source is invisible in output. 1024 long-edge + q=0.72 is the
+// sweet spot — any smaller and JPEG block-artifacts start poking through
+// the blur in the lighter midtones; larger is just bytes for nothing.
+const CUSTOMBG_MAX_EDGE = 1024;
+const CUSTOMBG_QUALITY = 0.72;
 
 function applyCustomBgEverywhere(payload) {
   state.draftCfg.customBg = payload ? { ...payload } : null;

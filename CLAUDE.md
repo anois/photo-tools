@@ -290,7 +290,7 @@ Render path: in `compose()`, when `params.bg.type === 'frosted'` AND `args.custo
 
 UI: in B · Frame's "Advanced · frosted bg" details panel, below the slider trio. Upload cascades the compressed dataURL to `draftCfg`, every loaded photo, and `localStorage['phototools.customBg']`. The picker accepts JPEG / PNG / HEIC; HEIC sources route through `HeicTools.transcode` first.
 
-Compression at upload time: `compressBgImage()` decodes the source via `createImageBitmap`, downscales to fit `CUSTOMBG_MAX_EDGE` (1920px long edge), and re-encodes as JPEG `q=0.85`. The bg gets blurred at render time, so a 4K source contributes zero visual benefit over a 1920px one — and storing the larger payload would balloon `localStorage`. There's still a `CUSTOMBG_HARD_CAP` (32MB raw) so the picker refuses files large enough that even attempting decode would be wasteful, but otherwise any source size is accepted. Clear wipes everything globally.
+Compression at upload time: `compressBgImage()` decodes the source via `createImageBitmap`, downscales to fit `CUSTOMBG_MAX_EDGE` (1024px long edge), and re-encodes as JPEG `q=0.72`. The bg layer renders behind a sigma-60..90 blur, so detail below ~4 px in the source is invisible in output — anything finer than 1024×0.72 is just bytes for nothing, and going much smaller starts letting JPEG block artifacts poke through the blur in lighter midtones. There's still a `CUSTOMBG_HARD_CAP` (32MB raw) so the picker refuses files large enough that even attempting decode would be wasteful, but otherwise any source size is accepted. Clear wipes everything globally.
 
 Solid-bg frames (white / black / polaroid) ignore customBg.
 
