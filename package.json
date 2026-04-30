@@ -1,0 +1,30 @@
+{
+  "name": "photo-tools",
+  "version": "0.2.0",
+  "description": "Frosted-glass photo framing SPA — pure frontend, browser GPU pipeline",
+  "private": true,
+  "type": "commonjs",
+  "homepage": "https://github.com/anois/photo-tools",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/anois/photo-tools.git"
+  },
+  "bugs": {
+    "url": "https://github.com/anois/photo-tools/issues"
+  },
+  "author": "anois",
+  "scripts": {
+    "dev": "npx serve public -p 3000",
+    "start": "npx serve public -p 3000",
+    "build": "npm run build-logos && npm run build-fonts",
+    "build-logos": "node scripts/build-logos.js",
+    "build-fonts": "node scripts/build-fonts.js",
+    "fetch-logos": "bash scripts/fetch-logos.sh"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "devDependencies": {
+    "serve": "^14.2.4"
+  }
+}

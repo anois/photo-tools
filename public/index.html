@@ -1,0 +1,330 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#0a0c0e" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<title>photo-tools</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500&family=Hanken+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="icon" type="image/svg+xml" href="logo.svg" />
+<link rel="mask-icon" href="logo.svg" color="#e5493a" />
+<link rel="apple-touch-icon" href="logo.svg" />
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<!-- SUBTLE GRAIN OVERLAY -->
+<svg class="grain" aria-hidden="true">
+  <filter id="noise">
+    <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch"/>
+    <feColorMatrix values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.6 0"/>
+  </filter>
+  <rect width="100%" height="100%" filter="url(#noise)"/>
+</svg>
+
+<!-- TOP BAR -->
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-dot" aria-hidden="true"></span>
+    <h1 class="brand-name">photo-tools</h1>
+    <span class="brand-sub">frame · caption · ship</span>
+  </div>
+  <div class="topbar-meta">
+    <span class="meta-item"><em id="count-current">00</em><span class="meta-sep">/</span><em id="count-total">00</em><span class="meta-label">photos</span></span>
+    <span class="meta-kbd" title="键盘快捷键"><kbd>↑</kbd><kbd>↓</kbd>&nbsp;switch<span class="meta-sep">·</span><kbd>⌘E</kbd>&nbsp;export</span>
+    <a class="topbar-github" href="https://github.com/anois/photo-tools" target="_blank" rel="noopener" aria-label="View source on GitHub" title="View source on GitHub">
+      <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+    </a>
+  </div>
+</header>
+
+<!-- WORKSPACE -->
+<main class="workspace">
+
+  <!-- LEFT: CONTROLS -->
+  <aside class="pane pane-controls" aria-label="Controls">
+
+    <section class="group">
+      <h2 class="sec-head"><i>A</i><span>Source</span></h2>
+      <label class="file-drop" id="file-drop">
+        <input id="file-input" type="file" accept="image/jpeg,image/png" multiple />
+        <div class="file-drop-inner">
+          <div class="file-drop-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="18" height="18"><path d="M12 4v12m0 0l-4-4m4 4l4-4M4 20h16" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+          <div class="file-drop-copy">
+            <strong>Import photos</strong>
+            <span class="file-drop-hint-desktop">JPEG / PNG · multi-select · drag here</span>
+            <span class="file-drop-hint-mobile">JPEG / PNG · tap to choose</span>
+          </div>
+        </div>
+      </label>
+    </section>
+
+    <!-- B · 相框  ─────────────────────────────────────────────────────── -->
+    <!-- All "frame look" knobs live here so a single Apply button can copy
+         them across photos in one shot. Aspect / padding / caption height
+         shape the canvas geometry; frame seg picks the visual style; the
+         two collapsed advanced panels expose fine-tuning for frosted bg
+         and the floating drop shadow. -->
+    <section class="group">
+      <h2 class="sec-head"><i>B</i><span>Frame</span></h2>
+      <div class="row">
+        <div class="field">
+          <label class="field-label">Aspect</label>
+          <div class="seg" id="aspect-seg" role="radiogroup">
+            <button data-val="9:16" class="active" role="radio" aria-checked="true">9<span class="seg-sep">:</span>16</button>
+            <button data-val="3:4"  role="radio" aria-checked="false">3<span class="seg-sep">:</span>4</button>
+            <button data-val="1:1"  role="radio" aria-checked="false">1<span class="seg-sep">:</span>1</button>
+          </div>
+        </div>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label class="field-label">风格</label>
+          <div class="seg seg-frames" id="frame-seg" role="radiogroup">
+            <button data-val="frosted" class="active" role="radio" aria-checked="true">毛玻璃</button>
+            <button data-val="frosted-dark" role="radio" aria-checked="false">毛玻璃·深</button>
+            <button data-val="white" role="radio" aria-checked="false">纯白</button>
+            <button data-val="black" role="radio" aria-checked="false">纯黑</button>
+            <button data-val="polaroid" role="radio" aria-checked="false">宝丽来</button>
+          </div>
+        </div>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label class="field-label">Padding <span class="field-readout" id="padding-val">70 px</span></label>
+          <input id="padding" type="range" min="0" max="200" value="70" step="2" />
+        </div>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label class="field-label">Caption height <span class="field-readout" id="caption-h-val">auto</span></label>
+          <input id="caption-h" type="range" min="60" max="360" value="140" step="4" />
+        </div>
+      </div>
+      <details class="frame-advanced" id="frosted-advanced">
+        <summary>高级 · 毛玻璃参数</summary>
+        <div class="row">
+          <div class="field">
+            <label class="field-label">模糊 <span class="field-readout" id="bg-blur-val">默认</span></label>
+            <input id="bg-blur" type="range" min="0" max="120" step="2" />
+          </div>
+        </div>
+        <div class="row">
+          <div class="field">
+            <label class="field-label">亮度 <span class="field-readout" id="bg-brightness-val">默认</span></label>
+            <input id="bg-brightness" type="range" min="0.5" max="1.2" step="0.02" />
+          </div>
+        </div>
+        <div class="row">
+          <div class="field">
+            <label class="field-label">饱和度 <span class="field-readout" id="bg-saturation-val">默认</span></label>
+            <input id="bg-saturation" type="range" min="0.5" max="1.6" step="0.02" />
+          </div>
+        </div>
+        <button id="reset-bg-btn" type="button" class="btn-ghost">恢复默认</button>
+      </details>
+      <details class="frame-advanced" id="shadow-advanced">
+        <summary>高级 · 阴影</summary>
+        <div class="row">
+          <div class="field">
+            <label class="field-label">模糊半径 <span class="field-readout" id="shadow-blur-val">0</span></label>
+            <input id="shadow-blur" type="range" min="0" max="160" step="2" value="80" />
+          </div>
+        </div>
+        <div class="row">
+          <div class="field">
+            <label class="field-label">纵向偏移 <span class="field-readout" id="shadow-offset-val">0</span></label>
+            <input id="shadow-offset" type="range" min="0" max="80" step="1" value="24" />
+          </div>
+        </div>
+        <div class="row">
+          <div class="field">
+            <label class="field-label">不透明度 <span class="field-readout" id="shadow-opacity-val">0</span></label>
+            <input id="shadow-opacity" type="range" min="0" max="0.8" step="0.02" value="0.35" />
+          </div>
+        </div>
+      </details>
+      <div class="exif-actions" style="margin-top: 12px;">
+        <button id="apply-frame-all-btn" type="button" class="btn-ghost" title="把当前照片的所有相框设置（aspect / 风格 / padding / 高级参数 / 阴影 / 文字模板 / 字段开关）应用到全部已加载的照片">Apply 相框设置到全部</button>
+      </div>
+    </section>
+
+    <!-- C · 文字 ─────────────────────────────────────────────────────── -->
+    <section class="group">
+      <h2 class="sec-head"><i>C</i><span>Caption</span></h2>
+      <div class="row">
+        <div class="field">
+          <label class="field-label">Template</label>
+          <select id="template">
+            <option value="minimal-text">Minimal · brand + params</option>
+            <option value="brand-logo">Brand logo · model | params</option>
+            <option value="brand-right">Brand right · params | brand</option>
+            <option value="tech-stack">Tech stack · vertical</option>
+            <option value="date-lens">Date · lens</option>
+          </select>
+        </div>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label class="field-label">Show fields</label>
+          <div class="chips" id="show-fields">
+            <label class="chip"><input type="checkbox" data-key="brand" checked><span>Brand</span></label>
+            <label class="chip"><input type="checkbox" data-key="model" checked><span>Model</span></label>
+            <label class="chip"><input type="checkbox" data-key="focal" checked><span>Focal</span></label>
+            <label class="chip"><input type="checkbox" data-key="aperture" checked><span>Aperture</span></label>
+            <label class="chip"><input type="checkbox" data-key="shutter" checked><span>Shutter</span></label>
+            <label class="chip"><input type="checkbox" data-key="iso" checked><span>ISO</span></label>
+            <label class="chip"><input type="checkbox" data-key="lens"><span>Lens</span></label>
+            <label class="chip"><input type="checkbox" data-key="date"><span>Date</span></label>
+            <label class="chip"><input type="checkbox" data-key="author" checked><span>Author</span></label>
+            <label class="chip"><input type="checkbox" data-key="flash"><span>Flash</span></label>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="group">
+      <h2 class="sec-head"><i>D</i><span>EXIF</span></h2>
+      <div id="exif-warn" class="warn" hidden></div>
+      <details class="exif" id="exif-details">
+        <summary>EXIF <span class="summary-hint">read · edit</span></summary>
+        <div class="grid-2">
+          <label>Make<input id="exif-make" type="text" placeholder="FUJIFILM" /></label>
+          <label>Model<input id="exif-model" type="text" placeholder="X-T5" /></label>
+          <label>Focal (mm)<input id="exif-focalLength" type="number" step="1" placeholder="59" /></label>
+          <label>ƒ-number<input id="exif-fNumber" type="number" step="0.1" placeholder="8" /></label>
+          <label>Shutter<input id="exif-exposureTime" type="text" placeholder="1/180" /></label>
+          <label>ISO<input id="exif-iso" type="number" step="1" placeholder="80" /></label>
+          <label class="span-2">Lens<input id="exif-lensModel" type="text" placeholder="XF 56mm F1.2 R" /></label>
+          <label class="span-2">Date<input id="exif-dateTimeOriginal" type="text" placeholder="2026-04-12" /></label>
+          <label class="span-2">Author<input id="exif-author" type="text" placeholder="your name" /></label>
+          <label class="span-2">Flash
+            <select id="exif-flash">
+              <option value="">auto</option>
+              <option value="fired">Fired</option>
+              <option value="off">Off</option>
+            </select>
+          </label>
+        </div>
+        <div class="exif-actions">
+          <button id="clear-exif-btn" type="button" class="btn-ghost">Reset to auto-read</button>
+          <button id="apply-exif-all-btn" type="button" class="btn-ghost" title="把当前照片的 EXIF 编辑应用到所有已加载的照片">Apply EXIF to all</button>
+          <button id="copy-raw-exif-btn" type="button" class="btn-ghost" title="把这张照片解析出来的原始 EXIF JSON 复制到剪贴板（debug 用）">Copy raw EXIF</button>
+        </div>
+      </details>
+    </section>
+
+    <section class="group">
+      <h2 class="sec-head"><i>E</i><span>Export</span></h2>
+      <div class="row row-2">
+        <div class="field">
+          <label class="field-label">Quality</label>
+          <select id="quality">
+            <option value="standard">Standard · 1440</option>
+            <option value="high">High · 2×</option>
+            <option value="original">Original · native</option>
+          </select>
+        </div>
+        <div class="field">
+          <label class="field-label">Format</label>
+          <select id="format">
+            <option value="jpeg">JPEG</option>
+            <option value="png">PNG</option>
+          </select>
+        </div>
+      </div>
+      <div class="actions">
+        <button id="export-btn" class="btn btn-primary" disabled>
+          <span>Export current</span><kbd>⌘E</kbd>
+        </button>
+        <button id="batch-btn" class="btn" disabled>
+          <span>Batch · ZIP</span><kbd>⌘⇧E</kbd>
+        </button>
+      </div>
+    </section>
+
+  </aside>
+
+  <!-- CENTER: CANVAS -->
+  <section class="pane pane-canvas" id="canvas-pane" aria-label="Preview">
+    <div class="canvas-vignette" aria-hidden="true"></div>
+    <div class="canvas-drop-hint" id="drop-hint" aria-hidden="true">
+      <div class="drop-hint-box">
+        <svg viewBox="0 0 24 24" width="32" height="32"><path d="M12 4v12m0 0l-4-4m4 4l4-4M4 20h16" fill="none" stroke="currentColor" stroke-width="1.25"/></svg>
+        <p>Drop photos to import</p>
+      </div>
+    </div>
+    <div class="canvas-stage" id="canvas-stage">
+      <canvas id="preview-canvas" aria-label="Preview"></canvas>
+      <div id="preview-loading" class="preview-loading" hidden>
+        <span class="pulse-dot" aria-hidden="true"></span>
+        <span>rendering</span>
+      </div>
+      <div id="empty" class="empty">
+        <div class="empty-mark">⌖</div>
+        <p class="empty-title">No photo loaded</p>
+        <p class="empty-sub empty-sub-desktop">Import from the left panel, or drop here.</p>
+        <p class="empty-sub empty-sub-mobile">Tap "Import photos" above.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- RIGHT: THUMBNAIL RAIL -->
+  <aside class="pane pane-rail" aria-label="Photo roll">
+    <div class="rail-head">
+      <span class="rail-head-label">Roll</span>
+      <span class="rail-head-count" id="rail-count">00</span>
+    </div>
+    <ol class="rail-items" id="thumb-rail" role="listbox" aria-label="Imported photos" tabindex="0"></ol>
+    <div class="rail-foot">
+      <span><kbd>↑</kbd><kbd>↓</kbd></span>
+      <span>navigate</span>
+    </div>
+  </aside>
+
+</main>
+
+<!-- BATCH EXPORT PROGRESS MODAL -->
+<dialog id="export-modal" class="export-modal" aria-labelledby="export-modal-title">
+  <div class="export-modal-inner">
+    <div class="export-modal-head">
+      <h3 id="export-modal-title">Exporting…</h3>
+      <button id="export-modal-close" class="btn-ghost" type="button" hidden>关闭</button>
+    </div>
+    <div class="export-modal-body">
+      <div class="export-stage" id="export-stage">渲染中</div>
+      <div class="export-counter">
+        <em id="export-done">0</em><span class="export-sep">/</span><em id="export-total">0</em>
+      </div>
+      <div class="export-bar"><div class="export-bar-fill" id="export-bar-fill"></div></div>
+      <div class="export-current" id="export-current">—</div>
+      <ul class="export-errors" id="export-errors" hidden></ul>
+    </div>
+  </div>
+</dialog>
+
+<!-- STATUS BAR -->
+<footer class="statusbar">
+  <span class="status-dot" aria-hidden="true"></span>
+  <span id="status" class="status-text">ready</span>
+  <span class="status-spacer"></span>
+  <span class="status-hint">J/K · arrows &nbsp; switch&nbsp;&nbsp;·&nbsp;&nbsp;Enter select &nbsp;&nbsp;·&nbsp;&nbsp;Esc close</span>
+</footer>
+
+<script src="vendor/exifr.umd.js"></script>
+<script src="vendor/piexif.js"></script>
+<script src="vendor/jszip.min.js"></script>
+<script src="shared/render.js"></script>
+<script src="exifio.js"></script>
+<script src="clientRender.js"></script>
+<script src="exporter.js"></script>
+<script src="progressModal.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

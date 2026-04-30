@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" stroke-linejoin="round">
+  <!-- Rounded frame: mirrors the app's rounded foreground photo -->
+  <rect x="6" y="6" width="52" height="52" rx="9" stroke="currentColor" stroke-width="3"/>
+  <!-- Brand-red record dot in upper-right, evoking the topbar brand mark -->
+  <circle cx="50" cy="14" r="4" fill="#e5493a"/>
+</svg>
