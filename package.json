@@ -25,6 +25,7 @@
     "node": ">=18"
   },
   "devDependencies": {
-    "serve": "^14.2.4"
+    "serve": "^14.2.4",
+    "subset-font": "^2.5.0"
   }
 }

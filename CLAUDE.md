@@ -98,7 +98,7 @@ These are authoring-time helpers, not part of the runtime path.
 │             → <script> exporter.js        (single + batch + ZIP + download) │
 │             → <script> app.js             (UI wiring + per-photo cfg state) │
 │                                                                              │
-│  Static fetched at boot: logos.json (~57KB), fonts.css (~870KB base64)      │
+│  Static fetched at boot: logos.json (~57KB), fonts.css (~150KB base64)      │
 │                                                                              │
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -153,6 +153,19 @@ Empirical impact on warm photo switching (10-sample harness, 2-photo back-and-fo
 | `overlay` | otherwise (tight padding)      | 0°   | semi-transparent gradient strip overlaid on bottom of photo; text forced to white |
 
 Templates draw into a local coordinate system where `layout.W × layout.H` is the zone; the outer wrapper handles translate/rotate. When adding a new template, don't hardcode canvas dimensions; use `layout.W` for centering and `layout.textBaselineY` for vertical position.
+
+### Inter font (`public/fonts/` + `public/fonts.css`)
+
+`scripts/build-fonts.js` subsets the source TTFs (`Inter-Regular.ttf`, `Inter-SemiBold.ttf`, ~317KB each) before base64-inlining them into `public/fonts.css`. The subset covers:
+
+- ASCII printable (U+0020–007E)
+- Latin-1 supplement (U+00A0–00FF) — gives us `©`, `·`, `°`, all Western European accents
+- Latin Extended-A (U+0100–017F) — gives us Polish/Czech/Hungarian/Turkish accents
+- A handful of typographic punctuation: en/em dashes, curly quotes, bullet, ellipsis, prime marks, ™
+
+Result: `fonts.css` shrinks from ~870KB to ~150KB while still covering every European name a user might type into the EXIF author field. CJK author names fall back to the system sans-serif — a deliberate trade-off (covering CJK would re-bloat the bundle to multi-MB and we don't render Chinese in the caption itself, only the optional Author line).
+
+The subsetter is the [`subset-font`](https://www.npmjs.com/package/subset-font) npm package (devDependency, harfbuzz-wasm under the hood). `npm install` pulls it; `npm run build-fonts` regenerates `fonts.css` from the source TTFs.
 
 ### Brand logos (`public/logos/` + `public/logos.json`)
 
