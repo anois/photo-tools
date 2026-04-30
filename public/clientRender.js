@@ -161,16 +161,23 @@
     return c;
   }
 
-  // User-supplied signature image cache. Keyed by dataURL so a re-upload of
-  // the same file (identical bytes → identical dataURL) reuses the bitmap.
-  // Capped at 3 entries since we only support one active signature at a time
-  // — extra entries appear when undo/redo or live re-upload happens.
-  const customLogoCache = new Map();   // dataURL → Promise<ImageBitmap | HTMLImageElement | null>
+  // User-supplied signature + background image caches. Keyed by dataURL so a
+  // re-upload of the same file (identical bytes → identical dataURL) reuses
+  // the decoded bitmap. Capped at 3 entries each since we only support one
+  // active signature / bg at a time — extra entries appear when the user
+  // swaps the active image live.
+  const customLogoCache = new Map();
+  const customBgCache = new Map();
   const CUSTOM_LOGO_CACHE_MAX = 3;
+  const CUSTOM_BG_CACHE_MAX = 3;
 
-  async function decodeCustomLogo(dataURL) {
+  // Generic dataURL → ImageBitmap (or HTMLImageElement fallback for
+  // dimension-less SVGs). Two named caches share this body — signature
+  // and background — so the same dataURL doesn't get decoded twice if the
+  // user happens to re-use the file.
+  async function decodeDataUrlToBitmap(dataURL, cache, cap) {
     if (!dataURL) return null;
-    const hit = customLogoCache.get(dataURL);
+    const hit = cache.get(dataURL);
     if (hit) return hit;
     const p = (async () => {
       // Prefer createImageBitmap (off-thread, returns a true ImageBitmap), but
@@ -195,17 +202,24 @@
         }
       }
     })();
-    customLogoCache.set(dataURL, p);
-    while (customLogoCache.size > CUSTOM_LOGO_CACHE_MAX) {
-      const oldestKey = customLogoCache.keys().next().value;
-      const oldest = customLogoCache.get(oldestKey);
-      customLogoCache.delete(oldestKey);
+    cache.set(dataURL, p);
+    while (cache.size > cap) {
+      const oldestKey = cache.keys().next().value;
+      const oldest = cache.get(oldestKey);
+      cache.delete(oldestKey);
       try {
         const bm = await oldest;
         if (bm && bm.close) bm.close();
       } catch { /* never resolved → nothing to close */ }
     }
     return p;
+  }
+
+  function decodeCustomLogo(dataURL) {
+    return decodeDataUrlToBitmap(dataURL, customLogoCache, CUSTOM_LOGO_CACHE_MAX);
+  }
+  function decodeCustomBg(dataURL) {
+    return decodeDataUrlToBitmap(dataURL, customBgCache, CUSTOM_BG_CACHE_MAX);
   }
 
   function drawGrain(ctx, W, H, opacity) {
@@ -280,30 +294,45 @@
     const ctx = canvas.getContext('2d');
 
     const rotForBg = ((args.rotation | 0) + 360) % 360;
+    // Custom bg image: when present + frame is frosted, the user-supplied
+    // image becomes the bg source instead of the photo itself. Decoded
+    // lazily by decodeCustomBg (cached) so re-renders don't re-decode.
+    const customBgBm = (params.bg.type === 'frosted' && args.customBg && args.customBg.data)
+      ? await decodeCustomBg(args.customBg.data)
+      : null;
     // ─── Background ──────────────────────────────────────────────────────
-    const bgKey = args.cacheBg ? bgCacheKey(args.file, layout, params, rotForBg) : null;
+    // bg cache is bypassed entirely when customBg is set — caching the
+    // composited bg per-dataURL would balloon memory and the blur compute
+    // is GPU-cheap to redo. Self-bg (frosted from photo) keeps its cache.
+    const bgKey = (args.cacheBg && !customBgBm) ? bgCacheKey(args.file, layout, params, rotForBg) : null;
     const bgHit = bgKey ? bgCache.get(bgKey) : null;
     if (bgHit) {
       bgCacheTouch(bgKey, bgHit);
       ctx.drawImage(bgHit.bitmap, 0, 0);
     } else if (params.bg.type === 'frosted') {
       const sigma = params.bg.blurSigma * layout.scale;
+      const src = customBgBm || bitmap;
+      const srcW = src.naturalWidth  || src.width;
+      const srcH = src.naturalHeight || src.height;
       ctx.save();
       ctx.filter = `blur(${sigma}px) saturate(${params.bg.saturation}) brightness(${params.bg.brightness})`;
-      if (rotForBg) {
-        const sw = (rotForBg === 90 || rotForBg === 270) ? bitmap.height : bitmap.width;
-        const sh = (rotForBg === 90 || rotForBg === 270) ? bitmap.width  : bitmap.height;
+      // Custom bg ignores the user's rotation — the bg image is independent
+      // of the photo and shouldn't tilt with it.
+      const applyRot = !customBgBm && rotForBg;
+      if (applyRot) {
+        const sw = (rotForBg === 90 || rotForBg === 270) ? srcH : srcW;
+        const sh = (rotForBg === 90 || rotForBg === 270) ? srcW : srcH;
         const ratio = Math.max(W / sw, H / sh);
-        const dw = bitmap.width  * ratio;
-        const dh = bitmap.height * ratio;
+        const dw = srcW * ratio;
+        const dh = srcH * ratio;
         ctx.translate(W / 2, H / 2);
         ctx.rotate(rotForBg * Math.PI / 180);
-        ctx.drawImage(bitmap, -dw / 2, -dh / 2, dw, dh);
+        ctx.drawImage(src, -dw / 2, -dh / 2, dw, dh);
       } else {
-        const ratio = Math.max(W / bitmap.width, H / bitmap.height);
-        const dw = bitmap.width  * ratio;
-        const dh = bitmap.height * ratio;
-        ctx.drawImage(bitmap, (W - dw) / 2, (H - dh) / 2, dw, dh);
+        const ratio = Math.max(W / srcW, H / srcH);
+        const dw = srcW * ratio;
+        const dh = srcH * ratio;
+        ctx.drawImage(src, (W - dw) / 2, (H - dh) / 2, dw, dh);
       }
       ctx.restore();
       if (params.bg.darken) {
@@ -418,6 +447,7 @@
     return {
       layout, params, captionSvg, captionKey,
       customLogo: cfg.customLogo || null,
+      customBg: cfg.customBg || null,
       collage: collage,
       rotation: rot
     };

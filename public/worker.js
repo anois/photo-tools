@@ -92,24 +92,40 @@ async function compose(canvas, args) {
   const ctx = canvas.getContext('2d');
 
   const rot = ((args.rotation | 0) + 360) % 360;
+  // Decode custom bg if the caller passed one. Workers have no shared cache
+  // — the cost is one fetch+createImageBitmap per render job, which is
+  // negligible compared to the actual blur+encode pass.
+  let customBgBm = null;
+  if (params.bg.type === 'frosted' && args.customBg && args.customBg.data) {
+    try {
+      const blob = await fetch(args.customBg.data).then((r) => r.blob());
+      customBgBm = await createImageBitmap(blob);
+    } catch (err) {
+      console.warn('[worker customBg] decode failed', err);
+    }
+  }
   if (params.bg.type === 'frosted') {
     const sigma = params.bg.blurSigma * layout.scale;
+    const src = customBgBm || bitmap;
+    const srcW = src.width;
+    const srcH = src.height;
     ctx.save();
     ctx.filter = `blur(${sigma}px) saturate(${params.bg.saturation}) brightness(${params.bg.brightness})`;
-    if (rot) {
-      const sw = (rot === 90 || rot === 270) ? bitmap.height : bitmap.width;
-      const sh = (rot === 90 || rot === 270) ? bitmap.width  : bitmap.height;
+    const applyRot = !customBgBm && rot;
+    if (applyRot) {
+      const sw = (rot === 90 || rot === 270) ? srcH : srcW;
+      const sh = (rot === 90 || rot === 270) ? srcW : srcH;
       const ratio = Math.max(W / sw, H / sh);
-      const dw = bitmap.width  * ratio;
-      const dh = bitmap.height * ratio;
+      const dw = srcW * ratio;
+      const dh = srcH * ratio;
       ctx.translate(W / 2, H / 2);
       ctx.rotate(rot * Math.PI / 180);
-      ctx.drawImage(bitmap, -dw / 2, -dh / 2, dw, dh);
+      ctx.drawImage(src, -dw / 2, -dh / 2, dw, dh);
     } else {
-      const ratio = Math.max(W / bitmap.width, H / bitmap.height);
-      const dw = bitmap.width * ratio;
-      const dh = bitmap.height * ratio;
-      ctx.drawImage(bitmap, (W - dw) / 2, (H - dh) / 2, dw, dh);
+      const ratio = Math.max(W / srcW, H / srcH);
+      const dw = srcW * ratio;
+      const dh = srcH * ratio;
+      ctx.drawImage(src, (W - dw) / 2, (H - dh) / 2, dw, dh);
     }
     ctx.restore();
     if (params.bg.darken) {
@@ -152,6 +168,8 @@ async function compose(canvas, args) {
     ctx.drawImage(cap, 0, 0);
     cap.close();
   }
+
+  if (customBgBm) customBgBm.close();
 
   if (args.customLogo && args.customLogo.data) {
     let bm = null;
@@ -260,6 +278,7 @@ async function renderJob(msg) {
     await compose(canvas, {
       bitmap, bitmaps, layout, params, captionSvg,
       customLogo: cfg.customLogo || null,
+      customBg: cfg.customBg || null,
       collage,
       rotation: rot
     });

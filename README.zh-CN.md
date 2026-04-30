@@ -38,6 +38,7 @@
 - **真实品牌 logo 内嵌** — Fujifilm、Sony、Leica、Nikon、Canon、Apple、Xiaomi、OPPO、Vivo、DJI…（来自 Wikimedia Commons + simple-icons）
 - **EXIF 自动解析**，每张照片可独立手动覆盖；当 `LensModel` 缺失时用 `LensInfo` 数组反推镜头型号
 - **自定义签名水印** — 上传 SVG/PNG 钉在前景照片的某个角落；通过 `localStorage` 跨会话保留
+- **自定义背景图** — 把 frosted 相框的自我磨砂背景源换成任意图片（仅对毛玻璃风格生效）
 - **预设保存 / 分享** — 把当前的"风格"（相框 / 模板 / 边距 / 阴影 / 签名）存成命名预设，或复制分享链接（`#p=<code>`）发给朋友
 - **支持 HEIC / HEIF 输入** — iPhone 照片直接拖入即用，浏览器内通过懒加载的 libheif-js 转码（首次遇到 HEIC 才下载）
 - **拼贴模式** — 2–4 张照片套同一个相框：左右、上下、1×3 / 3×1 横排、2×2 田字格

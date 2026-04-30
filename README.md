@@ -38,6 +38,7 @@ A single-page web app that wraps photos in a "frosted-glass" frame — blurred s
 - **Real bundled brand logos** — Fujifilm, Sony, Leica, Nikon, Canon, Apple, Xiaomi, OPPO, Vivo, DJI… (Wikimedia Commons + simple-icons)
 - **Auto EXIF parsing** with per-photo manual override and `LensInfo` → lens-model fallback
 - **Custom signature overlay** — upload an SVG/PNG and pin it to a corner of the photo; persisted across sessions in `localStorage`
+- **Custom background image** — replace the self-blur frosted-bg source with any image you like (only applies to frosted frames)
 - **Save / share presets** — snapshot the current look (frame / template / padding / shadow / signature) as a named local preset, or copy a share link (`#p=<code>`) for a friend
 - **HEIC / HEIF input** — iPhone photos transcode in-browser via lazy-loaded libheif-js (only fetched on first HEIC import)
 - **Collage mode** — pair 2–4 photos in one frame: side-by-side, stacked, 1×3 / 3×1 row, or 2×2 grid

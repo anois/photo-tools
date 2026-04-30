@@ -276,6 +276,16 @@ Schema:
 
 **Versioning**: `v: 1` field. Future schema changes bump to 2; old code refuses unknown versions and surfaces `presetHashBad`.
 
+### Custom background image (`cfg.customBg`)
+
+`cfg.customBg = null | { data: dataURL, type: 'jpeg'|'png', name }` lets the user pin a chosen image as the bg blur source for frosted / frosted-dark frames, instead of using the photo itself. All other frosted params (blur, brightness, saturation, darken, grain) still apply on top.
+
+Render path: in `compose()`, when `params.bg.type === 'frosted'` AND `args.customBg.data` is set, the bg pass decodes the dataURL via `decodeCustomBg` (LRU cache, sibling of `decodeCustomLogo`) and uses it as the source instead of `bitmap`. Bg cache is bypassed when customBg is set — keying caches by full dataURL would balloon memory and the blur is GPU-cheap to redo. Custom bg also ignores `cfg.rotation` deliberately: rotating the photo shouldn't tilt the chosen backdrop.
+
+UI: in B · Frame's "Advanced · frosted bg" details panel, below the slider trio. Upload cascades the dataURL to `draftCfg`, every loaded photo, and `localStorage['phototools.customBg']`. Same data shape as `customLogo`; same 4MB cap (PNGs of 4K-ish bg art fit comfortably). Clear wipes everything globally.
+
+Solid-bg frames (white / black / polaroid) ignore customBg.
+
 ### Rotation (`cfg.rotation`)
 
 `cfg.rotation` (0 / 90 / 180 / 270, clockwise degrees) is a per-photo render-time correction. Two ↶ ↷ buttons at the bottom of B · Frame bump it by ±90°.

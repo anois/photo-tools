@@ -27,6 +27,10 @@ function defaultCfg() {
     // presets, since it's more of a "this specific photo was shot wrong"
     // fix than a stylistic choice.
     rotation: 0,
+    // User-supplied background image. When set + frame is frosted/frosted-dark,
+    // this image (blurred + tinted with the frame's saturation/brightness/
+    // darken) replaces the self-image bg. null = use the photo itself.
+    customBg: null,
     // User-uploaded signature image overlaid on the foreground photo. null means
     // no signature; otherwise { data: dataURL, type: 'svg'|'png',
     // position: 'br'|'bl'|'bc', scale: 0.06, opacity: 1 }.
@@ -48,6 +52,7 @@ function cloneCfg(c) {
     showFields: { ...c.showFields },
     exifOverride: { ...c.exifOverride },
     customLogo: c.customLogo ? { ...c.customLogo } : null,
+    customBg: c.customBg ? { ...c.customBg } : null,
     collage: c.collage ? { ...c.collage } : null
   };
 }
@@ -117,6 +122,12 @@ const els = {
   rotateCcw: document.getElementById('rotate-ccw'),
   rotateCw: document.getElementById('rotate-cw'),
   rotateVal: document.getElementById('rotate-val'),
+  customBgInput: document.getElementById('custom-bg-input'),
+  customBgDrop: document.getElementById('custom-bg-drop'),
+  customBgReadout: document.getElementById('custom-bg-readout'),
+  customBgPreview: document.getElementById('custom-bg-preview'),
+  customBgName: document.getElementById('custom-bg-name'),
+  customBgClearBtn: document.getElementById('custom-bg-clear-btn'),
   exportBtn: document.getElementById('export-btn'),
   batchBtn: document.getElementById('batch-btn'),
   clearExifBtn: document.getElementById('clear-exif-btn'),
@@ -330,6 +341,7 @@ async function doRender() {
         shadowOpacity: c.shadowOpacity,
         showFields: c.showFields,
         customLogo: c.customLogo,
+        customBg: c.customBg,
         collage: c.collage,
         rotation: c.rotation || 0
       },
@@ -394,6 +406,15 @@ function syncControlsFromCfg(cfg) {
   syncSignatureFromCfg(cfg);
   syncCollageFromActive();
   syncRotateFromCfg(cfg);
+  syncCustomBgFromCfg(cfg);
+}
+
+function syncCustomBgFromCfg(cfg) {
+  const cb = cfg.customBg;
+  const has = !!(cb && cb.data);
+  els.customBgReadout.hidden = !has;
+  els.customBgPreview.src = has ? cb.data : '';
+  els.customBgName.textContent = has ? (cb.name || 'image') : '—';
 }
 
 function syncRotateFromCfg(cfg) {
@@ -971,6 +992,66 @@ els.collageLayout.addEventListener('change', () => {
   } catch (_) { /* malformed entry — drop silently */ }
 })();
 
+// ─── Custom bg image (frosted bg replacement) wiring ────────────────────
+// Same shape as signature: upload cascades to draftCfg + every loaded photo
+// + localStorage. Per-photo override happens via the user editing other
+// frosted params; the bg image itself is treated as a global pick.
+const CUSTOMBG_STORAGE_KEY = 'phototools.customBg';
+const CUSTOMBG_MAX_BYTES = 4 * 1024 * 1024;
+
+function applyCustomBgEverywhere(payload) {
+  state.draftCfg.customBg = payload ? { ...payload } : null;
+  for (const f of state.files) {
+    f.cfg.customBg = payload ? { ...payload } : null;
+  }
+  try {
+    if (payload) localStorage.setItem(CUSTOMBG_STORAGE_KEY, JSON.stringify(payload));
+    else localStorage.removeItem(CUSTOMBG_STORAGE_KEY);
+  } catch (_) { /* private mode / quota — non-fatal */ }
+}
+
+els.customBgInput.addEventListener('change', async () => {
+  const file = els.customBgInput.files && els.customBgInput.files[0];
+  els.customBgInput.value = '';
+  if (!file) return;
+  if (file.size > CUSTOMBG_MAX_BYTES) {
+    setStatus('status.customBgTooBig', 'err', { mb: (file.size / 1024 / 1024).toFixed(1) });
+    setTimeout(() => setStatus('status.ready'), 3000);
+    return;
+  }
+  try {
+    const data = await readSignatureFile(file);   // same FileReader.readAsDataURL helper
+    const type = /^data:image\/png/i.test(data) ? 'png' : 'jpeg';
+    const payload = { data, type, name: file.name };
+    applyCustomBgEverywhere(payload);
+    syncCustomBgFromCfg(activeCfg());
+    requestRender();
+    setStatus('status.customBgLoaded');
+    setTimeout(() => setStatus('status.ready'), 1500);
+  } catch (err) {
+    console.error('[customBg]', err);
+    setStatus('status.customBgFail', 'err', { msg: err.message });
+  }
+});
+
+els.customBgClearBtn.addEventListener('click', () => {
+  applyCustomBgEverywhere(null);
+  syncCustomBgFromCfg(activeCfg());
+  requestRender();
+});
+
+(function hydrateCustomBg() {
+  try {
+    const raw = localStorage.getItem(CUSTOMBG_STORAGE_KEY);
+    if (!raw) return;
+    const payload = JSON.parse(raw);
+    if (payload && payload.data) {
+      state.draftCfg.customBg = payload;
+      syncCustomBgFromCfg(state.draftCfg);
+    }
+  } catch (_) { /* malformed entry — drop silently */ }
+})();
+
 for (const [key, el] of Object.entries(els.exif)) {
   el.addEventListener('input', () => {
     const v = el.value.trim();
@@ -1050,6 +1131,7 @@ els.applyFrameAllBtn.addEventListener('click', () => {
     for (const k of FRAME_KEYS) f.cfg[k] = src[k];
     f.cfg.showFields = { ...src.showFields };
     f.cfg.customLogo = src.customLogo ? { ...src.customLogo } : null;
+    f.cfg.customBg = src.customBg ? { ...src.customBg } : null;
   }
   setStatus('status.appliedFrame', null, { n: state.files.length - 1 });
   setTimeout(() => setStatus('status.ready'), 1800);
@@ -1159,6 +1241,7 @@ function buildConfigForFile(f) {
   if (c.bgBrightness != null)  cfg.bgBrightness = c.bgBrightness;
   if (c.bgSaturation != null)  cfg.bgSaturation = c.bgSaturation;
   if (c.customLogo)            cfg.customLogo = { ...c.customLogo };
+  if (c.customBg)              cfg.customBg = { ...c.customBg };
   if (c.collage)               cfg.collage = { ...c.collage };
   if (c.rotation)              cfg.rotation = c.rotation;
   return cfg;

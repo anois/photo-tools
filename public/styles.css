@@ -657,6 +657,37 @@ input[type="range"]::-moz-range-thumb {
 .rotate-btn:active { background: var(--bg-chrome); }
 .rotate-row .field-readout { margin-left: auto; }
 
+/* ── Custom bg image (frosted-only override) ─────────────────────────── */
+.custom-bg-block { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+.custom-bg-readout {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: rgba(255,255,255,0.02);
+}
+.custom-bg-readout[hidden] { display: none; }
+.custom-bg-readout img {
+  width: 56px;
+  height: 56px;
+  object-fit: cover;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm, 4px);
+  flex: 0 0 auto;
+}
+.custom-bg-readout .custom-bg-name {
+  font: 500 11px/1.2 var(--f-mono);
+  color: var(--text);
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.custom-bg-readout .btn-ghost { margin-left: auto; }
+
 /* ── Batch export progress modal ───────────────────────────────────────── */
 .export-modal {
   border: 1px solid var(--line-strong);
