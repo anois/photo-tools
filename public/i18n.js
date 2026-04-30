@@ -1,0 +1,429 @@
+/* photo-tools — minimal i18n.
+ *
+ * - Two locales: zh-CN (default for the original UI) + en.
+ * - Static UI text lives in dictionaries below, addressed by dotted keys.
+ * - HTML elements declare their key via data-i18n / data-i18n-placeholder /
+ *   data-i18n-aria-label / data-i18n-title; applyDom() walks `root` and
+ *   writes the active-locale string into the right slot.
+ * - Dynamic strings (status messages, EXIF warning, defaults readout) call
+ *   I18N.t(key, vars). vars get spliced into {placeholders}.
+ * - On setLocale() we re-applyDom and dispatch 'i18nchange' so live readouts
+ *   (currently-rendered status, '默认' chips, modal stage label) can refresh.
+ *
+ * Locale persists to localStorage; first visit auto-detects from navigator.
+ */
+(function () {
+  'use strict';
+
+  const STORAGE_KEY = 'phototools.locale';
+
+  const DICT = {
+    'zh-CN': {
+      brand: { sub: 'frame · caption · ship' },
+      topbar: {
+        photos: '张',
+        switch: '切换',
+        export: '导出',
+        github: '在 GitHub 查看源码'
+      },
+      lang: { zh: '中', en: 'EN', label: '语言' },
+      sections: {
+        source: '原图',
+        frame: '相框',
+        caption: '文字',
+        exif: 'EXIF',
+        export: '导出'
+      },
+      source: {
+        importTitle: '导入照片',
+        hintDesktop: 'JPEG / PNG · 可多选 · 拖到此处',
+        hintMobile: 'JPEG / PNG · 点击选择'
+      },
+      frame: {
+        aspect: '画幅',
+        style: '风格',
+        padding: '边距',
+        paddingUnit: '{n} px',
+        captionH: '文字带高度',
+        captionAuto: '自动',
+        captionUnit: '{n} px',
+        advancedFrosted: '高级 · 毛玻璃参数',
+        advancedShadow: '高级 · 阴影',
+        blur: '模糊',
+        brightness: '亮度',
+        saturation: '饱和度',
+        defaultReadout: '默认',
+        resetDefault: '恢复默认',
+        shadowBlur: '模糊半径',
+        shadowOffset: '纵向偏移',
+        shadowOpacity: '不透明度',
+        applyAll: '将相框设置应用到全部',
+        applyAllTitle: '把当前照片的所有相框设置（画幅 / 风格 / 边距 / 高级参数 / 阴影 / 文字模板 / 字段开关）应用到全部已加载的照片',
+        styles: {
+          frosted: '毛玻璃',
+          'frosted-dark': '毛玻璃·深',
+          white: '纯白',
+          black: '纯黑',
+          polaroid: '宝丽来'
+        }
+      },
+      caption: {
+        template: '模板',
+        templates: {
+          'minimal-text': '极简 · 品牌 + 参数',
+          'brand-logo': '品牌 LOGO · 型号 | 参数',
+          'brand-right': '品牌右置 · 参数 | 品牌',
+          'tech-stack': '技术栈 · 竖排',
+          'date-lens': '日期 · 镜头'
+        },
+        showFields: '显示字段',
+        fields: {
+          brand: '品牌',
+          model: '型号',
+          focal: '焦段',
+          aperture: '光圈',
+          shutter: '快门',
+          iso: 'ISO',
+          lens: '镜头',
+          date: '日期',
+          author: '作者',
+          flash: '闪灯'
+        }
+      },
+      exif: {
+        summary: 'EXIF',
+        summaryHint: '读取 · 编辑',
+        warn: '<strong>⚠ 未在图片中读取到 EXIF</strong> — 下方输入框的灰色斜体文字只是示例占位。微信 / 社交平台上传会剥离元数据。请手动填写需要显示的字段，或改用原图。',
+        labels: {
+          make: '品牌',
+          model: '型号',
+          focalLength: '焦距 (mm)',
+          fNumber: 'ƒ-number',
+          exposureTime: '快门',
+          iso: 'ISO',
+          lensModel: '镜头',
+          date: '日期',
+          author: '作者',
+          flash: '闪光灯'
+        },
+        flashAuto: '自动',
+        flashFired: '触发',
+        flashOff: '关闭',
+        resetAuto: '重置为自动读取',
+        applyAll: '将 EXIF 应用到全部',
+        applyAllTitle: '把当前照片的 EXIF 编辑应用到所有已加载的照片',
+        copyRaw: '复制原始 EXIF',
+        copyRawTitle: '把这张照片解析出来的原始 EXIF JSON 复制到剪贴板（debug 用）'
+      },
+      export: {
+        quality: '质量',
+        format: '格式',
+        qualities: {
+          standard: '标准 · 1440',
+          high: '高清 · 2×',
+          original: '原始 · 原生'
+        },
+        exportCurrent: '导出当前',
+        batchZip: '批量 · ZIP',
+        modalTitle: '导出中…',
+        modalDoneTitle: '已完成',
+        modalDoneWithErrors: '完成 · 有错误',
+        stageRender: '渲染中',
+        stagePack: '打包 ZIP…',
+        stageDone: '完成',
+        currentPack: '生成压缩包',
+        currentDone: '已下载 ZIP',
+        currentEmpty: '—',
+        close: '关闭'
+      },
+      canvas: {
+        dropHint: '拖入照片以导入',
+        emptyTitle: '尚未载入照片',
+        emptySubDesktop: '从左侧导入，或拖到此处。',
+        emptySubMobile: '点击上方“导入照片”。',
+        rendering: '渲染中'
+      },
+      rail: {
+        head: '胶卷',
+        empty: '尚无照片',
+        navigate: '上下切换',
+        ariaList: '已导入照片',
+        ariaPane: '照片胶卷'
+      },
+      status: {
+        ready: '就绪',
+        loadingAssets: '加载资源中…',
+        bundleFail: '资源加载失败：{msg}',
+        previewFail: '预览失败：{msg}',
+        readingExif: '读取 EXIF…',
+        exifFail: 'EXIF 解析失败：{msg}',
+        reading: '读取中…',
+        decodeFailMany: '{n} 张图片无法解码（已跳过）',
+        decodeHeic: 'HEIC/HEIF 浏览器不支持，请先转为 JPEG',
+        decodeUnsupported: '不支持的格式 {mime}',
+        decodeBroken: '图片无法解码（文件可能已损坏）',
+        noPhoto: '尚未载入照片',
+        exifLoading: 'EXIF 仍在加载…',
+        copiedRaw: '已复制原始 EXIF（{n} 个键）到剪贴板',
+        copiedRawFallback: '已复制原始 EXIF（备用方式）',
+        onlyOne: '仅有一张照片',
+        appliedFrame: '已将相框设置应用到 {n} 张照片',
+        appliedExif: '已将 {n} 个 EXIF 字段应用到 {m} 张照片',
+        exporting: '导出中…',
+        exported: '已导出',
+        exportFail: '导出失败',
+        batchPrefix: '批量 · {n} 张',
+        batchDone: '完成 · {n} 个错误',
+        batchFail: '批量失败',
+        hint: 'J/K · 方向键  切换  ·  Enter 选中  ·  Esc 关闭'
+      },
+      footer: { brandShip: 'frame · caption · ship' }
+    },
+
+    'en': {
+      brand: { sub: 'frame · caption · ship' },
+      topbar: {
+        photos: 'photos',
+        switch: 'switch',
+        export: 'export',
+        github: 'View source on GitHub'
+      },
+      lang: { zh: '中', en: 'EN', label: 'Language' },
+      sections: {
+        source: 'Source',
+        frame: 'Frame',
+        caption: 'Caption',
+        exif: 'EXIF',
+        export: 'Export'
+      },
+      source: {
+        importTitle: 'Import photos',
+        hintDesktop: 'JPEG / PNG · multi-select · drag here',
+        hintMobile: 'JPEG / PNG · tap to choose'
+      },
+      frame: {
+        aspect: 'Aspect',
+        style: 'Style',
+        padding: 'Padding',
+        paddingUnit: '{n} px',
+        captionH: 'Caption height',
+        captionAuto: 'auto',
+        captionUnit: '{n} px',
+        advancedFrosted: 'Advanced · frosted bg',
+        advancedShadow: 'Advanced · shadow',
+        blur: 'Blur',
+        brightness: 'Brightness',
+        saturation: 'Saturation',
+        defaultReadout: 'preset',
+        resetDefault: 'Reset to default',
+        shadowBlur: 'Blur radius',
+        shadowOffset: 'Y offset',
+        shadowOpacity: 'Opacity',
+        applyAll: 'Apply frame to all',
+        applyAllTitle: 'Copy this photo’s frame settings (aspect / style / padding / advanced / shadow / template / fields) to every loaded photo',
+        styles: {
+          frosted: 'Frosted',
+          'frosted-dark': 'Dark',
+          white: 'White',
+          black: 'Black',
+          polaroid: 'Polaroid'
+        }
+      },
+      caption: {
+        template: 'Template',
+        templates: {
+          'minimal-text': 'Minimal · brand + params',
+          'brand-logo': 'Brand logo · model | params',
+          'brand-right': 'Brand right · params | brand',
+          'tech-stack': 'Tech stack · vertical',
+          'date-lens': 'Date · lens'
+        },
+        showFields: 'Show fields',
+        fields: {
+          brand: 'Brand',
+          model: 'Model',
+          focal: 'Focal',
+          aperture: 'Aperture',
+          shutter: 'Shutter',
+          iso: 'ISO',
+          lens: 'Lens',
+          date: 'Date',
+          author: 'Author',
+          flash: 'Flash'
+        }
+      },
+      exif: {
+        summary: 'EXIF',
+        summaryHint: 'read · edit',
+        warn: '<strong>⚠ No EXIF in image</strong> — the gray italics in the inputs below are placeholder hints only. Social platforms (WeChat, Instagram, etc.) strip metadata on upload. Fill in the fields you want shown, or use the original file.',
+        labels: {
+          make: 'Make',
+          model: 'Model',
+          focalLength: 'Focal (mm)',
+          fNumber: 'ƒ-number',
+          exposureTime: 'Shutter',
+          iso: 'ISO',
+          lensModel: 'Lens',
+          date: 'Date',
+          author: 'Author',
+          flash: 'Flash'
+        },
+        flashAuto: 'auto',
+        flashFired: 'Fired',
+        flashOff: 'Off',
+        resetAuto: 'Reset to auto-read',
+        applyAll: 'Apply EXIF to all',
+        applyAllTitle: 'Copy this photo’s EXIF edits to every loaded photo',
+        copyRaw: 'Copy raw EXIF',
+        copyRawTitle: 'Copy this photo’s raw EXIF JSON to clipboard (debug)'
+      },
+      export: {
+        quality: 'Quality',
+        format: 'Format',
+        qualities: {
+          standard: 'Standard · 1440',
+          high: 'High · 2×',
+          original: 'Original · native'
+        },
+        exportCurrent: 'Export current',
+        batchZip: 'Batch · ZIP',
+        modalTitle: 'Exporting…',
+        modalDoneTitle: 'Exported',
+        modalDoneWithErrors: 'Exported · errors',
+        stageRender: 'Rendering',
+        stagePack: 'Packing ZIP…',
+        stageDone: 'Done',
+        currentPack: 'Building archive',
+        currentDone: 'ZIP downloaded',
+        currentEmpty: '—',
+        close: 'Close'
+      },
+      canvas: {
+        dropHint: 'Drop photos to import',
+        emptyTitle: 'No photo loaded',
+        emptySubDesktop: 'Import from the left panel, or drop here.',
+        emptySubMobile: 'Tap “Import photos” above.',
+        rendering: 'rendering'
+      },
+      rail: {
+        head: 'Roll',
+        empty: 'No photos yet',
+        navigate: 'navigate',
+        ariaList: 'Imported photos',
+        ariaPane: 'Photo roll'
+      },
+      status: {
+        ready: 'ready',
+        loadingAssets: 'loading assets…',
+        bundleFail: 'bundle load failed: {msg}',
+        previewFail: 'preview failed: {msg}',
+        readingExif: 'reading EXIF…',
+        exifFail: 'EXIF parse failed: {msg}',
+        reading: 'reading…',
+        decodeFailMany: '{n} files could not be decoded (skipped)',
+        decodeHeic: 'HEIC/HEIF not supported by browser — convert to JPEG first',
+        decodeUnsupported: 'unsupported format {mime}',
+        decodeBroken: 'image could not be decoded (file may be corrupt)',
+        noPhoto: 'no photo loaded',
+        exifLoading: 'EXIF still loading…',
+        copiedRaw: 'copied raw EXIF ({n} keys) to clipboard',
+        copiedRawFallback: 'copied raw EXIF (fallback)',
+        onlyOne: 'only one photo loaded',
+        appliedFrame: 'applied frame settings to {n} photo(s)',
+        appliedExif: 'applied {n} EXIF field(s) to {m} photo(s)',
+        exporting: 'exporting…',
+        exported: 'exported',
+        exportFail: 'export failed',
+        batchPrefix: 'batch · {n} files',
+        batchDone: 'done · {n} errors',
+        batchFail: 'batch failed',
+        hint: 'J/K · arrows  switch  ·  Enter select  ·  Esc close'
+      },
+      footer: { brandShip: 'frame · caption · ship' }
+    }
+  };
+
+  function getByPath(obj, path) {
+    let cur = obj;
+    for (const seg of path.split('.')) {
+      if (cur == null) return undefined;
+      cur = cur[seg];
+    }
+    return cur;
+  }
+
+  function interpolate(template, vars) {
+    if (vars == null) return template;
+    return template.replace(/\{(\w+)\}/g, (_, k) =>
+      Object.prototype.hasOwnProperty.call(vars, k) ? String(vars[k]) : '{' + k + '}'
+    );
+  }
+
+  let current = (function detectInitial() {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved && DICT[saved]) return saved;
+    } catch (_) {}
+    const nav = (navigator.language || 'en').toLowerCase();
+    if (nav.startsWith('zh')) return 'zh-CN';
+    return 'en';
+  })();
+
+  const listeners = new Set();
+
+  function t(key, vars) {
+    const dict = DICT[current] || DICT['en'];
+    let raw = getByPath(dict, key);
+    if (raw == null) raw = getByPath(DICT['en'], key);
+    if (raw == null) return key;
+    if (typeof raw !== 'string') return key;
+    return interpolate(raw, vars);
+  }
+
+  function applyDom(root) {
+    root = root || document;
+    root.querySelectorAll('[data-i18n]').forEach((el) => {
+      const key = el.getAttribute('data-i18n');
+      const html = el.hasAttribute('data-i18n-html');
+      const v = t(key);
+      if (html) el.innerHTML = v;
+      else el.textContent = v;
+    });
+    root.querySelectorAll('[data-i18n-placeholder]').forEach((el) => {
+      el.placeholder = t(el.getAttribute('data-i18n-placeholder'));
+    });
+    root.querySelectorAll('[data-i18n-aria-label]').forEach((el) => {
+      el.setAttribute('aria-label', t(el.getAttribute('data-i18n-aria-label')));
+    });
+    root.querySelectorAll('[data-i18n-title]').forEach((el) => {
+      el.setAttribute('title', t(el.getAttribute('data-i18n-title')));
+    });
+    document.documentElement.setAttribute('lang', current);
+  }
+
+  function setLocale(loc) {
+    if (!DICT[loc] || loc === current) return;
+    current = loc;
+    try { localStorage.setItem(STORAGE_KEY, loc); } catch (_) {}
+    applyDom();
+    listeners.forEach((fn) => { try { fn(loc); } catch (e) { console.error('[i18n]', e); } });
+  }
+
+  function getLocale() { return current; }
+
+  function onChange(fn) {
+    listeners.add(fn);
+    return () => listeners.delete(fn);
+  }
+
+  function locales() { return Object.keys(DICT); }
+
+  window.I18N = { t, applyDom, setLocale, getLocale, onChange, locales };
+
+  // Translate static markup as soon as the DOM is ready.
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => applyDom(), { once: true });
+  } else {
+    applyDom();
+  }
+})();

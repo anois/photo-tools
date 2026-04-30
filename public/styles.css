@@ -153,6 +153,42 @@ body {
   border-color: var(--line-strong);
 }
 
+/* Language toggle — two-segment pill, mono small caps to echo brand-sub */
+.lang-seg {
+  display: inline-flex;
+  align-items: stretch;
+  background: var(--bg-sunken);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 2px;
+  gap: 0;
+}
+.lang-seg button {
+  appearance: none;
+  -webkit-appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--text-dim);
+  font: 500 10px/1 var(--f-mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 4px 9px;
+  min-width: 26px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: color 140ms ease, background 140ms ease;
+}
+.lang-seg button:hover { color: var(--text); }
+.lang-seg button.active {
+  color: var(--text);
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px var(--accent-line);
+}
+.lang-seg button:focus-visible {
+  outline: 1px solid var(--accent-line);
+  outline-offset: 2px;
+}
+
 /* Keyboard caps */
 kbd {
   display: inline-flex;
@@ -380,6 +416,9 @@ input[type="range"]::-moz-range-thumb {
   font-family: var(--f-ui);
   letter-spacing: 0.02em;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 
 /* =========================================================

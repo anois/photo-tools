@@ -8,7 +8,9 @@
  *   done(errors)          — switch to "done" stage; reveal close button
  *   close()               — hide
  *
- * Stage labels are deliberately Chinese to match the rest of the UI.
+ * Strings come from window.I18N so the modal follows the active locale.
+ * We track which "stage" we're in so a locale flip mid-export repaints the
+ * stage label and current-line correctly.
  */
 (function () {
   'use strict';
@@ -25,55 +27,85 @@
     closeBtn: document.getElementById('export-modal-close')
   };
 
+  const T = (k, vars) => window.I18N.t(k, vars);
+
   let totalCount = 0;
+  let stage = 'idle';      // 'render' | 'pack' | 'done' | 'idle'
+  let currentName = '';
+  let errorCount = 0;
+
+  function paintStage() {
+    if (stage === 'render') {
+      els.title.textContent = T('export.modalTitle');
+      els.stage.textContent = T('export.stageRender');
+      els.current.textContent = currentName || T('export.currentEmpty');
+    } else if (stage === 'pack') {
+      els.stage.textContent = T('export.stagePack');
+      els.current.textContent = T('export.currentPack');
+    } else if (stage === 'done') {
+      els.title.textContent = errorCount
+        ? T('export.modalDoneWithErrors')
+        : T('export.modalDoneTitle');
+      els.stage.textContent = T('export.stageDone');
+      els.current.textContent = T('export.currentDone');
+    }
+  }
 
   function open(total) {
     totalCount = total;
-    els.title.textContent = 'Exporting…';
-    els.stage.textContent = '渲染中';
+    stage = 'render';
+    currentName = '';
+    errorCount = 0;
     els.done.textContent = '0';
     els.total.textContent = String(total);
     els.fill.style.width = '0%';
-    els.current.textContent = '—';
     els.errors.hidden = true;
     els.errors.innerHTML = '';
     els.closeBtn.hidden = true;
+    paintStage();
     if (typeof els.dialog.showModal === 'function') els.dialog.showModal();
     else els.dialog.setAttribute('open', '');
   }
 
   function render(done, name) {
+    currentName = name || '';
     els.done.textContent = String(done);
     els.fill.style.width = totalCount ? `${(done / totalCount) * 100}%` : '0%';
-    els.current.textContent = name || '—';
+    els.current.textContent = currentName || T('export.currentEmpty');
   }
 
   function pack() {
-    els.stage.textContent = '打包 ZIP…';
+    stage = 'pack';
     els.fill.style.width = '100%';
-    els.current.textContent = '生成压缩包';
+    paintStage();
   }
 
   function done(errors) {
-    els.title.textContent = errors && errors.length ? 'Exported · errors' : 'Exported';
-    els.stage.textContent = '完成';
+    stage = 'done';
+    errorCount = (errors && errors.length) || 0;
     els.fill.style.width = '100%';
-    els.current.textContent = '已下载 ZIP';
-    if (errors && errors.length) {
+    if (errorCount) {
       els.errors.hidden = false;
       els.errors.innerHTML = errors.map((e) => `<li>${e.replace(/[<>&]/g, (c) => ({ '<':'&lt;','>':'&gt;','&':'&amp;'}[c]))}</li>`).join('');
     }
+    paintStage();
     els.closeBtn.hidden = false;
     els.closeBtn.focus();
   }
 
   function close() {
     if (els.dialog.open) els.dialog.close();
+    stage = 'idle';
   }
 
   els.closeBtn.addEventListener('click', close);
   // Escape key on a <dialog> auto-fires close — handle that to clean up state.
   els.dialog.addEventListener('close', () => { els.errors.innerHTML = ''; });
+
+  // Repaint stage label when the user flips locale mid-export.
+  if (window.I18N && typeof window.I18N.onChange === 'function') {
+    window.I18N.onChange(() => { if (stage !== 'idle') paintStage(); });
+  }
 
   window.ProgressModal = { open, render, pack, done, close };
 })();

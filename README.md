@@ -40,6 +40,7 @@ A single-page web app that wraps photos in a "frosted-glass" frame — blurred s
 - **Live preview** via Canvas2D + GPU `ctx.filter` blur — no round-trip to a server
 - **Single + batch export** with EXIF round-trip preserved on JPEG (Make / Model / focal / aperture / shutter / ISO / lens / date / GPS)
 - **Web-Worker pool** for batch render off the main thread
+- **Bilingual UI** — Chinese / English toggle in the topbar; auto-detects browser locale on first visit, persists choice in `localStorage`
 - **Mobile-friendly** sticky-preview stacked layout for phones
 
 ## Preview
@@ -104,6 +105,7 @@ photo-tools/
 │   ├── exporter.js         ← single + batch export + ZIP packing
 │   ├── worker.js           ← off-main-thread render for batch
 │   ├── progressModal.js    ← <dialog> controller for batch progress
+│   ├── i18n.js             ← zh-CN / en dictionaries + locale switcher
 │   ├── styles.css
 │   ├── logo.svg            ← project logo (favicon + README header)
 │   ├── vendor/             ← exifr, piexif, jszip (vendored, no CDN)

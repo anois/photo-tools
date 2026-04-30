@@ -56,6 +56,7 @@ When iterating on this project:
    - Progress modal: `public/progressModal.js` (`<dialog id="export-modal">` controller).
    - EXIF I/O: `public/exifio.js` (read via exifr UMD, write via piexifjs).
    - Per-photo cfg model + UI wiring: `public/app.js`.
+   - UI strings + locale switching: `public/i18n.js` (zh-CN + en dictionaries; nothing else owns user-visible copy).
 
 6. **Delete aggressively.** Don't leave commented-out alternatives or "in case we need it" stubs. Prefer lean code over optionality.
 
@@ -246,12 +247,28 @@ A native `<dialog>` is the host. The controller exposes a stage-based API consum
 
 | API | Stage | UI effect |
 |---|---|---|
-| `open(total)` | "渲染中" | shows dialog, resets counter to `0/total` |
-| `render(done, name)` | "渲染中" | bumps counter, fills bar, displays current filename |
-| `pack()` | "打包 ZIP…" | bar to 100%, message switches to "生成压缩包" |
-| `done(errors)` | "完成" | reveals close button, lists errors if any |
+| `open(total)` | render | shows dialog, resets counter to `0/total` |
+| `render(done, name)` | render | bumps counter, fills bar, displays current filename |
+| `pack()` | pack | bar to 100%, message switches to "build archive" |
+| `done(errors)` | done | reveals close button, lists errors if any |
+
+Stage labels come from `window.I18N` and follow the active locale. The controller tracks the current stage internally so a locale flip mid-export repaints the visible label without losing progress state.
 
 The exporter resolves the modal lazily (`PM = () => window.ProgressModal`) because script ordering loads `exporter.js` before `progressModal.js`.
+
+### Internationalization (`public/i18n.js`)
+
+Two locales are bundled — `zh-CN` (the original UI) and `en`. There is no `t-r-anslation server`; the dictionary is a static object, addressed by dotted keys. Three bits are wired together:
+
+1. **Static markup** uses `data-i18n="key"` on an element to translate its text content (or `data-i18n-html` for the EXIF warning's `<strong>` markup). Placeholders, `aria-label`, and `title` use `data-i18n-placeholder` / `data-i18n-aria-label` / `data-i18n-title`. `I18N.applyDom()` walks these on boot and after every locale switch.
+2. **Dynamic strings** in `app.js` and `progressModal.js` call `T(key, vars)` (= `window.I18N.t`) instead of inlining literals. Status messages persist their key + vars in a small struct so the bar can be repainted on locale flip.
+3. **Switcher UI** is the two-segment `<div id="lang-seg">` in the topbar (`中` / `EN`). Clicking calls `I18N.setLocale(loc)`, which writes through to `localStorage['phototools.locale']`, re-walks the DOM, and fires every `onChange` subscriber. `app.js` subscribes via `refreshLocaleSensitive()` to repaint readouts that hold a literal (`默认` / preset, `自动` / auto, etc.). `progressModal.js` subscribes to repaint the active stage label.
+
+First-visit detection: if no localStorage key, look at `navigator.language` — `zh*` → `zh-CN`, anything else → `en`.
+
+**Adding a new translatable string:** add the key to *both* locales in `DICT` inside `public/i18n.js`. Static UI gets `data-i18n="..."` in `index.html`; dynamic code paths call `T('key.path', { var })`. Don't add literal Chinese or English copy anywhere outside `i18n.js` — that's the convention. Keep keys grouped by section (`status.*`, `frame.*`, `caption.fields.*`).
+
+**Pitfall:** when extending `setStatus` in `app.js`, pass an `i18n` key (e.g. `'status.exifFail'`) plus `vars`, not a pre-formatted literal. The bar persists the key so a locale flip mid-status reflows correctly. Literal strings still work (back-compat) but get cleared on the next locale flip — only use them for messages caught from `err.message` or other untranslatable sources.
 
 ### Big-photo path
 
@@ -311,8 +328,11 @@ If the source has no EXIF (social-platform-stripped images), the function silent
 **Add a new toggleable field:**
 1. Extend `FIELD_KEYS` in `public/app.js` (top of file).
 2. Respect it in any template that references it (use `on(show, key)` helper in `public/shared/render.js`).
-3. Add a `<label class="chip">` checkbox to `#show-fields` in `public/index.html`.
+3. Add a `<label class="chip">` checkbox to `#show-fields` in `public/index.html` with `data-i18n="caption.fields.<key>"` on the label span.
 4. Seed default in both `defaultCfg().showFields` in `public/app.js` (drives state) — chip-checked attribute in HTML drives initial UI but `state.draftCfg.showFields[key]` overrides it on render.
+5. Add `caption.fields.<key>` to the dictionary in `public/i18n.js` for both locales.
+
+**Add a translatable string:** put the key in *both* `zh-CN` and `en` blocks of `DICT` in `public/i18n.js`. Static markup uses `data-i18n="..."`; runtime code uses `T('key', vars)`. See "Internationalization" above.
 
 ## Pitfalls discovered during build
 

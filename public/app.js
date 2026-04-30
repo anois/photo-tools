@@ -3,6 +3,7 @@
 const FIELD_KEYS = ['brand', 'model', 'focal', 'aperture', 'shutter', 'iso', 'lens', 'date', 'author', 'flash'];
 const R = window.PhotoRender;
 const CR = window.ClientRender;
+const T = (k, vars) => window.I18N.t(k, vars);
 
 const DEFAULT_FRAME = 'frosted';
 
@@ -113,10 +114,43 @@ const els = {
 
 const pad2 = (n) => String(n).padStart(2, '0');
 
-function setStatus(text, mode) {
-  els.status.textContent = text || 'ready';
+// status holds the i18n key + vars instead of a literal string, so a locale
+// switch can re-render the bar without losing what message is currently up.
+let currentStatus = { key: 'status.ready', vars: null, mode: null };
+
+function setStatus(keyOrText, mode, vars) {
+  // Back-compat: callers used to pass a literal string. If the argument is
+  // not a known status key, render it raw and clear the persisted state so
+  // a locale switch shows 'ready' instead of an outdated literal.
+  if (typeof keyOrText === 'string' && !keyOrText.startsWith('status.')) {
+    els.status.textContent = keyOrText;
+    currentStatus = { key: 'status.ready', vars: null, mode: mode || null };
+  } else {
+    const key = keyOrText || 'status.ready';
+    currentStatus = { key, vars: vars || null, mode: mode || null };
+    els.status.textContent = T(key, vars);
+  }
   els.statusbar.classList.toggle('busy', mode === 'busy');
   els.statusbar.classList.toggle('err', mode === 'err');
+}
+
+function refreshLocaleSensitive() {
+  els.status.textContent = T(currentStatus.key, currentStatus.vars);
+  // Defaults / readouts that store a literal need to be repainted from cfg.
+  const cfg = activeCfg();
+  if (els.captionHVal && (cfg.captionHeight == null)) {
+    els.captionHVal.textContent = T('frame.captionAuto');
+  }
+  const frame = R.FRAMES[cfg.frame];
+  if (frame && frame.bg.type === 'frosted') {
+    if (cfg.bgBlur == null)       els.bgBlurVal.textContent       = T('frame.defaultReadout');
+    if (cfg.bgBrightness == null) els.bgBrightnessVal.textContent = T('frame.defaultReadout');
+    if (cfg.bgSaturation == null) els.bgSaturationVal.textContent = T('frame.defaultReadout');
+  }
+  // Empty rail and EXIF warning re-render from canonical state too.
+  renderRail();
+  const active = state.files[state.activeIdx];
+  updateExifWarn(active ? active.normalized : null);
 }
 
 // ─── Asset bundle: pre-baked logos.json + base64-inlined fonts.css ───────
@@ -138,12 +172,10 @@ function hasMeaningfulExif(n) {
 }
 
 function updateExifWarn(normalized) {
-  const warn = hasMeaningfulExif(normalized) ? null :
-    '<strong>⚠ 未在图片中读取到 EXIF</strong> — 下方输入框的灰色斜体文字只是示例占位。' +
-    '微信 / 社交平台上传会剥离元数据。请手动填写需要显示的字段，或改用原图。';
-  els.exifWarn.hidden = !warn;
-  els.exifWarn.innerHTML = warn || '';
-  if (warn) els.exifDetails.open = true;
+  const showWarn = !hasMeaningfulExif(normalized);
+  els.exifWarn.hidden = !showWarn;
+  els.exifWarn.innerHTML = showWarn ? T('exif.warn') : '';
+  if (showWarn) els.exifDetails.open = true;
 }
 
 // Push auto-parsed values into the EXIF inputs. Then any user override stored
@@ -206,7 +238,7 @@ function renderRail() {
   if (!state.files.length) {
     const empty = document.createElement('li');
     empty.className = 'rail-empty';
-    empty.textContent = 'No photos yet';
+    empty.textContent = T('rail.empty');
     els.thumbRail.appendChild(empty);
   } else {
     state.files.forEach((f, i) => {
@@ -265,7 +297,7 @@ async function doRender() {
     els.empty.hidden = true;
   } catch (err) {
     console.error('[preview]', err);
-    setStatus('preview failed: ' + err.message, 'err');
+    setStatus('status.previewFail', 'err', { msg: err.message });
   } finally {
     state.rendering = false;
     els.previewLoading.hidden = true;
@@ -289,21 +321,21 @@ function syncControlsFromCfg(cfg) {
   setSegActive(els.frameSeg, cfg.frame);
   els.template.value = cfg.template;
   els.padding.value = cfg.padding;
-  els.paddingVal.textContent = `${cfg.padding} px`;
+  els.paddingVal.textContent = T('frame.paddingUnit', { n: cfg.padding });
   if (cfg.captionHeight != null) {
     els.captionH.value = cfg.captionHeight;
-    els.captionHVal.textContent = `${cfg.captionHeight} px`;
+    els.captionHVal.textContent = T('frame.captionUnit', { n: cfg.captionHeight });
   } else {
-    els.captionHVal.textContent = 'auto';
+    els.captionHVal.textContent = T('frame.captionAuto');
   }
   const frame = R.FRAMES[cfg.frame];
   if (frame.bg.type === 'frosted') {
     els.bgBlur.value = cfg.bgBlur != null ? cfg.bgBlur : frame.bg.blurSigma;
     els.bgBrightness.value = cfg.bgBrightness != null ? cfg.bgBrightness : frame.bg.brightness;
     els.bgSaturation.value = cfg.bgSaturation != null ? cfg.bgSaturation : frame.bg.saturation;
-    els.bgBlurVal.textContent = cfg.bgBlur != null ? String(cfg.bgBlur) : '默认';
-    els.bgBrightnessVal.textContent = cfg.bgBrightness != null ? Number(cfg.bgBrightness).toFixed(2) : '默认';
-    els.bgSaturationVal.textContent = cfg.bgSaturation != null ? Number(cfg.bgSaturation).toFixed(2) : '默认';
+    els.bgBlurVal.textContent = cfg.bgBlur != null ? String(cfg.bgBlur) : T('frame.defaultReadout');
+    els.bgBrightnessVal.textContent = cfg.bgBrightness != null ? Number(cfg.bgBrightness).toFixed(2) : T('frame.defaultReadout');
+    els.bgSaturationVal.textContent = cfg.bgSaturation != null ? Number(cfg.bgSaturation).toFixed(2) : T('frame.defaultReadout');
   }
   els.frostedAdvanced.hidden = frame.bg.type !== 'frosted';
   if (els.frostedAdvanced.open && frame.bg.type !== 'frosted') els.frostedAdvanced.open = false;
@@ -335,18 +367,18 @@ async function selectFile(idx) {
   syncControlsFromCfg(f.cfg);
   if (!f.normalized) {
     try {
-      setStatus('reading EXIF…', 'busy');
+      setStatus('status.readingExif', 'busy');
       const r = await uploadForExif(f.file);
       f.normalized = r.normalized;
       f.rawExif = r.slim;
       populateExifInputs(f.normalized);
       applyOverrideToInputs(f.cfg.exifOverride);
       updateExifWarn(f.normalized);
-      setStatus('ready');
+      setStatus('status.ready');
     } catch (err) {
       f.normalized = {};
       updateExifWarn(null);
-      setStatus('EXIF parse failed: ' + err.message, 'err');
+      setStatus('status.exifFail', 'err', { msg: err.message });
     }
   } else {
     populateExifInputs(f.normalized);
@@ -409,10 +441,10 @@ async function mergeFiles(newFiles) {
   if (rejected.length) {
     const msg = rejected.length === 1
       ? `${rejected[0].name}: ${rejected[0].reason}`
-      : `${rejected.length} 张图片无法解码（已跳过）`;
+      : T('status.decodeFailMany', { n: rejected.length });
     setStatus(msg, 'err');
     if (rejected.length > 1) console.warn('[import] rejected files:', rejected);
-    setTimeout(() => setStatus('ready'), 4000);
+    setTimeout(() => setStatus('status.ready'), 4000);
   }
   return { addedCount: added.length - rejected.length, rejected };
 }
@@ -425,20 +457,20 @@ function humanizeDecodeError(err, file) {
   const ext = (file.name.match(/\.([^.]+)$/) || ['',''])[1].toLowerCase();
   const mime = (file.type || '').toLowerCase();
   if (ext === 'heic' || ext === 'heif' || mime.includes('heic') || mime.includes('heif')) {
-    return 'HEIC/HEIF 浏览器不支持，请先转为 JPEG';
+    return T('status.decodeHeic');
   }
   if (mime && mime !== 'image/jpeg' && mime !== 'image/png') {
-    return `不支持的格式 ${mime}`;
+    return T('status.decodeUnsupported', { mime });
   }
   console.warn('[decode]', file.name, err);
-  return '图片无法解码（文件可能已损坏）';
+  return T('status.decodeBroken');
 }
 
 els.fileInput.addEventListener('change', async () => {
   const files = Array.from(els.fileInput.files || []);
   if (!files.length) return;
   const prevLen = state.files.length;
-  setStatus('reading…', 'busy');
+  setStatus('status.reading', 'busy');
   await mergeFiles(files);
   renderRail();
   if (state.files.length > prevLen) await selectFile(prevLen);
@@ -471,9 +503,9 @@ function onFrameChange(frameName) {
   cfg.bgBlur = null;
   cfg.bgBrightness = null;
   cfg.bgSaturation = null;
-  els.bgBlurVal.textContent = '默认';
-  els.bgBrightnessVal.textContent = '默认';
-  els.bgSaturationVal.textContent = '默认';
+  els.bgBlurVal.textContent = T('frame.defaultReadout');
+  els.bgBrightnessVal.textContent = T('frame.defaultReadout');
+  els.bgSaturationVal.textContent = T('frame.defaultReadout');
   if (frame.bg.type === 'frosted') {
     els.bgBlur.value = frame.bg.blurSigma;
     els.bgBrightness.value = frame.bg.brightness;
@@ -547,7 +579,7 @@ els.quality.addEventListener('change',  () => { state.quality = els.quality.valu
 els.padding.addEventListener('input', () => {
   const v = Number(els.padding.value);
   activeCfg().padding = v;
-  els.paddingVal.textContent = `${v} px`;
+  els.paddingVal.textContent = T('frame.paddingUnit', { n: v });
   requestRender();
 });
 
@@ -556,12 +588,12 @@ els.padding.addEventListener('input', () => {
 els.captionH.addEventListener('input', () => {
   const v = Number(els.captionH.value);
   activeCfg().captionHeight = v;
-  els.captionHVal.textContent = `${v} px`;
+  els.captionHVal.textContent = T('frame.captionUnit', { n: v });
   requestRender();
 });
 els.captionHVal.addEventListener('dblclick', () => {
   activeCfg().captionHeight = null;
-  els.captionHVal.textContent = 'auto';
+  els.captionHVal.textContent = T('frame.captionAuto');
   requestRender();
 });
 
@@ -594,18 +626,18 @@ for (const [key, el] of Object.entries(els.exif)) {
 els.copyRawExifBtn.addEventListener('click', async () => {
   const f = state.files[state.activeIdx];
   if (!f) {
-    setStatus('no photo loaded', 'err');
+    setStatus('status.noPhoto', 'err');
     return;
   }
   if (!f.rawExif) {
-    setStatus('EXIF still loading…', 'busy');
+    setStatus('status.exifLoading', 'busy');
     return;
   }
   const json = JSON.stringify(f.rawExif, null, 2);
   try {
     await navigator.clipboard.writeText(json);
     const n = Object.keys(f.rawExif).length;
-    setStatus(`copied raw EXIF (${n} keys) to clipboard`);
+    setStatus('status.copiedRaw', null, { n });
   } catch {
     // Clipboard API is gated on user gesture + secure context. As a fallback,
     // dump to a hidden <textarea> and run document.execCommand('copy').
@@ -615,9 +647,9 @@ els.copyRawExifBtn.addEventListener('click', async () => {
     ta.select();
     document.execCommand('copy');
     document.body.removeChild(ta);
-    setStatus('copied raw EXIF (fallback)');
+    setStatus('status.copiedRawFallback');
   }
-  setTimeout(() => setStatus('ready'), 2500);
+  setTimeout(() => setStatus('status.ready'), 2500);
 });
 
 els.clearExifBtn.addEventListener('click', () => {
@@ -637,8 +669,8 @@ els.applyFrameAllBtn.addEventListener('click', () => {
   const active = state.files[state.activeIdx];
   if (!active) return;
   if (state.files.length <= 1) {
-    setStatus('only one photo loaded', 'err');
-    setTimeout(() => setStatus('ready'), 1500);
+    setStatus('status.onlyOne', 'err');
+    setTimeout(() => setStatus('status.ready'), 1500);
     return;
   }
   const src = active.cfg;
@@ -652,8 +684,8 @@ els.applyFrameAllBtn.addEventListener('click', () => {
     for (const k of FRAME_KEYS) f.cfg[k] = src[k];
     f.cfg.showFields = { ...src.showFields };
   }
-  setStatus(`applied frame settings to ${state.files.length - 1} photo(s)`);
-  setTimeout(() => setStatus('ready'), 1800);
+  setStatus('status.appliedFrame', null, { n: state.files.length - 1 });
+  setTimeout(() => setStatus('status.ready'), 1800);
   // The active photo's UI is already correct; no need to re-sync controls.
 });
 
@@ -667,16 +699,16 @@ els.applyExifAllBtn.addEventListener('click', () => {
   const src = active.cfg.exifOverride || {};
   const keys = Object.keys(src);
   if (state.files.length <= 1) {
-    setStatus('only one photo loaded', 'err');
-    setTimeout(() => setStatus('ready'), 1500);
+    setStatus('status.onlyOne', 'err');
+    setTimeout(() => setStatus('status.ready'), 1500);
     return;
   }
   for (const f of state.files) {
     if (f === active) continue;
     f.cfg.exifOverride = { ...src };
   }
-  setStatus(`applied ${keys.length} EXIF field(s) to ${state.files.length - 1} photo(s)`);
-  setTimeout(() => setStatus('ready'), 1800);
+  setStatus('status.appliedExif', null, { n: keys.length, m: state.files.length - 1 });
+  setTimeout(() => setStatus('status.ready'), 1800);
 });
 
 // ─── Keyboard nav ────────────────────────────────────────────────────────
@@ -726,7 +758,7 @@ els.canvasPane.addEventListener('drop', async (e) => {
   );
   if (!files.length) return;
   const prevLen = state.files.length;
-  setStatus('reading…', 'busy');
+  setStatus('status.reading', 'busy');
   await mergeFiles(files);
   renderRail();
   if (state.files.length > prevLen) await selectFile(prevLen === 0 ? 0 : prevLen);
@@ -767,18 +799,18 @@ els.exportBtn.addEventListener('click', async () => {
   const active = state.files[state.activeIdx];
   if (!active) return;
   els.exportBtn.disabled = true;
-  setStatus('exporting…', 'busy');
+  setStatus('status.exporting', 'busy');
   try {
     const cfg = buildConfigForFile(active);
     await window.Exporter.exportSingle(
       { file: active.file, normExif: buildExifForFile(active) },
       cfg, assets()
     );
-    setStatus('exported', null);
-    setTimeout(() => setStatus('ready'), 1500);
+    setStatus('status.exported', null);
+    setTimeout(() => setStatus('status.ready'), 1500);
   } catch (err) {
     console.error('[export]', err);
-    setStatus(err.message || 'export failed', 'err');
+    setStatus(err.message || T('status.exportFail'), 'err');
   } finally {
     els.exportBtn.disabled = false;
   }
@@ -788,7 +820,7 @@ async function runBatch() {
   if (state.files.length === 0) return;
   els.batchBtn.disabled = true;
   els.exportBtn.disabled = true;
-  setStatus(`batch · ${state.files.length} files`, 'busy');
+  setStatus('status.batchPrefix', 'busy', { n: state.files.length });
   try {
     const entries = state.files.map((f) => ({
       file: f.file,
@@ -798,11 +830,11 @@ async function runBatch() {
     // Exporter drives the progress modal directly via window.ProgressModal —
     // status bar just gets the final result.
     const { errors } = await window.Exporter.exportBatch(entries, assets());
-    setStatus(`done · ${errors.length} errors`, errors.length ? 'err' : null);
-    setTimeout(() => setStatus('ready'), 2000);
+    setStatus('status.batchDone', errors.length ? 'err' : null, { n: errors.length });
+    setTimeout(() => setStatus('status.ready'), 2000);
   } catch (err) {
     console.error('[batch]', err);
-    setStatus(err.message || 'batch failed', 'err');
+    setStatus(err.message || T('status.batchFail'), 'err');
   } finally {
     els.batchBtn.disabled = false;
     els.exportBtn.disabled = state.activeIdx < 0;
@@ -813,12 +845,38 @@ els.batchBtn.addEventListener('click', runBatch);
 // ─── Boot ────────────────────────────────────────────────────────────────
 (async () => {
   try {
-    setStatus('loading assets…', 'busy');
+    setStatus('status.loadingAssets', 'busy');
     await loadBundle();
-    setStatus('ready');
+    setStatus('status.ready');
     renderRail();
   } catch (err) {
-    setStatus('bundle load failed: ' + err.message, 'err');
+    setStatus('status.bundleFail', 'err', { msg: err.message });
     console.error(err);
   }
+})();
+
+// ─── Language switcher ──────────────────────────────────────────────────
+// Two-segment toggle in the topbar. Clicking flips the active locale, which
+// re-walks all data-i18n hooks and fires our refresh hook for live readouts.
+(function wireLangSeg() {
+  const seg = document.getElementById('lang-seg');
+  if (!seg) return;
+  function syncActive() {
+    const cur = window.I18N.getLocale();
+    seg.querySelectorAll('button[data-loc]').forEach((b) => {
+      const on = b.dataset.loc === cur;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-checked', on ? 'true' : 'false');
+    });
+  }
+  seg.addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-loc]');
+    if (!btn) return;
+    window.I18N.setLocale(btn.dataset.loc);
+  });
+  window.I18N.onChange(() => {
+    syncActive();
+    refreshLocaleSensitive();
+  });
+  syncActive();
 })();

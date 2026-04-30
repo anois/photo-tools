@@ -31,12 +31,16 @@
   <div class="brand">
     <span class="brand-dot" aria-hidden="true"></span>
     <h1 class="brand-name">photo-tools</h1>
-    <span class="brand-sub">frame · caption · ship</span>
+    <span class="brand-sub" data-i18n="brand.sub">frame · caption · ship</span>
   </div>
   <div class="topbar-meta">
-    <span class="meta-item"><em id="count-current">00</em><span class="meta-sep">/</span><em id="count-total">00</em><span class="meta-label">photos</span></span>
-    <span class="meta-kbd" title="键盘快捷键"><kbd>↑</kbd><kbd>↓</kbd>&nbsp;switch<span class="meta-sep">·</span><kbd>⌘E</kbd>&nbsp;export</span>
-    <a class="topbar-github" href="https://github.com/anois/photo-tools" target="_blank" rel="noopener" aria-label="View source on GitHub" title="View source on GitHub">
+    <span class="meta-item"><em id="count-current">00</em><span class="meta-sep">/</span><em id="count-total">00</em><span class="meta-label" data-i18n="topbar.photos">photos</span></span>
+    <span class="meta-kbd" data-i18n-title="topbar.switch"><kbd>↑</kbd><kbd>↓</kbd>&nbsp;<span data-i18n="topbar.switch">switch</span><span class="meta-sep">·</span><kbd>⌘E</kbd>&nbsp;<span data-i18n="topbar.export">export</span></span>
+    <div class="lang-seg" id="lang-seg" role="radiogroup" data-i18n-aria-label="lang.label">
+      <button type="button" data-loc="zh-CN" role="radio" aria-checked="true" data-i18n="lang.zh">中</button>
+      <button type="button" data-loc="en" role="radio" aria-checked="false" data-i18n="lang.en">EN</button>
+    </div>
+    <a class="topbar-github" href="https://github.com/anois/photo-tools" target="_blank" rel="noopener" data-i18n-aria-label="topbar.github" data-i18n-title="topbar.github">
       <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
     </a>
   </div>
@@ -46,10 +50,10 @@
 <main class="workspace">
 
   <!-- LEFT: CONTROLS -->
-  <aside class="pane pane-controls" aria-label="Controls">
+  <aside class="pane pane-controls" data-i18n-aria-label="sections.source">
 
     <section class="group">
-      <h2 class="sec-head"><i>A</i><span>Source</span></h2>
+      <h2 class="sec-head"><i>A</i><span data-i18n="sections.source">Source</span></h2>
       <label class="file-drop" id="file-drop">
         <input id="file-input" type="file" accept="image/jpeg,image/png" multiple />
         <div class="file-drop-inner">
@@ -57,25 +61,20 @@
             <svg viewBox="0 0 24 24" width="18" height="18"><path d="M12 4v12m0 0l-4-4m4 4l4-4M4 20h16" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </div>
           <div class="file-drop-copy">
-            <strong>Import photos</strong>
-            <span class="file-drop-hint-desktop">JPEG / PNG · multi-select · drag here</span>
-            <span class="file-drop-hint-mobile">JPEG / PNG · tap to choose</span>
+            <strong data-i18n="source.importTitle">Import photos</strong>
+            <span class="file-drop-hint-desktop" data-i18n="source.hintDesktop">JPEG / PNG · multi-select · drag here</span>
+            <span class="file-drop-hint-mobile" data-i18n="source.hintMobile">JPEG / PNG · tap to choose</span>
           </div>
         </div>
       </label>
     </section>
 
-    <!-- B · 相框  ─────────────────────────────────────────────────────── -->
-    <!-- All "frame look" knobs live here so a single Apply button can copy
-         them across photos in one shot. Aspect / padding / caption height
-         shape the canvas geometry; frame seg picks the visual style; the
-         two collapsed advanced panels expose fine-tuning for frosted bg
-         and the floating drop shadow. -->
+    <!-- B · Frame -->
     <section class="group">
-      <h2 class="sec-head"><i>B</i><span>Frame</span></h2>
+      <h2 class="sec-head"><i>B</i><span data-i18n="sections.frame">Frame</span></h2>
       <div class="row">
         <div class="field">
-          <label class="field-label">Aspect</label>
+          <label class="field-label" data-i18n="frame.aspect">Aspect</label>
           <div class="seg" id="aspect-seg" role="radiogroup">
             <button data-val="9:16" class="active" role="radio" aria-checked="true">9<span class="seg-sep">:</span>16</button>
             <button data-val="3:4"  role="radio" aria-checked="false">3<span class="seg-sep">:</span>4</button>
@@ -85,154 +84,154 @@
       </div>
       <div class="row">
         <div class="field">
-          <label class="field-label">风格</label>
+          <label class="field-label" data-i18n="frame.style">Style</label>
           <div class="seg seg-frames" id="frame-seg" role="radiogroup">
-            <button data-val="frosted" class="active" role="radio" aria-checked="true">毛玻璃</button>
-            <button data-val="frosted-dark" role="radio" aria-checked="false">毛玻璃·深</button>
-            <button data-val="white" role="radio" aria-checked="false">纯白</button>
-            <button data-val="black" role="radio" aria-checked="false">纯黑</button>
-            <button data-val="polaroid" role="radio" aria-checked="false">宝丽来</button>
+            <button data-val="frosted" class="active" role="radio" aria-checked="true" data-i18n="frame.styles.frosted">Frosted</button>
+            <button data-val="frosted-dark" role="radio" aria-checked="false" data-i18n="frame.styles.frosted-dark">Frosted · dark</button>
+            <button data-val="white" role="radio" aria-checked="false" data-i18n="frame.styles.white">White</button>
+            <button data-val="black" role="radio" aria-checked="false" data-i18n="frame.styles.black">Black</button>
+            <button data-val="polaroid" role="radio" aria-checked="false" data-i18n="frame.styles.polaroid">Polaroid</button>
           </div>
         </div>
       </div>
       <div class="row">
         <div class="field">
-          <label class="field-label">Padding <span class="field-readout" id="padding-val">70 px</span></label>
+          <label class="field-label"><span data-i18n="frame.padding">Padding</span> <span class="field-readout" id="padding-val">70 px</span></label>
           <input id="padding" type="range" min="0" max="200" value="70" step="2" />
         </div>
       </div>
       <div class="row">
         <div class="field">
-          <label class="field-label">Caption height <span class="field-readout" id="caption-h-val">auto</span></label>
+          <label class="field-label"><span data-i18n="frame.captionH">Caption height</span> <span class="field-readout" id="caption-h-val" data-i18n="frame.captionAuto">auto</span></label>
           <input id="caption-h" type="range" min="60" max="360" value="140" step="4" />
         </div>
       </div>
       <details class="frame-advanced" id="frosted-advanced">
-        <summary>高级 · 毛玻璃参数</summary>
+        <summary data-i18n="frame.advancedFrosted">Advanced · frosted bg</summary>
         <div class="row">
           <div class="field">
-            <label class="field-label">模糊 <span class="field-readout" id="bg-blur-val">默认</span></label>
+            <label class="field-label"><span data-i18n="frame.blur">Blur</span> <span class="field-readout" id="bg-blur-val" data-i18n="frame.defaultReadout">preset</span></label>
             <input id="bg-blur" type="range" min="0" max="120" step="2" />
           </div>
         </div>
         <div class="row">
           <div class="field">
-            <label class="field-label">亮度 <span class="field-readout" id="bg-brightness-val">默认</span></label>
+            <label class="field-label"><span data-i18n="frame.brightness">Brightness</span> <span class="field-readout" id="bg-brightness-val" data-i18n="frame.defaultReadout">preset</span></label>
             <input id="bg-brightness" type="range" min="0.5" max="1.2" step="0.02" />
           </div>
         </div>
         <div class="row">
           <div class="field">
-            <label class="field-label">饱和度 <span class="field-readout" id="bg-saturation-val">默认</span></label>
+            <label class="field-label"><span data-i18n="frame.saturation">Saturation</span> <span class="field-readout" id="bg-saturation-val" data-i18n="frame.defaultReadout">preset</span></label>
             <input id="bg-saturation" type="range" min="0.5" max="1.6" step="0.02" />
           </div>
         </div>
-        <button id="reset-bg-btn" type="button" class="btn-ghost">恢复默认</button>
+        <button id="reset-bg-btn" type="button" class="btn-ghost" data-i18n="frame.resetDefault">Reset to default</button>
       </details>
       <details class="frame-advanced" id="shadow-advanced">
-        <summary>高级 · 阴影</summary>
+        <summary data-i18n="frame.advancedShadow">Advanced · shadow</summary>
         <div class="row">
           <div class="field">
-            <label class="field-label">模糊半径 <span class="field-readout" id="shadow-blur-val">0</span></label>
+            <label class="field-label"><span data-i18n="frame.shadowBlur">Blur radius</span> <span class="field-readout" id="shadow-blur-val">0</span></label>
             <input id="shadow-blur" type="range" min="0" max="160" step="2" value="80" />
           </div>
         </div>
         <div class="row">
           <div class="field">
-            <label class="field-label">纵向偏移 <span class="field-readout" id="shadow-offset-val">0</span></label>
+            <label class="field-label"><span data-i18n="frame.shadowOffset">Y offset</span> <span class="field-readout" id="shadow-offset-val">0</span></label>
             <input id="shadow-offset" type="range" min="0" max="80" step="1" value="24" />
           </div>
         </div>
         <div class="row">
           <div class="field">
-            <label class="field-label">不透明度 <span class="field-readout" id="shadow-opacity-val">0</span></label>
+            <label class="field-label"><span data-i18n="frame.shadowOpacity">Opacity</span> <span class="field-readout" id="shadow-opacity-val">0</span></label>
             <input id="shadow-opacity" type="range" min="0" max="0.8" step="0.02" value="0.35" />
           </div>
         </div>
       </details>
       <div class="exif-actions" style="margin-top: 12px;">
-        <button id="apply-frame-all-btn" type="button" class="btn-ghost" title="把当前照片的所有相框设置（aspect / 风格 / padding / 高级参数 / 阴影 / 文字模板 / 字段开关）应用到全部已加载的照片">Apply 相框设置到全部</button>
+        <button id="apply-frame-all-btn" type="button" class="btn-ghost" data-i18n="frame.applyAll" data-i18n-title="frame.applyAllTitle">Apply frame to all</button>
       </div>
     </section>
 
-    <!-- C · 文字 ─────────────────────────────────────────────────────── -->
+    <!-- C · Caption -->
     <section class="group">
-      <h2 class="sec-head"><i>C</i><span>Caption</span></h2>
+      <h2 class="sec-head"><i>C</i><span data-i18n="sections.caption">Caption</span></h2>
       <div class="row">
         <div class="field">
-          <label class="field-label">Template</label>
+          <label class="field-label" data-i18n="caption.template">Template</label>
           <select id="template">
-            <option value="minimal-text">Minimal · brand + params</option>
-            <option value="brand-logo">Brand logo · model | params</option>
-            <option value="brand-right">Brand right · params | brand</option>
-            <option value="tech-stack">Tech stack · vertical</option>
-            <option value="date-lens">Date · lens</option>
+            <option value="minimal-text" data-i18n="caption.templates.minimal-text">Minimal · brand + params</option>
+            <option value="brand-logo" data-i18n="caption.templates.brand-logo">Brand logo · model | params</option>
+            <option value="brand-right" data-i18n="caption.templates.brand-right">Brand right · params | brand</option>
+            <option value="tech-stack" data-i18n="caption.templates.tech-stack">Tech stack · vertical</option>
+            <option value="date-lens" data-i18n="caption.templates.date-lens">Date · lens</option>
           </select>
         </div>
       </div>
       <div class="row">
         <div class="field">
-          <label class="field-label">Show fields</label>
+          <label class="field-label" data-i18n="caption.showFields">Show fields</label>
           <div class="chips" id="show-fields">
-            <label class="chip"><input type="checkbox" data-key="brand" checked><span>Brand</span></label>
-            <label class="chip"><input type="checkbox" data-key="model" checked><span>Model</span></label>
-            <label class="chip"><input type="checkbox" data-key="focal" checked><span>Focal</span></label>
-            <label class="chip"><input type="checkbox" data-key="aperture" checked><span>Aperture</span></label>
-            <label class="chip"><input type="checkbox" data-key="shutter" checked><span>Shutter</span></label>
-            <label class="chip"><input type="checkbox" data-key="iso" checked><span>ISO</span></label>
-            <label class="chip"><input type="checkbox" data-key="lens"><span>Lens</span></label>
-            <label class="chip"><input type="checkbox" data-key="date"><span>Date</span></label>
-            <label class="chip"><input type="checkbox" data-key="author" checked><span>Author</span></label>
-            <label class="chip"><input type="checkbox" data-key="flash"><span>Flash</span></label>
+            <label class="chip"><input type="checkbox" data-key="brand" checked><span data-i18n="caption.fields.brand">Brand</span></label>
+            <label class="chip"><input type="checkbox" data-key="model" checked><span data-i18n="caption.fields.model">Model</span></label>
+            <label class="chip"><input type="checkbox" data-key="focal" checked><span data-i18n="caption.fields.focal">Focal</span></label>
+            <label class="chip"><input type="checkbox" data-key="aperture" checked><span data-i18n="caption.fields.aperture">Aperture</span></label>
+            <label class="chip"><input type="checkbox" data-key="shutter" checked><span data-i18n="caption.fields.shutter">Shutter</span></label>
+            <label class="chip"><input type="checkbox" data-key="iso" checked><span data-i18n="caption.fields.iso">ISO</span></label>
+            <label class="chip"><input type="checkbox" data-key="lens"><span data-i18n="caption.fields.lens">Lens</span></label>
+            <label class="chip"><input type="checkbox" data-key="date"><span data-i18n="caption.fields.date">Date</span></label>
+            <label class="chip"><input type="checkbox" data-key="author" checked><span data-i18n="caption.fields.author">Author</span></label>
+            <label class="chip"><input type="checkbox" data-key="flash"><span data-i18n="caption.fields.flash">Flash</span></label>
           </div>
         </div>
       </div>
     </section>
 
     <section class="group">
-      <h2 class="sec-head"><i>D</i><span>EXIF</span></h2>
+      <h2 class="sec-head"><i>D</i><span data-i18n="sections.exif">EXIF</span></h2>
       <div id="exif-warn" class="warn" hidden></div>
       <details class="exif" id="exif-details">
-        <summary>EXIF <span class="summary-hint">read · edit</span></summary>
+        <summary><span data-i18n="exif.summary">EXIF</span> <span class="summary-hint" data-i18n="exif.summaryHint">read · edit</span></summary>
         <div class="grid-2">
-          <label>Make<input id="exif-make" type="text" placeholder="FUJIFILM" /></label>
-          <label>Model<input id="exif-model" type="text" placeholder="X-T5" /></label>
-          <label>Focal (mm)<input id="exif-focalLength" type="number" step="1" placeholder="59" /></label>
-          <label>ƒ-number<input id="exif-fNumber" type="number" step="0.1" placeholder="8" /></label>
-          <label>Shutter<input id="exif-exposureTime" type="text" placeholder="1/180" /></label>
-          <label>ISO<input id="exif-iso" type="number" step="1" placeholder="80" /></label>
-          <label class="span-2">Lens<input id="exif-lensModel" type="text" placeholder="XF 56mm F1.2 R" /></label>
-          <label class="span-2">Date<input id="exif-dateTimeOriginal" type="text" placeholder="2026-04-12" /></label>
-          <label class="span-2">Author<input id="exif-author" type="text" placeholder="your name" /></label>
-          <label class="span-2">Flash
+          <label><span data-i18n="exif.labels.make">Make</span><input id="exif-make" type="text" placeholder="FUJIFILM" /></label>
+          <label><span data-i18n="exif.labels.model">Model</span><input id="exif-model" type="text" placeholder="X-T5" /></label>
+          <label><span data-i18n="exif.labels.focalLength">Focal (mm)</span><input id="exif-focalLength" type="number" step="1" placeholder="59" /></label>
+          <label><span data-i18n="exif.labels.fNumber">ƒ-number</span><input id="exif-fNumber" type="number" step="0.1" placeholder="8" /></label>
+          <label><span data-i18n="exif.labels.exposureTime">Shutter</span><input id="exif-exposureTime" type="text" placeholder="1/180" /></label>
+          <label><span data-i18n="exif.labels.iso">ISO</span><input id="exif-iso" type="number" step="1" placeholder="80" /></label>
+          <label class="span-2"><span data-i18n="exif.labels.lensModel">Lens</span><input id="exif-lensModel" type="text" placeholder="XF 56mm F1.2 R" /></label>
+          <label class="span-2"><span data-i18n="exif.labels.date">Date</span><input id="exif-dateTimeOriginal" type="text" placeholder="2026-04-12" /></label>
+          <label class="span-2"><span data-i18n="exif.labels.author">Author</span><input id="exif-author" type="text" placeholder="your name" /></label>
+          <label class="span-2"><span data-i18n="exif.labels.flash">Flash</span>
             <select id="exif-flash">
-              <option value="">auto</option>
-              <option value="fired">Fired</option>
-              <option value="off">Off</option>
+              <option value="" data-i18n="exif.flashAuto">auto</option>
+              <option value="fired" data-i18n="exif.flashFired">Fired</option>
+              <option value="off" data-i18n="exif.flashOff">Off</option>
             </select>
           </label>
         </div>
         <div class="exif-actions">
-          <button id="clear-exif-btn" type="button" class="btn-ghost">Reset to auto-read</button>
-          <button id="apply-exif-all-btn" type="button" class="btn-ghost" title="把当前照片的 EXIF 编辑应用到所有已加载的照片">Apply EXIF to all</button>
-          <button id="copy-raw-exif-btn" type="button" class="btn-ghost" title="把这张照片解析出来的原始 EXIF JSON 复制到剪贴板（debug 用）">Copy raw EXIF</button>
+          <button id="clear-exif-btn" type="button" class="btn-ghost" data-i18n="exif.resetAuto">Reset to auto-read</button>
+          <button id="apply-exif-all-btn" type="button" class="btn-ghost" data-i18n="exif.applyAll" data-i18n-title="exif.applyAllTitle">Apply EXIF to all</button>
+          <button id="copy-raw-exif-btn" type="button" class="btn-ghost" data-i18n="exif.copyRaw" data-i18n-title="exif.copyRawTitle">Copy raw EXIF</button>
         </div>
       </details>
     </section>
 
     <section class="group">
-      <h2 class="sec-head"><i>E</i><span>Export</span></h2>
+      <h2 class="sec-head"><i>E</i><span data-i18n="sections.export">Export</span></h2>
       <div class="row row-2">
         <div class="field">
-          <label class="field-label">Quality</label>
+          <label class="field-label" data-i18n="export.quality">Quality</label>
           <select id="quality">
-            <option value="standard">Standard · 1440</option>
-            <option value="high">High · 2×</option>
-            <option value="original">Original · native</option>
+            <option value="standard" data-i18n="export.qualities.standard">Standard · 1440</option>
+            <option value="high" data-i18n="export.qualities.high">High · 2×</option>
+            <option value="original" data-i18n="export.qualities.original">Original · native</option>
           </select>
         </div>
         <div class="field">
-          <label class="field-label">Format</label>
+          <label class="field-label" data-i18n="export.format">Format</label>
           <select id="format">
             <option value="jpeg">JPEG</option>
             <option value="png">PNG</option>
@@ -241,10 +240,10 @@
       </div>
       <div class="actions">
         <button id="export-btn" class="btn btn-primary" disabled>
-          <span>Export current</span><kbd>⌘E</kbd>
+          <span data-i18n="export.exportCurrent">Export current</span><kbd>⌘E</kbd>
         </button>
         <button id="batch-btn" class="btn" disabled>
-          <span>Batch · ZIP</span><kbd>⌘⇧E</kbd>
+          <span data-i18n="export.batchZip">Batch · ZIP</span><kbd>⌘⇧E</kbd>
         </button>
       </div>
     </section>
@@ -252,39 +251,39 @@
   </aside>
 
   <!-- CENTER: CANVAS -->
-  <section class="pane pane-canvas" id="canvas-pane" aria-label="Preview">
+  <section class="pane pane-canvas" id="canvas-pane" data-i18n-aria-label="canvas.emptyTitle">
     <div class="canvas-vignette" aria-hidden="true"></div>
     <div class="canvas-drop-hint" id="drop-hint" aria-hidden="true">
       <div class="drop-hint-box">
         <svg viewBox="0 0 24 24" width="32" height="32"><path d="M12 4v12m0 0l-4-4m4 4l4-4M4 20h16" fill="none" stroke="currentColor" stroke-width="1.25"/></svg>
-        <p>Drop photos to import</p>
+        <p data-i18n="canvas.dropHint">Drop photos to import</p>
       </div>
     </div>
     <div class="canvas-stage" id="canvas-stage">
-      <canvas id="preview-canvas" aria-label="Preview"></canvas>
+      <canvas id="preview-canvas" data-i18n-aria-label="canvas.emptyTitle"></canvas>
       <div id="preview-loading" class="preview-loading" hidden>
         <span class="pulse-dot" aria-hidden="true"></span>
-        <span>rendering</span>
+        <span data-i18n="canvas.rendering">rendering</span>
       </div>
       <div id="empty" class="empty">
         <div class="empty-mark">⌖</div>
-        <p class="empty-title">No photo loaded</p>
-        <p class="empty-sub empty-sub-desktop">Import from the left panel, or drop here.</p>
-        <p class="empty-sub empty-sub-mobile">Tap "Import photos" above.</p>
+        <p class="empty-title" data-i18n="canvas.emptyTitle">No photo loaded</p>
+        <p class="empty-sub empty-sub-desktop" data-i18n="canvas.emptySubDesktop">Import from the left panel, or drop here.</p>
+        <p class="empty-sub empty-sub-mobile" data-i18n="canvas.emptySubMobile">Tap "Import photos" above.</p>
       </div>
     </div>
   </section>
 
   <!-- RIGHT: THUMBNAIL RAIL -->
-  <aside class="pane pane-rail" aria-label="Photo roll">
+  <aside class="pane pane-rail" data-i18n-aria-label="rail.ariaPane">
     <div class="rail-head">
-      <span class="rail-head-label">Roll</span>
+      <span class="rail-head-label" data-i18n="rail.head">Roll</span>
       <span class="rail-head-count" id="rail-count">00</span>
     </div>
-    <ol class="rail-items" id="thumb-rail" role="listbox" aria-label="Imported photos" tabindex="0"></ol>
+    <ol class="rail-items" id="thumb-rail" role="listbox" data-i18n-aria-label="rail.ariaList" tabindex="0"></ol>
     <div class="rail-foot">
       <span><kbd>↑</kbd><kbd>↓</kbd></span>
-      <span>navigate</span>
+      <span data-i18n="rail.navigate">navigate</span>
     </div>
   </aside>
 
@@ -294,11 +293,11 @@
 <dialog id="export-modal" class="export-modal" aria-labelledby="export-modal-title">
   <div class="export-modal-inner">
     <div class="export-modal-head">
-      <h3 id="export-modal-title">Exporting…</h3>
-      <button id="export-modal-close" class="btn-ghost" type="button" hidden>关闭</button>
+      <h3 id="export-modal-title" data-i18n="export.modalTitle">Exporting…</h3>
+      <button id="export-modal-close" class="btn-ghost" type="button" hidden data-i18n="export.close">Close</button>
     </div>
     <div class="export-modal-body">
-      <div class="export-stage" id="export-stage">渲染中</div>
+      <div class="export-stage" id="export-stage" data-i18n="export.stageRender">Rendering</div>
       <div class="export-counter">
         <em id="export-done">0</em><span class="export-sep">/</span><em id="export-total">0</em>
       </div>
@@ -312,14 +311,15 @@
 <!-- STATUS BAR -->
 <footer class="statusbar">
   <span class="status-dot" aria-hidden="true"></span>
-  <span id="status" class="status-text">ready</span>
+  <span id="status" class="status-text" data-i18n="status.ready">ready</span>
   <span class="status-spacer"></span>
-  <span class="status-hint">J/K · arrows &nbsp; switch&nbsp;&nbsp;·&nbsp;&nbsp;Enter select &nbsp;&nbsp;·&nbsp;&nbsp;Esc close</span>
+  <span class="status-hint" data-i18n="status.hint">J/K · arrows  switch  ·  Enter select  ·  Esc close</span>
 </footer>
 
 <script src="vendor/exifr.umd.js"></script>
 <script src="vendor/piexif.js"></script>
 <script src="vendor/jszip.min.js"></script>
+<script src="i18n.js"></script>
 <script src="shared/render.js"></script>
 <script src="exifio.js"></script>
 <script src="clientRender.js"></script>
