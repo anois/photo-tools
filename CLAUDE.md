@@ -370,6 +370,8 @@ HEIC arrives only via the import path. `mergeFiles()` calls `HeicTools.isHeic(fi
 
 The original HEIC `File` is kept on `entry.heicSource` so `uploadForExif` can feed it to exifr (exifr handles HEIC natively). Everything downstream — `loadBitmap`, worker render jobs, `Exporter.exportSingle`, `ExifIO.reattachExif` — sees only the transcoded JPEG, so no other module needs HEIC awareness.
 
+**EXIF round-trip**: right after transcode, `mergeFiles` calls `ExifIO.injectExifFromHeic(originalHeic, transcodedJpeg)`, which uses exifr to parse the HEIC's metadata and `buildExifObjFromParsed` to translate the curated field set into a piexif IFD object, then `piexif.insert` splices it as an APP1 segment into the JPEG. From that point on the JPEG file's EXIF is identical to a native JPEG source's, so `reattachExif` on export carries it through normally.
+
 The lazy load means non-HEIC users never download the wasm bundle.
 
 ### PWA / offline (`public/service-worker.js` + `public/manifest.webmanifest`)
@@ -462,7 +464,7 @@ If the source has no EXIF (social-platform-stripped images), the function silent
 
 ## Known limitations / future work
 
-- HEIC inputs work (transcoded via libheif-js at import) but the exported JPEG carries **no embedded EXIF** when the source was HEIC: libheif-js doesn't surface the raw EXIF segment, and exifr's parsed output isn't trivially convertible to piexif's tag-id format. The caption text still renders correctly because exifr parses HEIC EXIF directly into `entry.normalized`.
+- HEIC inputs round-trip the curated EXIF tag set (Make / Model / focal / aperture / shutter / ISO / lens / date / artist) — see `ExifIO.injectExifFromHeic`. Tags outside that table (manufacturer-specific MakerNote subfields, GPS, color profile, etc.) are dropped by the transcode.
 - RAW inputs are not supported.
 - `brand-logo` template renders the brand as text when no SVG slug matches — bundle more SVGs to expand coverage.
 - Job batching is in-memory only; for very large batches (50+ photos at original quality) the browser may run out of memory.

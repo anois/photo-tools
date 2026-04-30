@@ -124,5 +124,95 @@
     }
   }
 
-  window.ExifIO = { parseExif, reattachExif, slimRaw };
+  // ─── HEIC EXIF injection ────────────────────────────────────────────────
+  // libheif-js doesn't surface the source HEIC's EXIF segment as raw bytes,
+  // and piexifjs is JPEG-only. To carry HEIC metadata through the transcode,
+  // we parse via exifr (which natively reads HEIC), translate the parsed
+  // fields into piexif's IFD object format, dump as an EXIF segment, and
+  // splice it into the freshly transcoded JPEG.
+  //
+  // We don't carry every tag — only the curated list that exifr surfaces
+  // and that users actually inspect (Make / Model / focal / aperture / shutter
+  // / ISO / lens / date / artist). Anything beyond the table is dropped, but
+  // the result is good enough for every common viewer (Finder Preview,
+  // Photos.app, exiftool's "summary" output).
+
+  // Convert a positive float to a [numerator, denominator] rational. Picks a
+  // denominator that captures 6 significant figures for sub-second values
+  // (so 1/4000 stays exact) and 3 sig figs for values >= 1 (so 50.0mm,
+  // 1.4 f-number stay clean). Returns null for unusable inputs.
+  function toRational(n) {
+    if (typeof n !== 'number' || !isFinite(n) || n <= 0) return null;
+    const denom = n < 1 ? 1000000 : 1000;
+    return [Math.round(n * denom), denom];
+  }
+
+  // exifr returns DateTime fields as JS Date when reviveValues is on. piexif
+  // wants 'YYYY:MM:DD HH:MM:SS'.
+  function dateToExifString(d) {
+    if (!d) return null;
+    const date = (d instanceof Date) ? d : new Date(d);
+    if (isNaN(date.getTime())) return null;
+    const pad = (n) => String(n).padStart(2, '0');
+    return date.getFullYear() + ':' + pad(date.getMonth() + 1) + ':' + pad(date.getDate())
+      + ' ' + pad(date.getHours()) + ':' + pad(date.getMinutes()) + ':' + pad(date.getSeconds());
+  }
+
+  function buildExifObjFromParsed(raw) {
+    if (!raw) raw = {};
+    const piexif = window.piexif;
+    const I = piexif.ImageIFD, E = piexif.ExifIFD;
+    const exifObj = { '0th': {}, 'Exif': {}, 'GPS': {} };
+
+    const setS = (group, tag, v) => { if (v != null && v !== '') exifObj[group][tag] = String(v); };
+    const setN = (group, tag, v) => { if (typeof v === 'number' && isFinite(v)) exifObj[group][tag] = Math.round(v); };
+    const setR = (group, tag, v) => { const r = toRational(typeof v === 'number' ? v : Number(v)); if (r) exifObj[group][tag] = r; };
+
+    setS('0th', I.Make,  raw.Make ?? raw.make);
+    setS('0th', I.Model, raw.Model ?? raw.model);
+    setS('0th', I.Artist, raw.Artist ?? raw.artist);
+    setS('0th', I.Software, raw.Software ?? raw.software);
+    const dt = dateToExifString(raw.DateTime ?? raw.dateTime ?? raw.ModifyDate);
+    if (dt) exifObj['0th'][I.DateTime] = dt;
+    // Orientation = 1 (the transcoded JPEG's pixels are upright, see the
+    // double-rotation pitfall in CLAUDE.md).
+    exifObj['0th'][I.Orientation] = 1;
+
+    setR('Exif', E.ExposureTime, raw.ExposureTime ?? raw.exposureTime);
+    setR('Exif', E.FNumber, raw.FNumber ?? raw.fNumber);
+    setR('Exif', E.FocalLength, raw.FocalLength ?? raw.focalLength);
+    setN('Exif', E.ISOSpeedRatings, raw.ISO ?? raw.iso ?? raw.ISOSpeedRatings ?? raw.PhotographicSensitivity);
+    setN('Exif', E.FocalLengthIn35mmFilm, raw.FocalLengthIn35mmFilm ?? raw.FocalLengthIn35mmFormat);
+    const dto = dateToExifString(raw.DateTimeOriginal ?? raw.dateTimeOriginal ?? raw.CreateDate);
+    if (dto) exifObj.Exif[E.DateTimeOriginal] = dto;
+    const dtd = dateToExifString(raw.DateTimeDigitized ?? raw.dateTimeDigitized);
+    if (dtd) exifObj.Exif[E.DateTimeDigitized] = dtd;
+    setS('Exif', E.LensMake, raw.LensMake ?? raw.lensMake);
+    setS('Exif', E.LensModel, raw.LensModel ?? raw.lensModel);
+
+    return exifObj;
+  }
+
+  // Take the original HEIC file + a freshly transcoded JPEG blob; return a
+  // JPEG blob with the source's EXIF spliced into an APP1 segment. Any error
+  // along the way returns the input JPEG unchanged.
+  async function injectExifFromHeic(heicFile, jpegBlob) {
+    try {
+      const raw = await window.exifr.parse(heicFile, EXIFR_OPTS) || {};
+      const exifObj = buildExifObjFromParsed(raw);
+      // Don't bother writing a segment if we found nothing worth writing.
+      const has = Object.keys(exifObj['0th']).length > 1   // >1 because Orientation is always set
+               || Object.keys(exifObj.Exif).length > 0;
+      if (!has) return jpegBlob;
+      const exifBin = window.piexif.dump(exifObj);
+      const outBin = await blobToBinaryString(jpegBlob);
+      const merged = window.piexif.insert(exifBin, outBin);
+      return binaryStringToBlob(merged, 'image/jpeg');
+    } catch (err) {
+      console.warn('[exif] HEIC injection failed', err);
+      return jpegBlob;
+    }
+  }
+
+  window.ExifIO = { parseExif, reattachExif, injectExifFromHeic, slimRaw };
 })();

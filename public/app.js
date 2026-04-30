@@ -496,11 +496,20 @@ async function mergeFiles(newFiles) {
   await Promise.all(added.map(async (entry) => {
     if (!window.HeicTools || !window.HeicTools.isHeic(entry.file)) return;
     try {
-      const jpeg = await window.HeicTools.transcode(entry.file);
-      entry.heicSource = entry.file;
+      const original = entry.file;
+      const jpeg = await window.HeicTools.transcode(original);
+      // Splice the source HEIC's EXIF into the transcoded JPEG so the
+      // exported file preserves Make / Model / focal / aperture / shutter
+      // / ISO / lens / date — without this step HEIC sources would lose
+      // all metadata round-trip on export.
+      const withExif = await window.ExifIO.injectExifFromHeic(original, jpeg);
+      entry.heicSource = original;
       URL.revokeObjectURL(entry.url);
-      entry.file = jpeg;
-      entry.url = URL.createObjectURL(jpeg);
+      entry.file = new File([withExif], jpeg.name, {
+        type: 'image/jpeg',
+        lastModified: original.lastModified || Date.now()
+      });
+      entry.url = URL.createObjectURL(entry.file);
     } catch (err) {
       entry._heicFail = err;
     }
