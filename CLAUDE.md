@@ -36,14 +36,16 @@ When iterating on this project:
 
    - **CLAUDE.md** — internal source of truth ("why" + "how it works"). When introducing a new concept (frame, template, toggle, frame-layout tweak, pipeline change, gotcha discovered), update the relevant section in the **same commit**. Project memory entries should only hold cross-session user/feedback context, not project facts.
 
-   - **README.md** — public face on GitHub ("what" + "how to start"). Update in the same commit when you change:
+   - **README.md** (English, canonical) and **README.zh-CN.md** (Chinese mirror) — public face on GitHub ("what" + "how to start"). Update in the same commit when you change:
      - the feature list (new frame / template / aspect / show-field / output format)
      - Quick Start commands (script renames, Node version bump, new env vars)
      - the Project Layout tree (file additions / moves / removals)
      - the Deployment section (new target, changed CI workflow, new env requirements)
      - **preview images** — re-render `data/00010_framed.jpg` / `data/00012_framed.jpg` and regenerate the 480px previews via `sips --resampleWidth 480` (or future `scripts/build-previews.sh`) whenever a pipeline change visibly alters output. Stale previews lie about what the tool does today.
 
-     Don't duplicate detail between the two files — link to CLAUDE.md sections from README for deep dives.
+     **Two-language rule**: any structural edit (new section, renamed section, reordered sections, new badge, changed image, changed deploy URL) MUST be applied to both `README.md` and `README.zh-CN.md` in the same commit. The two files mirror section-for-section (verify with `grep -E "^##? " README*.md`). English is the canonical source for content decisions; Chinese is the localized mirror — translate prose, but keep code blocks / file paths / badge URLs identical.
+
+     Don't duplicate detail between READMEs and CLAUDE.md — link to CLAUDE.md sections from READMEs for deep dives.
 
 5. **One source of truth per concept.**
    - Layout math + frames + templates + caption SVG: `public/shared/render.js` (the original UMD module — module.exports branch is dead but harmless).

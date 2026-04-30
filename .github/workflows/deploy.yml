@@ -1,40 +1,34 @@
-# GitHub Pages deployment for photo-tools.
+# Dual-target deploy for photo-tools.
 #
 # Trigger: push to `main`, or manual run via the Actions tab.
-# Output : the entire `public/` directory served at
-#          https://anois.github.io/photo-tools/
+# Targets:
+#   1. GitHub Pages → https://anois.github.io/photo-tools/   (worldwide entry)
+#   2. Aliyun OSS   → CN-domestic mirror (path B: mainland region, no ICP)
 #
-# Build step is just `npm run build` which regenerates two derived files
-# (logos.json + fonts.css) from their source inputs in public/logos/ and
-# public/fonts/. Everything else under public/ is committed source.
+# Build runs once and is fanned out to two parallel deploy jobs so a failure
+# on one target doesn't block the other (e.g., Aliyun key expiry shouldn't
+# stop GitHub Pages from updating, and vice versa).
 
-name: Deploy to GitHub Pages
+name: Deploy
 
 on:
   push:
     branches: [main]
-  # Allow manual re-runs from the Actions tab without pushing a new commit.
   workflow_dispatch:
 
-# Pages deploy needs id-token (OIDC) and pages write; everything else is read-only.
 permissions:
   contents: read
   pages: write
   id-token: write
 
-# Don't cancel an in-flight deploy when a new commit lands; let it finish so
-# the site is never left mid-publish in a broken state. Subsequent runs queue.
+# Don't kill an in-flight deploy mid-publish; queue subsequent runs.
 concurrency:
-  group: pages
+  group: deploy
   cancel-in-progress: false
 
 jobs:
-  build-and-deploy:
+  build:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -51,15 +45,54 @@ jobs:
       - name: Build (regenerate logos.json + fonts.css)
         run: npm run build
 
+      # Pages-format artifact (consumed by deploy-pages via OIDC).
       - name: Configure Pages
         uses: actions/configure-pages@v5
 
-      # Uploads ./public as the deployable artifact. No bundler / no transform.
-      - name: Upload artifact
+      - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: ./public
 
-      - name: Deploy
+      # Plain artifact (consumed by deploy-oss).
+      - name: Upload site artifact for OSS
+        uses: actions/upload-artifact@v4
+        with:
+          name: site
+          path: public
+          retention-days: 1
+
+  deploy-pages:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+  deploy-oss:
+    needs: build
+    runs-on: ubuntu-latest
+    # Set repo variable ENABLE_OSS_DEPLOY=true once OSS secrets are configured.
+    # Defaults to skip on forks and on initial setup before secrets exist.
+    if: ${{ vars.ENABLE_OSS_DEPLOY == 'true' }}
+    steps:
+      - name: Download site artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: site
+          path: public
+
+      - name: Sync to Aliyun OSS
+        uses: fangbinwei/aliyun-oss-website-action@v1
+        with:
+          accessKeyId:     ${{ secrets.ALIYUN_ACCESS_KEY_ID }}
+          accessKeySecret: ${{ secrets.ALIYUN_ACCESS_KEY_SECRET }}
+          bucket:          ${{ secrets.ALIYUN_OSS_BUCKET }}
+          endpoint:        ${{ secrets.ALIYUN_OSS_ENDPOINT }}
+          folder:          ./public
+          # Incremental: skip files whose ETag matches; faster than full sync.
+          incremental:     true
