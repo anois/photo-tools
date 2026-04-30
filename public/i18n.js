@@ -32,6 +32,7 @@
         frame: '相框',
         caption: '文字',
         exif: 'EXIF',
+        diptych: '双联',
         signature: '签名',
         export: '导出'
       },
@@ -135,6 +136,15 @@
         size: '大小',
         opacity: '不透明度'
       },
+      diptych: {
+        layout: '布局',
+        off: '关闭',
+        h: '左右',
+        v: '上下',
+        choose: '选择第二张照片',
+        hint: 'JPEG / PNG / HEIC',
+        clear: '移除'
+      },
       export: {
         quality: '质量',
         format: '格式',
@@ -193,6 +203,8 @@
         signatureLoaded: '签名已加载',
         signatureFail: '签名读取失败：{msg}',
         signatureTooBig: '签名图片过大（{mb} MB），上限 2 MB',
+        diptychPartnerSet: '第二张照片已设置：{name}',
+        diptychPartnerFail: '第二张照片读取失败：{msg}',
         presetSaved: '已保存预设「{name}」',
         presetApplied: '已应用预设「{name}」',
         presetDeleted: '已删除预设「{name}」',
@@ -227,6 +239,7 @@
         frame: 'Frame',
         caption: 'Caption',
         exif: 'EXIF',
+        diptych: 'Diptych',
         signature: 'Signature',
         export: 'Export'
       },
@@ -330,6 +343,15 @@
         size: 'Size',
         opacity: 'Opacity'
       },
+      diptych: {
+        layout: 'Layout',
+        off: 'Off',
+        h: 'Side by side',
+        v: 'Stacked',
+        choose: 'Choose 2nd photo',
+        hint: 'JPEG / PNG / HEIC',
+        clear: 'Remove'
+      },
       export: {
         quality: 'Quality',
         format: 'Format',
@@ -388,6 +410,8 @@
         signatureLoaded: 'signature loaded',
         signatureFail: 'signature read failed: {msg}',
         signatureTooBig: 'signature too large ({mb} MB) — max 2 MB',
+        diptychPartnerSet: '2nd photo set: {name}',
+        diptychPartnerFail: '2nd photo read failed: {msg}',
         presetSaved: 'saved preset "{name}"',
         presetApplied: 'applied preset "{name}"',
         presetDeleted: 'deleted preset "{name}"',

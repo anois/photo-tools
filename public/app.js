@@ -26,6 +26,10 @@ function defaultCfg() {
     // no signature; otherwise { data: dataURL, type: 'svg'|'png',
     // position: 'br'|'bl'|'bc', scale: 0.06, opacity: 1 }.
     customLogo: null,
+    // Diptych mode. null = single photo; otherwise { layout: 'h'|'v' }. The
+    // partner File itself isn't part of cfg (Files don't serialize to JSON);
+    // it lives on the per-photo entry as `entry.partnerFile`.
+    diptych: null,
     // EXIF user overrides keyed by input name (make/model/focalLength/...) →
     // raw string from the form. Backend applies formatters via formatBrand etc.
     exifOverride: {}
@@ -37,7 +41,8 @@ function cloneCfg(c) {
     ...c,
     showFields: { ...c.showFields },
     exifOverride: { ...c.exifOverride },
-    customLogo: c.customLogo ? { ...c.customLogo } : null
+    customLogo: c.customLogo ? { ...c.customLogo } : null,
+    diptych: c.diptych ? { ...c.diptych } : null
   };
 }
 
@@ -101,6 +106,12 @@ const els = {
   signatureScaleVal: document.getElementById('signature-scale-val'),
   signatureOpacity: document.getElementById('signature-opacity'),
   signatureOpacityVal: document.getElementById('signature-opacity-val'),
+  diptychSeg: document.getElementById('diptych-seg'),
+  diptychDrop: document.getElementById('diptych-drop'),
+  diptychInput: document.getElementById('diptych-input'),
+  diptychReadout: document.getElementById('diptych-readout'),
+  diptychName: document.getElementById('diptych-name'),
+  diptychClearBtn: document.getElementById('diptych-clear-btn'),
   exportBtn: document.getElementById('export-btn'),
   batchBtn: document.getElementById('batch-btn'),
   clearExifBtn: document.getElementById('clear-exif-btn'),
@@ -299,6 +310,7 @@ async function doRender() {
     const c = active.cfg;
     await CR.renderPreview(els.canvas, {
       file: active.file,
+      partnerFile: active.partnerFile || null,
       cfg: {
         aspect: c.aspect,
         frame: c.frame,
@@ -312,7 +324,8 @@ async function doRender() {
         shadowOffsetY: c.shadowOffsetY,
         shadowOpacity: c.shadowOpacity,
         showFields: c.showFields,
-        customLogo: c.customLogo
+        customLogo: c.customLogo,
+        diptych: c.diptych
       },
       normExif: buildCurrentExif(),
       logos: state.logos,
@@ -373,6 +386,22 @@ function syncControlsFromCfg(cfg) {
     cb.checked = !!cfg.showFields[cb.dataset.key];
   });
   syncSignatureFromCfg(cfg);
+  syncDiptychFromActive();
+}
+
+function syncDiptychFromActive() {
+  const cfg = activeCfg();
+  const active = state.files[state.activeIdx];
+  const layout = (cfg.diptych && cfg.diptych.layout) || 'off';
+  setSegActive(els.diptychSeg, layout);
+  const isOn = layout === 'h' || layout === 'v';
+  els.diptychDrop.hidden = !isOn || !!(active && active.partnerFile);
+  els.diptychReadout.hidden = !isOn || !(active && active.partnerFile);
+  if (active && active.partnerFile) {
+    els.diptychName.textContent = active.partnerFile.name;
+  } else {
+    els.diptychName.textContent = '—';
+  }
 }
 
 function syncSignatureFromCfg(cfg) {
@@ -811,6 +840,50 @@ els.signatureOpacity.addEventListener('input', () => {
   requestRender();
 });
 
+// ─── Diptych (2-photo collage) wiring ────────────────────────────────────
+els.diptychSeg.querySelectorAll('button').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    const v = btn.dataset.val;
+    setSegActive(els.diptychSeg, v);
+    const cfg = activeCfg();
+    cfg.diptych = (v === 'h' || v === 'v') ? { layout: v } : null;
+    syncDiptychFromActive();
+    requestRender();
+  });
+});
+
+els.diptychInput.addEventListener('change', async () => {
+  const file = els.diptychInput.files && els.diptychInput.files[0];
+  els.diptychInput.value = '';
+  if (!file) return;
+  const active = state.files[state.activeIdx];
+  if (!active) return;
+  try {
+    // HEIC partner gets transcoded the same way as primary imports so the
+    // worker only ever sees standard JPEG/PNG.
+    let partner = file;
+    if (window.HeicTools && window.HeicTools.isHeic(file)) {
+      partner = await window.HeicTools.transcode(file);
+    }
+    active.partnerFile = partner;
+    syncDiptychFromActive();
+    requestRender();
+    setStatus('status.diptychPartnerSet', null, { name: partner.name });
+    setTimeout(() => setStatus('status.ready'), 1500);
+  } catch (err) {
+    console.error('[diptych]', err);
+    setStatus('status.diptychPartnerFail', 'err', { msg: err.message });
+  }
+});
+
+els.diptychClearBtn.addEventListener('click', () => {
+  const active = state.files[state.activeIdx];
+  if (!active) return;
+  active.partnerFile = null;
+  syncDiptychFromActive();
+  requestRender();
+});
+
 // Hydrate from localStorage on boot so a returning user finds their signature
 // pre-loaded. Falls through silently when storage is unavailable or empty.
 (function hydrateSignature() {
@@ -1013,6 +1086,7 @@ function buildConfigForFile(f) {
   if (c.bgBrightness != null)  cfg.bgBrightness = c.bgBrightness;
   if (c.bgSaturation != null)  cfg.bgSaturation = c.bgSaturation;
   if (c.customLogo)            cfg.customLogo = { ...c.customLogo };
+  if (c.diptych)               cfg.diptych = { ...c.diptych };
   return cfg;
 }
 
@@ -1026,7 +1100,7 @@ els.exportBtn.addEventListener('click', async () => {
   try {
     const cfg = buildConfigForFile(active);
     await window.Exporter.exportSingle(
-      { file: active.file, normExif: buildExifForFile(active) },
+      { file: active.file, normExif: buildExifForFile(active), partnerFile: active.partnerFile || null },
       cfg, assets()
     );
     setStatus('status.exported', null);
@@ -1048,7 +1122,8 @@ async function runBatch() {
     const entries = state.files.map((f) => ({
       file: f.file,
       normExif: buildExifForFile(f),
-      cfg: buildConfigForFile(f)
+      cfg: buildConfigForFile(f),
+      partnerFile: f.partnerFile || null
     }));
     // Exporter drives the progress modal directly via window.ProgressModal —
     // status bar just gets the final result.

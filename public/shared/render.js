@@ -1076,6 +1076,33 @@
   }
 
   // ======================================================================
+  // Diptych (2-photo collage)
+  // ======================================================================
+
+  // Split the foreground rect into N cells for diptych rendering. Layout
+  // 'h' = horizontal side-by-side; 'v' = vertical stacked. Each cell carries
+  // an explicit gutter so the two photos don't visually fuse at the seam.
+  // Gap defaults to 12 base-px (scaled by layout.scale at call time).
+  function diptychCellRects(diptych, layout) {
+    if (!diptych || (diptych.layout !== 'h' && diptych.layout !== 'v')) return null;
+    const s = layout.scale || 1;
+    const gap = Math.round(12 * s);
+    const x = layout.fgLeft, y = layout.fgTop, w = layout.fgW, h = layout.fgH;
+    if (diptych.layout === 'h') {
+      const cellW = Math.floor((w - gap) / 2);
+      return [
+        { x: x,                 y: y, w: cellW,         h: h },
+        { x: x + cellW + gap,   y: y, w: w - cellW - gap, h: h }
+      ];
+    }
+    const cellH = Math.floor((h - gap) / 2);
+    return [
+      { x: x, y: y,                 w: w, h: cellH },
+      { x: x, y: y + cellH + gap,   w: w, h: h - cellH - gap }
+    ];
+  }
+
+  // ======================================================================
   // Custom signature / logo overlay
   // ======================================================================
 
@@ -1158,6 +1185,9 @@
     buildCaptionSvg: buildCaptionSvg,
 
     // Custom signature
-    customLogoRect: customLogoRect
+    customLogoRect: customLogoRect,
+
+    // Diptych
+    diptychCellRects: diptychCellRects
   };
 });

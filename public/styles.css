@@ -611,6 +611,30 @@ input[type="range"]::-moz-range-thumb {
 }
 .signature-preview .btn-ghost { margin-left: auto; }
 
+/* ── Diptych readout (filename of 2nd photo + clear button) ───────────── */
+.diptych-readout {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: rgba(255,255,255,0.02);
+}
+.diptych-readout[hidden] { display: none; }
+.diptych-readout .diptych-name {
+  font: 500 11px/1 var(--f-mono);
+  color: var(--text);
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.diptych-readout .btn-ghost { margin-left: auto; }
+.diptych-drop[hidden] { display: none; }
+
 /* ── Batch export progress modal ───────────────────────────────────────── */
 .export-modal {
   border: 1px solid var(--line-strong);

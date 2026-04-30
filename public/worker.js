@@ -97,16 +97,34 @@ async function compose(canvas, args) {
     ctx.restore();
   }
 
-  ctx.save();
-  clipRoundRect(ctx, layout.fgLeft, layout.fgTop, layout.fgW, layout.fgH, layout.radius);
-  const fgRatio = Math.max(layout.fgW / bitmap.width, layout.fgH / bitmap.height);
-  const fdw = bitmap.width * fgRatio;
-  const fdh = bitmap.height * fgRatio;
-  ctx.drawImage(bitmap,
-    layout.fgLeft + (layout.fgW - fdw) / 2,
-    layout.fgTop  + (layout.fgH - fdh) / 2,
-    fdw, fdh);
-  ctx.restore();
+  const cells = R.diptychCellRects(args.diptych, layout);
+  if (cells && Array.isArray(args.bitmaps) && args.bitmaps.length >= cells.length) {
+    for (let i = 0; i < cells.length; i++) {
+      const cell = cells[i];
+      const cbm = args.bitmaps[i];
+      if (!cbm) continue;
+      ctx.save();
+      clipRoundRect(ctx, cell.x, cell.y, cell.w, cell.h, layout.radius);
+      const cr = Math.max(cell.w / cbm.width, cell.h / cbm.height);
+      const cdw = cbm.width * cr, cdh = cbm.height * cr;
+      ctx.drawImage(cbm,
+        cell.x + (cell.w - cdw) / 2,
+        cell.y + (cell.h - cdh) / 2,
+        cdw, cdh);
+      ctx.restore();
+    }
+  } else {
+    ctx.save();
+    clipRoundRect(ctx, layout.fgLeft, layout.fgTop, layout.fgW, layout.fgH, layout.radius);
+    const fgRatio = Math.max(layout.fgW / bitmap.width, layout.fgH / bitmap.height);
+    const fdw = bitmap.width * fgRatio;
+    const fdh = bitmap.height * fgRatio;
+    ctx.drawImage(bitmap,
+      layout.fgLeft + (layout.fgW - fdw) / 2,
+      layout.fgTop  + (layout.fgH - fdh) / 2,
+      fdw, fdh);
+    ctx.restore();
+  }
 
   if (captionSvg) {
     const blob = new Blob([captionSvg], { type: 'image/svg+xml;charset=utf-8' });
@@ -177,8 +195,14 @@ async function reattachExif(sourceBlob, outputBlob) {
 
 // ─── Job dispatch ────────────────────────────────────────────────────────
 async function renderJob(msg) {
-  const { file, cfg, normExif, format, quality } = msg;
+  const { file, cfg, normExif, format, quality, partnerFile } = msg;
   const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
+  let partnerBm = null;
+  const wantsDiptych = cfg.diptych && (cfg.diptych.layout === 'h' || cfg.diptych.layout === 'v') && partnerFile;
+  if (wantsDiptych) {
+    try { partnerBm = await createImageBitmap(partnerFile, { imageOrientation: 'from-image' }); }
+    catch { partnerBm = null; }
+  }
   try {
     const frame = R.resolveFrame(cfg.frame);
     const params = R.resolveRenderParams(frame, cfg);
@@ -198,7 +222,13 @@ async function renderJob(msg) {
       fontFaceCss, logos
     });
     const canvas = new OffscreenCanvas(layout.canvas.W, layout.canvas.H);
-    await compose(canvas, { bitmap, layout, params, captionSvg, customLogo: cfg.customLogo || null });
+    const diptych = wantsDiptych && partnerBm ? { layout: cfg.diptych.layout } : null;
+    const bitmaps = diptych ? [bitmap, partnerBm] : null;
+    await compose(canvas, {
+      bitmap, bitmaps, layout, params, captionSvg,
+      customLogo: cfg.customLogo || null,
+      diptych
+    });
     const mime = format === 'png' ? 'image/png' : 'image/jpeg';
     const q = quality === 'original' ? 0.98 : quality === 'high' ? 0.95 : 0.92;
     let outBlob = await canvas.convertToBlob({ type: mime, quality: q });
@@ -206,6 +236,7 @@ async function renderJob(msg) {
     return outBlob;
   } finally {
     bitmap.close();
+    if (partnerBm) partnerBm.close();
   }
 }
 

@@ -294,17 +294,35 @@
       ctx.restore();
     }
 
-    // ─── Foreground (rounded photo) ──────────────────────────────────────
-    ctx.save();
-    clipRoundRect(ctx, layout.fgLeft, layout.fgTop, layout.fgW, layout.fgH, layout.radius);
-    const fgRatio = Math.max(layout.fgW / bitmap.width, layout.fgH / bitmap.height);
-    const fdw = bitmap.width * fgRatio;
-    const fdh = bitmap.height * fgRatio;
-    ctx.drawImage(bitmap,
-      layout.fgLeft + (layout.fgW - fdw) / 2,
-      layout.fgTop  + (layout.fgH - fdh) / 2,
-      fdw, fdh);
-    ctx.restore();
+    // ─── Foreground (rounded photo, or N-cell diptych) ───────────────────
+    const cells = R.diptychCellRects(args.diptych, layout);
+    if (cells && Array.isArray(args.bitmaps) && args.bitmaps.length >= cells.length) {
+      for (let i = 0; i < cells.length; i++) {
+        const cell = cells[i];
+        const cbm = args.bitmaps[i];
+        if (!cbm) continue;
+        ctx.save();
+        clipRoundRect(ctx, cell.x, cell.y, cell.w, cell.h, layout.radius);
+        const cr = Math.max(cell.w / cbm.width, cell.h / cbm.height);
+        const cdw = cbm.width * cr, cdh = cbm.height * cr;
+        ctx.drawImage(cbm,
+          cell.x + (cell.w - cdw) / 2,
+          cell.y + (cell.h - cdh) / 2,
+          cdw, cdh);
+        ctx.restore();
+      }
+    } else {
+      ctx.save();
+      clipRoundRect(ctx, layout.fgLeft, layout.fgTop, layout.fgW, layout.fgH, layout.radius);
+      const fgRatio = Math.max(layout.fgW / bitmap.width, layout.fgH / bitmap.height);
+      const fdw = bitmap.width * fgRatio;
+      const fdh = bitmap.height * fgRatio;
+      ctx.drawImage(bitmap,
+        layout.fgLeft + (layout.fgW - fdw) / 2,
+        layout.fgTop  + (layout.fgH - fdh) / 2,
+        fdw, fdh);
+      ctx.restore();
+    }
 
     // ─── Caption (SVG → Image → drawImage) ───────────────────────────────
     if (captionSvg) {
@@ -360,14 +378,20 @@
     const captionKey = opts.cacheCaption
       ? captionCacheKey({ normExif, layout, template: cfg.template, textStyle: effectiveTextStyle, showFields: cfg.showFields })
       : null;
-    return { layout, params, captionSvg, captionKey, customLogo: cfg.customLogo || null };
+    return {
+      layout, params, captionSvg, captionKey,
+      customLogo: cfg.customLogo || null,
+      diptych: cfg.diptych && cfg.diptych.layout && (cfg.diptych.layout === 'h' || cfg.diptych.layout === 'v')
+        ? { layout: cfg.diptych.layout }
+        : null
+    };
   }
 
   // Preview entry point — draws to the visible <canvas>. Uses a downsampled
   // ImageBitmap (long edge ≤ PREVIEW_MAX_EDGE) so blur + drawImage stay fast
   // even on multi-MB native originals.
   async function renderPreview(canvas, args) {
-    const { file, cfg, normExif, logos, fontFaceCss } = args;
+    const { file, cfg, normExif, logos, fontFaceCss, partnerFile } = args;
     if (!file) {
       canvas.width = 1; canvas.height = 1;
       return;
@@ -376,22 +400,32 @@
     const built = buildLayoutAndCaption(bitmap, cfg, normExif, {
       customScale: PREVIEW_SCALE, fontFaceCss, logos, cacheCaption: true
     });
-    await compose(canvas, { bitmap, file, cacheBg: true, ...built });
+    let bitmaps = null;
+    if (built.diptych && partnerFile) {
+      const partnerBm = await loadBitmap(partnerFile, PREVIEW_MAX_EDGE).catch(() => null);
+      if (partnerBm) bitmaps = [bitmap, partnerBm];
+    }
+    await compose(canvas, { bitmap, bitmaps, file, cacheBg: true, ...built });
   }
 
   // Final export — renders to an OffscreenCanvas at the requested quality
   // and returns a Blob (JPEG or PNG). Caller is responsible for re-attaching
   // EXIF (via ExifIO.reattachExif) and triggering download.
   async function renderFinal(args) {
-    const { file, cfg, normExif, logos, fontFaceCss, format, quality } = args;
+    const { file, cfg, normExif, logos, fontFaceCss, format, quality, partnerFile } = args;
     const bitmap = await loadBitmap(file);   // full-resolution
     const built = buildLayoutAndCaption(bitmap, cfg, normExif, {
       quality: quality || 'standard', fontFaceCss, logos
     });
+    let bitmaps = null;
+    if (built.diptych && partnerFile) {
+      const partnerBm = await loadBitmap(partnerFile).catch(() => null);
+      if (partnerBm) bitmaps = [bitmap, partnerBm];
+    }
     const canvas = (typeof OffscreenCanvas !== 'undefined')
       ? new OffscreenCanvas(built.layout.canvas.W, built.layout.canvas.H)
       : Object.assign(document.createElement('canvas'), { width: built.layout.canvas.W, height: built.layout.canvas.H });
-    await compose(canvas, { bitmap, ...built });
+    await compose(canvas, { bitmap, bitmaps, ...built });
     const mime = format === 'png' ? 'image/png' : 'image/jpeg';
     const q = quality === 'original' ? 0.98 : quality === 'high' ? 0.95 : 0.92;
     if (canvas.convertToBlob) return canvas.convertToBlob({ type: mime, quality: q });

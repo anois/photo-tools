@@ -263,9 +263,25 @@ Schema:
 
 **Versioning**: `v: 1` field. Future schema changes bump to 2; old code refuses unknown versions and surfaces `presetHashBad`.
 
+### Diptych (2-photo collage)
+
+A photo entry can pair with a second photo to render as a side-by-side or stacked diptych inside a single frame. Two pieces:
+
+- `cfg.diptych = null | { layout: 'h' | 'v' }` — serializable, lives on cfg.
+- `entry.partnerFile = File | null` — the actual second photo, kept on the rail entry (not on cfg, because `File` doesn't survive `JSON.stringify`).
+
+When `cfg.diptych.layout` is set AND the active entry has a `partnerFile`, `compose()` swaps the single-bitmap fg pass for a cell loop using `R.diptychCellRects(diptych, layout)`. Each cell uses the same rounded radius as the full fg, so the visual reads as one rounded panel split by a 12-px gutter (scaled). Caption + frame + signature still treat the diptych as one unit — caption uses the primary photo's EXIF, signature pins to the global fg corner, shadow renders under the full envelope.
+
+HEIC partner files are transcoded via `HeicTools.transcode` at upload time, same as primaries, so `entry.partnerFile` is always JPEG/PNG by the time it reaches the worker.
+
+Limitations:
+- Two photos only (no 2x2 / triptych yet).
+- Caption is keyed off the primary's EXIF — secondary's metadata is ignored.
+- Diptych state is **not** in presets (because `partnerFile` is a `File` object). Switching photos preserves diptych layout per-cfg, but the partner file binding is per-entry and lost on photo switch / preset apply.
+
 ## Per-photo cfg model
 
-Each `state.files[i]` carries its own complete `cfg` (frame / aspect / template / padding / captionHeight / bg* / shadow* / showFields / customLogo / exifOverride). Only `format` and `quality` stay global because they apply to a batch uniformly.
+Each `state.files[i]` carries its own complete `cfg` (frame / aspect / template / padding / captionHeight / bg* / shadow* / showFields / customLogo / diptych / exifOverride). Only `format` and `quality` stay global because they apply to a batch uniformly. The diptych `partnerFile` lives on the rail entry itself (not in cfg) because `File` is not JSON-serializable.
 
 - Switching the active photo via the rail or arrow keys re-syncs **all** controls to that photo's cfg via `syncControlsFromCfg(cfg)`.
 - Changing any control writes through to `activeCfg()` only — other photos are unaffected.
