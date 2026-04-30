@@ -994,10 +994,16 @@ els.collageLayout.addEventListener('change', () => {
 
 // ─── Custom bg image (frosted bg replacement) wiring ────────────────────
 // Same shape as signature: upload cascades to draftCfg + every loaded photo
-// + localStorage. Per-photo override happens via the user editing other
-// frosted params; the bg image itself is treated as a global pick.
+// + localStorage. Uploads of any size are accepted but downscaled to
+// CUSTOMBG_MAX_EDGE long-edge and re-encoded as JPEG q=0.85 before storage —
+// the bg gets blurred anyway, so a 4K source contributes zero visual benefit
+// over a 1920px one and would balloon localStorage. CUSTOMBG_HARD_CAP is
+// only there to refuse genuinely insane files (decoding a 100MB JPEG just
+// to throw it out is wasteful).
 const CUSTOMBG_STORAGE_KEY = 'phototools.customBg';
-const CUSTOMBG_MAX_BYTES = 4 * 1024 * 1024;
+const CUSTOMBG_HARD_CAP = 32 * 1024 * 1024;
+const CUSTOMBG_MAX_EDGE = 1920;
+const CUSTOMBG_QUALITY = 0.85;
 
 function applyCustomBgEverywhere(payload) {
   state.draftCfg.customBg = payload ? { ...payload } : null;
@@ -1010,19 +1016,51 @@ function applyCustomBgEverywhere(payload) {
   } catch (_) { /* private mode / quota — non-fatal */ }
 }
 
+// Downscale + JPEG-encode any image File. HEIC sources go through
+// HeicTools.transcode first since createImageBitmap can't decode HEIC. The
+// returned dataURL is suitable for stuffing into customBg.data.
+async function compressBgImage(file) {
+  let workFile = file;
+  if (window.HeicTools && window.HeicTools.isHeic(file)) {
+    workFile = await window.HeicTools.transcode(file);
+  }
+  const bm = await createImageBitmap(workFile, { imageOrientation: 'from-image' });
+  try {
+    const ratio = Math.min(1, CUSTOMBG_MAX_EDGE / Math.max(bm.width, bm.height));
+    const dw = Math.max(1, Math.round(bm.width * ratio));
+    const dh = Math.max(1, Math.round(bm.height * ratio));
+    const canvas = (typeof OffscreenCanvas !== 'undefined')
+      ? new OffscreenCanvas(dw, dh)
+      : Object.assign(document.createElement('canvas'), { width: dw, height: dh });
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(bm, 0, 0, dw, dh);
+    const blob = canvas.convertToBlob
+      ? await canvas.convertToBlob({ type: 'image/jpeg', quality: CUSTOMBG_QUALITY })
+      : await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', CUSTOMBG_QUALITY));
+    const dataURL = await new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(String(r.result || ''));
+      r.onerror = () => reject(r.error || new Error('read failed'));
+      r.readAsDataURL(blob);
+    });
+    return { data: dataURL, type: 'jpeg', name: file.name, byteSize: blob.size };
+  } finally {
+    bm.close();
+  }
+}
+
 els.customBgInput.addEventListener('change', async () => {
   const file = els.customBgInput.files && els.customBgInput.files[0];
   els.customBgInput.value = '';
   if (!file) return;
-  if (file.size > CUSTOMBG_MAX_BYTES) {
+  if (file.size > CUSTOMBG_HARD_CAP) {
     setStatus('status.customBgTooBig', 'err', { mb: (file.size / 1024 / 1024).toFixed(1) });
     setTimeout(() => setStatus('status.ready'), 3000);
     return;
   }
+  setStatus('status.customBgCompressing', 'busy');
   try {
-    const data = await readSignatureFile(file);   // same FileReader.readAsDataURL helper
-    const type = /^data:image\/png/i.test(data) ? 'png' : 'jpeg';
-    const payload = { data, type, name: file.name };
+    const payload = await compressBgImage(file);
     applyCustomBgEverywhere(payload);
     syncCustomBgFromCfg(activeCfg());
     requestRender();
