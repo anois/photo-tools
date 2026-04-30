@@ -35,7 +35,7 @@
       file: entry.file, cfg, normExif: entry.normExif,
       logos: assets.logos, fontFaceCss: assets.fontFaceCss,
       format: cfg.format, quality: cfg.quality,
-      partnerFile: entry.partnerFile || null
+      partnerFiles: entry.partnerFiles || []
     });
     const out = await ExifIO.reattachExif(entry.file, blob);
     triggerDownload(out, outName(entry.file, cfg.format));
@@ -136,7 +136,7 @@
           file: e.file, cfg: e.cfg, normExif: e.normExif,
           logos: assets.logos, fontFaceCss: assets.fontFaceCss,
           format: e.cfg.format, quality: e.cfg.quality,
-          partnerFile: e.partnerFile || null
+          partnerFiles: e.partnerFiles || []
         });
         const out = await ExifIO.reattachExif(e.file, blob);
         results[i] = { ok: true, blob: out };
@@ -166,7 +166,7 @@
           return p.render({
             file: e.file, cfg: e.cfg, normExif: e.normExif,
             format: e.cfg.format, quality: e.cfg.quality,
-            partnerFile: e.partnerFile || null
+            partnerFiles: e.partnerFiles || []
           });
         }, (done, _t, item) => {
           { const m = PM(); if (m) m.render(done, item.file.name); }

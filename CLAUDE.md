@@ -276,25 +276,34 @@ Schema:
 
 **Versioning**: `v: 1` field. Future schema changes bump to 2; old code refuses unknown versions and surfaces `presetHashBad`.
 
-### Diptych (2-photo collage)
+### Collage (2–4 photos in one frame)
 
-A photo entry can pair with a second photo to render as a side-by-side or stacked diptych inside a single frame. Two pieces:
+A photo entry can pair with up to three additional photos to render as a multi-cell collage inside a single frame. Two pieces:
 
-- `cfg.diptych = null | { layout: 'h' | 'v' }` — serializable, lives on cfg.
-- `entry.partnerFile = File | null` — the actual second photo, kept on the rail entry (not on cfg, because `File` doesn't survive `JSON.stringify`).
+- `cfg.collage = null | { layout: 'h2' | 'v2' | 'h3' | 'v3' | '2x2' }` — serializable, lives on cfg.
+- `entry.partnerFiles = File[]` — the actual partner photos (length depends on layout, 1–3), kept on the rail entry because `File` doesn't survive `JSON.stringify`.
 
-When `cfg.diptych.layout` is set AND the active entry has a `partnerFile`, `compose()` swaps the single-bitmap fg pass for a cell loop using `R.diptychCellRects(diptych, layout)`. Each cell uses the same rounded radius as the full fg, so the visual reads as one rounded panel split by a 12-px gutter (scaled). Caption + frame + signature still treat the diptych as one unit — caption uses the primary photo's EXIF, signature pins to the global fg corner, shadow renders under the full envelope.
+| layout | shape | partners needed |
+|---|---|---|
+| `h2` | 1×2 horizontal | 1 |
+| `v2` | 2×1 vertical | 1 |
+| `h3` | 1×3 row | 2 |
+| `v3` | 3×1 column | 2 |
+| `2x2` | 2×2 grid | 3 |
 
-HEIC partner files are transcoded via `HeicTools.transcode` at upload time, same as primaries, so `entry.partnerFile` is always JPEG/PNG by the time it reaches the worker.
+When `cfg.collage.layout` is set AND the active entry has the right number of partner files, `compose()` swaps the single-bitmap fg pass for a cell loop using `R.collageCellRects(collage, layout)`. Each cell uses the same rounded radius as the full fg, so the visual reads as one rounded panel split by 12-px gutters (scaled). Caption + frame + signature still treat the collage as one unit — caption uses the primary photo's EXIF, signature pins to the global fg corner, shadow renders under the full envelope.
+
+HEIC partner files are transcoded via `HeicTools.transcode` at upload time (in the per-slot file input handler in `app.js`), same as primaries, so `entry.partnerFiles[i]` is always JPEG/PNG by the time it reaches the worker.
+
+Layout switch resets `partnerFiles.length` to the new requirement: shrinking drops trailing entries, growing leaves new slots empty for the user to fill.
 
 Limitations:
-- Two photos only (no 2x2 / triptych yet).
-- Caption is keyed off the primary's EXIF — secondary's metadata is ignored.
-- Diptych state is **not** in presets (because `partnerFile` is a `File` object). Switching photos preserves diptych layout per-cfg, but the partner file binding is per-entry and lost on photo switch / preset apply.
+- Caption is keyed off the primary's EXIF — partners' metadata is ignored.
+- Collage layout is in cfg (so it survives photo switch + preset apply via "Apply frame to all"), but `partnerFiles` is per-entry and not propagated by either path. Re-binding partners is a per-entry action.
 
 ## Per-photo cfg model
 
-Each `state.files[i]` carries its own complete `cfg` (frame / aspect / template / padding / captionHeight / bg* / shadow* / showFields / customLogo / diptych / exifOverride). Only `format` and `quality` stay global because they apply to a batch uniformly. The diptych `partnerFile` lives on the rail entry itself (not in cfg) because `File` is not JSON-serializable.
+Each `state.files[i]` carries its own complete `cfg` (frame / aspect / template / padding / captionHeight / bg* / shadow* / showFields / customLogo / collage / exifOverride). Only `format` and `quality` stay global because they apply to a batch uniformly. The collage `partnerFiles` array lives on the rail entry itself (not in cfg) because `File` is not JSON-serializable.
 
 - Switching the active photo via the rail or arrow keys re-syncs **all** controls to that photo's cfg via `syncControlsFromCfg(cfg)`.
 - Changing any control writes through to `activeCfg()` only — other photos are unaffected.

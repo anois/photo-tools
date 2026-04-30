@@ -32,7 +32,7 @@
         frame: '相框',
         caption: '文字',
         exif: 'EXIF',
-        diptych: '双联',
+        collage: '拼贴',
         signature: '签名',
         export: '导出'
       },
@@ -136,13 +136,15 @@
         size: '大小',
         opacity: '不透明度'
       },
-      diptych: {
+      collage: {
         layout: '布局',
         off: '关闭',
-        h: '左右',
-        v: '上下',
-        choose: '选择第二张照片',
-        hint: 'JPEG / PNG / HEIC',
+        h2: '左右（1×2）',
+        v2: '上下（2×1）',
+        h3: '横排三联（1×3）',
+        v3: '竖排三联（3×1）',
+        '2x2': '田字格（2×2）',
+        choose: '选择第 {n} 张',
         clear: '移除'
       },
       export: {
@@ -203,8 +205,8 @@
         signatureLoaded: '签名已加载',
         signatureFail: '签名读取失败：{msg}',
         signatureTooBig: '签名图片过大（{mb} MB），上限 2 MB',
-        diptychPartnerSet: '第二张照片已设置：{name}',
-        diptychPartnerFail: '第二张照片读取失败：{msg}',
+        collagePartnerSet: '第 {n} 张照片已设置：{name}',
+        collagePartnerFail: '拼贴照片读取失败：{msg}',
         presetSaved: '已保存预设「{name}」',
         presetApplied: '已应用预设「{name}」',
         presetDeleted: '已删除预设「{name}」',
@@ -239,7 +241,7 @@
         frame: 'Frame',
         caption: 'Caption',
         exif: 'EXIF',
-        diptych: 'Diptych',
+        collage: 'Collage',
         signature: 'Signature',
         export: 'Export'
       },
@@ -343,13 +345,15 @@
         size: 'Size',
         opacity: 'Opacity'
       },
-      diptych: {
+      collage: {
         layout: 'Layout',
         off: 'Off',
-        h: 'Side by side',
-        v: 'Stacked',
-        choose: 'Choose 2nd photo',
-        hint: 'JPEG / PNG / HEIC',
+        h2: 'Side by side (1×2)',
+        v2: 'Stacked (2×1)',
+        h3: '3 across (1×3)',
+        v3: '3 stacked (3×1)',
+        '2x2': '2×2 grid',
+        choose: 'Choose photo #{n}',
         clear: 'Remove'
       },
       export: {
@@ -410,8 +414,8 @@
         signatureLoaded: 'signature loaded',
         signatureFail: 'signature read failed: {msg}',
         signatureTooBig: 'signature too large ({mb} MB) — max 2 MB',
-        diptychPartnerSet: '2nd photo set: {name}',
-        diptychPartnerFail: '2nd photo read failed: {msg}',
+        collagePartnerSet: 'photo #{n} set: {name}',
+        collagePartnerFail: 'collage photo read failed: {msg}',
         presetSaved: 'saved preset "{name}"',
         presetApplied: 'applied preset "{name}"',
         presetDeleted: 'deleted preset "{name}"',

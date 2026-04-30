@@ -97,7 +97,7 @@ async function compose(canvas, args) {
     ctx.restore();
   }
 
-  const cells = R.diptychCellRects(args.diptych, layout);
+  const cells = R.collageCellRects(args.collage, layout);
   if (cells && Array.isArray(args.bitmaps) && args.bitmaps.length >= cells.length) {
     for (let i = 0; i < cells.length; i++) {
       const cell = cells[i];
@@ -201,13 +201,18 @@ async function reattachExif(sourceBlob, outputBlob) {
 
 // ─── Job dispatch ────────────────────────────────────────────────────────
 async function renderJob(msg) {
-  const { file, cfg, normExif, format, quality, partnerFile } = msg;
+  const { file, cfg, normExif, format, quality, partnerFiles } = msg;
   const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
-  let partnerBm = null;
-  const wantsDiptych = cfg.diptych && (cfg.diptych.layout === 'h' || cfg.diptych.layout === 'v') && partnerFile;
-  if (wantsDiptych) {
-    try { partnerBm = await createImageBitmap(partnerFile, { imageOrientation: 'from-image' }); }
-    catch { partnerBm = null; }
+  const validLayouts = ['h2', 'v2', 'h3', 'v3', '2x2'];
+  const wantsCollage = cfg.collage && validLayouts.indexOf(cfg.collage.layout) >= 0
+                       && Array.isArray(partnerFiles) && partnerFiles.length;
+  let partnerBms = [];
+  if (wantsCollage) {
+    partnerBms = await Promise.all(partnerFiles.map(async (f) => {
+      if (!f) return null;
+      try { return await createImageBitmap(f, { imageOrientation: 'from-image' }); }
+      catch { return null; }
+    }));
   }
   try {
     const frame = R.resolveFrame(cfg.frame);
@@ -228,12 +233,12 @@ async function renderJob(msg) {
       fontFaceCss, logos
     });
     const canvas = new OffscreenCanvas(layout.canvas.W, layout.canvas.H);
-    const diptych = wantsDiptych && partnerBm ? { layout: cfg.diptych.layout } : null;
-    const bitmaps = diptych ? [bitmap, partnerBm] : null;
+    const collage = wantsCollage && partnerBms.some(Boolean) ? { layout: cfg.collage.layout } : null;
+    const bitmaps = collage ? [bitmap, ...partnerBms] : null;
     await compose(canvas, {
       bitmap, bitmaps, layout, params, captionSvg,
       customLogo: cfg.customLogo || null,
-      diptych
+      collage
     });
     const mime = format === 'png' ? 'image/png' : 'image/jpeg';
     const q = quality === 'original' ? 0.98 : quality === 'high' ? 0.95 : 0.92;
@@ -242,7 +247,7 @@ async function renderJob(msg) {
     return outBlob;
   } finally {
     bitmap.close();
-    if (partnerBm) partnerBm.close();
+    for (const bm of partnerBms) if (bm) bm.close();
   }
 }
 

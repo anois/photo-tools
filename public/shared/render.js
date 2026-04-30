@@ -1076,30 +1076,72 @@
   }
 
   // ======================================================================
-  // Diptych (2-photo collage)
+  // Collage (2–4 photos in one frame)
   // ======================================================================
 
-  // Split the foreground rect into N cells for diptych rendering. Layout
-  // 'h' = horizontal side-by-side; 'v' = vertical stacked. Each cell carries
-  // an explicit gutter so the two photos don't visually fuse at the seam.
-  // Gap defaults to 12 base-px (scaled by layout.scale at call time).
-  function diptychCellRects(diptych, layout) {
-    if (!diptych || (diptych.layout !== 'h' && diptych.layout !== 'v')) return null;
+  // Split the foreground rect into N cells. Layouts:
+  //   h2 = 2 side-by-side                v2 = 2 stacked
+  //   h3 = 3 in a row                    v3 = 3 in a column
+  //   2x2 = 4 in a 2×2 grid (top-left, top-right, bottom-left, bottom-right)
+  // Each cell carries an explicit gutter so adjacent photos don't visually
+  // fuse at the seam. Gap defaults to 12 base-px (scaled by layout.scale).
+  // Returns null when collage is missing/off so callers can fall through to
+  // the single-photo fg pass.
+  function collageCellRects(collage, layout) {
+    if (!collage) return null;
+    const valid = ['h2', 'v2', 'h3', 'v3', '2x2'];
+    if (valid.indexOf(collage.layout) < 0) return null;
     const s = layout.scale || 1;
     const gap = Math.round(12 * s);
     const x = layout.fgLeft, y = layout.fgTop, w = layout.fgW, h = layout.fgH;
-    if (diptych.layout === 'h') {
-      const cellW = Math.floor((w - gap) / 2);
-      return [
-        { x: x,                 y: y, w: cellW,         h: h },
-        { x: x + cellW + gap,   y: y, w: w - cellW - gap, h: h }
-      ];
+
+    function splitH(N) {
+      const cellW = Math.floor((w - gap * (N - 1)) / N);
+      const cells = [];
+      for (let i = 0; i < N; i++) {
+        const isLast = i === N - 1;
+        cells.push({
+          x: x + i * (cellW + gap),
+          y: y,
+          w: isLast ? (w - i * (cellW + gap)) : cellW,
+          h: h
+        });
+      }
+      return cells;
     }
-    const cellH = Math.floor((h - gap) / 2);
-    return [
-      { x: x, y: y,                 w: w, h: cellH },
-      { x: x, y: y + cellH + gap,   w: w, h: h - cellH - gap }
-    ];
+    function splitV(N) {
+      const cellH = Math.floor((h - gap * (N - 1)) / N);
+      const cells = [];
+      for (let i = 0; i < N; i++) {
+        const isLast = i === N - 1;
+        cells.push({
+          x: x,
+          y: y + i * (cellH + gap),
+          w: w,
+          h: isLast ? (h - i * (cellH + gap)) : cellH
+        });
+      }
+      return cells;
+    }
+
+    switch (collage.layout) {
+      case 'h2': return splitH(2);
+      case 'v2': return splitV(2);
+      case 'h3': return splitH(3);
+      case 'v3': return splitV(3);
+      case '2x2': {
+        const cellW = Math.floor((w - gap) / 2);
+        const cellH = Math.floor((h - gap) / 2);
+        const rW = w - cellW - gap, rH = h - cellH - gap;
+        return [
+          { x: x,                 y: y,                 w: cellW, h: cellH },
+          { x: x + cellW + gap,   y: y,                 w: rW,    h: cellH },
+          { x: x,                 y: y + cellH + gap,   w: cellW, h: rH    },
+          { x: x + cellW + gap,   y: y + cellH + gap,   w: rW,    h: rH    }
+        ];
+      }
+    }
+    return null;
   }
 
   // ======================================================================
@@ -1187,7 +1229,7 @@
     // Custom signature
     customLogoRect: customLogoRect,
 
-    // Diptych
-    diptychCellRects: diptychCellRects
+    // Collage (2–4 photos)
+    collageCellRects: collageCellRects
   };
 });

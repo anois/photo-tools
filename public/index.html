@@ -235,35 +235,23 @@
       </details>
     </section>
 
-    <!-- E · Diptych -->
+    <!-- E · Collage -->
     <section class="group">
-      <h2 class="sec-head"><i>E</i><span data-i18n="sections.diptych">Diptych</span></h2>
+      <h2 class="sec-head"><i>E</i><span data-i18n="sections.collage">Collage</span></h2>
       <div class="row">
         <div class="field">
-          <label class="field-label" data-i18n="diptych.layout">Layout</label>
-          <div class="seg" id="diptych-seg" role="radiogroup">
-            <button data-val="off" class="active" role="radio" aria-checked="true" data-i18n="diptych.off">Off</button>
-            <button data-val="h" role="radio" aria-checked="false" data-i18n="diptych.h">Side by side</button>
-            <button data-val="v" role="radio" aria-checked="false" data-i18n="diptych.v">Stacked</button>
-          </div>
+          <label class="field-label" data-i18n="collage.layout">Layout</label>
+          <select id="collage-layout">
+            <option value="off" data-i18n="collage.off">Off</option>
+            <option value="h2" data-i18n="collage.h2">Side by side (1×2)</option>
+            <option value="v2" data-i18n="collage.v2">Stacked (2×1)</option>
+            <option value="h3" data-i18n="collage.h3">3 across (1×3)</option>
+            <option value="v3" data-i18n="collage.v3">3 stacked (3×1)</option>
+            <option value="2x2" data-i18n="collage.2x2">2×2 grid</option>
+          </select>
         </div>
       </div>
-      <label class="file-drop diptych-drop" id="diptych-drop" hidden>
-        <input id="diptych-input" type="file" accept="image/jpeg,image/png,image/heic,image/heif,.heic,.heif" />
-        <div class="file-drop-inner">
-          <div class="file-drop-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" width="18" height="18"><path d="M4 6h7v12H4zM13 6h7v12h-7z" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linejoin="round"/></svg>
-          </div>
-          <div class="file-drop-copy">
-            <strong data-i18n="diptych.choose">Choose 2nd photo</strong>
-            <span class="file-drop-hint-desktop" data-i18n="diptych.hint">JPEG / PNG / HEIC</span>
-          </div>
-        </div>
-      </label>
-      <div class="diptych-readout" id="diptych-readout" hidden>
-        <span class="diptych-name" id="diptych-name">—</span>
-        <button id="diptych-clear-btn" type="button" class="btn-ghost" data-i18n="diptych.clear">Remove</button>
-      </div>
+      <div class="collage-slots" id="collage-slots"></div>
     </section>
 
     <!-- F · Signature -->

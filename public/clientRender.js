@@ -294,8 +294,8 @@
       ctx.restore();
     }
 
-    // ─── Foreground (rounded photo, or N-cell diptych) ───────────────────
-    const cells = R.diptychCellRects(args.diptych, layout);
+    // ─── Foreground (rounded photo, or N-cell collage) ───────────────────
+    const cells = R.collageCellRects(args.collage, layout);
     if (cells && Array.isArray(args.bitmaps) && args.bitmaps.length >= cells.length) {
       for (let i = 0; i < cells.length; i++) {
         const cell = cells[i];
@@ -378,12 +378,14 @@
     const captionKey = opts.cacheCaption
       ? captionCacheKey({ normExif, layout, template: cfg.template, textStyle: effectiveTextStyle, showFields: cfg.showFields })
       : null;
+    const validLayouts = ['h2', 'v2', 'h3', 'v3', '2x2'];
+    const collage = (cfg.collage && validLayouts.indexOf(cfg.collage.layout) >= 0)
+      ? { layout: cfg.collage.layout }
+      : null;
     return {
       layout, params, captionSvg, captionKey,
       customLogo: cfg.customLogo || null,
-      diptych: cfg.diptych && cfg.diptych.layout && (cfg.diptych.layout === 'h' || cfg.diptych.layout === 'v')
-        ? { layout: cfg.diptych.layout }
-        : null
+      collage: collage
     };
   }
 
@@ -391,7 +393,7 @@
   // ImageBitmap (long edge ≤ PREVIEW_MAX_EDGE) so blur + drawImage stay fast
   // even on multi-MB native originals.
   async function renderPreview(canvas, args) {
-    const { file, cfg, normExif, logos, fontFaceCss, partnerFile } = args;
+    const { file, cfg, normExif, logos, fontFaceCss, partnerFiles } = args;
     if (!file) {
       canvas.width = 1; canvas.height = 1;
       return;
@@ -401,9 +403,11 @@
       customScale: PREVIEW_SCALE, fontFaceCss, logos, cacheCaption: true
     });
     let bitmaps = null;
-    if (built.diptych && partnerFile) {
-      const partnerBm = await loadBitmap(partnerFile, PREVIEW_MAX_EDGE).catch(() => null);
-      if (partnerBm) bitmaps = [bitmap, partnerBm];
+    if (built.collage && Array.isArray(partnerFiles) && partnerFiles.length) {
+      const partnerBms = await Promise.all(partnerFiles.map((f) =>
+        f ? loadBitmap(f, PREVIEW_MAX_EDGE).catch(() => null) : null
+      ));
+      bitmaps = [bitmap, ...partnerBms];
     }
     await compose(canvas, { bitmap, bitmaps, file, cacheBg: true, ...built });
   }
@@ -412,15 +416,17 @@
   // and returns a Blob (JPEG or PNG). Caller is responsible for re-attaching
   // EXIF (via ExifIO.reattachExif) and triggering download.
   async function renderFinal(args) {
-    const { file, cfg, normExif, logos, fontFaceCss, format, quality, partnerFile } = args;
+    const { file, cfg, normExif, logos, fontFaceCss, format, quality, partnerFiles } = args;
     const bitmap = await loadBitmap(file);   // full-resolution
     const built = buildLayoutAndCaption(bitmap, cfg, normExif, {
       quality: quality || 'standard', fontFaceCss, logos
     });
     let bitmaps = null;
-    if (built.diptych && partnerFile) {
-      const partnerBm = await loadBitmap(partnerFile).catch(() => null);
-      if (partnerBm) bitmaps = [bitmap, partnerBm];
+    if (built.collage && Array.isArray(partnerFiles) && partnerFiles.length) {
+      const partnerBms = await Promise.all(partnerFiles.map((f) =>
+        f ? loadBitmap(f).catch(() => null) : null
+      ));
+      bitmaps = [bitmap, ...partnerBms];
     }
     const canvas = (typeof OffscreenCanvas !== 'undefined')
       ? new OffscreenCanvas(built.layout.canvas.W, built.layout.canvas.H)

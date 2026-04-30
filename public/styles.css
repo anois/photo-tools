@@ -611,19 +611,19 @@ input[type="range"]::-moz-range-thumb {
 }
 .signature-preview .btn-ghost { margin-left: auto; }
 
-/* ── Diptych readout (filename of 2nd photo + clear button) ───────────── */
-.diptych-readout {
+/* ── Collage slots (per-partner readouts + drop zones) ───────────────── */
+.collage-slots { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.collage-slots:empty { margin-top: 0; }
+.collage-readout {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-top: 10px;
   padding: 10px 12px;
   border: 1px solid var(--line);
   border-radius: var(--r-md);
   background: rgba(255,255,255,0.02);
 }
-.diptych-readout[hidden] { display: none; }
-.diptych-readout .diptych-name {
+.collage-readout .collage-name {
   font: 500 11px/1 var(--f-mono);
   color: var(--text);
   flex: 1 1 auto;
@@ -632,8 +632,8 @@ input[type="range"]::-moz-range-thumb {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.diptych-readout .btn-ghost { margin-left: auto; }
-.diptych-drop[hidden] { display: none; }
+.collage-readout .btn-ghost { margin-left: auto; }
+.collage-drop { padding: 12px; }
 
 /* ── Batch export progress modal ───────────────────────────────────────── */
 .export-modal {

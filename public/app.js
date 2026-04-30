@@ -26,10 +26,11 @@ function defaultCfg() {
     // no signature; otherwise { data: dataURL, type: 'svg'|'png',
     // position: 'br'|'bl'|'bc', scale: 0.06, opacity: 1 }.
     customLogo: null,
-    // Diptych mode. null = single photo; otherwise { layout: 'h'|'v' }. The
-    // partner File itself isn't part of cfg (Files don't serialize to JSON);
-    // it lives on the per-photo entry as `entry.partnerFile`.
-    diptych: null,
+    // Collage mode. null = single photo; otherwise { layout: 'h2'|'v2'|
+    // 'h3'|'v3'|'2x2' }. Partner Files themselves aren't part of cfg
+    // (Files don't serialize to JSON); they live on the per-photo entry as
+    // `entry.partnerFiles` (array, length depends on layout).
+    collage: null,
     // EXIF user overrides keyed by input name (make/model/focalLength/...) →
     // raw string from the form. Backend applies formatters via formatBrand etc.
     exifOverride: {}
@@ -42,7 +43,7 @@ function cloneCfg(c) {
     showFields: { ...c.showFields },
     exifOverride: { ...c.exifOverride },
     customLogo: c.customLogo ? { ...c.customLogo } : null,
-    diptych: c.diptych ? { ...c.diptych } : null
+    collage: c.collage ? { ...c.collage } : null
   };
 }
 
@@ -106,12 +107,8 @@ const els = {
   signatureScaleVal: document.getElementById('signature-scale-val'),
   signatureOpacity: document.getElementById('signature-opacity'),
   signatureOpacityVal: document.getElementById('signature-opacity-val'),
-  diptychSeg: document.getElementById('diptych-seg'),
-  diptychDrop: document.getElementById('diptych-drop'),
-  diptychInput: document.getElementById('diptych-input'),
-  diptychReadout: document.getElementById('diptych-readout'),
-  diptychName: document.getElementById('diptych-name'),
-  diptychClearBtn: document.getElementById('diptych-clear-btn'),
+  collageLayout: document.getElementById('collage-layout'),
+  collageSlots: document.getElementById('collage-slots'),
   exportBtn: document.getElementById('export-btn'),
   batchBtn: document.getElementById('batch-btn'),
   clearExifBtn: document.getElementById('clear-exif-btn'),
@@ -310,7 +307,7 @@ async function doRender() {
     const c = active.cfg;
     await CR.renderPreview(els.canvas, {
       file: active.file,
-      partnerFile: active.partnerFile || null,
+      partnerFiles: active.partnerFiles || [],
       cfg: {
         aspect: c.aspect,
         frame: c.frame,
@@ -325,7 +322,7 @@ async function doRender() {
         shadowOpacity: c.shadowOpacity,
         showFields: c.showFields,
         customLogo: c.customLogo,
-        diptych: c.diptych
+        collage: c.collage
       },
       normExif: buildCurrentExif(),
       logos: state.logos,
@@ -386,21 +383,90 @@ function syncControlsFromCfg(cfg) {
     cb.checked = !!cfg.showFields[cb.dataset.key];
   });
   syncSignatureFromCfg(cfg);
-  syncDiptychFromActive();
+  syncCollageFromActive();
 }
 
-function syncDiptychFromActive() {
+// Layout → number of partner photos required.
+const COLLAGE_PARTNERS = { h2: 1, v2: 1, h3: 2, v3: 2, '2x2': 3 };
+
+function syncCollageFromActive() {
   const cfg = activeCfg();
   const active = state.files[state.activeIdx];
-  const layout = (cfg.diptych && cfg.diptych.layout) || 'off';
-  setSegActive(els.diptychSeg, layout);
-  const isOn = layout === 'h' || layout === 'v';
-  els.diptychDrop.hidden = !isOn || !!(active && active.partnerFile);
-  els.diptychReadout.hidden = !isOn || !(active && active.partnerFile);
-  if (active && active.partnerFile) {
-    els.diptychName.textContent = active.partnerFile.name;
-  } else {
-    els.diptychName.textContent = '—';
+  const layout = (cfg.collage && cfg.collage.layout) || 'off';
+  els.collageLayout.value = COLLAGE_PARTNERS[layout] ? layout : 'off';
+  renderCollageSlots(layout, active);
+}
+
+// Render N-1 file slots for the active layout. Each slot owns a hidden file
+// input + a label/readout swap so that when a slot is empty we show the
+// upload affordance and when populated we show the filename + a remove
+// button. Re-rendered on layout change and on selectFile so the slots
+// always reflect the active entry's partnerFiles[].
+function renderCollageSlots(layout, active) {
+  els.collageSlots.innerHTML = '';
+  const N = COLLAGE_PARTNERS[layout] || 0;
+  if (!N) return;
+  if (active && !Array.isArray(active.partnerFiles)) active.partnerFiles = [];
+  for (let i = 0; i < N; i++) {
+    const file = active && active.partnerFiles ? active.partnerFiles[i] : null;
+    if (file) {
+      const row = document.createElement('div');
+      row.className = 'collage-readout';
+      const name = document.createElement('span');
+      name.className = 'collage-name';
+      name.textContent = `#${i + 2}  ${file.name}`;
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'btn-ghost';
+      btn.textContent = T('collage.clear');
+      btn.addEventListener('click', () => {
+        if (active && active.partnerFiles) active.partnerFiles[i] = null;
+        renderCollageSlots(layout, active);
+        requestRender();
+      });
+      row.appendChild(name);
+      row.appendChild(btn);
+      els.collageSlots.appendChild(row);
+    } else {
+      const label = document.createElement('label');
+      label.className = 'file-drop collage-drop';
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/jpeg,image/png,image/heic,image/heif,.heic,.heif';
+      input.addEventListener('change', async () => {
+        const f = input.files && input.files[0];
+        input.value = '';
+        if (!f || !active) return;
+        try {
+          let partner = f;
+          if (window.HeicTools && window.HeicTools.isHeic(f)) {
+            partner = await window.HeicTools.transcode(f);
+          }
+          if (!Array.isArray(active.partnerFiles)) active.partnerFiles = [];
+          active.partnerFiles[i] = partner;
+          renderCollageSlots(layout, active);
+          requestRender();
+          setStatus('status.collagePartnerSet', null, { n: i + 2, name: partner.name });
+          setTimeout(() => setStatus('status.ready'), 1500);
+        } catch (err) {
+          console.error('[collage]', err);
+          setStatus('status.collagePartnerFail', 'err', { msg: err.message });
+        }
+      });
+      const inner = document.createElement('div');
+      inner.className = 'file-drop-inner';
+      inner.innerHTML = `
+        <div class="file-drop-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="18" height="18"><path d="M4 6h7v12H4zM13 6h7v12h-7z" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linejoin="round"/></svg>
+        </div>
+        <div class="file-drop-copy">
+          <strong>${T('collage.choose', { n: i + 2 })}</strong>
+          <span class="file-drop-hint-desktop">JPEG / PNG / HEIC</span>
+        </div>`;
+      label.appendChild(input);
+      label.appendChild(inner);
+      els.collageSlots.appendChild(label);
+    }
   }
 }
 
@@ -849,47 +915,20 @@ els.signatureOpacity.addEventListener('input', () => {
   requestRender();
 });
 
-// ─── Diptych (2-photo collage) wiring ────────────────────────────────────
-els.diptychSeg.querySelectorAll('button').forEach((btn) => {
-  btn.addEventListener('click', () => {
-    const v = btn.dataset.val;
-    setSegActive(els.diptychSeg, v);
-    const cfg = activeCfg();
-    cfg.diptych = (v === 'h' || v === 'v') ? { layout: v } : null;
-    syncDiptychFromActive();
-    requestRender();
-  });
-});
-
-els.diptychInput.addEventListener('change', async () => {
-  const file = els.diptychInput.files && els.diptychInput.files[0];
-  els.diptychInput.value = '';
-  if (!file) return;
+// ─── Collage (2–4 photos in one frame) wiring ───────────────────────────
+els.collageLayout.addEventListener('change', () => {
+  const v = els.collageLayout.value;
+  const cfg = activeCfg();
+  cfg.collage = COLLAGE_PARTNERS[v] ? { layout: v } : null;
+  // Reset partnerFiles array length to match new layout — drop trailing
+  // entries that no longer fit, keep prefix entries the user already picked.
   const active = state.files[state.activeIdx];
-  if (!active) return;
-  try {
-    // HEIC partner gets transcoded the same way as primary imports so the
-    // worker only ever sees standard JPEG/PNG.
-    let partner = file;
-    if (window.HeicTools && window.HeicTools.isHeic(file)) {
-      partner = await window.HeicTools.transcode(file);
-    }
-    active.partnerFile = partner;
-    syncDiptychFromActive();
-    requestRender();
-    setStatus('status.diptychPartnerSet', null, { name: partner.name });
-    setTimeout(() => setStatus('status.ready'), 1500);
-  } catch (err) {
-    console.error('[diptych]', err);
-    setStatus('status.diptychPartnerFail', 'err', { msg: err.message });
+  if (active) {
+    if (!Array.isArray(active.partnerFiles)) active.partnerFiles = [];
+    const want = COLLAGE_PARTNERS[v] || 0;
+    active.partnerFiles.length = want;
   }
-});
-
-els.diptychClearBtn.addEventListener('click', () => {
-  const active = state.files[state.activeIdx];
-  if (!active) return;
-  active.partnerFile = null;
-  syncDiptychFromActive();
+  syncCollageFromActive();
   requestRender();
 });
 
@@ -1095,7 +1134,7 @@ function buildConfigForFile(f) {
   if (c.bgBrightness != null)  cfg.bgBrightness = c.bgBrightness;
   if (c.bgSaturation != null)  cfg.bgSaturation = c.bgSaturation;
   if (c.customLogo)            cfg.customLogo = { ...c.customLogo };
-  if (c.diptych)               cfg.diptych = { ...c.diptych };
+  if (c.collage)               cfg.collage = { ...c.collage };
   return cfg;
 }
 
@@ -1109,7 +1148,7 @@ els.exportBtn.addEventListener('click', async () => {
   try {
     const cfg = buildConfigForFile(active);
     await window.Exporter.exportSingle(
-      { file: active.file, normExif: buildExifForFile(active), partnerFile: active.partnerFile || null },
+      { file: active.file, normExif: buildExifForFile(active), partnerFiles: active.partnerFiles || [] },
       cfg, assets()
     );
     setStatus('status.exported', null);
@@ -1132,7 +1171,7 @@ async function runBatch() {
       file: f.file,
       normExif: buildExifForFile(f),
       cfg: buildConfigForFile(f),
-      partnerFile: f.partnerFile || null
+      partnerFiles: f.partnerFiles || []
     }));
     // Exporter drives the progress modal directly via window.ProgressModal —
     // status bar just gets the final result.
