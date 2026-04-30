@@ -141,6 +141,12 @@ Three caches keep the preview render cheap when switching photos / dragging slid
 
 Empirical impact on warm photo switching (10-sample harness, 2-photo back-and-forth, ~720×1280 preview canvas): switch-to-paint p90 dropped from ~72ms to ~56ms, p90−median jitter from ~13ms to ~2ms.
 
+### GPS coordinates (caption field)
+
+EXIF GPS is parsed automatically (the exifr options flip `gps: true`) and surfaced in `normalizeExif` as `latitude` / `longitude` decimal numbers + a pre-formatted `gps` string (e.g. `39.9042°N · 116.4074°E`, four-decimal precision ≈ 11 m). `formatGps(lat, lng)` is exported from `public/shared/render.js` for any future caller that wants to re-format from raw decimals.
+
+The GPS line is opt-in via the `gps` show-field chip — defaults to off so users don't accidentally publish coordinates. When enabled it's appended to each template's existing extras row alongside lens / date, with the `brand-logo` template emitting it on its own line below the author so the layout doesn't get cramped.
+
 ### Caption auto-placement (`public/shared/render.js → computeCaptionZone`)
 
 `computeCaptionZone` picks the caption location based on available space around the foreground. Placements in priority order:

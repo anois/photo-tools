@@ -1,6 +1,6 @@
 'use strict';
 
-const FIELD_KEYS = ['brand', 'model', 'focal', 'aperture', 'shutter', 'iso', 'lens', 'date', 'author', 'flash'];
+const FIELD_KEYS = ['brand', 'model', 'focal', 'aperture', 'shutter', 'iso', 'lens', 'date', 'author', 'flash', 'gps'];
 const R = window.PhotoRender;
 const CR = window.ClientRender;
 const T = (k, vars) => window.I18N.t(k, vars);
@@ -21,7 +21,7 @@ function defaultCfg() {
     captionHeight: null,
     bgBlur: null, bgBrightness: null, bgSaturation: null,   // null → use frame preset
     shadowBlur: sd.blur, shadowOffsetY: sd.offsetY, shadowOpacity: sd.opacity,
-    showFields: { brand: true, model: true, focal: true, aperture: true, shutter: true, iso: true, lens: false, date: false, author: true, flash: false },
+    showFields: { brand: true, model: true, focal: true, aperture: true, shutter: true, iso: true, lens: false, date: false, author: true, flash: false, gps: false },
     // Rotation applied at render time, in degrees clockwise. 0 / 90 / 180 / 270.
     // Per-photo correction — not propagated by "Apply frame to all" or by
     // presets, since it's more of a "this specific photo was shot wrong"

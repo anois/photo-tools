@@ -20,7 +20,10 @@
   // catch re-edited Fujifilm DSCF files where standard EXIF was rewritten.
   const EXIFR_OPTS = {
     tiff: true, ifd0: true, exif: true,
-    gps: false, interop: false, thumbnail: false,
+    // GPS is on so the caption can render coordinates when the user enables
+    // the gps chip. exifr emits decimal-degree latitude/longitude on the
+    // top-level result; we normalize to the same shape for templates.
+    gps: true, interop: false, thumbnail: false,
     xmp: true, iptc: true, icc: false, jfif: false,
     makerNote: true,
     mergeOutput: true,

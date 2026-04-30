@@ -93,6 +93,18 @@
   }
   function pad2(n) { n = String(n); return n.length < 2 ? '0' + n : n; }
 
+  // exifr emits decimal-degree latitude/longitude on the top-level result
+  // when gps:true. Hemisphere refs are folded into the sign (south/west are
+  // negative). We render absolute degrees + N/S + E/W with 4-decimal
+  // precision (~11 m) — DMS is too verbose for a caption line.
+  function formatGps(lat, lng) {
+    const a = typeof lat === 'number' ? lat : Number(lat);
+    const b = typeof lng === 'number' ? lng : Number(lng);
+    if (!isFinite(a) || !isFinite(b)) return '';
+    return Math.abs(a).toFixed(4) + '°' + (a >= 0 ? 'N' : 'S')
+      + ' · ' + Math.abs(b).toFixed(4) + '°' + (b >= 0 ? 'E' : 'W');
+  }
+
   // LensInfo is a 4-element array [minFocal, maxFocal, maxApMin, maxApMax] that
   // most cameras write even when LensModel is blank. We synthesize a readable
   // "18-50mm F2.8" / "24-70mm F2.8-4" / "50mm F1.4" string so prime and
@@ -153,7 +165,10 @@
       flash:           typeof flashRaw === 'object' && flashRaw !== null
                          ? (flashRaw.Fired ? 'Fired' : 'Off')
                          : (flashRaw ?? '').toString(),
-      flashFired:      flashWasFired(flashRaw)
+      flashFired:      flashWasFired(flashRaw),
+      latitude:        typeof raw.latitude === 'number' ? raw.latitude : null,
+      longitude:       typeof raw.longitude === 'number' ? raw.longitude : null,
+      gps:             formatGps(raw.latitude, raw.longitude)
     };
   }
 
@@ -513,7 +528,8 @@
     const showFlash = on(show, 'flash') && exif.flashFired;
     const extras = [
       on(show, 'lens') ? exif.lensModel : '',
-      on(show, 'date') ? exif.date      : ''
+      on(show, 'date') ? exif.date      : '',
+      on(show, 'gps')  ? exif.gps       : ''
       ,(on(show, 'author') && exif.author) ? '© ' + exif.author : ''
     ].filter(Boolean).join('  •  ');
 
@@ -617,7 +633,8 @@
     const cx = layout.W / 2;
     const baseY = layout.textBaselineY;
     const hasAuthor = on(show, 'author') && !!exif.author;
-    const hasExtras = (showLens && exif.lensModel) || (showDate && exif.date) || (showLens && exif.lensMake) || hasAuthor;
+    const hasGps = on(show, 'gps') && !!exif.gps;
+    const hasExtras = (showLens && exif.lensModel) || (showDate && exif.date) || (showLens && exif.lensMake) || hasAuthor || hasGps;
     const y = hasExtras ? baseY - Math.round(14 * s) : baseY;
 
     const brandPx = Math.round(36 * s);
@@ -717,6 +734,12 @@
       if (hasAuthor) {
         const authorY = baseY + Math.round((extraSvg ? 58 : 30) * s);
         extraSvg += '<text x="' + cx + '" y="' + authorY + '" text-anchor="middle" class="extra">© ' + escapeXml(exif.author) + '</text>';
+      }
+      // GPS line tucks in below the author (or below date/lens if no author).
+      if (hasGps) {
+        const lineCount = (extraSvg.match(/<text /g) || []).length;
+        const gpsY = baseY + Math.round((lineCount > 0 ? 30 + 28 * lineCount : 30) * s);
+        extraSvg += '<text x="' + cx + '" y="' + gpsY + '" text-anchor="middle" class="extra">' + escapeXml(exif.gps) + '</text>';
       }
     }
 
@@ -843,7 +866,8 @@
     const showFlash = on(show, 'flash') && exif.flashFired;
     const extras = [
       on(show, 'lens') ? exif.lensModel : '',
-      on(show, 'date') ? exif.date      : ''
+      on(show, 'date') ? exif.date      : '',
+      on(show, 'gps')  ? exif.gps       : ''
       ,(on(show, 'author') && exif.author) ? '© ' + exif.author : ''
     ].filter(Boolean).join('  ·  ');
 
@@ -965,7 +989,8 @@
     ].filter(Boolean).join('  ');
     const extras = [
       on(show, 'lens') ? exif.lensModel : '',
-      on(show, 'date') ? exif.date      : ''
+      on(show, 'date') ? exif.date      : '',
+      on(show, 'gps')  ? exif.gps       : ''
       ,(on(show, 'author') && exif.author) ? '© ' + exif.author : ''
     ].filter(Boolean).join('  •  ');
 
@@ -1196,6 +1221,7 @@
     formatIso: formatIso,
     formatBrand: formatBrand,
     formatDate: formatDate,
+    formatGps: formatGps,
     escapeXml: escapeXml,
 
     // Layout

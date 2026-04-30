@@ -103,7 +103,8 @@
           lens: '镜头',
           date: '日期',
           author: '作者',
-          flash: '闪灯'
+          flash: '闪灯',
+          gps: 'GPS'
         }
       },
       exif: {
@@ -321,7 +322,8 @@
           lens: 'Lens',
           date: 'Date',
           author: 'Author',
-          flash: 'Flash'
+          flash: 'Flash',
+          gps: 'GPS'
         }
       },
       exif: {

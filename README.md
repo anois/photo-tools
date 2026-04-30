@@ -43,6 +43,7 @@ A single-page web app that wraps photos in a "frosted-glass" frame — blurred s
 - **HEIC / HEIF input** — iPhone photos transcode in-browser via lazy-loaded libheif-js (only fetched on first HEIC import)
 - **Collage mode** — pair 2–4 photos in one frame: side-by-side, stacked, 1×3 / 3×1 row, or 2×2 grid
 - **90° rotation** — per-photo ↶ ↷ buttons for shots framed wrong (no destructive re-encode)
+- **GPS coordinates** — opt-in caption field that prints decimal lat/lon when EXIF GPS is present (off by default for privacy)
 - **Installable PWA** — service worker precaches the SPA shell so the app loads instantly and works fully offline after the first visit
 - **Live preview** via Canvas2D + GPU `ctx.filter` blur — no round-trip to a server
 - **Single + batch export** with EXIF round-trip preserved on JPEG (Make / Model / focal / aperture / shutter / ISO / lens / date / GPS)
