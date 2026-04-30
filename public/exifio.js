@@ -100,6 +100,15 @@
       // to the un-framed image and is now misleading.
       delete exifObj['1st'];
       delete exifObj.thumbnail;
+      // Force Orientation = 1 (Top-left, no rotation). createImageBitmap with
+      // imageOrientation: 'from-image' has already baked the source rotation
+      // into the rendered pixels, so re-injecting the source's Orientation
+      // tag would tell viewers to rotate the already-rotated pixels — a
+      // double rotation that surfaces as portraits coming out landscape.
+      // 274 is piexif.ImageIFD.Orientation; using the literal avoids a
+      // window.piexif lookup on every export.
+      if (!exifObj['0th']) exifObj['0th'] = {};
+      exifObj['0th'][274] = 1;
       exifBin = window.piexif.dump(exifObj);
     } catch {
       // Source had no EXIF (e.g. social-platform-stripped images) — fine,

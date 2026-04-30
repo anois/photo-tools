@@ -178,6 +178,12 @@ async function reattachExif(sourceBlob, outputBlob) {
     const exifObj = self.piexif.load(srcBin);
     delete exifObj['1st'];
     delete exifObj.thumbnail;
+    // Match the main-thread reattach: createImageBitmap already baked the
+    // source's Orientation into the rendered pixels, so the output JPEG must
+    // declare Orientation=1 (no rotation) — otherwise a second rotation gets
+    // applied at view time. 274 is piexif.ImageIFD.Orientation.
+    if (!exifObj['0th']) exifObj['0th'] = {};
+    exifObj['0th'][274] = 1;
     exifBin = self.piexif.dump(exifObj);
   } catch {
     return outputBlob;     // source had no EXIF — fine
