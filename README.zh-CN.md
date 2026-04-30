@@ -37,6 +37,7 @@
 - **5 种字幕模板** — minimal-text、brand-logo、brand-right、tech-stack、date-lens
 - **真实品牌 logo 内嵌** — Fujifilm、Sony、Leica、Nikon、Canon、Apple、Xiaomi、OPPO、Vivo、DJI…（来自 Wikimedia Commons + simple-icons）
 - **EXIF 自动解析**，每张照片可独立手动覆盖；当 `LensModel` 缺失时用 `LensInfo` 数组反推镜头型号
+- **自定义签名水印** — 上传 SVG/PNG 钉在前景照片的某个角落；通过 `localStorage` 跨会话保留
 - **实时预览** 走 Canvas2D + GPU 的 `ctx.filter` blur，不走服务端往返
 - **单张 + 批量导出** 都保留源图 EXIF（Make / Model / 焦距 / 光圈 / 快门 / ISO / 镜头 / 日期 / GPS）
 - **Web Worker 池** 把批量渲染挪出主线程

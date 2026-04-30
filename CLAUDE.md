@@ -104,7 +104,7 @@ These are authoring-time helpers, not part of the runtime path.
 
 ### Render pipeline (`public/clientRender.js`)
 
-`compose(canvas, args)` is the single core: draws bg → fg shadow → fg image → caption SVG onto a Canvas2D. Two thin entry points share it:
+`compose(canvas, args)` is the single core: draws bg → fg shadow → fg image → caption SVG → optional signature onto a Canvas2D. Two thin entry points share it:
 
 | Entry | Canvas | Use |
 |-------|--------|-----|
@@ -209,9 +209,29 @@ All five templates support a **flash indicator** (small ⚡ glyph) when `showFie
 
 (There is no longer a backend allow-list to update — `app.js` passes `cfg.template` straight through to `R.buildCaptionSvg`, which falls back to the default if unknown.)
 
+### Custom signature overlay (`public/shared/render.js → customLogoRect`)
+
+Users can upload one signature image (SVG or PNG) which gets drawn as the very last layer of `compose()`, clipped to the rounded foreground rect so it never escapes into the frame area.
+
+| field | type | meaning |
+|---|---|---|
+| `customLogo.data` | dataURL | the uploaded SVG/PNG, base64-inlined |
+| `customLogo.type` | `'svg'` / `'png'` | source format (decided at upload from MIME prefix) |
+| `customLogo.position` | `'br'` / `'bl'` / `'bc'` | bottom-right / bottom-left / bottom-center anchor |
+| `customLogo.scale` | 0.03–0.20 | width relative to fg width (UI exposes 3–20%) |
+| `customLogo.opacity` | 0.2–1.0 | global alpha multiplier |
+
+`customLogo` lives on each per-photo `cfg` (or `null` when no signature), but **upload always cascades**: a new image writes to `draftCfg`, every loaded photo, and `localStorage['phototools.customLogo']`. Per-photo position/scale/opacity edits stay local; "Apply frame to all" propagates them along with the frame settings. Re-uploading the same image while one is already loaded preserves the active photo's position/scale/opacity.
+
+Decoding:
+- Main thread: `customLogoCache` (Map, max 3) in `public/clientRender.js`, keyed by dataURL → `Promise<ImageBitmap>`. Same dataURL hits the cache, so dragging the size slider doesn't re-decode.
+- Workers: each worker decodes on every job (no cache); cheap because PNG/SVG decode is fast and batch jobs typically share one signature.
+
+Storage: 2MB upload cap (pre-encoding); SVG dataURLs are usually <50KB, PNG can reach the cap. Larger files surface `status.signatureTooBig` and are rejected. The clear button (`#signature-clear-btn`) wipes the signature from every loaded photo + draftCfg + localStorage in one shot — there is no per-photo remove.
+
 ## Per-photo cfg model
 
-Each `state.files[i]` carries its own complete `cfg` (frame / aspect / template / padding / captionHeight / bg* / shadow* / showFields / exifOverride). Only `format` and `quality` stay global because they apply to a batch uniformly.
+Each `state.files[i]` carries its own complete `cfg` (frame / aspect / template / padding / captionHeight / bg* / shadow* / showFields / customLogo / exifOverride). Only `format` and `quality` stay global because they apply to a batch uniformly.
 
 - Switching the active photo via the rail or arrow keys re-syncs **all** controls to that photo's cfg via `syncControlsFromCfg(cfg)`.
 - Changing any control writes through to `activeCfg()` only — other photos are unaffected.
@@ -221,7 +241,7 @@ Two batch-apply buttons let users propagate the active photo's settings:
 
 | Button | Location | Copies | Excludes |
 |---|---|---|---|
-| **Apply 相框设置到全部** | end of B · Frame | `aspect`, `frame`, `template`, `padding`, `captionHeight`, `bgBlur`, `bgBrightness`, `bgSaturation`, `shadowBlur`, `shadowOffsetY`, `shadowOpacity`, `showFields` | `exifOverride` |
+| **Apply 相框设置到全部** | end of B · Frame | `aspect`, `frame`, `template`, `padding`, `captionHeight`, `bgBlur`, `bgBrightness`, `bgSaturation`, `shadowBlur`, `shadowOffsetY`, `shadowOpacity`, `showFields`, `customLogo` | `exifOverride` |
 | **Apply EXIF to all** | inside D · EXIF details | `exifOverride` (raw form strings) | everything else |
 
 The split is deliberate: photos in a batch usually share one *look* (frame/aspect/etc.) but differ in *metadata* (each has its own auto-parsed Make/Model/focal). One button propagates the look without overwriting per-photo EXIF; the other propagates EXIF without resetting per-photo frame tweaks.
@@ -344,6 +364,7 @@ If the source has no EXIF (social-platform-stripped images), the function silent
 - **Canvas `ctx.filter = 'blur(Npx)'`** only affects subsequent `drawImage` calls and must be reset to `'none'` (or `restore()` from a `save()`) before drawing non-blurred content.
 - **`OffscreenCanvas` size limits**: Chrome/Firefox cap at ~16384 px per side, Safari at ~4096 px per side as of 2025. `quality: original` on a very large source can exceed Safari's cap. Default to `standard` or `high` for cross-browser exports.
 - **`canvas.toBlob` on iOS Safari** silently downsizes images > ~5MP for memory. Test on actual device if iOS Safari is a target.
+- **`createImageBitmap(svgBlob)` rejects SVGs without explicit `width` / `height` attrs** in Chrome — even when `viewBox` is present. Many hand-authored SVGs (Inkscape exports, simple-icons) ship with viewBox-only. The signature upload path patches this at upload time via `ensureSvgDimensions` in `public/app.js`, injecting width/height from the viewBox before persisting. Workers have no `HTMLImageElement` fallback, so this preprocessing is the only thing keeping batch export reliable for SVG signatures.
 
 ## Known limitations / future work
 

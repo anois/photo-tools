@@ -1075,6 +1075,35 @@
       defs + '<g transform="' + transform + '">' + overlayRect + innerContent + '</g></svg>';
   }
 
+  // ======================================================================
+  // Custom signature / logo overlay
+  // ======================================================================
+
+  // Compute the destination rect for a user-supplied signature image overlaid
+  // on the foreground photo. Returns null when customLogo is missing or has
+  // an invalid scale. The rect is in canvas-px (already scaled), positioned
+  // inside the foreground bounds with a small margin so the signature sits
+  // visually away from the fg edge.
+  function customLogoRect(layout, customLogo, imgAspect) {
+    if (!customLogo || !customLogo.data || !(customLogo.scale > 0)) return null;
+    const ar = (imgAspect && isFinite(imgAspect) && imgAspect > 0) ? imgAspect : 1;
+    const margin = Math.round(20 * (layout.scale || 1));
+    let dw = Math.max(1, Math.round(layout.fgW * Number(customLogo.scale)));
+    let dh = Math.max(1, Math.round(dw / ar));
+    const maxH = Math.round(layout.fgH * 0.5);
+    if (dh > maxH) { dh = maxH; dw = Math.round(dh * ar); }
+    const pos = customLogo.position || 'br';
+    let x;
+    if (pos === 'bl') x = layout.fgLeft + margin;
+    else if (pos === 'bc') x = layout.fgLeft + Math.round((layout.fgW - dw) / 2);
+    else x = layout.fgLeft + layout.fgW - dw - margin;
+    const y = layout.fgTop + layout.fgH - dh - margin;
+    const opacity = customLogo.opacity != null && isFinite(Number(customLogo.opacity))
+      ? Math.max(0, Math.min(1, Number(customLogo.opacity)))
+      : 1;
+    return { x: x, y: y, w: dw, h: dh, opacity: opacity };
+  }
+
   // Convenience: build the final full-canvas caption SVG in one call.
   function buildCaptionSvg(exif, layout, opts) {
     const inner = renderTemplate(opts.template, exif, layout, opts.fontFaceCss, {
@@ -1126,6 +1155,9 @@
     TEMPLATE_KEYS: Object.keys(TEMPLATES),
     renderTemplate: renderTemplate,
     wrapCaption: wrapCaption,
-    buildCaptionSvg: buildCaptionSvg
+    buildCaptionSvg: buildCaptionSvg,
+
+    // Custom signature
+    customLogoRect: customLogoRect
   };
 });

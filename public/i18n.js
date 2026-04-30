@@ -32,6 +32,7 @@
         frame: '相框',
         caption: '文字',
         exif: 'EXIF',
+        signature: '签名',
         export: '导出'
       },
       source: {
@@ -115,6 +116,17 @@
         copyRaw: '复制原始 EXIF',
         copyRawTitle: '把这张照片解析出来的原始 EXIF JSON 复制到剪贴板（debug 用）'
       },
+      signature: {
+        uploadTitle: '上传签名',
+        hint: 'SVG / PNG · 建议透明背景',
+        clear: '移除签名',
+        position: '位置',
+        posBL: '左下',
+        posBC: '中下',
+        posBR: '右下',
+        size: '大小',
+        opacity: '不透明度'
+      },
       export: {
         quality: '质量',
         format: '格式',
@@ -169,6 +181,9 @@
         onlyOne: '仅有一张照片',
         appliedFrame: '已将相框设置应用到 {n} 张照片',
         appliedExif: '已将 {n} 个 EXIF 字段应用到 {m} 张照片',
+        signatureLoaded: '签名已加载',
+        signatureFail: '签名读取失败：{msg}',
+        signatureTooBig: '签名图片过大（{mb} MB），上限 2 MB',
         exporting: '导出中…',
         exported: '已导出',
         exportFail: '导出失败',
@@ -194,6 +209,7 @@
         frame: 'Frame',
         caption: 'Caption',
         exif: 'EXIF',
+        signature: 'Signature',
         export: 'Export'
       },
       source: {
@@ -277,6 +293,17 @@
         copyRaw: 'Copy raw EXIF',
         copyRawTitle: 'Copy this photo’s raw EXIF JSON to clipboard (debug)'
       },
+      signature: {
+        uploadTitle: 'Upload signature',
+        hint: 'SVG / PNG · transparent bg recommended',
+        clear: 'Remove signature',
+        position: 'Position',
+        posBL: 'Bottom-left',
+        posBC: 'Bottom-center',
+        posBR: 'Bottom-right',
+        size: 'Size',
+        opacity: 'Opacity'
+      },
       export: {
         quality: 'Quality',
         format: 'Format',
@@ -331,6 +358,9 @@
         onlyOne: 'only one photo loaded',
         appliedFrame: 'applied frame settings to {n} photo(s)',
         appliedExif: 'applied {n} EXIF field(s) to {m} photo(s)',
+        signatureLoaded: 'signature loaded',
+        signatureFail: 'signature read failed: {msg}',
+        signatureTooBig: 'signature too large ({mb} MB) — max 2 MB',
         exporting: 'exporting…',
         exported: 'exported',
         exportFail: 'export failed',

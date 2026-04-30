@@ -556,6 +556,31 @@ input[type="range"]::-moz-range-thumb {
 .exif-actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
 .exif-actions .btn-ghost { flex: 1 1 auto; }
 
+/* ── Signature preview ─────────────────────────────────────────────────── */
+.signature-preview {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: rgba(255,255,255,0.02);
+}
+.signature-preview[hidden] { display: none; }
+.signature-preview img {
+  width: 56px;
+  height: 56px;
+  object-fit: contain;
+  background:
+    linear-gradient(45deg, rgba(255,255,255,0.04) 25%, transparent 25%) 0 0/12px 12px,
+    linear-gradient(-45deg, rgba(255,255,255,0.04) 25%, transparent 25%) 0 6px/12px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm, 6px);
+  flex: 0 0 auto;
+}
+.signature-preview .btn-ghost { margin-left: auto; }
+
 /* ── Batch export progress modal ───────────────────────────────────────── */
 .export-modal {
   border: 1px solid var(--line-strong);

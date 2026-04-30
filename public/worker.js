@@ -116,6 +116,28 @@ async function compose(canvas, args) {
     ctx.drawImage(cap, 0, 0);
     cap.close();
   }
+
+  if (args.customLogo && args.customLogo.data) {
+    let bm = null;
+    try {
+      const sigBlob = await fetch(args.customLogo.data).then((r) => r.blob());
+      bm = await createImageBitmap(sigBlob);
+    } catch (err) {
+      // Decoding a user signature should never abort the export — log and skip.
+      console.warn('[worker customLogo] decode failed', err);
+    }
+    if (bm) {
+      const rect = R.customLogoRect(layout, args.customLogo, bm.width / bm.height);
+      if (rect) {
+        ctx.save();
+        clipRoundRect(ctx, layout.fgLeft, layout.fgTop, layout.fgW, layout.fgH, layout.radius);
+        ctx.globalAlpha = rect.opacity;
+        ctx.drawImage(bm, rect.x, rect.y, rect.w, rect.h);
+        ctx.restore();
+      }
+      bm.close();
+    }
+  }
 }
 
 // ─── EXIF passthrough (worker version) ───────────────────────────────────
@@ -176,7 +198,7 @@ async function renderJob(msg) {
       fontFaceCss, logos
     });
     const canvas = new OffscreenCanvas(layout.canvas.W, layout.canvas.H);
-    await compose(canvas, { bitmap, layout, params, captionSvg });
+    await compose(canvas, { bitmap, layout, params, captionSvg, customLogo: cfg.customLogo || null });
     const mime = format === 'png' ? 'image/png' : 'image/jpeg';
     const q = quality === 'original' ? 0.98 : quality === 'high' ? 0.95 : 0.92;
     let outBlob = await canvas.convertToBlob({ type: mime, quality: q });

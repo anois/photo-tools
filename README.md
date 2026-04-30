@@ -37,6 +37,7 @@ A single-page web app that wraps photos in a "frosted-glass" frame — blurred s
 - **5 caption templates** — minimal-text, brand-logo, brand-right, tech-stack, date-lens
 - **Real bundled brand logos** — Fujifilm, Sony, Leica, Nikon, Canon, Apple, Xiaomi, OPPO, Vivo, DJI… (Wikimedia Commons + simple-icons)
 - **Auto EXIF parsing** with per-photo manual override and `LensInfo` → lens-model fallback
+- **Custom signature overlay** — upload an SVG/PNG and pin it to a corner of the photo; persisted across sessions in `localStorage`
 - **Live preview** via Canvas2D + GPU `ctx.filter` blur — no round-trip to a server
 - **Single + batch export** with EXIF round-trip preserved on JPEG (Make / Model / focal / aperture / shutter / ISO / lens / date / GPS)
 - **Web-Worker pool** for batch render off the main thread

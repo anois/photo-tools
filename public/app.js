@@ -22,6 +22,10 @@ function defaultCfg() {
     bgBlur: null, bgBrightness: null, bgSaturation: null,   // null → use frame preset
     shadowBlur: sd.blur, shadowOffsetY: sd.offsetY, shadowOpacity: sd.opacity,
     showFields: { brand: true, model: true, focal: true, aperture: true, shutter: true, iso: true, lens: false, date: false, author: true, flash: false },
+    // User-uploaded signature image overlaid on the foreground photo. null means
+    // no signature; otherwise { data: dataURL, type: 'svg'|'png',
+    // position: 'br'|'bl'|'bc', scale: 0.06, opacity: 1 }.
+    customLogo: null,
     // EXIF user overrides keyed by input name (make/model/focalLength/...) →
     // raw string from the form. Backend applies formatters via formatBrand etc.
     exifOverride: {}
@@ -32,7 +36,8 @@ function cloneCfg(c) {
   return {
     ...c,
     showFields: { ...c.showFields },
-    exifOverride: { ...c.exifOverride }
+    exifOverride: { ...c.exifOverride },
+    customLogo: c.customLogo ? { ...c.customLogo } : null
   };
 }
 
@@ -81,6 +86,16 @@ const els = {
   shadowOpacity: document.getElementById('shadow-opacity'),
   shadowOpacityVal: document.getElementById('shadow-opacity-val'),
   showFields: document.getElementById('show-fields'),
+  signatureInput: document.getElementById('signature-input'),
+  signatureDrop: document.getElementById('signature-drop'),
+  signaturePreview: document.getElementById('signature-preview'),
+  signaturePreviewImg: document.getElementById('signature-preview-img'),
+  signatureClearBtn: document.getElementById('signature-clear-btn'),
+  signaturePosSeg: document.getElementById('signature-pos-seg'),
+  signatureScale: document.getElementById('signature-scale'),
+  signatureScaleVal: document.getElementById('signature-scale-val'),
+  signatureOpacity: document.getElementById('signature-opacity'),
+  signatureOpacityVal: document.getElementById('signature-opacity-val'),
   exportBtn: document.getElementById('export-btn'),
   batchBtn: document.getElementById('batch-btn'),
   clearExifBtn: document.getElementById('clear-exif-btn'),
@@ -288,7 +303,8 @@ async function doRender() {
         shadowBlur: c.shadowBlur,
         shadowOffsetY: c.shadowOffsetY,
         shadowOpacity: c.shadowOpacity,
-        showFields: c.showFields
+        showFields: c.showFields,
+        customLogo: c.customLogo
       },
       normExif: buildCurrentExif(),
       logos: state.logos,
@@ -348,6 +364,24 @@ function syncControlsFromCfg(cfg) {
   els.showFields.querySelectorAll('input[type=checkbox]').forEach((cb) => {
     cb.checked = !!cfg.showFields[cb.dataset.key];
   });
+  syncSignatureFromCfg(cfg);
+}
+
+function syncSignatureFromCfg(cfg) {
+  const cl = cfg.customLogo;
+  const has = !!(cl && cl.data);
+  els.signaturePreview.hidden = !has;
+  els.signaturePreviewImg.src = has ? cl.data : '';
+  setSegActive(els.signaturePosSeg, has ? (cl.position || 'br') : 'br');
+  const scalePct = Math.round((has ? (cl.scale != null ? cl.scale : 0.06) : 0.06) * 100);
+  const opacity = has ? (cl.opacity != null ? cl.opacity : 1) : 1;
+  els.signatureScale.value = scalePct;
+  els.signatureScaleVal.textContent = scalePct + '%';
+  els.signatureOpacity.value = opacity;
+  els.signatureOpacityVal.textContent = Math.round(opacity * 100) + '%';
+  els.signaturePosSeg.querySelectorAll('button').forEach((b) => { b.disabled = !has; });
+  els.signatureScale.disabled = !has;
+  els.signatureOpacity.disabled = !has;
 }
 
 function setSegActive(seg, val) {
@@ -605,6 +639,149 @@ els.showFields.querySelectorAll('input[type=checkbox]').forEach((cb) => {
   });
 });
 
+// ─── Signature (custom-logo) wiring ─────────────────────────────────────
+// Upload propagates the new image to draftCfg + every loaded photo + localStorage.
+// Per-photo position / size / opacity remain editable on the active cfg only.
+const SIGNATURE_STORAGE_KEY = 'phototools.customLogo';
+const SIGNATURE_MAX_BYTES = 2 * 1024 * 1024;
+
+function readSignatureFile(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(reader.error || new Error('read failed'));
+    reader.readAsDataURL(file);
+  });
+}
+
+// Many hand-authored SVGs ship with only a viewBox and no width/height attrs.
+// Chrome's createImageBitmap rejects such blobs, which silently nukes the
+// signature in batch export (the worker has no HTMLImageElement fallback).
+// Patching the dataURL once at upload time is cheaper and more robust than
+// guarding every decode site downstream.
+function ensureSvgDimensions(dataURL) {
+  if (!/^data:image\/svg/i.test(dataURL)) return dataURL;
+  const comma = dataURL.indexOf(',');
+  if (comma < 0) return dataURL;
+  const meta = dataURL.slice(0, comma);
+  const body = dataURL.slice(comma + 1);
+  let svgText;
+  try {
+    svgText = /;base64/i.test(meta) ? atob(body) : decodeURIComponent(body);
+  } catch (_) { return dataURL; }
+  let doc;
+  try { doc = new DOMParser().parseFromString(svgText, 'image/svg+xml'); }
+  catch (_) { return dataURL; }
+  const root = doc && doc.documentElement;
+  if (!root || root.nodeName !== 'svg' || root.querySelector('parsererror')) return dataURL;
+  const hasW = root.hasAttribute('width');
+  const hasH = root.hasAttribute('height');
+  if (hasW && hasH) return dataURL;
+  const vb = root.getAttribute('viewBox');
+  if (!vb) return dataURL;
+  const parts = vb.trim().split(/[\s,]+/).map(Number);
+  if (parts.length !== 4 || parts.some((n) => !isFinite(n)) || parts[2] <= 0 || parts[3] <= 0) {
+    return dataURL;
+  }
+  if (!hasW) root.setAttribute('width', String(parts[2]));
+  if (!hasH) root.setAttribute('height', String(parts[3]));
+  const out = new XMLSerializer().serializeToString(doc);
+  return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(out);
+}
+
+function applyCustomLogoEverywhere(payload) {
+  state.draftCfg.customLogo = payload ? { ...payload } : null;
+  for (const f of state.files) {
+    f.cfg.customLogo = payload ? { ...payload } : null;
+  }
+  try {
+    if (payload) localStorage.setItem(SIGNATURE_STORAGE_KEY, JSON.stringify(payload));
+    else localStorage.removeItem(SIGNATURE_STORAGE_KEY);
+  } catch (_) { /* private mode / quota — non-fatal */ }
+}
+
+els.signatureInput.addEventListener('change', async () => {
+  const file = els.signatureInput.files && els.signatureInput.files[0];
+  els.signatureInput.value = '';
+  if (!file) return;
+  if (file.size > SIGNATURE_MAX_BYTES) {
+    setStatus('status.signatureTooBig', 'err', { mb: (file.size / 1024 / 1024).toFixed(1) });
+    setTimeout(() => setStatus('status.ready'), 3000);
+    return;
+  }
+  try {
+    const raw = await readSignatureFile(file);
+    const data = ensureSvgDimensions(raw);
+    const type = /^data:image\/svg/i.test(data) ? 'svg' : 'png';
+    // Carry over the active photo's position/size/opacity if a signature was
+    // already there — re-uploading should swap the image but keep the look.
+    const prev = activeCfg().customLogo;
+    const payload = {
+      data: data,
+      type: type,
+      position: prev && prev.position ? prev.position : 'br',
+      scale:    prev && prev.scale != null ? prev.scale : 0.06,
+      opacity:  prev && prev.opacity != null ? prev.opacity : 1
+    };
+    applyCustomLogoEverywhere(payload);
+    syncSignatureFromCfg(activeCfg());
+    requestRender();
+    setStatus('status.signatureLoaded');
+    setTimeout(() => setStatus('status.ready'), 1500);
+  } catch (err) {
+    console.error('[signature]', err);
+    setStatus('status.signatureFail', 'err', { msg: err.message });
+  }
+});
+
+els.signatureClearBtn.addEventListener('click', () => {
+  applyCustomLogoEverywhere(null);
+  syncSignatureFromCfg(activeCfg());
+  requestRender();
+});
+
+els.signaturePosSeg.querySelectorAll('button').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    const cfg = activeCfg();
+    if (!cfg.customLogo) return;
+    setSegActive(els.signaturePosSeg, btn.dataset.val);
+    cfg.customLogo = { ...cfg.customLogo, position: btn.dataset.val };
+    requestRender();
+  });
+});
+
+els.signatureScale.addEventListener('input', () => {
+  const cfg = activeCfg();
+  if (!cfg.customLogo) return;
+  const pct = Number(els.signatureScale.value);
+  cfg.customLogo = { ...cfg.customLogo, scale: pct / 100 };
+  els.signatureScaleVal.textContent = pct + '%';
+  requestRender();
+});
+
+els.signatureOpacity.addEventListener('input', () => {
+  const cfg = activeCfg();
+  if (!cfg.customLogo) return;
+  const v = Number(els.signatureOpacity.value);
+  cfg.customLogo = { ...cfg.customLogo, opacity: v };
+  els.signatureOpacityVal.textContent = Math.round(v * 100) + '%';
+  requestRender();
+});
+
+// Hydrate from localStorage on boot so a returning user finds their signature
+// pre-loaded. Falls through silently when storage is unavailable or empty.
+(function hydrateSignature() {
+  try {
+    const raw = localStorage.getItem(SIGNATURE_STORAGE_KEY);
+    if (!raw) return;
+    const payload = JSON.parse(raw);
+    if (payload && payload.data) {
+      state.draftCfg.customLogo = payload;
+      syncSignatureFromCfg(state.draftCfg);
+    }
+  } catch (_) { /* malformed entry — drop silently */ }
+})();
+
 for (const [key, el] of Object.entries(els.exif)) {
   el.addEventListener('input', () => {
     const v = el.value.trim();
@@ -683,6 +860,7 @@ els.applyFrameAllBtn.addEventListener('click', () => {
     if (f === active) continue;
     for (const k of FRAME_KEYS) f.cfg[k] = src[k];
     f.cfg.showFields = { ...src.showFields };
+    f.cfg.customLogo = src.customLogo ? { ...src.customLogo } : null;
   }
   setStatus('status.appliedFrame', null, { n: state.files.length - 1 });
   setTimeout(() => setStatus('status.ready'), 1800);
@@ -790,6 +968,7 @@ function buildConfigForFile(f) {
   if (c.bgBlur != null)        cfg.bgBlur = c.bgBlur;
   if (c.bgBrightness != null)  cfg.bgBrightness = c.bgBrightness;
   if (c.bgSaturation != null)  cfg.bgSaturation = c.bgSaturation;
+  if (c.customLogo)            cfg.customLogo = { ...c.customLogo };
   return cfg;
 }
 

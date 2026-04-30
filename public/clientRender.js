@@ -159,6 +159,53 @@
     return c;
   }
 
+  // User-supplied signature image cache. Keyed by dataURL so a re-upload of
+  // the same file (identical bytes → identical dataURL) reuses the bitmap.
+  // Capped at 3 entries since we only support one active signature at a time
+  // — extra entries appear when undo/redo or live re-upload happens.
+  const customLogoCache = new Map();   // dataURL → Promise<ImageBitmap | HTMLImageElement | null>
+  const CUSTOM_LOGO_CACHE_MAX = 3;
+
+  async function decodeCustomLogo(dataURL) {
+    if (!dataURL) return null;
+    const hit = customLogoCache.get(dataURL);
+    if (hit) return hit;
+    const p = (async () => {
+      // Prefer createImageBitmap (off-thread, returns a true ImageBitmap), but
+      // Chrome rejects SVG blobs that lack explicit width/height attrs even
+      // when a viewBox is present. HTMLImageElement is more lenient — it will
+      // raster the SVG at its viewBox's intrinsic size. Both objects work
+      // equally well as drawImage sources.
+      try {
+        const blob = await fetch(dataURL).then((r) => r.blob());
+        return await createImageBitmap(blob);
+      } catch (cibErr) {
+        try {
+          return await new Promise((resolve, reject) => {
+            const img = new Image();
+            img.onload = () => resolve(img);
+            img.onerror = (e) => reject(e);
+            img.src = dataURL;
+          });
+        } catch (imgErr) {
+          console.warn('[customLogo] decode failed', cibErr, imgErr);
+          return null;
+        }
+      }
+    })();
+    customLogoCache.set(dataURL, p);
+    while (customLogoCache.size > CUSTOM_LOGO_CACHE_MAX) {
+      const oldestKey = customLogoCache.keys().next().value;
+      const oldest = customLogoCache.get(oldestKey);
+      customLogoCache.delete(oldestKey);
+      try {
+        const bm = await oldest;
+        if (bm && bm.close) bm.close();
+      } catch { /* never resolved → nothing to close */ }
+    }
+    return p;
+  }
+
   function drawGrain(ctx, W, H, opacity) {
     if (opacity <= 0) return;
     const tile = ensureGrainTile();
@@ -268,6 +315,23 @@
         console.warn('[render] caption rasterize failed:', err);
       }
     }
+
+    // ─── Custom signature overlay (drawn last, clipped to fg rect) ───────
+    if (args.customLogo && args.customLogo.data) {
+      const bm = await decodeCustomLogo(args.customLogo.data);
+      if (bm) {
+        const bw = bm.naturalWidth  || bm.width;
+        const bh = bm.naturalHeight || bm.height;
+        const rect = R.customLogoRect(layout, args.customLogo, bw / bh);
+        if (rect) {
+          ctx.save();
+          clipRoundRect(ctx, layout.fgLeft, layout.fgTop, layout.fgW, layout.fgH, layout.radius);
+          ctx.globalAlpha = rect.opacity;
+          ctx.drawImage(bm, rect.x, rect.y, rect.w, rect.h);
+          ctx.restore();
+        }
+      }
+    }
   }
 
   function buildLayoutAndCaption(bitmap, cfg, normExif, opts) {
@@ -296,7 +360,7 @@
     const captionKey = opts.cacheCaption
       ? captionCacheKey({ normExif, layout, template: cfg.template, textStyle: effectiveTextStyle, showFields: cfg.showFields })
       : null;
-    return { layout, params, captionSvg, captionKey };
+    return { layout, params, captionSvg, captionKey, customLogo: cfg.customLogo || null };
   }
 
   // Preview entry point — draws to the visible <canvas>. Uses a downsampled
