@@ -1,0 +1,65 @@
+# GitHub Pages deployment for photo-tools.
+#
+# Trigger: push to `main`, or manual run via the Actions tab.
+# Output : the entire `public/` directory served at
+#          https://anois.github.io/photo-tools/
+#
+# Build step is just `npm run build` which regenerates two derived files
+# (logos.json + fonts.css) from their source inputs in public/logos/ and
+# public/fonts/. Everything else under public/ is committed source.
+
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  # Allow manual re-runs from the Actions tab without pushing a new commit.
+  workflow_dispatch:
+
+# Pages deploy needs id-token (OIDC) and pages write; everything else is read-only.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Don't cancel an in-flight deploy when a new commit lands; let it finish so
+# the site is never left mid-publish in a broken state. Subsequent runs queue.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build (regenerate logos.json + fonts.css)
+        run: npm run build
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      # Uploads ./public as the deployable artifact. No bundler / no transform.
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./public
+
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4
