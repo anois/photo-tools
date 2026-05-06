@@ -204,6 +204,7 @@ Output: a single `public/logos.json` keyed by slug, fetched once at boot. Re-run
 | `white`        | solid `#f5f5f5`       | dark  | — | 80 / 24 / 0.30 |
 | `black`        | solid `#121212`       | light | — | 80 / 24 / 0.50 |
 | `polaroid`     | solid `#fafafa`       | dark  | `extraBottom: 180, fgYBoost: -80, radiusOverride: 8` | 0 / 0 / 0 (flat) |
+| `instax`       | solid `#fffdf6`       | dark  | `extraBottom: 240, fgYBoost: -120, radiusOverride: 4` | 30 / 12 / 0.18 |
 
 Each frame carries a `shadowDefault` (drop shadow under the rounded foreground photo). User-tunable via the **D · Shadow** UI (3 sliders) and overrideable in cfg. `opacity = 0` short-circuits the entire shadow render path.
 

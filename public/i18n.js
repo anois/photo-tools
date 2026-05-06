@@ -80,7 +80,8 @@
           'frosted-dark': '毛玻璃·深',
           white: '纯白',
           black: '纯黑',
-          polaroid: '宝丽来'
+          polaroid: '宝丽来',
+          instax: 'Instax'
         }
       },
       caption: {
@@ -305,7 +306,8 @@
           'frosted-dark': 'Dark',
           white: 'White',
           black: 'Black',
-          polaroid: 'Polaroid'
+          polaroid: 'Polaroid',
+          instax: 'Instax'
         }
       },
       caption: {

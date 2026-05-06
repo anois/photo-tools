@@ -33,7 +33,7 @@
 
 ## 特性
 
-- **5 种相框风格** — frosted、frosted-dark、white、black、polaroid
+- **6 种相框风格** — frosted、frosted-dark、white、black、polaroid、instax
 - **5 种字幕模板** — minimal-text、brand-logo、brand-right、tech-stack、date-lens
 - **真实品牌 logo 内嵌** — Fujifilm、Sony、Leica、Nikon、Canon、Apple、Xiaomi、OPPO、Vivo、DJI…（来自 Wikimedia Commons + simple-icons）
 - **EXIF 自动解析**，每张照片可独立手动覆盖；当 `LensModel` 缺失时用 `LensInfo` 数组反推镜头型号

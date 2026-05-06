@@ -33,7 +33,7 @@ A single-page web app that wraps photos in a "frosted-glass" frame — blurred s
 
 ## Features
 
-- **5 frame styles** — frosted, frosted-dark, white, black, polaroid
+- **6 frame styles** — frosted, frosted-dark, white, black, polaroid, instax
 - **5 caption templates** — minimal-text, brand-logo, brand-right, tech-stack, date-lens
 - **Real bundled brand logos** — Fujifilm, Sony, Leica, Nikon, Canon, Apple, Xiaomi, OPPO, Vivo, DJI… (Wikimedia Commons + simple-icons)
 - **Auto EXIF parsing** with per-photo manual override and `LensInfo` → lens-model fallback
