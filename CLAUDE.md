@@ -30,7 +30,10 @@ When iterating on this project:
    - Bundled real brand logos (Wikimedia Commons first, simple-icons fallback) in original colors.
    - Chinese in the chat, English in code/commits/files.
 
-3. **Manual browser testing.** There's no automated smoke since the backend is gone. After non-trivial changes, run `npm run dev` (starts `npx serve public`), open `http://localhost:3000`, load a real EXIF-bearing photo, and verify: preview renders, single export downloads a JPEG with EXIF intact, batch ZIP packs all photos.
+3. **Manual browser testing.** There's no automated CI since the backend is gone. After non-trivial changes, two flows:
+
+   - `npm run dev` → `http://localhost:3000`, load a real EXIF-bearing photo, and verify: preview renders, single export downloads a JPEG with EXIF intact, batch ZIP packs all photos.
+   - `npm run smoke` → `http://localhost:3001/smoke.html`. This is a visual-regression aid that re-renders each `data/<id>_framed.jpg` baseline through the current pipeline and shows diff %, side-by-side. Green &lt;1%, yellow 1–3%, red &gt;3%. ~0.5% baseline noise is expected from JPEG-encode chroma + EXIF re-attach jitter even with no pipeline change. Run after any layout-math edit (rotation, collage cell rects, padding, caption zone, font subsetting). Cfgs for each fixture live inline at the top of `smoke.html` and mirror the canonical look documented for each `data/` pair.
 
 4. **Keep CLAUDE.md and README.md current.** Both are durable docs but with different audiences and update triggers — neglecting either degrades trust in the project. They drift in different ways and have to be checked separately:
 

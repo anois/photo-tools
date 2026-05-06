@@ -16,6 +16,7 @@
   "scripts": {
     "dev": "npx serve public -p 3000",
     "start": "npx serve public -p 3000",
+    "smoke": "npx serve . -p 3001",
     "build": "npm run build-logos && npm run build-fonts",
     "build-logos": "node scripts/build-logos.js",
     "build-fonts": "node scripts/build-fonts.js",

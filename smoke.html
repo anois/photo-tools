@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>photo-tools · visual regression smoke</title>
+<style>
+  body { font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; padding: 24px; max-width: 1100px; margin: 0 auto; color: #111; background: #fafafa; }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  .note { color: #666; font-size: 12px; margin-bottom: 16px; }
+  .summary { padding: 10px 14px; border-radius: 6px; font-weight: 500; margin-bottom: 24px; font-family: ui-monospace, "SF Mono", Consolas, monospace; }
+  .case { border: 1px solid #ddd; border-radius: 6px; padding: 16px; margin-bottom: 16px; background: #fff; }
+  .case h2 { font-size: 13px; margin: 0 0 12px; font-family: ui-monospace, "SF Mono", Consolas, monospace; display: flex; align-items: center; gap: 12px; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .pair > div { display: flex; flex-direction: column; gap: 6px; }
+  .pair label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em; color: #888; }
+  .pair img { width: 100%; height: auto; border: 1px solid #eee; background: #f0f0f0; }
+  .diff { padding: 4px 8px; border-radius: 4px; font-family: ui-monospace, "SF Mono", Consolas, monospace; font-size: 11px; display: inline-block; font-weight: 500; }
+  .diff.ok   { background: #e0f5e0; color: #2a6; }
+  .diff.warn { background: #fff5dc; color: #c80; }
+  .diff.bad  { background: #fde0e0; color: #c33; }
+</style>
+</head>
+<body>
+
+<h1>photo-tools · visual regression smoke</h1>
+<p class="note">
+  Manual aid — opens this page after non-trivial layout / render changes
+  to see how the committed <code>_framed.jpg</code> baselines have shifted.
+  Green &lt; 1%, yellow 1–3%, red &gt; 3%. Diff is mean absolute RGB deviation
+  per pixel, normalized; some baseline noise is JPEG-encode chroma + EXIF
+  re-attach jitter, expect ~0.5% even for identical pipelines.
+</p>
+<div id="summary" class="summary">running…</div>
+<div id="cases"></div>
+
+<!-- The vendored libs + modules ship under public/, fetched relative to this
+     page when served from repo root via `npm run smoke`. -->
+<script src="public/vendor/exifr.umd.js"></script>
+<script src="public/vendor/piexif.js"></script>
+<script src="public/i18n.js"></script>
+<script src="public/shared/render.js"></script>
+<script src="public/exifio.js"></script>
+<script src="public/clientRender.js"></script>
+
+<script>
+  // Each fixture = { source path, expected baseline path, cfg used to render }.
+  // The cfgs mirror what's documented in CLAUDE.md as the canonical look for
+  // each baseline. If a future change moves the pipeline, either the diff
+  // surfaces it here or the baselines need to be re-rendered alongside.
+  function makeCfg(overrides) {
+    const FRAMES = window.PhotoRender.FRAMES;
+    const frameName = overrides.frame || 'frosted';
+    const sd = FRAMES[frameName].shadowDefault;
+    return {
+      aspect: '9:16',
+      frame: frameName,
+      template: overrides.template || 'minimal-text',
+      padding: 70,
+      captionHeight: null,
+      bgBlur: null, bgBrightness: null, bgSaturation: null,
+      shadowBlur: sd.blur, shadowOffsetY: sd.offsetY, shadowOpacity: sd.opacity,
+      showFields: Object.assign({
+        brand: true, model: true, focal: true, aperture: true, shutter: true,
+        iso: true, lens: false, date: false, author: true, flash: false, gps: false
+      }, overrides.showFields || {}),
+      rotation: 0
+    };
+  }
+
+  const FIXTURES = [
+    {
+      name: '00010 · frosted-dark · minimal-text',
+      source: 'data/00010.JPG',
+      expected: 'data/00010_framed.jpg',
+      cfg: makeCfg({ frame: 'frosted-dark', template: 'minimal-text' })
+    },
+    {
+      name: '00012 · frosted · tech-stack',
+      source: 'data/00012.JPG',
+      expected: 'data/00012_framed.jpg',
+      cfg: makeCfg({ frame: 'frosted', template: 'tech-stack', showFields: { lens: true } })
+    }
+  ];
+
+  // Smoke is served from repo root, not from public/ — so the loadAssets()
+  // helper baked into clientRender.js (which fetches 'logos.json' /
+  // 'fonts.css' as bare paths) won't work here. Re-implement with the
+  // public/ prefix so the smoke page is a clean drop-in.
+  async function loadAssets() {
+    const [logos, fontFaceCss] = await Promise.all([
+      fetch('public/logos.json').then((r) => r.json()),
+      fetch('public/fonts.css').then((r) => r.text())
+    ]);
+    return { logos, fontFaceCss };
+  }
+
+  async function runOne(fx, assets) {
+    const sBlob = await fetch(fx.source).then((r) => r.blob());
+    const sFile = new File([sBlob], fx.source.split('/').pop(), { type: 'image/jpeg' });
+    const exif = await window.ExifIO.parseExif(sFile);
+    const renderedBlob = await window.ClientRender.renderFinal({
+      file: sFile, cfg: fx.cfg, normExif: exif.normalized,
+      logos: assets.logos, fontFaceCss: assets.fontFaceCss,
+      format: 'jpeg', quality: 'standard'
+    });
+
+    const eBlob = await fetch(fx.expected).then((r) => r.blob());
+    const renderedBm = await createImageBitmap(renderedBlob);
+    const expectedBm = await createImageBitmap(eBlob);
+
+    // Compare on the freshly rendered canvas's dimensions. The committed
+    // baseline may be at a different size (e.g. original quality re-encode);
+    // downsample-fit it into the same buffer for a like-for-like comparison.
+    const w = renderedBm.width, h = renderedBm.height;
+    const cR = new OffscreenCanvas(w, h);
+    const cE = new OffscreenCanvas(w, h);
+    cR.getContext('2d').drawImage(renderedBm, 0, 0);
+    cE.getContext('2d').drawImage(expectedBm, 0, 0, w, h);
+    const aR = cR.getContext('2d').getImageData(0, 0, w, h).data;
+    const aE = cE.getContext('2d').getImageData(0, 0, w, h).data;
+    let sum = 0;
+    for (let i = 0; i < aR.length; i += 4) {
+      sum += Math.abs(aR[i]     - aE[i])
+           + Math.abs(aR[i + 1] - aE[i + 1])
+           + Math.abs(aR[i + 2] - aE[i + 2]);
+    }
+    const diffPct = (sum / ((aR.length / 4) * 3 * 255)) * 100;
+    return { renderedBlob, eBlob, diffPct, w, h };
+  }
+
+  function diffClass(d) { return d < 1 ? 'ok' : d < 3 ? 'warn' : 'bad'; }
+
+  function renderCase(fx, res) {
+    const div = document.createElement('div');
+    div.className = 'case';
+    div.innerHTML =
+      '<h2>' + fx.name +
+      '<span class="diff ' + diffClass(res.diffPct) + '">diff: ' + res.diffPct.toFixed(2) + '%</span>' +
+      '<span style="color:#888;font-weight:400;">' + res.w + '×' + res.h + '</span>' +
+      '</h2>' +
+      '<div class="pair">' +
+        '<div><label>rendered (current pipeline)</label><img src="' + URL.createObjectURL(res.renderedBlob) + '"></div>' +
+        '<div><label>expected (committed baseline)</label><img src="' + URL.createObjectURL(res.eBlob) + '"></div>' +
+      '</div>';
+    document.getElementById('cases').appendChild(div);
+  }
+
+  (async () => {
+    try {
+      const assets = await loadAssets();
+      let worst = 0;
+      for (const fx of FIXTURES) {
+        const res = await runOne(fx, assets);
+        renderCase(fx, res);
+        worst = Math.max(worst, res.diffPct);
+      }
+      const summary = document.getElementById('summary');
+      summary.className = 'summary diff ' + diffClass(worst);
+      summary.textContent = 'worst diff: ' + worst.toFixed(2) + '% across ' + FIXTURES.length + ' fixture(s)';
+    } catch (err) {
+      const summary = document.getElementById('summary');
+      summary.className = 'summary diff bad';
+      summary.textContent = 'error: ' + err.message;
+      console.error(err);
+    }
+  })();
+</script>
+
+</body>
+</html>
