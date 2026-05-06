@@ -51,7 +51,8 @@ When iterating on this project:
      Don't duplicate detail between READMEs and CLAUDE.md — link to CLAUDE.md sections from READMEs for deep dives.
 
 5. **One source of truth per concept.**
-   - Layout math + frames + templates + caption SVG: `public/shared/render.js` (the original UMD module — module.exports branch is dead but harmless).
+   - Layout math + templates + caption SVG: `public/shared/render.js` (the original UMD module — module.exports branch is dead but harmless).
+   - Frame styles: one file per style under `public/frames/`. Each file calls `R.registerFrame(name, def)` to slot its definition into the shared `FRAMES` registry. shared/render.js holds only the registry + `resolveFrame()` fallback.
    - Render parameter resolution: `R.resolveRenderParams(frame, cfg)` in `public/shared/render.js`.
    - Pixel composition (main thread): `public/clientRender.js` (`compose()` core; `renderPreview()` and `renderFinal()` thin entry points).
    - Pixel composition (worker thread): `public/worker.js` (mirrors `compose()` for batch export).
@@ -94,7 +95,8 @@ These are authoring-time helpers, not part of the runtime path.
 ┌──────────────────────────────── browser tab ────────────────────────────────┐
 │                                                                              │
 │  HTML index → <script> vendored libs (exifr, piexif, jszip)                 │
-│             → <script> shared/render.js   (layout + frames + caption SVG)   │
+│             → <script> shared/render.js   (layout + caption SVG + helpers)  │
+│             → <script> frames/<name>.js   (6× one per style; self-register) │
 │             → <script> exifio.js          (parse + write JPEG EXIF)         │
 │             → <script> heic.js            (lazy libheif-js shim — HEIC→JPEG)│
 │             → <script> clientRender.js    (Canvas pipeline; preview + final)│
@@ -195,7 +197,11 @@ Output: a single `public/logos.json` keyed by slug, fetched once at boot. Re-run
 
 **Add a brand:** drop a well-formed SVG into `public/logos/<key>.svg`, run `npm run build-logos`, refresh browser. If EXIF `Make` / `LensMake` doesn't directly match the filename, extend `ALIASES` in `public/shared/render.js`.
 
-### Frames (`public/shared/render.js`)
+### Frames (`public/frames/<name>.js`)
+
+Each frame style is a single self-contained file under `public/frames/`. It runs an IIFE on load and calls `R.registerFrame(name, definition)` to slot itself into the shared `FRAMES` registry. `shared/render.js` only holds the empty registry + `resolveFrame(name)` lookup — no frame data.
+
+The shell loads every frame script after `shared/render.js`: index.html via `<script>` tags, worker.js via `importScripts`, smoke.html with the `public/` prefix, service-worker.js via the precache list. Adding a frame means creating one new file and adding it to those four lists (plus the seg button + i18n label below).
 
 | name | bg | textStyle | layout mods | shadowDefault (blur/offsetY/opacity) |
 |------|-----|-----------|-------------|--------------------------------------|
@@ -488,8 +494,12 @@ If the source has no EXIF (social-platform-stripped images), the function silent
 **Add a new EXIF template:** see "Templates" section above.
 
 **Add a new frame style:**
-1. Extend `FRAMES` in `public/shared/render.js` with `{ bg, textStyle, layout, shadowDefault }`.
-2. Add button to `<div id="frame-seg">` in `public/index.html`.
+1. Create `public/frames/<slug>.js` — an IIFE that calls `PhotoRender.registerFrame('<slug>', { bg, textStyle, layout, shadowDefault })`. Copy any existing file under that directory as a starting point.
+2. Add a `<script src="frames/<slug>.js">` tag to `public/index.html`, immediately after the existing frame scripts and before `exifio.js`.
+3. Add the same path to `worker.js`'s `importScripts(...)` and to `service-worker.js`'s `PRECACHE` array, then bump `CACHE_VERSION` so existing PWA installs pick up the new shell.
+4. Add `<script src="public/frames/<slug>.js">` to `smoke.html` so the regression page can render fixtures using the new frame.
+5. Add a `<button data-val="<slug>">` to `<div id="frame-seg">` in `public/index.html` and a `frame.styles.<slug>` entry to both locales in `public/i18n.js`.
+6. Add a row to the frames table in this file.
 
 **Add a new aspect ratio:**
 1. Extend `BASE_PRESETS` in `public/shared/render.js`.

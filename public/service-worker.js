@@ -9,7 +9,7 @@
  * the activate handler purges any cache whose name doesn't match.
  */
 
-const CACHE_VERSION = 'v2';
+const CACHE_VERSION = 'v3';
 const CACHE_NAME = 'phototools-shell-' + CACHE_VERSION;
 
 // Files that make up the offline-capable SPA shell. Paths are relative to
@@ -27,6 +27,12 @@ const PRECACHE = [
   './progressModal.js',
   './worker.js',
   './shared/render.js',
+  './frames/frosted.js',
+  './frames/frosted-dark.js',
+  './frames/white.js',
+  './frames/black.js',
+  './frames/polaroid.js',
+  './frames/instax.js',
   './vendor/exifr.umd.js',
   './vendor/piexif.js',
   './vendor/jszip.min.js',

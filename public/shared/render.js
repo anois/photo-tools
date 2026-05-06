@@ -305,18 +305,14 @@
   // Frames + caption colors
   // ======================================================================
 
-  const FRAMES = {
-    'frosted':      { bg: { type: 'frosted', darken: 0.06, saturation: 1.05, brightness: 0.92, blurSigma: 60, grainOpacity: 0.12 }, textStyle: 'light', layout: {}, shadowDefault: { blur: 80, offsetY: 24, opacity: 0.35 } },
-    'frosted-dark': { bg: { type: 'frosted', darken: 0.22, saturation: 1.0,  brightness: 0.78, blurSigma: 70, grainOpacity: 0.14 }, textStyle: 'light', layout: {}, shadowDefault: { blur: 90, offsetY: 28, opacity: 0.45 } },
-    'white':        { bg: { type: 'solid',   color: '#f5f5f5' },                                 textStyle: 'dark',  layout: {}, shadowDefault: { blur: 80, offsetY: 24, opacity: 0.30 } },
-    'black':        { bg: { type: 'solid',   color: '#121212' },                                 textStyle: 'light', layout: {}, shadowDefault: { blur: 80, offsetY: 24, opacity: 0.50 } },
-    'polaroid':     { bg: { type: 'solid',   color: '#fafafa' },                                 textStyle: 'dark',  layout: { extraBottom: 180, fgYBoost: -80, radiusOverride: 8 }, shadowDefault: { blur: 0, offsetY: 0, opacity: 0 } },
-    // instax-mini: cream paper, near-square photo area with a deep bottom
-    // margin (the "signature strip" that makes instax cards instax). Subtle
-    // drop shadow so the print floats off the page rather than sitting flat
-    // like polaroid (which already gets its weight from heavy borders).
-    'instax':       { bg: { type: 'solid',   color: '#fffdf6' },                                 textStyle: 'dark',  layout: { extraBottom: 240, fgYBoost: -120, radiusOverride: 4 }, shadowDefault: { blur: 30, offsetY: 12, opacity: 0.18 } }
-  };
+  // Frame styles register themselves into FRAMES via registerFrame() — see
+  // public/frames/*.js. Keeping each definition in its own file makes
+  // adding / tweaking a frame a single-file change rather than a hunt
+  // through this monolith. The fallback to 'frosted' below assumes that
+  // frame is always registered (frosted.js is the first frame script the
+  // shell loads, so by the time anything calls resolveFrame() it's there).
+  const FRAMES = {};
+  function registerFrame(name, def) { FRAMES[name] = def; }
   function resolveFrame(name) { return FRAMES[name] || FRAMES.frosted; }
 
   // Merge user cfg overrides with frame presets to produce the single set of
@@ -1273,6 +1269,7 @@
 
     // Frames
     FRAMES: FRAMES,
+    registerFrame: registerFrame,
     resolveFrame: resolveFrame,
     resolveRenderParams: resolveRenderParams,
     captionColors: captionColors,

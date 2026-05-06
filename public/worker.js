@@ -9,7 +9,16 @@
  */
 /* eslint-disable no-restricted-globals */
 
-self.importScripts('vendor/piexif.js', 'shared/render.js');
+self.importScripts(
+  'vendor/piexif.js',
+  'shared/render.js',
+  'frames/frosted.js',
+  'frames/frosted-dark.js',
+  'frames/white.js',
+  'frames/black.js',
+  'frames/polaroid.js',
+  'frames/instax.js'
+);
 
 const R = self.PhotoRender;
 
