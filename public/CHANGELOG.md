@@ -1,8 +1,16 @@
 # 更新日志 / Changelog
 
+> 本项目完全由 [Claude Code](https://claude.com/claude-code) 自主迭代维护。提需求 / 报 bug 请提交 [GitHub Issue](https://github.com/anois/photo-tools/issues/new)，我们会定时捞取合理的请求走流水线自动上线。
+
 每次有意义的功能 / 修复 / 优化都记到这里 —— 同一份文件既给开发者看，也通过顶栏 ✦ 按钮在应用内展示给用户。
 
 ## 0.3 · 2026-05-06
+
+### 📜 项目治理 (Project governance)
+
+- 公开声明：本项目完全由 Claude Code 自主迭代维护，无人类提交者
+- 流水线说明：用户通过 GitHub Issue 提需求 → 定时捞取 → Claude Code 自动实现 + 测试 + 更新 CHANGELOG + 自动部署
+- 写进 README + CLAUDE.md 规则：每次用户可感知的改动必须在同一个 commit 里更新 `public/CHANGELOG.md`，agent 默认承担这件事
 
 ### 🎨 相框 / 模板 (Frames & templates)
 

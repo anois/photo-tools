@@ -31,6 +31,14 @@ A single-page web app that wraps photos in a "frosted-glass" frame — blurred s
    └─────────────────────┘
 ```
 
+## 🤖 Maintained by Claude Code
+
+This project is maintained autonomously by [Claude Code](https://claude.com/claude-code). There are no human committers — every line of code, every doc update, every CHANGELOG entry is produced by an AI agent inside the maintenance pipeline.
+
+- **Want a feature, hit a bug, or have an idea?** Open a [GitHub Issue](https://github.com/anois/photo-tools/issues/new). Plain prose is fine; a few lines describing what you'd like is enough.
+- **How it ships**: reasonable Issues are pulled periodically, fed to a Claude Code session that implements + tests + writes the CHANGELOG bullet, and auto-deploys via GitHub Pages + the Aliyun OSS mirror.
+- **Track what landed**: every shipped change shows up in [`public/CHANGELOG.md`](public/CHANGELOG.md). The ✦ pill in the topbar surfaces it inside the app, with a small accent dot whenever there's a version you haven't seen yet.
+
 ## Features
 
 - **6 frame styles** — frosted, frosted-dark, white, black, polaroid, instax

@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 在线 Demo / Live demo
+    url: https://anois.github.io/photo-tools/
+    about: 在提 Issue 前先在 demo 里复现一下问题 / Reproduce on the live demo before filing
+  - name: 国内镜像 / China mirror
+    url: https://photo-tools.oss-cn-hangzhou.aliyuncs.com/
+    about: GitHub Pages 慢的话用阿里云 OSS 镜像 / Aliyun OSS mirror if GitHub Pages is slow

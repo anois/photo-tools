@@ -35,13 +35,16 @@ When iterating on this project:
    - `npm run dev` → `http://localhost:3000`, load a real EXIF-bearing photo, and verify: preview renders, single export downloads a JPEG with EXIF intact, batch ZIP packs all photos.
    - `npm run smoke` → `http://localhost:3001/smoke.html`. This is a visual-regression aid that re-renders each `data/<id>_framed.jpg` baseline through the current pipeline and shows diff %, side-by-side. Green &lt;1%, yellow 1–3%, red &gt;3%. ~0.5% baseline noise is expected from JPEG-encode chroma + EXIF re-attach jitter even with no pipeline change. Run after any layout-math edit (rotation, collage cell rects, padding, caption zone, font subsetting). Cfgs for each fixture live inline at the top of `smoke.html` and mirror the canonical look documented for each `data/` pair.
 
-4. **Keep `public/CHANGELOG.md` current.** Any user-facing change (new feature, frame, template, fix that the user can perceive) gets a bullet under the latest `## <version>` heading. The topbar's ✦ pill renders this file in a modal at runtime; a small accent dot on the pill flags any version a returning user hasn't opened yet (tracked in `localStorage['phototools.lastSeenChangelog']`, keyed off the first `## ` heading text). Pure refactors that don't visibly change anything stay out — the changelog is for users, not commit archaeology.
+4. **Auto-update `public/CHANGELOG.md` in the same commit as any user-visible change. The agent does this without being prompted.** This is the project's most-visible promise: GitHub visitors see CHANGELOG.md and the in-app ✦ pill renders it live. Skipping it on a feature/fix commit is a regression of the project's contract with users — don't ship a feature without telling them.
 
-   When starting a new release, prepend a fresh `## <version> · <YYYY-MM-DD>` block at the top so the badge fires for everyone on next visit. The first `## ` heading is what the seen-version comparison pins on, so order matters.
+   - **Same commit, no backfills.** A "feat:" / "fix:" commit MUST include the CHANGELOG bullet alongside the code change. No "fix: forgot to update changelog" follow-ups, no batched-up backfills at release time. If you forget, amend the commit before pushing — but the user shouldn't have to ask.
+   - **What counts as user-visible**: any added/changed/removed feature, frame, template, caption field, UI control, keyboard shortcut, format support, performance change a user could feel, or fix the user could observe. Pure refactors / internal renames / dev-only tooling stay out — the changelog is for users, not commit archaeology.
+   - **New release blocks**: when starting a fresh `## <version>` block, prepend it at the top of the file (the in-app badge keys off the *first* `## ` heading). Date format `YYYY-MM-DD`. Group bullets under emoji-prefixed `### ` subheadings (`🎨 相框 / 模板`, `✂️ 编辑工具`, `⚡ 性能`, etc.) so the modal stays scannable.
+   - **Markdown subset the renderer supports**: `#` / `##` / `###`, `-` bullets, `**bold**`, `*italic*`, `` `code` ``, `[text](https-url)`, `---` horizontal rule, blank-line paragraphs. No tables, code blocks, blockquotes, or nested lists — anything outside this set just won't render in the modal.
 
-   Subset of markdown the renderer supports: `#`/`##`/`###`, `-` bullets, `**bold**`, `*italic*`, `` `code` ``, `[text](https-url)`, `---` horizontal rule, blank-line paragraphs. No tables, code blocks, blockquotes, or nested lists.
+5. **This project is autonomously maintained by Claude Code.** There are no human committers. Code, docs, CHANGELOG, deploy — every commit on the visible history comes from a Claude Code session. Users send feature requests / bug reports as [GitHub Issues](https://github.com/anois/photo-tools/issues); reasonable ones get pulled periodically and shipped through this same pipeline, then auto-deploy via the existing GitHub Pages + Aliyun OSS workflow. The README states this publicly so contributors know the model up front. As the maintaining agent, your job is to honor that pipeline: take Issues at face value, ship clean commits, keep CHANGELOG honest.
 
-5. **Keep CLAUDE.md and README.md current.** Both are durable docs but with different audiences and update triggers — neglecting either degrades trust in the project. They drift in different ways and have to be checked separately:
+6. **Keep CLAUDE.md and README.md current.** Both are durable docs but with different audiences and update triggers — neglecting either degrades trust in the project. They drift in different ways and have to be checked separately:
 
    - **CLAUDE.md** — internal source of truth ("why" + "how it works"). When introducing a new concept (frame, template, toggle, frame-layout tweak, pipeline change, gotcha discovered), update the relevant section in the **same commit**. Project memory entries should only hold cross-session user/feedback context, not project facts.
 
@@ -56,7 +59,7 @@ When iterating on this project:
 
      Don't duplicate detail between READMEs and CLAUDE.md — link to CLAUDE.md sections from READMEs for deep dives.
 
-6. **One source of truth per concept.**
+7. **One source of truth per concept.**
    - Layout math + templates + caption SVG: `public/shared/render.js` (the original UMD module — module.exports branch is dead but harmless).
    - Frame styles: one file per style under `public/frames/`. Each file calls `R.registerFrame(name, def)` to slot its definition into the shared `FRAMES` registry. shared/render.js holds only the registry + `resolveFrame()` fallback.
    - Render parameter resolution: `R.resolveRenderParams(frame, cfg)` in `public/shared/render.js`.
@@ -70,11 +73,11 @@ When iterating on this project:
    - UI strings + locale switching: `public/i18n.js` (zh-CN + en dictionaries; nothing else owns user-visible copy).
    - Presets (save / load / share): a self-contained block in `public/app.js`, keyed off `LOOK_KEYS` and `localStorage['phototools.presets']`.
 
-7. **Delete aggressively.** Don't leave commented-out alternatives or "in case we need it" stubs. Prefer lean code over optionality.
+8. **Delete aggressively.** Don't leave commented-out alternatives or "in case we need it" stubs. Prefer lean code over optionality.
 
-8. **Good-enough over precise.** The approximate text-width estimator is fine for centering; don't swap it for a font-metrics library unless a misalignment is visually reported.
+9. **Good-enough over precise.** The approximate text-width estimator is fine for centering; don't swap it for a font-metrics library unless a misalignment is visually reported.
 
-9. **Don't auto-revert explicit user choices.** If the user says "use Wikimedia logos in original colors", don't switch to monochrome "for consistency" later.
+10. **Don't auto-revert explicit user choices.** If the user says "use Wikimedia logos in original colors", don't switch to monochrome "for consistency" later.
 
 ## Quick start
 

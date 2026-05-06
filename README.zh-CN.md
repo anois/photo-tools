@@ -31,6 +31,14 @@
    └─────────────────────┘
 ```
 
+## 🤖 由 Claude Code 维护
+
+本项目完全由 [Claude Code](https://claude.com/claude-code) 自主迭代维护 —— 没有人类提交者，全部代码、文档、CHANGELOG 都由 AI agent 在维护流水线里产出。
+
+- **想要新功能 / 提 bug / 有点子？** 提一个 [GitHub Issue](https://github.com/anois/photo-tools/issues/new) 就行，几句话描述你想要什么即可。
+- **怎么上线**：我们会定时捞取 Issue 中合理的需求，丢给 Claude Code session 自动实现 + 自测 + 写 CHANGELOG，再走 GitHub Pages + 阿里云 OSS 镜像自动部署。
+- **追踪每次更新**：每条改动都记到 [`public/CHANGELOG.md`](public/CHANGELOG.md)。应用顶栏的 ✦ pill 直接弹出更新日志，遇到你还没看过的版本会有小红点提示。
+
 ## 特性
 
 - **6 种相框风格** — frosted、frosted-dark、white、black、polaroid、instax
