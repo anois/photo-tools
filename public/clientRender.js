@@ -116,15 +116,18 @@
   const bgCache = new Map();   // key → { bitmap, key }
   const BG_CACHE_MAX = 6;
 
-  function bgCacheKey(file, layout, params, rot) {
+  function bgCacheKey(file, layout, params, rot, crop) {
     const k = params.bg.type === 'frosted'
       ? `f|${layout.canvas.W}x${layout.canvas.H}|s${params.bg.blurSigma}|b${params.bg.brightness}|sat${params.bg.saturation}|d${params.bg.darken}|g${params.bg.grainOpacity}`
       : `s|${layout.canvas.W}x${layout.canvas.H}|c${params.bg.color}`;
     // File identity is required only for frosted bg (the photo IS the bg);
-    // solid frames don't need it, but mixing keys is harmless. Rotation is
-    // mixed in too — rotating the primary should rotate the blurred bg with
-    // it, otherwise the bg goes out of sync with the rotated fg photo.
-    return k + '|r' + (rot || 0) + '|' + (file ? (file.name + ':' + file.size + ':' + file.lastModified) : 'na');
+    // solid frames don't need it, but mixing keys is harmless. Rotation +
+    // crop are mixed in so changing either invalidates the right cache slot
+    // — otherwise the rotated/cropped fg would float over a stale bg.
+    const cropTag = crop
+      ? `c${(crop.x || 0).toFixed(3)},${(crop.y || 0).toFixed(3)},${(crop.w || 1).toFixed(3)},${(crop.h || 1).toFixed(3)}`
+      : 'c0';
+    return k + '|r' + (rot || 0) + '|' + cropTag + '|' + (file ? (file.name + ':' + file.size + ':' + file.lastModified) : 'na');
   }
 
   function bgCacheTouch(key, entry) {
@@ -255,27 +258,23 @@
   }
 
   // Draw `bm` cover-fit into `cell`, optionally rotating CW by `rot` (0/90/
-  // 180/270 degrees). Rotation is applied around the cell center, after
+  // 180/270 degrees) and cropping by `crop` ({x,y,w,h} normalized in post-
+  // rotation space). Rotation is applied around the cell center after
   // clipping to a rounded rect of `radius`. Cover-fit is computed against
-  // the post-rotation effective dimensions so a 90°/270° rotation correctly
-  // covers a non-square cell.
-  function drawCellPhoto(ctx, cell, bm, rot, radius) {
+  // the rotated+cropped silhouette so the visible content covers the cell.
+  function drawCellPhoto(ctx, cell, bm, rot, radius, crop) {
     ctx.save();
     clipRoundRect(ctx, cell.x, cell.y, cell.w, cell.h, radius);
+    const sr = R.srcRectFromCropRotation(bm, rot, crop);
+    const ratio = Math.max(cell.w / sr.screenW, cell.h / sr.screenH);
+    const dw = sr.sw * ratio;
+    const dh = sr.sh * ratio;
     if (rot) {
-      const sw = (rot === 90 || rot === 270) ? bm.height : bm.width;
-      const sh = (rot === 90 || rot === 270) ? bm.width  : bm.height;
-      const ratio = Math.max(cell.w / sw, cell.h / sh);
-      const dw = bm.width  * ratio;
-      const dh = bm.height * ratio;
       ctx.translate(cell.x + cell.w / 2, cell.y + cell.h / 2);
       ctx.rotate(rot * Math.PI / 180);
-      ctx.drawImage(bm, -dw / 2, -dh / 2, dw, dh);
+      ctx.drawImage(bm, sr.sx, sr.sy, sr.sw, sr.sh, -dw / 2, -dh / 2, dw, dh);
     } else {
-      const ratio = Math.max(cell.w / bm.width, cell.h / bm.height);
-      const dw = bm.width  * ratio;
-      const dh = bm.height * ratio;
-      ctx.drawImage(bm,
+      ctx.drawImage(bm, sr.sx, sr.sy, sr.sw, sr.sh,
         cell.x + (cell.w - dw) / 2,
         cell.y + (cell.h - dh) / 2,
         dw, dh);
@@ -304,7 +303,7 @@
     // bg cache is bypassed entirely when customBg is set — caching the
     // composited bg per-dataURL would balloon memory and the blur compute
     // is GPU-cheap to redo. Self-bg (frosted from photo) keeps its cache.
-    const bgKey = (args.cacheBg && !customBgBm) ? bgCacheKey(args.file, layout, params, rotForBg) : null;
+    const bgKey = (args.cacheBg && !customBgBm) ? bgCacheKey(args.file, layout, params, rotForBg, args.crop) : null;
     const bgHit = bgKey ? bgCache.get(bgKey) : null;
     if (bgHit) {
       bgCacheTouch(bgKey, bgHit);
@@ -312,27 +311,23 @@
     } else if (params.bg.type === 'frosted') {
       const sigma = params.bg.blurSigma * layout.scale;
       const src = customBgBm || bitmap;
-      const srcW = src.naturalWidth  || src.width;
-      const srcH = src.naturalHeight || src.height;
       ctx.save();
       ctx.filter = `blur(${sigma}px) saturate(${params.bg.saturation}) brightness(${params.bg.brightness})`;
-      // Custom bg ignores the user's rotation — the bg image is independent
-      // of the photo and shouldn't tilt with it.
-      const applyRot = !customBgBm && rotForBg;
-      if (applyRot) {
-        const sw = (rotForBg === 90 || rotForBg === 270) ? srcH : srcW;
-        const sh = (rotForBg === 90 || rotForBg === 270) ? srcW : srcH;
-        const ratio = Math.max(W / sw, H / sh);
-        const dw = srcW * ratio;
-        const dh = srcH * ratio;
+      // Custom bg ignores the user's rotation + crop — the bg image is
+      // independent of the photo and shouldn't tilt or crop with it.
+      const usePhotoTransform = !customBgBm;
+      const sr = usePhotoTransform
+        ? R.srcRectFromCropRotation(src, rotForBg, args.crop)
+        : R.srcRectFromCropRotation(src, 0, null);
+      const ratio = Math.max(W / sr.screenW, H / sr.screenH);
+      const dw = sr.sw * ratio;
+      const dh = sr.sh * ratio;
+      if (usePhotoTransform && rotForBg) {
         ctx.translate(W / 2, H / 2);
         ctx.rotate(rotForBg * Math.PI / 180);
-        ctx.drawImage(src, -dw / 2, -dh / 2, dw, dh);
+        ctx.drawImage(src, sr.sx, sr.sy, sr.sw, sr.sh, -dw / 2, -dh / 2, dw, dh);
       } else {
-        const ratio = Math.max(W / srcW, H / srcH);
-        const dw = srcW * ratio;
-        const dh = srcH * ratio;
-        ctx.drawImage(src, (W - dw) / 2, (H - dh) / 2, dw, dh);
+        ctx.drawImage(src, sr.sx, sr.sy, sr.sw, sr.sh, (W - dw) / 2, (H - dh) / 2, dw, dh);
       }
       ctx.restore();
       if (params.bg.darken) {
@@ -371,12 +366,17 @@
     const cells = R.collageCellRects(args.collage, layout);
     if (cells && Array.isArray(args.bitmaps) && args.bitmaps.length >= cells.length) {
       for (let i = 0; i < cells.length; i++) {
-        if (args.bitmaps[i]) drawCellPhoto(ctx, cells[i], args.bitmaps[i], rot, layout.radius);
+        if (!args.bitmaps[i]) continue;
+        // Crop applies to the primary photo only — partner files have no
+        // per-cell crop UI and cropping them with the primary's coords would
+        // be nonsense.
+        const cellCrop = (i === 0) ? args.crop : null;
+        drawCellPhoto(ctx, cells[i], args.bitmaps[i], rot, layout.radius, cellCrop);
       }
     } else {
       drawCellPhoto(ctx, {
         x: layout.fgLeft, y: layout.fgTop, w: layout.fgW, h: layout.fgH
-      }, bitmap, rot, layout.radius);
+      }, bitmap, rot, layout.radius, args.crop);
     }
 
     // ─── Caption (SVG → Image → drawImage) ───────────────────────────────
@@ -418,13 +418,16 @@
     };
     if (opts.customScale != null) layoutOpts.customScale = opts.customScale;
     if (opts.quality)             layoutOpts.quality     = opts.quality;
-    // Rotation pre-image: when the user rotates 90°/270° the effective aspect
-    // swaps. computeLayout needs to see the post-rotation dimensions so the
-    // foreground rect ends up the right shape for the rotated photo.
+    // Rotation + crop pre-image: post-rotation dims swap when the user
+    // rotates 90°/270°, and crop scales them down further. computeLayout
+    // needs to see the final cropped+rotated silhouette so the foreground
+    // rect ends up the right shape for what'll actually be drawn into it.
     const rot = ((cfg.rotation | 0) + 360) % 360;
-    const meta = (rot === 90 || rot === 270)
-      ? { width: bitmap.height, height: bitmap.width }
-      : { width: bitmap.width,  height: bitmap.height };
+    const postW = (rot === 90 || rot === 270) ? bitmap.height : bitmap.width;
+    const postH = (rot === 90 || rot === 270) ? bitmap.width  : bitmap.height;
+    const cropW = cfg.crop && cfg.crop.w > 0 ? cfg.crop.w : 1;
+    const cropH = cfg.crop && cfg.crop.h > 0 ? cfg.crop.h : 1;
+    const meta = { width: postW * cropW, height: postH * cropH };
     const layout = R.computeLayout(meta, layoutOpts);
     const effectiveTextStyle = layout.caption.placement === 'overlay' ? 'light' : frame.textStyle;
     const captionArgs = {
@@ -449,7 +452,8 @@
       customLogo: cfg.customLogo || null,
       customBg: cfg.customBg || null,
       collage: collage,
-      rotation: rot
+      rotation: rot,
+      crop: cfg.crop || null
     };
   }
 

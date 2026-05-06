@@ -298,6 +298,20 @@ Compression at upload time: `compressBgImage()` decodes the source via `createIm
 
 Solid-bg frames (white / black / polaroid) ignore customBg.
 
+### Crop (`cfg.crop`)
+
+`cfg.crop = null | { x, y, w, h }` is a rect in **post-rotation [0..1]** coordinates. The user crops what they see in the rotated preview, so the modal renders the source pre-rotated and the rect is captured in that frame; render-time math then reverses the rotation to produce a bitmap-space `(sx, sy, sw, sh)` for `drawImage`.
+
+The math lives in `R.srcRectFromCropRotation(bm, rot, crop)` and is exported from `public/shared/render.js`. Both threads (`clientRender.js` + `worker.js`) call it for the foreground draw and the frosted-bg draw, so a cropped photo also crops its self-blur backdrop. Customer bg (`cfg.customBg`) deliberately skips both rotation and crop — the chosen backdrop is independent of the photo's framing decisions.
+
+Layout: `buildLayoutAndCaption` feeds `computeLayout` the cropped+rotated effective dims (`postW * crop.w`, `postH * crop.h`), so the foreground rect's aspect tracks the cropped silhouette rather than the source bitmap.
+
+Cache invalidation: `bgCacheKey` mixes in a 3-decimal-rounded crop tag so each crop variant lives in its own cache slot.
+
+UI: a `<dialog id="crop-modal">` with the source pre-rotated onto a canvas + an absolutely-positioned rect overlay with 8 handles (4 corners + 4 edges) and a draggable interior. State machine in `app.js`: pointerdown on rect/handle records start state, document-level pointermove/pointerup do the drag. Apply writes to `activeCfg().crop`; Reset clears to full image; Cancel/× discards.
+
+In collage mode the crop applies to the primary cell only — partner files have no crop UI of their own and inheriting the primary's rect would be nonsense.
+
 ### Rotation (`cfg.rotation`)
 
 `cfg.rotation` (0 / 90 / 180 / 270, clockwise degrees) is a per-photo render-time correction. Two ↶ ↷ buttons at the bottom of B · Frame bump it by ±90°.

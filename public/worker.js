@@ -60,23 +60,19 @@ function pathRoundRect(ctx, x, y, w, h, r) {
 }
 function clipRoundRect(ctx, x, y, w, h, r) { pathRoundRect(ctx, x, y, w, h, r); ctx.clip(); }
 
-function drawCellPhoto(ctx, cell, bm, rot, radius) {
+function drawCellPhoto(ctx, cell, bm, rot, radius, crop) {
   ctx.save();
   clipRoundRect(ctx, cell.x, cell.y, cell.w, cell.h, radius);
+  const sr = R.srcRectFromCropRotation(bm, rot, crop);
+  const ratio = Math.max(cell.w / sr.screenW, cell.h / sr.screenH);
+  const dw = sr.sw * ratio;
+  const dh = sr.sh * ratio;
   if (rot) {
-    const sw = (rot === 90 || rot === 270) ? bm.height : bm.width;
-    const sh = (rot === 90 || rot === 270) ? bm.width  : bm.height;
-    const ratio = Math.max(cell.w / sw, cell.h / sh);
-    const dw = bm.width  * ratio;
-    const dh = bm.height * ratio;
     ctx.translate(cell.x + cell.w / 2, cell.y + cell.h / 2);
     ctx.rotate(rot * Math.PI / 180);
-    ctx.drawImage(bm, -dw / 2, -dh / 2, dw, dh);
+    ctx.drawImage(bm, sr.sx, sr.sy, sr.sw, sr.sh, -dw / 2, -dh / 2, dw, dh);
   } else {
-    const ratio = Math.max(cell.w / bm.width, cell.h / bm.height);
-    const dw = bm.width  * ratio;
-    const dh = bm.height * ratio;
-    ctx.drawImage(bm,
+    ctx.drawImage(bm, sr.sx, sr.sy, sr.sw, sr.sh,
       cell.x + (cell.w - dw) / 2,
       cell.y + (cell.h - dh) / 2,
       dw, dh);
@@ -107,25 +103,21 @@ async function compose(canvas, args) {
   if (params.bg.type === 'frosted') {
     const sigma = params.bg.blurSigma * layout.scale;
     const src = customBgBm || bitmap;
-    const srcW = src.width;
-    const srcH = src.height;
     ctx.save();
     ctx.filter = `blur(${sigma}px) saturate(${params.bg.saturation}) brightness(${params.bg.brightness})`;
-    const applyRot = !customBgBm && rot;
-    if (applyRot) {
-      const sw = (rot === 90 || rot === 270) ? srcH : srcW;
-      const sh = (rot === 90 || rot === 270) ? srcW : srcH;
-      const ratio = Math.max(W / sw, H / sh);
-      const dw = srcW * ratio;
-      const dh = srcH * ratio;
+    const usePhotoTransform = !customBgBm;
+    const sr = usePhotoTransform
+      ? R.srcRectFromCropRotation(src, rot, args.crop)
+      : R.srcRectFromCropRotation(src, 0, null);
+    const ratio = Math.max(W / sr.screenW, H / sr.screenH);
+    const dw = sr.sw * ratio;
+    const dh = sr.sh * ratio;
+    if (usePhotoTransform && rot) {
       ctx.translate(W / 2, H / 2);
       ctx.rotate(rot * Math.PI / 180);
-      ctx.drawImage(src, -dw / 2, -dh / 2, dw, dh);
+      ctx.drawImage(src, sr.sx, sr.sy, sr.sw, sr.sh, -dw / 2, -dh / 2, dw, dh);
     } else {
-      const ratio = Math.max(W / srcW, H / srcH);
-      const dw = srcW * ratio;
-      const dh = srcH * ratio;
-      ctx.drawImage(src, (W - dw) / 2, (H - dh) / 2, dw, dh);
+      ctx.drawImage(src, sr.sx, sr.sy, sr.sw, sr.sh, (W - dw) / 2, (H - dh) / 2, dw, dh);
     }
     ctx.restore();
     if (params.bg.darken) {
@@ -152,12 +144,14 @@ async function compose(canvas, args) {
   const cells = R.collageCellRects(args.collage, layout);
   if (cells && Array.isArray(args.bitmaps) && args.bitmaps.length >= cells.length) {
     for (let i = 0; i < cells.length; i++) {
-      if (args.bitmaps[i]) drawCellPhoto(ctx, cells[i], args.bitmaps[i], rot, layout.radius);
+      if (!args.bitmaps[i]) continue;
+      const cellCrop = (i === 0) ? args.crop : null;
+      drawCellPhoto(ctx, cells[i], args.bitmaps[i], rot, layout.radius, cellCrop);
     }
   } else {
     drawCellPhoto(ctx, {
       x: layout.fgLeft, y: layout.fgTop, w: layout.fgW, h: layout.fgH
-    }, bitmap, rot, layout.radius);
+    }, bitmap, rot, layout.radius, args.crop);
   }
 
   if (captionSvg) {
@@ -261,9 +255,11 @@ async function renderJob(msg) {
       ...frame.layout
     };
     const rot = ((cfg.rotation | 0) + 360) % 360;
-    const meta = (rot === 90 || rot === 270)
-      ? { width: bitmap.height, height: bitmap.width }
-      : { width: bitmap.width,  height: bitmap.height };
+    const postW = (rot === 90 || rot === 270) ? bitmap.height : bitmap.width;
+    const postH = (rot === 90 || rot === 270) ? bitmap.width  : bitmap.height;
+    const cropW = cfg.crop && cfg.crop.w > 0 ? cfg.crop.w : 1;
+    const cropH = cfg.crop && cfg.crop.h > 0 ? cfg.crop.h : 1;
+    const meta = { width: postW * cropW, height: postH * cropH };
     const layout = R.computeLayout(meta, layoutOpts);
     const effectiveTextStyle = layout.caption.placement === 'overlay' ? 'light' : frame.textStyle;
     const captionSvg = R.buildCaptionSvg(normExif, layout, {
@@ -280,7 +276,8 @@ async function renderJob(msg) {
       customLogo: cfg.customLogo || null,
       customBg: cfg.customBg || null,
       collage,
-      rotation: rot
+      rotation: rot,
+      crop: cfg.crop || null
     });
     const mime = format === 'png' ? 'image/png' : 'image/jpeg';
     const q = quality === 'original' ? 0.98 : quality === 'high' ? 0.95 : 0.92;

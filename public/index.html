@@ -129,6 +129,7 @@
           <div class="rotate-row">
             <button id="rotate-ccw" type="button" class="rotate-btn" data-i18n-aria-label="frame.rotateCcw" data-i18n-title="frame.rotateCcw" aria-label="Rotate 90° counter-clockwise">↶</button>
             <button id="rotate-cw" type="button" class="rotate-btn" data-i18n-aria-label="frame.rotateCw" data-i18n-title="frame.rotateCw" aria-label="Rotate 90° clockwise">↷</button>
+            <button id="crop-open-btn" type="button" class="btn-ghost" data-i18n="frame.crop">Crop…</button>
             <span class="field-readout" id="rotate-val">0°</span>
           </div>
         </div>
@@ -397,6 +398,35 @@
   </aside>
 
 </main>
+
+<!-- CROP MODAL -->
+<dialog id="crop-modal" class="crop-modal" aria-labelledby="crop-modal-title">
+  <div class="crop-modal-inner">
+    <div class="crop-modal-head">
+      <h3 id="crop-modal-title" data-i18n="crop.title">Crop</h3>
+      <button id="crop-modal-close" type="button" class="btn-ghost" data-i18n-aria-label="crop.close" aria-label="Close">×</button>
+    </div>
+    <div class="crop-stage" id="crop-stage">
+      <canvas id="crop-canvas"></canvas>
+      <div class="crop-rect" id="crop-rect">
+        <div class="crop-handle" data-h="nw"></div>
+        <div class="crop-handle" data-h="ne"></div>
+        <div class="crop-handle" data-h="sw"></div>
+        <div class="crop-handle" data-h="se"></div>
+        <div class="crop-handle crop-handle-edge" data-h="n"></div>
+        <div class="crop-handle crop-handle-edge" data-h="s"></div>
+        <div class="crop-handle crop-handle-edge" data-h="w"></div>
+        <div class="crop-handle crop-handle-edge" data-h="e"></div>
+      </div>
+    </div>
+    <div class="crop-modal-foot">
+      <span class="crop-readout" id="crop-readout">100% × 100%</span>
+      <button id="crop-reset" type="button" class="btn-ghost" data-i18n="crop.reset">Reset</button>
+      <button id="crop-cancel" type="button" class="btn-ghost" data-i18n="crop.cancel">Cancel</button>
+      <button id="crop-apply" type="button" class="btn btn-primary" data-i18n="crop.apply">Apply</button>
+    </div>
+  </div>
+</dialog>
 
 <!-- BATCH EXPORT PROGRESS MODAL -->
 <dialog id="export-modal" class="export-modal" aria-labelledby="export-modal-title">

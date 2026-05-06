@@ -52,6 +52,7 @@
         rotate: '旋转',
         rotateCcw: '逆时针 90°',
         rotateCw: '顺时针 90°',
+        crop: '裁剪…',
         customBg: '自定义背景图',
         customBgHint: 'JPEG / PNG · 替换默认的自我磨砂背景源',
         customBgClear: '移除',
@@ -241,6 +242,14 @@
         available: '新版本已就绪',
         refresh: '刷新使用',
         dismiss: '关闭'
+      },
+      crop: {
+        title: '裁剪',
+        close: '关闭',
+        reset: '重置',
+        cancel: '取消',
+        apply: '应用',
+        readout: '{w}% × {h}%'
       }
     },
 
@@ -278,6 +287,7 @@
         rotate: 'Rotate',
         rotateCcw: 'Rotate 90° counter-clockwise',
         rotateCw: 'Rotate 90° clockwise',
+        crop: 'Crop…',
         customBg: 'Custom bg image',
         customBgHint: 'JPEG / PNG · replaces the self-bg blur source',
         customBgClear: 'Remove',
@@ -467,6 +477,14 @@
         available: 'New version available',
         refresh: 'Refresh',
         dismiss: 'Dismiss'
+      },
+      crop: {
+        title: 'Crop',
+        close: 'Close',
+        reset: 'Reset',
+        cancel: 'Cancel',
+        apply: 'Apply',
+        readout: '{w}% × {h}%'
       }
     }
   };

@@ -27,6 +27,11 @@ function defaultCfg() {
     // presets, since it's more of a "this specific photo was shot wrong"
     // fix than a stylistic choice.
     rotation: 0,
+    // Crop rect in post-rotation [0..1] coordinates, applied at render time.
+    // null = no crop (full image). Per-photo correction like rotation —
+    // not propagated by Apply-frame-all and not in presets, since cropping
+    // is a per-shot composition fix rather than a shared look.
+    crop: null,
     // User-supplied background image. When set + frame is frosted/frosted-dark,
     // this image (blurred + tinted with the frame's saturation/brightness/
     // darken) replaces the self-image bg. null = use the photo itself.
@@ -53,7 +58,8 @@ function cloneCfg(c) {
     exifOverride: { ...c.exifOverride },
     customLogo: c.customLogo ? { ...c.customLogo } : null,
     customBg: c.customBg ? { ...c.customBg } : null,
-    collage: c.collage ? { ...c.collage } : null
+    collage: c.collage ? { ...c.collage } : null,
+    crop: c.crop ? { ...c.crop } : null
   };
 }
 
@@ -122,6 +128,16 @@ const els = {
   rotateCcw: document.getElementById('rotate-ccw'),
   rotateCw: document.getElementById('rotate-cw'),
   rotateVal: document.getElementById('rotate-val'),
+  cropOpenBtn: document.getElementById('crop-open-btn'),
+  cropModal: document.getElementById('crop-modal'),
+  cropModalCloseBtn: document.getElementById('crop-modal-close'),
+  cropStage: document.getElementById('crop-stage'),
+  cropCanvas: document.getElementById('crop-canvas'),
+  cropRect: document.getElementById('crop-rect'),
+  cropReadout: document.getElementById('crop-readout'),
+  cropResetBtn: document.getElementById('crop-reset'),
+  cropCancelBtn: document.getElementById('crop-cancel'),
+  cropApplyBtn: document.getElementById('crop-apply'),
   customBgInput: document.getElementById('custom-bg-input'),
   customBgDrop: document.getElementById('custom-bg-drop'),
   customBgReadout: document.getElementById('custom-bg-readout'),
@@ -343,7 +359,8 @@ async function doRender() {
         customLogo: c.customLogo,
         customBg: c.customBg,
         collage: c.collage,
-        rotation: c.rotation || 0
+        rotation: c.rotation || 0,
+        crop: c.crop || null
       },
       normExif: buildCurrentExif(),
       logos: state.logos,
@@ -961,6 +978,176 @@ function bumpRotation(delta) {
 els.rotateCcw.addEventListener('click', () => bumpRotation(-90));
 els.rotateCw.addEventListener('click', () => bumpRotation(90));
 
+// ─── Crop modal wiring ──────────────────────────────────────────────────
+// Crop is stored on cfg in normalized post-rotation [0..1] space, so that's
+// also the coordinate frame the modal works in. We render the active photo
+// pre-rotated onto the modal's canvas (so the user crops the orientation
+// they see in preview) and overlay an absolutely-positioned div whose
+// position/size is computed from the rect each pointermove tick.
+const CROP = {
+  rect: { x: 0, y: 0, w: 1, h: 1 },
+  canvasCss: { x: 0, y: 0, w: 0, h: 0 },
+  drag: null
+};
+const CROP_MIN = 0.05;
+
+function clamp(v, lo, hi) { return v < lo ? lo : v > hi ? hi : v; }
+
+async function openCropModal() {
+  const active = state.files[state.activeIdx];
+  if (!active) {
+    setStatus('status.noPhoto', 'err');
+    setTimeout(() => setStatus('status.ready'), 1500);
+    return;
+  }
+  const bm = await CR.loadBitmap(active.file, 1440);
+  const rot = (((active.cfg.rotation | 0) % 360) + 360) % 360;
+  const postW = (rot === 90 || rot === 270) ? bm.height : bm.width;
+  const postH = (rot === 90 || rot === 270) ? bm.width  : bm.height;
+  const c = els.cropCanvas;
+  c.width = postW;
+  c.height = postH;
+  const ctx = c.getContext('2d');
+  ctx.clearRect(0, 0, postW, postH);
+  if (rot) {
+    ctx.save();
+    ctx.translate(postW / 2, postH / 2);
+    ctx.rotate(rot * Math.PI / 180);
+    ctx.drawImage(bm, -bm.width / 2, -bm.height / 2);
+    ctx.restore();
+  } else {
+    ctx.drawImage(bm, 0, 0);
+  }
+  CROP.rect = active.cfg.crop ? { ...active.cfg.crop } : { x: 0, y: 0, w: 1, h: 1 };
+  els.cropModal.showModal();
+  // Wait for the modal to lay out + the canvas to settle into its
+  // max-width/max-height box before measuring + positioning the overlay.
+  requestAnimationFrame(updateCropRectPosition);
+}
+
+function updateCropRectPosition() {
+  if (!els.cropModal.open) return;
+  const sRect = els.cropStage.getBoundingClientRect();
+  const cRect = els.cropCanvas.getBoundingClientRect();
+  CROP.canvasCss = {
+    x: cRect.left - sRect.left,
+    y: cRect.top  - sRect.top,
+    w: cRect.width,
+    h: cRect.height
+  };
+  const r = CROP.rect;
+  const cc = CROP.canvasCss;
+  els.cropRect.style.left   = (cc.x + r.x * cc.w) + 'px';
+  els.cropRect.style.top    = (cc.y + r.y * cc.h) + 'px';
+  els.cropRect.style.width  = (r.w * cc.w) + 'px';
+  els.cropRect.style.height = (r.h * cc.h) + 'px';
+  els.cropReadout.textContent = T('crop.readout', {
+    w: Math.round(r.w * 100),
+    h: Math.round(r.h * 100)
+  });
+}
+
+function applyDrag(handle, dx, dy, start) {
+  const r = { ...start };
+  switch (handle) {
+    case 'move':
+      r.x = clamp(start.x + dx, 0, 1 - r.w);
+      r.y = clamp(start.y + dy, 0, 1 - r.h);
+      break;
+    case 'nw':
+      r.x = clamp(start.x + dx, 0, start.x + start.w - CROP_MIN);
+      r.w = start.x + start.w - r.x;
+      r.y = clamp(start.y + dy, 0, start.y + start.h - CROP_MIN);
+      r.h = start.y + start.h - r.y;
+      break;
+    case 'ne':
+      r.w = clamp(start.w + dx, CROP_MIN, 1 - start.x);
+      r.y = clamp(start.y + dy, 0, start.y + start.h - CROP_MIN);
+      r.h = start.y + start.h - r.y;
+      break;
+    case 'sw':
+      r.x = clamp(start.x + dx, 0, start.x + start.w - CROP_MIN);
+      r.w = start.x + start.w - r.x;
+      r.h = clamp(start.h + dy, CROP_MIN, 1 - start.y);
+      break;
+    case 'se':
+      r.w = clamp(start.w + dx, CROP_MIN, 1 - start.x);
+      r.h = clamp(start.h + dy, CROP_MIN, 1 - start.y);
+      break;
+    case 'n':
+      r.y = clamp(start.y + dy, 0, start.y + start.h - CROP_MIN);
+      r.h = start.y + start.h - r.y;
+      break;
+    case 's':
+      r.h = clamp(start.h + dy, CROP_MIN, 1 - start.y);
+      break;
+    case 'w':
+      r.x = clamp(start.x + dx, 0, start.x + start.w - CROP_MIN);
+      r.w = start.x + start.w - r.x;
+      break;
+    case 'e':
+      r.w = clamp(start.w + dx, CROP_MIN, 1 - start.x);
+      break;
+  }
+  return r;
+}
+
+function startCropDrag(handle, e) {
+  e.preventDefault();
+  CROP.drag = {
+    handle,
+    startMouse: { x: e.clientX, y: e.clientY },
+    startRect: { ...CROP.rect }
+  };
+  document.addEventListener('pointermove', onCropDrag);
+  document.addEventListener('pointerup', endCropDrag, { once: true });
+}
+
+function onCropDrag(e) {
+  const d = CROP.drag;
+  if (!d) return;
+  const cc = CROP.canvasCss;
+  if (cc.w <= 0 || cc.h <= 0) return;
+  const dx = (e.clientX - d.startMouse.x) / cc.w;
+  const dy = (e.clientY - d.startMouse.y) / cc.h;
+  CROP.rect = applyDrag(d.handle, dx, dy, d.startRect);
+  updateCropRectPosition();
+}
+
+function endCropDrag() {
+  CROP.drag = null;
+  document.removeEventListener('pointermove', onCropDrag);
+}
+
+els.cropOpenBtn.addEventListener('click', () => { openCropModal().catch(console.error); });
+els.cropModalCloseBtn.addEventListener('click', () => els.cropModal.close());
+els.cropCancelBtn.addEventListener('click', () => els.cropModal.close());
+els.cropResetBtn.addEventListener('click', () => {
+  CROP.rect = { x: 0, y: 0, w: 1, h: 1 };
+  updateCropRectPosition();
+});
+els.cropApplyBtn.addEventListener('click', () => {
+  const r = CROP.rect;
+  const isFull = r.x < 0.002 && r.y < 0.002 && r.w > 0.998 && r.h > 0.998;
+  activeCfg().crop = isFull ? null : { x: r.x, y: r.y, w: r.w, h: r.h };
+  els.cropModal.close();
+  requestRender();
+});
+
+// Pointerdown handlers: rect interior moves, handles resize.
+els.cropRect.addEventListener('pointerdown', (e) => {
+  if (e.target.classList.contains('crop-handle')) {
+    startCropDrag(e.target.dataset.h, e);
+  } else {
+    startCropDrag('move', e);
+  }
+});
+
+// Reposition on window resize while the modal is open.
+window.addEventListener('resize', () => {
+  if (els.cropModal.open) updateCropRectPosition();
+});
+
 // ─── Collage (2–4 photos in one frame) wiring ───────────────────────────
 els.collageLayout.addEventListener('change', () => {
   const v = els.collageLayout.value;
@@ -1286,6 +1473,7 @@ function buildConfigForFile(f) {
   if (c.customBg)              cfg.customBg = { ...c.customBg };
   if (c.collage)               cfg.collage = { ...c.collage };
   if (c.rotation)              cfg.rotation = c.rotation;
+  if (c.crop)                  cfg.crop = { ...c.crop };
   return cfg;
 }
 
