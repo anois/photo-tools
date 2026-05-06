@@ -13,6 +13,10 @@
 - **画布常驻 frame badge** — 预览左上角悬浮 mono-caps 标签（`FROSTED · MINIMAL·TEXT`），切换照片或改 cfg 时实时刷新；旋转 ≠ 0 时尾部追加角度
 - **空状态升级** — 居中光圈图替换原来的 ⌖ 标记（柔和呼吸动画 + accent 红色 drop shadow），Display 字体大字标题取代纯文本
 
+### 🐛 修复
+
+- 裁剪 modal 在竖向源图上溢出 — 之前 `.crop-modal-inner` 用 `max-height` 而非显式 `height`，导致 canvas 的 `max-height: 100%` 无参考尺寸，长焦距人像图会撑爆 modal、底部和裁剪框被裁掉。改成显式 `height: 94vh` + `flex: 1 1 0` + `overflow: hidden` + canvas 加 `object-fit: contain`，任何源图比例都能完整 fit；额外加了 ResizeObserver 让 rect 覆盖层始终贴住 canvas
+
 ## 0.3 · 2026-05-06
 
 ### 📜 项目治理 (Project governance)

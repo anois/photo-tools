@@ -1371,6 +1371,16 @@ window.addEventListener('resize', () => {
   if (els.cropModal.open) updateCropRectPosition();
 });
 
+// ResizeObserver on the canvas catches changes the window-resize listener
+// misses: dialog layout settling after showModal, browser zoom, the canvas
+// scaling differently when its intrinsic dims change between photos. The
+// observer no-ops when the modal is closed.
+if (typeof ResizeObserver !== 'undefined') {
+  new ResizeObserver(() => {
+    if (els.cropModal.open) updateCropRectPosition();
+  }).observe(els.cropCanvas);
+}
+
 // ─── Collage (2–4 photos in one frame) wiring ───────────────────────────
 els.collageLayout.addEventListener('change', () => {
   const v = els.collageLayout.value;
