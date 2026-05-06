@@ -250,6 +250,12 @@
         cancel: '取消',
         apply: '应用',
         readout: '{w}% × {h}%'
+      },
+      changelog: {
+        button: '更新日志',
+        title: '更新日志',
+        close: '关闭',
+        loading: '加载中…'
       }
     },
 
@@ -485,6 +491,12 @@
         cancel: 'Cancel',
         apply: 'Apply',
         readout: '{w}% × {h}%'
+      },
+      changelog: {
+        button: "What's new",
+        title: "What's new",
+        close: 'Close',
+        loading: 'loading…'
       }
     }
   };

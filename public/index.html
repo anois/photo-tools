@@ -41,7 +41,11 @@
       <button type="button" data-loc="zh-CN" role="radio" aria-checked="true" data-i18n="lang.zh">中</button>
       <button type="button" data-loc="en" role="radio" aria-checked="false" data-i18n="lang.en">EN</button>
     </div>
-    <a class="topbar-github" href="https://github.com/anois/photo-tools" target="_blank" rel="noopener" data-i18n-aria-label="topbar.github" data-i18n-title="topbar.github">
+    <button id="changelog-btn" type="button" class="topbar-pill" data-i18n-aria-label="changelog.button" data-i18n-title="changelog.button" aria-label="What's new">
+      <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M5 7h14M5 12h14M5 17h7"/></svg>
+      <span class="topbar-pill-badge" id="changelog-badge" hidden></span>
+    </button>
+    <a class="topbar-pill" href="https://github.com/anois/photo-tools" target="_blank" rel="noopener" data-i18n-aria-label="topbar.github" data-i18n-title="topbar.github">
       <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
     </a>
   </div>
@@ -398,6 +402,19 @@
   </aside>
 
 </main>
+
+<!-- CHANGELOG MODAL -->
+<dialog id="changelog-modal" class="changelog-modal" aria-labelledby="changelog-modal-title">
+  <div class="changelog-modal-inner">
+    <div class="changelog-modal-head">
+      <h3 id="changelog-modal-title" data-i18n="changelog.title">What's new</h3>
+      <button id="changelog-modal-close" type="button" class="btn-ghost" data-i18n-aria-label="changelog.close" aria-label="Close">×</button>
+    </div>
+    <div class="changelog-modal-body" id="changelog-body">
+      <p data-i18n="changelog.loading">loading…</p>
+    </div>
+  </div>
+</dialog>
 
 <!-- CROP MODAL -->
 <dialog id="crop-modal" class="crop-modal" aria-labelledby="crop-modal-title">

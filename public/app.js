@@ -138,6 +138,11 @@ const els = {
   cropResetBtn: document.getElementById('crop-reset'),
   cropCancelBtn: document.getElementById('crop-cancel'),
   cropApplyBtn: document.getElementById('crop-apply'),
+  changelogBtn: document.getElementById('changelog-btn'),
+  changelogBadge: document.getElementById('changelog-badge'),
+  changelogModal: document.getElementById('changelog-modal'),
+  changelogModalCloseBtn: document.getElementById('changelog-modal-close'),
+  changelogBody: document.getElementById('changelog-body'),
   customBgInput: document.getElementById('custom-bg-input'),
   customBgDrop: document.getElementById('custom-bg-drop'),
   customBgReadout: document.getElementById('custom-bg-readout'),
@@ -1750,6 +1755,107 @@ bundlePromise.then(() => {
   setStatus('status.bundleFail', 'err', { msg: err.message });
   console.error(err);
 });
+
+// ─── Changelog modal ────────────────────────────────────────────────────
+// public/CHANGELOG.md is the single source of truth. The topbar pill button
+// fetches it on first click and renders into a <dialog>. A small accent dot
+// on the pill flags any version newer than what the user last opened
+// (tracked in localStorage). The first heading-2 in the file is treated as
+// the "latest version" string.
+const CHANGELOG_SEEN_KEY = 'phototools.lastSeenChangelog';
+let changelogCachedMd = null;
+
+function escapeChangelogHtml(s) {
+  return s.replace(/[&<>"']/g, (c) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[c]));
+}
+
+// Inline markdown applied AFTER the line has been HTML-escaped — `code`,
+// **bold**, *italic*, [text](url). Order matters: code first so its content
+// isn't re-processed; links before bold so [**X**](url) works.
+function renderChangelogInline(s) {
+  s = s.replace(/`([^`]+)`/g, '<code>$1</code>');
+  s = s.replace(/\[([^\]]+)\]\((https?:[^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+  s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  s = s.replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g, '$1<em>$2</em>');
+  return s;
+}
+
+// Line-based markdown → HTML for the small subset we use in CHANGELOG.md:
+// h1/h2/h3, paragraphs, bullet lists, horizontal rules, plus the inline
+// patterns above. No tables, code blocks, blockquotes, or nested lists —
+// keeps the renderer < 30 lines and the changelog itself stays scannable.
+function renderChangelogMarkdown(md) {
+  const lines = md.split('\n');
+  const out = [];
+  let inList = false;
+  function endList() { if (inList) { out.push('</ul>'); inList = false; } }
+  for (const line of lines) {
+    const escaped = escapeChangelogHtml(line);
+    let m;
+    if ((m = line.match(/^(#{1,3})\s+(.+)$/))) {
+      endList();
+      const lvl = m[1].length;
+      out.push('<h' + lvl + '>' + renderChangelogInline(escapeChangelogHtml(m[2])) + '</h' + lvl + '>');
+    } else if ((m = line.match(/^[-*]\s+(.+)$/))) {
+      if (!inList) { out.push('<ul>'); inList = true; }
+      out.push('<li>' + renderChangelogInline(escapeChangelogHtml(m[1])) + '</li>');
+    } else if (/^---+\s*$/.test(line)) {
+      endList();
+      out.push('<hr>');
+    } else if (line.trim() === '') {
+      endList();
+    } else {
+      endList();
+      out.push('<p>' + renderChangelogInline(escaped) + '</p>');
+    }
+  }
+  endList();
+  return out.join('');
+}
+
+function changelogLatestVersion(md) {
+  // First "## " heading is the most recent release entry. Trim trailing
+  // whitespace + treat the whole heading text as the seen-version key.
+  const m = md.match(/^##\s+([^\n]+)/m);
+  return m ? m[1].trim() : '';
+}
+
+async function fetchChangelog() {
+  if (changelogCachedMd != null) return changelogCachedMd;
+  changelogCachedMd = await fetch('CHANGELOG.md').then((r) => r.text());
+  return changelogCachedMd;
+}
+
+async function checkChangelogBadge() {
+  try {
+    const md = await fetchChangelog();
+    const latest = changelogLatestVersion(md);
+    if (!latest) return;
+    const seen = localStorage.getItem(CHANGELOG_SEEN_KEY) || '';
+    if (latest !== seen) els.changelogBadge.hidden = false;
+  } catch (_) { /* offline / 404 — silently skip */ }
+}
+
+async function openChangelog() {
+  els.changelogModal.showModal();
+  try {
+    const md = await fetchChangelog();
+    els.changelogBody.innerHTML = renderChangelogMarkdown(md);
+    const latest = changelogLatestVersion(md);
+    if (latest) {
+      try { localStorage.setItem(CHANGELOG_SEEN_KEY, latest); } catch (_) {}
+    }
+    els.changelogBadge.hidden = true;
+  } catch (err) {
+    els.changelogBody.innerHTML = '<p>' + escapeChangelogHtml(err.message || 'load failed') + '</p>';
+  }
+}
+
+els.changelogBtn.addEventListener('click', () => { openChangelog(); });
+els.changelogModalCloseBtn.addEventListener('click', () => els.changelogModal.close());
+checkChangelogBadge();
 
 // ─── PWA service-worker registration + upgrade prompt ──────────────────
 // Precaches the SPA shell so the app loads instantly + works offline. The

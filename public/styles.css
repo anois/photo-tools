@@ -138,20 +138,34 @@ body {
 }
 .meta-kbd { display: flex; gap: 6px; align-items: center; }
 
-.topbar-github {
+.topbar-pill {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  position: relative;
   width: 26px; height: 26px;
   color: var(--text-dim);
+  background: transparent;
   border: 1px solid var(--line);
   border-radius: 999px;
+  cursor: pointer;
+  padding: 0;
   transition: color 120ms, border-color 120ms;
 }
-.topbar-github:hover {
+.topbar-pill:hover {
   color: var(--text);
   border-color: var(--line-strong);
 }
+.topbar-pill-badge {
+  position: absolute;
+  top: -2px; right: -2px;
+  width: 8px; height: 8px;
+  background: var(--accent);
+  border: 1.5px solid var(--bg-chrome);
+  border-radius: 50%;
+  box-shadow: 0 0 6px var(--accent-glow);
+}
+.topbar-pill-badge[hidden] { display: none; }
 
 /* Language toggle — two-segment pill, mono small caps to echo brand-sub */
 .lang-seg {
@@ -687,6 +701,85 @@ input[type="range"]::-moz-range-thumb {
   white-space: nowrap;
 }
 .custom-bg-readout .btn-ghost { margin-left: auto; }
+
+/* ── Changelog modal ──────────────────────────────────────────────────── */
+.changelog-modal {
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-lg);
+  background: var(--bg-elev);
+  color: var(--text);
+  padding: 0;
+  width: min(640px, 92vw);
+  max-height: 86vh;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+}
+.changelog-modal::backdrop { background: rgba(0,0,0,0.55); backdrop-filter: blur(4px); }
+.changelog-modal-inner { display: flex; flex-direction: column; max-height: 86vh; }
+.changelog-modal-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 18px; border-bottom: 1px solid var(--line);
+}
+.changelog-modal-head h3 {
+  margin: 0;
+  font: 500 13px/1 var(--f-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--text);
+}
+.changelog-modal-head .btn-ghost { padding: 4px 10px; font-size: 16px; line-height: 1; }
+.changelog-modal-body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 18px 22px 24px;
+  font: 14px/1.55 var(--f-ui);
+  color: var(--text);
+}
+.changelog-modal-body h1 {
+  font: 500 16px/1.3 var(--f-display);
+  margin: 0 0 6px;
+  color: var(--text);
+}
+.changelog-modal-body h2 {
+  font: 500 14px/1.3 var(--f-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--accent);
+  margin: 22px 0 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--line);
+}
+.changelog-modal-body h3 {
+  font: 500 12px/1.3 var(--f-ui);
+  color: var(--text-muted);
+  margin: 14px 0 6px;
+}
+.changelog-modal-body p {
+  margin: 0 0 10px;
+  color: var(--text-muted);
+}
+.changelog-modal-body ul {
+  margin: 4px 0 12px;
+  padding-left: 18px;
+  list-style: disc;
+  color: var(--text);
+}
+.changelog-modal-body li { margin-bottom: 4px; }
+.changelog-modal-body strong { color: var(--text); font-weight: 600; }
+.changelog-modal-body code {
+  font: 500 12px/1 var(--f-mono);
+  background: var(--bg-sunken);
+  border: 1px solid var(--line);
+  padding: 1px 5px;
+  border-radius: var(--r-sm);
+  color: var(--text);
+}
+.changelog-modal-body a { color: var(--accent); text-decoration: none; border-bottom: 1px solid var(--accent-line); }
+.changelog-modal-body a:hover { color: var(--text); border-bottom-color: var(--text); }
+.changelog-modal-body hr {
+  border: 0;
+  border-top: 1px solid var(--line);
+  margin: 18px 0;
+}
 
 /* ── Crop modal ───────────────────────────────────────────────────────── */
 .crop-modal {

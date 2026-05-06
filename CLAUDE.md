@@ -35,7 +35,13 @@ When iterating on this project:
    - `npm run dev` → `http://localhost:3000`, load a real EXIF-bearing photo, and verify: preview renders, single export downloads a JPEG with EXIF intact, batch ZIP packs all photos.
    - `npm run smoke` → `http://localhost:3001/smoke.html`. This is a visual-regression aid that re-renders each `data/<id>_framed.jpg` baseline through the current pipeline and shows diff %, side-by-side. Green &lt;1%, yellow 1–3%, red &gt;3%. ~0.5% baseline noise is expected from JPEG-encode chroma + EXIF re-attach jitter even with no pipeline change. Run after any layout-math edit (rotation, collage cell rects, padding, caption zone, font subsetting). Cfgs for each fixture live inline at the top of `smoke.html` and mirror the canonical look documented for each `data/` pair.
 
-4. **Keep CLAUDE.md and README.md current.** Both are durable docs but with different audiences and update triggers — neglecting either degrades trust in the project. They drift in different ways and have to be checked separately:
+4. **Keep `public/CHANGELOG.md` current.** Any user-facing change (new feature, frame, template, fix that the user can perceive) gets a bullet under the latest `## <version>` heading. The topbar's ✦ pill renders this file in a modal at runtime; a small accent dot on the pill flags any version a returning user hasn't opened yet (tracked in `localStorage['phototools.lastSeenChangelog']`, keyed off the first `## ` heading text). Pure refactors that don't visibly change anything stay out — the changelog is for users, not commit archaeology.
+
+   When starting a new release, prepend a fresh `## <version> · <YYYY-MM-DD>` block at the top so the badge fires for everyone on next visit. The first `## ` heading is what the seen-version comparison pins on, so order matters.
+
+   Subset of markdown the renderer supports: `#`/`##`/`###`, `-` bullets, `**bold**`, `*italic*`, `` `code` ``, `[text](https-url)`, `---` horizontal rule, blank-line paragraphs. No tables, code blocks, blockquotes, or nested lists.
+
+5. **Keep CLAUDE.md and README.md current.** Both are durable docs but with different audiences and update triggers — neglecting either degrades trust in the project. They drift in different ways and have to be checked separately:
 
    - **CLAUDE.md** — internal source of truth ("why" + "how it works"). When introducing a new concept (frame, template, toggle, frame-layout tweak, pipeline change, gotcha discovered), update the relevant section in the **same commit**. Project memory entries should only hold cross-session user/feedback context, not project facts.
 
@@ -50,7 +56,7 @@ When iterating on this project:
 
      Don't duplicate detail between READMEs and CLAUDE.md — link to CLAUDE.md sections from READMEs for deep dives.
 
-5. **One source of truth per concept.**
+6. **One source of truth per concept.**
    - Layout math + templates + caption SVG: `public/shared/render.js` (the original UMD module — module.exports branch is dead but harmless).
    - Frame styles: one file per style under `public/frames/`. Each file calls `R.registerFrame(name, def)` to slot its definition into the shared `FRAMES` registry. shared/render.js holds only the registry + `resolveFrame()` fallback.
    - Render parameter resolution: `R.resolveRenderParams(frame, cfg)` in `public/shared/render.js`.
@@ -64,11 +70,11 @@ When iterating on this project:
    - UI strings + locale switching: `public/i18n.js` (zh-CN + en dictionaries; nothing else owns user-visible copy).
    - Presets (save / load / share): a self-contained block in `public/app.js`, keyed off `LOOK_KEYS` and `localStorage['phototools.presets']`.
 
-6. **Delete aggressively.** Don't leave commented-out alternatives or "in case we need it" stubs. Prefer lean code over optionality.
+7. **Delete aggressively.** Don't leave commented-out alternatives or "in case we need it" stubs. Prefer lean code over optionality.
 
-7. **Good-enough over precise.** The approximate text-width estimator is fine for centering; don't swap it for a font-metrics library unless a misalignment is visually reported.
+8. **Good-enough over precise.** The approximate text-width estimator is fine for centering; don't swap it for a font-metrics library unless a misalignment is visually reported.
 
-8. **Don't auto-revert explicit user choices.** If the user says "use Wikimedia logos in original colors", don't switch to monochrome "for consistency" later.
+9. **Don't auto-revert explicit user choices.** If the user says "use Wikimedia logos in original colors", don't switch to monochrome "for consistency" later.
 
 ## Quick start
 
