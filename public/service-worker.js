@@ -9,7 +9,7 @@
  * the activate handler purges any cache whose name doesn't match.
  */
 
-const CACHE_VERSION = 'v1';
+const CACHE_VERSION = 'v2';
 const CACHE_NAME = 'phototools-shell-' + CACHE_VERSION;
 
 // Files that make up the offline-capable SPA shell. Paths are relative to
@@ -37,10 +37,17 @@ const PRECACHE = [
 ];
 
 self.addEventListener('install', (event) => {
+  // Don't skipWaiting() automatically — the page shows a "new version
+  // available" banner and only swaps in the new SW when the user clicks
+  // refresh, so they aren't surprised by a mid-session reload. The banner
+  // posts {type:'SKIP_WAITING'} below to trigger the swap on demand.
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => cache.addAll(PRECACHE))
-      .then(() => self.skipWaiting())
   );
+});
+
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {

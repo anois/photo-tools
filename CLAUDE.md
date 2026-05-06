@@ -428,6 +428,8 @@ What isn't: `vendor/libheif-bundle.js` (~1.2MB) is excluded from precache becaus
 
 **Bumping the cache**: when you change shell behavior (new precache asset, change to render pipeline that breaks compat with old cached files), bump `CACHE_VERSION` in `service-worker.js`. The activate handler purges caches that don't match.
 
+**Upgrade UX**: the install handler does **not** call `skipWaiting()` automatically — silently swapping JS mid-session leads to weird half-loaded states. Instead, when `app.js` detects a `installed` SW waiting (via `registration.updatefound` + `statechange`), it surfaces the `#update-banner` ("New version available · Refresh"). Click → `waitingSw.postMessage({type:'SKIP_WAITING'})` → SW activates → `controllerchange` fires → page reloads cleanly. There's a `message` listener in the SW that translates that postMessage into `self.skipWaiting()`.
+
 **Dev caveat**: the SW caches files aggressively. During development run with DevTools "Update on reload" enabled, or unregister the SW via DevTools → Application → Service Workers. Otherwise edits to `app.js` etc. won't show up until the next stale-while-revalidate cycle completes.
 
 ### EXIF round-trip (`public/exifio.js`)

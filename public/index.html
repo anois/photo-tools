@@ -416,6 +416,13 @@
   </div>
 </dialog>
 
+<!-- UPDATE BANNER (service-worker upgrade prompt) -->
+<div id="update-banner" class="update-banner" role="status" aria-live="polite" hidden>
+  <span data-i18n="update.available">New version available</span>
+  <button id="update-banner-btn" type="button" class="update-banner-btn" data-i18n="update.refresh">Refresh</button>
+  <button id="update-banner-dismiss" type="button" class="update-banner-dismiss" data-i18n-aria-label="update.dismiss" aria-label="Dismiss">×</button>
+</div>
+
 <!-- STATUS BAR -->
 <footer class="statusbar">
   <span class="status-dot" aria-hidden="true"></span>

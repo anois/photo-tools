@@ -1563,17 +1563,53 @@ bundlePromise.then(() => {
   console.error(err);
 });
 
-// ─── PWA service-worker registration ────────────────────────────────────
+// ─── PWA service-worker registration + upgrade prompt ──────────────────
 // Precaches the SPA shell so the app loads instantly + works offline. The
-// SW is at public/service-worker.js so its scope is the deploy root. We
-// register asynchronously after first paint so SW install doesn't compete
-// with shell rendering.
+// SW is at public/service-worker.js so its scope is the deploy root.
+//
+// Upgrade flow: when the page detects a new SW has reached `installed` and
+// is waiting (i.e., a deploy happened since last visit), we surface a
+// non-intrusive banner asking the user to refresh — beats silently swapping
+// running code mid-session. Click → message {type:'SKIP_WAITING'} → SW
+// activates → controllerchange fires → page reloads.
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('service-worker.js').catch((err) => {
+  window.addEventListener('load', async () => {
+    try {
+      const reg = await navigator.serviceWorker.register('service-worker.js');
+      // A SW can already be in `waiting` at registration time if the user
+      // closed the tab during a previous update window — surface that too.
+      if (reg.waiting && navigator.serviceWorker.controller) showUpdateBanner(reg.waiting);
+      reg.addEventListener('updatefound', () => {
+        const newer = reg.installing;
+        if (!newer) return;
+        newer.addEventListener('statechange', () => {
+          if (newer.state === 'installed' && navigator.serviceWorker.controller) {
+            showUpdateBanner(newer);
+          }
+        });
+      });
+      let reloading = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (reloading) return;
+        reloading = true;
+        location.reload();
+      });
+    } catch (err) {
       console.warn('[sw] register failed', err);
-    });
+    }
   });
+}
+
+function showUpdateBanner(waitingSw) {
+  const banner = document.getElementById('update-banner');
+  if (!banner) return;
+  banner.hidden = false;
+  document.getElementById('update-banner-btn').onclick = () => {
+    waitingSw.postMessage({ type: 'SKIP_WAITING' });
+  };
+  document.getElementById('update-banner-dismiss').onclick = () => {
+    banner.hidden = true;
+  };
 }
 
 // ─── Language switcher ──────────────────────────────────────────────────

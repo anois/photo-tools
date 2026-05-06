@@ -235,7 +235,12 @@
         batchFail: '批量失败',
         hint: 'J/K · 方向键  切换  ·  Enter 选中  ·  Esc 关闭'
       },
-      footer: { brandShip: 'frame · caption · ship' }
+      footer: { brandShip: 'frame · caption · ship' },
+      update: {
+        available: '新版本已就绪',
+        refresh: '刷新使用',
+        dismiss: '关闭'
+      }
     },
 
     'en': {
@@ -455,7 +460,12 @@
         batchFail: 'batch failed',
         hint: 'J/K · arrows  switch  ·  Enter select  ·  Esc close'
       },
-      footer: { brandShip: 'frame · caption · ship' }
+      footer: { brandShip: 'frame · caption · ship' },
+      update: {
+        available: 'New version available',
+        refresh: 'Refresh',
+        dismiss: 'Dismiss'
+      }
     }
   };
 

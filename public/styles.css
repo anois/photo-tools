@@ -688,6 +688,56 @@ input[type="range"]::-moz-range-thumb {
 }
 .custom-bg-readout .btn-ghost { margin-left: auto; }
 
+/* ── Service-worker update banner ─────────────────────────────────────── */
+.update-banner {
+  position: fixed;
+  bottom: calc(var(--statusbar-h) + 8px);
+  right: 16px;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px 10px 14px;
+  border: 1px solid var(--accent-line);
+  border-radius: var(--r-md);
+  background: var(--bg-elev);
+  color: var(--text);
+  font: 500 12px/1.2 var(--f-ui);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), 0 0 0 1px var(--accent-soft);
+  animation: update-banner-in 200ms ease-out;
+}
+.update-banner[hidden] { display: none; }
+@keyframes update-banner-in {
+  from { transform: translateY(8px); opacity: 0; }
+  to   { transform: translateY(0);   opacity: 1; }
+}
+.update-banner-btn {
+  appearance: none;
+  -webkit-appearance: none;
+  border: 0;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font: 600 11px/1 var(--f-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding: 6px 10px;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  transition: background 120ms;
+}
+.update-banner-btn:hover { background: rgba(229, 73, 58, 0.2); }
+.update-banner-dismiss {
+  appearance: none;
+  -webkit-appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--text-dim);
+  font: 400 16px/1 var(--f-mono);
+  padding: 0 4px;
+  cursor: pointer;
+}
+.update-banner-dismiss:hover { color: var(--text); }
+
 /* ── Batch export progress modal ───────────────────────────────────────── */
 .export-modal {
   border: 1px solid var(--line-strong);
