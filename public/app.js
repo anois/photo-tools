@@ -1049,10 +1049,14 @@ function flashRotation(delta, totalDeg) {
 const CROP = {
   rect: { x: 0, y: 0, w: 1, h: 1 },
   canvasCss: { x: 0, y: 0, w: 0, h: 0 },
-  // Source canvas dims = post-rotation pixel dims of the active photo.
-  // Used to convert normalized rects to / from pixel-space aspect ratios.
-  srcW: 0,
-  srcH: 0,
+  // True post-rotation source dims (used for the px readout). Distinct
+  // from the canvas's intrinsic dims, which we shrink to fit the modal.
+  trueW: 0,
+  trueH: 0,
+  // The pre-loaded bitmap + rotation we kept around so refitCropCanvas
+  // can re-render at a different size on viewport resize.
+  bm: null,
+  rotation: 0,
   drag: null,
   // 'free' = no aspect lock; 'frame' = current frame aspect; 'W:H' = literal
   aspect: 'free'
@@ -1076,8 +1080,8 @@ function parseAspectToken(token) {
 // The aspect ratio is in PIXEL space (W_px / H_px). Convert to normalized
 // coords (W_norm / H_norm) so we can compare against rect.w / rect.h.
 function pxAspectToNorm(pxRatio) {
-  if (!pxRatio || !CROP.srcW || !CROP.srcH) return null;
-  return pxRatio * CROP.srcH / CROP.srcW;
+  if (!pxRatio || !CROP.trueW || !CROP.trueH) return null;
+  return pxRatio * CROP.trueH / CROP.trueW;
 }
 
 function gcd(a, b) { return b ? gcd(b, a % b) : a; }
@@ -1111,31 +1115,76 @@ async function openCropModal() {
   }
   const bm = await CR.loadBitmap(active.file, 1440);
   const rot = (((active.cfg.rotation | 0) % 360) + 360) % 360;
-  const postW = (rot === 90 || rot === 270) ? bm.height : bm.width;
-  const postH = (rot === 90 || rot === 270) ? bm.width  : bm.height;
-  const c = els.cropCanvas;
-  c.width = postW;
-  c.height = postH;
-  const ctx = c.getContext('2d');
-  ctx.clearRect(0, 0, postW, postH);
-  if (rot) {
-    ctx.save();
-    ctx.translate(postW / 2, postH / 2);
-    ctx.rotate(rot * Math.PI / 180);
-    ctx.drawImage(bm, -bm.width / 2, -bm.height / 2);
-    ctx.restore();
-  } else {
-    ctx.drawImage(bm, 0, 0);
-  }
+  CROP.bm = bm;
+  CROP.rotation = rot;
+  CROP.trueW = (rot === 90 || rot === 270) ? bm.height : bm.width;
+  CROP.trueH = (rot === 90 || rot === 270) ? bm.width  : bm.height;
   CROP.rect = active.cfg.crop ? { ...active.cfg.crop } : { x: 0, y: 0, w: 1, h: 1 };
-  CROP.srcW = postW;
-  CROP.srcH = postH;
   CROP.aspect = 'free';
   syncCropAspectSeg();
   els.cropModal.showModal();
-  // Wait for the modal to lay out + the canvas to settle into its
-  // max-width/max-height box before measuring + positioning the overlay.
-  requestAnimationFrame(updateCropRectPosition);
+  // Wait one frame for the dialog to settle into its definite height, then
+  // measure the stage and pre-scale the bitmap into a canvas of exactly
+  // that fit-size. From that point on the canvas's CSS box equals the
+  // visible image — no contain-margins, so the rect overlay aligns
+  // perfectly with the pixels under the user's cursor.
+  requestAnimationFrame(refitCropCanvas);
+}
+
+// Compute display dims from the stage's content area, set the canvas's
+// intrinsic dims to match, and redraw the bitmap (rotated if needed) into
+// it. Called on modal open + on every stage resize so the canvas always
+// fills the available area without overflowing it.
+function refitCropCanvas() {
+  if (!CROP.bm || !els.cropModal.open) return;
+  const stage = els.cropStage;
+  const sRect = stage.getBoundingClientRect();
+  // Padding mirrors the .crop-stage CSS rule. Subtract on both axes.
+  const PAD = 28;
+  const availW = Math.max(0, sRect.width  - PAD * 2);
+  const availH = Math.max(0, sRect.height - PAD * 2);
+  if (!availW || !availH) return;
+  // Largest scale where the post-rotation source still fits within avail.
+  // Cap at 1 so we never UPscale a tiny image — the user gets the source
+  // at native size or smaller, never blurry from being stretched up.
+  const ratio = Math.min(availW / CROP.trueW, availH / CROP.trueH, 1);
+  const dispW = Math.max(1, Math.round(CROP.trueW * ratio));
+  const dispH = Math.max(1, Math.round(CROP.trueH * ratio));
+  const c = els.cropCanvas;
+  if (c.width !== dispW || c.height !== dispH) {
+    c.width = dispW;
+    c.height = dispH;
+  }
+  drawCropModalCanvas();
+  updateCropRectPosition();
+}
+
+// Draw CROP.bm into the modal canvas at the canvas's intrinsic dims,
+// applying CROP.rotation (the photo's per-cfg rotation, since the user
+// crops in the orientation they see in the preview pane).
+function drawCropModalCanvas() {
+  const c = els.cropCanvas;
+  const ctx = c.getContext('2d');
+  const bm = CROP.bm;
+  if (!bm) return;
+  const rot = CROP.rotation;
+  const W = c.width;
+  const H = c.height;
+  ctx.clearRect(0, 0, W, H);
+  if (!rot) {
+    ctx.drawImage(bm, 0, 0, W, H);
+    return;
+  }
+  ctx.save();
+  ctx.translate(W / 2, H / 2);
+  ctx.rotate(rot * Math.PI / 180);
+  // For 90/270, the rotated frame's width corresponds to the canvas's
+  // height (and vice versa); the bitmap occupies the rotated rect of
+  // (drawW × drawH) which we compute so it covers the canvas exactly.
+  const drawW = (rot === 90 || rot === 270) ? H : W;
+  const drawH = (rot === 90 || rot === 270) ? W : H;
+  ctx.drawImage(bm, -drawW / 2, -drawH / 2, drawW, drawH);
+  ctx.restore();
 }
 
 function syncCropAspectSeg() {
@@ -1163,11 +1212,12 @@ function updateCropRectPosition() {
   els.cropRect.style.width  = (r.w * cc.w) + 'px';
   els.cropRect.style.height = (r.h * cc.h) + 'px';
 
-  // Three readouts: percent, pixel dims (post-rotation source), aspect.
+  // Three readouts: percent, pixel dims (against TRUE post-rotation
+  // source dims, not the modal's display canvas), aspect.
   els.cropPctW.textContent = Math.round(r.w * 100);
   els.cropPctH.textContent = Math.round(r.h * 100);
-  const wPx = Math.round(r.w * CROP.srcW);
-  const hPx = Math.round(r.h * CROP.srcH);
+  const wPx = Math.round(r.w * CROP.trueW);
+  const hPx = Math.round(r.h * CROP.trueH);
   els.cropReadoutPx.textContent = wPx + ' × ' + hPx + ' px';
   els.cropReadoutRatio.textContent = '≈ ' + fmtRatio(wPx, hPx);
 }
@@ -1366,19 +1416,19 @@ els.cropRect.addEventListener('pointerdown', (e) => {
   }
 });
 
-// Reposition on window resize while the modal is open.
+// Re-fit the canvas (and reposition the overlay rect) on viewport resize
+// AND on stage resize. ResizeObserver on the stage catches dialog reflow
+// after showModal + browser zoom; observing the stage (not the canvas)
+// avoids the feedback loop that observing canvas would create — we set
+// canvas.width/height inside refitCropCanvas, which would re-fire on
+// canvas-watchers. The observer + listener both no-op when modal is shut.
 window.addEventListener('resize', () => {
-  if (els.cropModal.open) updateCropRectPosition();
+  if (els.cropModal.open) refitCropCanvas();
 });
-
-// ResizeObserver on the canvas catches changes the window-resize listener
-// misses: dialog layout settling after showModal, browser zoom, the canvas
-// scaling differently when its intrinsic dims change between photos. The
-// observer no-ops when the modal is closed.
 if (typeof ResizeObserver !== 'undefined') {
   new ResizeObserver(() => {
-    if (els.cropModal.open) updateCropRectPosition();
-  }).observe(els.cropCanvas);
+    if (els.cropModal.open) refitCropCanvas();
+  }).observe(els.cropStage);
 }
 
 // ─── Collage (2–4 photos in one frame) wiring ───────────────────────────

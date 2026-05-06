@@ -916,15 +916,12 @@ input[type="range"]::-moz-range-thumb {
   z-index: 0;
 }
 .crop-stage canvas {
-  /* The grid cell is the stage minus padding. width/height: auto +
-     max-*: 100% + object-fit: contain reliably makes the canvas downscale
-     to fit while preserving its intrinsic aspect — works for both portrait
-     and landscape sources, on any viewport. */
-  width: auto;
-  height: auto;
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
+  /* The canvas's intrinsic dims are computed in JS to exactly match the
+     stage's available content area (with the source bitmap pre-scaled into
+     it before drawing). No CSS scaling, no object-fit padding, no
+     max-width/height ambiguity — the canvas's CSS box is its visible
+     image, 1:1, so the absolute-positioned crop rect always lands on the
+     same pixels the user sees. */
   display: block;
   user-select: none;
   -webkit-user-drag: none;

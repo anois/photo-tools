@@ -15,7 +15,7 @@
 
 ### 🐛 修复
 
-- 裁剪 modal 在竖向源图上溢出 — 之前 `.crop-modal-inner` 用 `max-height` 而非显式 `height`，导致 canvas 的 `max-height: 100%` 无参考尺寸，长焦距人像图会撑爆 modal、底部和裁剪框被裁掉。改成显式 `height: 94vh` + `flex: 1 1 0` + `overflow: hidden` + canvas 加 `object-fit: contain`，任何源图比例都能完整 fit；额外加了 ResizeObserver 让 rect 覆盖层始终贴住 canvas
+- 裁剪 modal 在竖向源图上溢出 — 完整改用"预缩放到 fit 尺寸"方案。第一版尝试用 CSS `object-fit: contain` 让 canvas 自动适配，但留白让 canvas 的 CSS box 比可见图像更大，crop rect 落点和图像像素错位。改成在 JS 里测量 stage 可用区域、把 canvas 的 intrinsic 尺寸设成 fit 后的精确值、把源 bitmap rotated + scaled 直接画进去 —— canvas 的 CSS box 现在 1:1 等于可见图像，rect 永远贴在用户看到的像素上。配合 ResizeObserver 监听 stage（不是 canvas，避免反馈环），窗口缩放或对话框 reflow 时 canvas 自动重 fit 重绘
 
 ## 0.3 · 2026-05-06
 
