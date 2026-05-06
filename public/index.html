@@ -374,13 +374,32 @@
       </div>
     </div>
     <div class="canvas-stage" id="canvas-stage">
+      <div class="canvas-frame-badge" id="canvas-frame-badge" hidden>
+        <em id="canvas-badge-frame">FROSTED</em>
+        <span class="canvas-badge-sep">·</span>
+        <span id="canvas-badge-template">MINIMAL</span>
+        <span class="canvas-badge-rot" id="canvas-badge-rot" hidden>· <em id="canvas-badge-rot-val">90°</em></span>
+      </div>
       <canvas id="preview-canvas" data-i18n-aria-label="canvas.emptyTitle"></canvas>
+      <div id="rotation-flash" class="rotation-flash" aria-hidden="true">
+        <span class="rotation-flash-arrow" id="rotation-flash-arrow">↻</span>
+        <span id="rotation-flash-val">90°</span>
+      </div>
       <div id="preview-loading" class="preview-loading" hidden>
         <span class="pulse-dot" aria-hidden="true"></span>
         <span data-i18n="canvas.rendering">rendering</span>
       </div>
       <div id="empty" class="empty">
-        <div class="empty-mark">⌖</div>
+        <div class="empty-aperture" aria-hidden="true">
+          <svg viewBox="0 0 64 64" width="64" height="64">
+            <g fill="none" stroke="currentColor" stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="32" cy="32" r="22" opacity="0.35"/>
+              <circle cx="32" cy="32" r="14" opacity="0.55"/>
+              <path d="M32 10L18 32M32 10L46 32M18 32L32 54M46 32L32 54M18 32L46 32M32 10L32 54" opacity="0.18"/>
+              <circle cx="32" cy="32" r="1.5" fill="currentColor" stroke="none"/>
+            </g>
+          </svg>
+        </div>
         <p class="empty-title" data-i18n="canvas.emptyTitle">No photo loaded</p>
         <p class="empty-sub empty-sub-desktop" data-i18n="canvas.emptySubDesktop">Import from the left panel, or drop here.</p>
         <p class="empty-sub empty-sub-mobile" data-i18n="canvas.emptySubMobile">Tap "Import photos" above.</p>
@@ -420,12 +439,33 @@
 <dialog id="crop-modal" class="crop-modal" aria-labelledby="crop-modal-title">
   <div class="crop-modal-inner">
     <div class="crop-modal-head">
-      <h3 id="crop-modal-title" data-i18n="crop.title">Crop</h3>
-      <button id="crop-modal-close" type="button" class="btn-ghost" data-i18n-aria-label="crop.close" aria-label="Close">×</button>
+      <div class="crop-modal-head-l">
+        <span class="crop-modal-step">01</span>
+        <h3 id="crop-modal-title" data-i18n="crop.title">Crop</h3>
+      </div>
+      <button id="crop-modal-close" type="button" class="crop-modal-x" data-i18n-aria-label="crop.close" aria-label="Close">
+        <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="crop-aspect-bar">
+      <span class="crop-aspect-label" data-i18n="crop.aspect">Aspect</span>
+      <div class="crop-aspect-seg" id="crop-aspect-seg" role="radiogroup">
+        <button data-val="free" class="active" role="radio" aria-checked="true" data-i18n="crop.aspectFree">Free</button>
+        <button data-val="frame" role="radio" aria-checked="false" data-i18n="crop.aspectFrame">Frame</button>
+        <button data-val="1:1" role="radio" aria-checked="false">1<span class="crop-aspect-sep">:</span>1</button>
+        <button data-val="3:4" role="radio" aria-checked="false">3<span class="crop-aspect-sep">:</span>4</button>
+        <button data-val="9:16" role="radio" aria-checked="false">9<span class="crop-aspect-sep">:</span>16</button>
+        <button data-val="16:9" role="radio" aria-checked="false">16<span class="crop-aspect-sep">:</span>9</button>
+      </div>
     </div>
     <div class="crop-stage" id="crop-stage">
+      <div class="crop-stage-glow" aria-hidden="true"></div>
       <canvas id="crop-canvas"></canvas>
       <div class="crop-rect" id="crop-rect">
+        <div class="crop-grid" aria-hidden="true">
+          <span class="crop-grid-v"></span><span class="crop-grid-v"></span>
+          <span class="crop-grid-h"></span><span class="crop-grid-h"></span>
+        </div>
         <div class="crop-handle" data-h="nw"></div>
         <div class="crop-handle" data-h="ne"></div>
         <div class="crop-handle" data-h="sw"></div>
@@ -437,7 +477,11 @@
       </div>
     </div>
     <div class="crop-modal-foot">
-      <span class="crop-readout" id="crop-readout">100% × 100%</span>
+      <div class="crop-readouts" id="crop-readouts">
+        <span class="crop-readout-pct"><em id="crop-pct-w">100</em>%<span class="crop-readout-x">×</span><em id="crop-pct-h">100</em>%</span>
+        <span class="crop-readout-px" id="crop-readout-px">— × — px</span>
+        <span class="crop-readout-ratio" id="crop-readout-ratio">≈ 1:1</span>
+      </div>
       <button id="crop-reset" type="button" class="btn-ghost" data-i18n="crop.reset">Reset</button>
       <button id="crop-cancel" type="button" class="btn-ghost" data-i18n="crop.cancel">Cancel</button>
       <button id="crop-apply" type="button" class="btn btn-primary" data-i18n="crop.apply">Apply</button>

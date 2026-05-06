@@ -249,7 +249,10 @@
         reset: '重置',
         cancel: '取消',
         apply: '应用',
-        readout: '{w}% × {h}%'
+        readout: '{w}% × {h}%',
+        aspect: '比例',
+        aspectFree: '自由',
+        aspectFrame: '当前画幅'
       },
       changelog: {
         button: '更新日志',
@@ -490,7 +493,10 @@
         reset: 'Reset',
         cancel: 'Cancel',
         apply: 'Apply',
-        readout: '{w}% × {h}%'
+        readout: '{w}% × {h}%',
+        aspect: 'Aspect',
+        aspectFree: 'Free',
+        aspectFrame: 'Frame'
       },
       changelog: {
         button: "What's new",

@@ -138,6 +138,19 @@ const els = {
   cropResetBtn: document.getElementById('crop-reset'),
   cropCancelBtn: document.getElementById('crop-cancel'),
   cropApplyBtn: document.getElementById('crop-apply'),
+  cropAspectSeg: document.getElementById('crop-aspect-seg'),
+  cropPctW: document.getElementById('crop-pct-w'),
+  cropPctH: document.getElementById('crop-pct-h'),
+  cropReadoutPx: document.getElementById('crop-readout-px'),
+  cropReadoutRatio: document.getElementById('crop-readout-ratio'),
+  canvasFrameBadge: document.getElementById('canvas-frame-badge'),
+  canvasBadgeFrame: document.getElementById('canvas-badge-frame'),
+  canvasBadgeTemplate: document.getElementById('canvas-badge-template'),
+  canvasBadgeRot: document.getElementById('canvas-badge-rot'),
+  canvasBadgeRotVal: document.getElementById('canvas-badge-rot-val'),
+  rotationFlash: document.getElementById('rotation-flash'),
+  rotationFlashArrow: document.getElementById('rotation-flash-arrow'),
+  rotationFlashVal: document.getElementById('rotation-flash-val'),
   changelogBtn: document.getElementById('changelog-btn'),
   changelogBadge: document.getElementById('changelog-badge'),
   changelogModal: document.getElementById('changelog-modal'),
@@ -343,6 +356,7 @@ async function doRender() {
   if (state.rendering) { state.pendingRender = true; return; }
   state.rendering = true;
   els.previewLoading.hidden = false;
+  updateFrameBadge(active.cfg);
   try {
     const c = active.cfg;
     await CR.renderPreview(els.canvas, {
@@ -442,6 +456,24 @@ function syncCustomBgFromCfg(cfg) {
 function syncRotateFromCfg(cfg) {
   const r = ((cfg.rotation | 0) % 360 + 360) % 360;
   els.rotateVal.textContent = r + '°';
+}
+
+// Floating canvas badge: small mono-caps label hovering top-left of the
+// preview canvas, showing FRAME · TEMPLATE (and rotation when non-zero).
+// Hidden when no photo is loaded, so the empty state stays uncluttered.
+function updateFrameBadge(cfg) {
+  if (!cfg || state.activeIdx < 0) {
+    els.canvasFrameBadge.hidden = true;
+    return;
+  }
+  const frameLabel = String(cfg.frame || '').toUpperCase().replace(/-/g, '·');
+  const tplLabel   = String(cfg.template || '').toUpperCase().replace(/-/g, '·');
+  els.canvasBadgeFrame.textContent = frameLabel || '—';
+  els.canvasBadgeTemplate.textContent = tplLabel || '—';
+  const rot = ((cfg.rotation | 0) % 360 + 360) % 360;
+  els.canvasBadgeRot.hidden = (rot === 0);
+  els.canvasBadgeRotVal.textContent = rot + '°';
+  els.canvasFrameBadge.hidden = false;
 }
 
 // Layout → number of partner photos required.
@@ -978,10 +1010,35 @@ function bumpRotation(delta) {
   const cfg = activeCfg();
   cfg.rotation = (((cfg.rotation | 0) + delta) % 360 + 360) % 360;
   syncRotateFromCfg(cfg);
+  flashRotation(delta, cfg.rotation);
   requestRender();
 }
 els.rotateCcw.addEventListener('click', () => bumpRotation(-90));
 els.rotateCw.addEventListener('click', () => bumpRotation(90));
+
+// Transient rotation indicator — flashes for ~700ms after each rotate
+// click, showing the new total angle. Direction comes from the click
+// (CW arrow shape vs CCW = mirrored). Suppressed when no photo is loaded
+// so we don't flash over the empty state.
+let rotFlashTimer = 0;
+function flashRotation(delta, totalDeg) {
+  if (state.activeIdx < 0) return;
+  const el = els.rotationFlash;
+  if (!el) return;
+  // ↻ for CW rotation, ↺ for CCW. Driven by the click direction so the
+  // arrow always matches the action the user just took.
+  els.rotationFlashArrow.textContent = delta < 0 ? '↺' : '↻';
+  els.rotationFlashVal.textContent = totalDeg + '°';
+  // Re-trigger animation by removing class on next frame
+  el.classList.remove('flash-show');
+  void el.offsetWidth;   // force reflow so class re-add re-fires the transition
+  el.classList.add('flash-show');
+  if (rotFlashTimer) clearTimeout(rotFlashTimer);
+  rotFlashTimer = setTimeout(() => {
+    el.classList.remove('flash-show');
+    rotFlashTimer = 0;
+  }, 700);
+}
 
 // ─── Crop modal wiring ──────────────────────────────────────────────────
 // Crop is stored on cfg in normalized post-rotation [0..1] space, so that's
@@ -992,9 +1049,56 @@ els.rotateCw.addEventListener('click', () => bumpRotation(90));
 const CROP = {
   rect: { x: 0, y: 0, w: 1, h: 1 },
   canvasCss: { x: 0, y: 0, w: 0, h: 0 },
-  drag: null
+  // Source canvas dims = post-rotation pixel dims of the active photo.
+  // Used to convert normalized rects to / from pixel-space aspect ratios.
+  srcW: 0,
+  srcH: 0,
+  drag: null,
+  // 'free' = no aspect lock; 'frame' = current frame aspect; 'W:H' = literal
+  aspect: 'free'
 };
 const CROP_MIN = 0.05;
+// Frame aspect → numeric width/height ratio. Mirrors BASE_PRESETS in render.
+const FRAME_ASPECT_RATIOS = { '9:16': 9 / 16, '3:4': 3 / 4, '1:1': 1 };
+
+function parseAspectToken(token) {
+  if (token === 'free') return null;
+  if (token === 'frame') {
+    const a = activeCfg().aspect || '9:16';
+    return FRAME_ASPECT_RATIOS[a] || 1;
+  }
+  const m = token.match(/^(\d+(?:\.\d+)?):(\d+(?:\.\d+)?)$/);
+  if (!m) return null;
+  const w = Number(m[1]), h = Number(m[2]);
+  return (w > 0 && h > 0) ? (w / h) : null;
+}
+
+// The aspect ratio is in PIXEL space (W_px / H_px). Convert to normalized
+// coords (W_norm / H_norm) so we can compare against rect.w / rect.h.
+function pxAspectToNorm(pxRatio) {
+  if (!pxRatio || !CROP.srcW || !CROP.srcH) return null;
+  return pxRatio * CROP.srcH / CROP.srcW;
+}
+
+function gcd(a, b) { return b ? gcd(b, a % b) : a; }
+function fmtRatio(w, h) {
+  if (!w || !h) return '—';
+  const r = Math.round(w * 1000) / Math.round(h * 1000);
+  // Try a tidy integer ratio if it's close to common ones
+  const candidates = [
+    [1, 1], [4, 3], [3, 4], [16, 9], [9, 16], [3, 2], [2, 3], [16, 10], [21, 9], [5, 4]
+  ];
+  for (const [cw, ch] of candidates) {
+    if (Math.abs(r - cw / ch) < 0.012) return cw + ':' + ch;
+  }
+  // Fallback: greatest common divisor of pixel rounded values
+  const wi = Math.round(w), hi = Math.round(h);
+  if (wi > 0 && hi > 0) {
+    const g = gcd(wi, hi);
+    if (g > 1 && wi / g < 100 && hi / g < 100) return (wi / g) + ':' + (hi / g);
+  }
+  return r.toFixed(2);
+}
 
 function clamp(v, lo, hi) { return v < lo ? lo : v > hi ? hi : v; }
 
@@ -1024,10 +1128,22 @@ async function openCropModal() {
     ctx.drawImage(bm, 0, 0);
   }
   CROP.rect = active.cfg.crop ? { ...active.cfg.crop } : { x: 0, y: 0, w: 1, h: 1 };
+  CROP.srcW = postW;
+  CROP.srcH = postH;
+  CROP.aspect = 'free';
+  syncCropAspectSeg();
   els.cropModal.showModal();
   // Wait for the modal to lay out + the canvas to settle into its
   // max-width/max-height box before measuring + positioning the overlay.
   requestAnimationFrame(updateCropRectPosition);
+}
+
+function syncCropAspectSeg() {
+  els.cropAspectSeg.querySelectorAll('button').forEach((b) => {
+    const on = b.dataset.val === CROP.aspect;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-checked', on ? 'true' : 'false');
+  });
 }
 
 function updateCropRectPosition() {
@@ -1046,10 +1162,14 @@ function updateCropRectPosition() {
   els.cropRect.style.top    = (cc.y + r.y * cc.h) + 'px';
   els.cropRect.style.width  = (r.w * cc.w) + 'px';
   els.cropRect.style.height = (r.h * cc.h) + 'px';
-  els.cropReadout.textContent = T('crop.readout', {
-    w: Math.round(r.w * 100),
-    h: Math.round(r.h * 100)
-  });
+
+  // Three readouts: percent, pixel dims (post-rotation source), aspect.
+  els.cropPctW.textContent = Math.round(r.w * 100);
+  els.cropPctH.textContent = Math.round(r.h * 100);
+  const wPx = Math.round(r.w * CROP.srcW);
+  const hPx = Math.round(r.h * CROP.srcH);
+  els.cropReadoutPx.textContent = wPx + ' × ' + hPx + ' px';
+  els.cropReadoutRatio.textContent = '≈ ' + fmtRatio(wPx, hPx);
 }
 
 function applyDrag(handle, dx, dy, start) {
@@ -1104,6 +1224,7 @@ function startCropDrag(handle, e) {
     startMouse: { x: e.clientX, y: e.clientY },
     startRect: { ...CROP.rect }
   };
+  els.cropRect.classList.add('dragging');
   document.addEventListener('pointermove', onCropDrag);
   document.addEventListener('pointerup', endCropDrag, { once: true });
 }
@@ -1115,13 +1236,94 @@ function onCropDrag(e) {
   if (cc.w <= 0 || cc.h <= 0) return;
   const dx = (e.clientX - d.startMouse.x) / cc.w;
   const dy = (e.clientY - d.startMouse.y) / cc.h;
-  CROP.rect = applyDrag(d.handle, dx, dy, d.startRect);
+  let r = applyDrag(d.handle, dx, dy, d.startRect);
+  const normRatio = pxAspectToNorm(parseAspectToken(CROP.aspect));
+  if (normRatio && d.handle !== 'move') {
+    r = snapAspect(r, d.handle, normRatio);
+  }
+  CROP.rect = r;
   updateCropRectPosition();
 }
 
 function endCropDrag() {
   CROP.drag = null;
+  els.cropRect.classList.remove('dragging');
   document.removeEventListener('pointermove', onCropDrag);
+}
+
+// Anchor for each handle = the opposite point that stays fixed during drag.
+// Used by snapAspect to recompute the dragged-to side after honouring the
+// aspect lock.
+const HANDLE_ANCHOR = {
+  nw: 'se', ne: 'sw', sw: 'ne', se: 'nw',
+  n: 's',  s: 'n',  w: 'e',  e: 'w'
+};
+
+// Given a rect from applyDrag (which may not honor the aspect lock) and
+// the drag handle, snap the rect so r.w / r.h === normRatio while keeping
+// the anchor point fixed. Then clamp to canvas bounds.
+function snapAspect(r, handle, normRatio) {
+  const anchor = HANDLE_ANCHOR[handle] || 'center';
+  const currentRatio = r.w / r.h;
+  if (currentRatio > normRatio) {
+    // too wide → shrink width
+    const newW = r.h * normRatio;
+    if (anchor === 'nw' || anchor === 'sw' || anchor === 'w') {
+      r.w = newW;            // anchored on the LEFT, shrink toward the left
+    } else if (anchor === 'ne' || anchor === 'se' || anchor === 'e') {
+      r.x = r.x + (r.w - newW);
+      r.w = newW;
+    } else {
+      r.x = r.x + (r.w - newW) / 2;
+      r.w = newW;
+    }
+  } else if (currentRatio < normRatio) {
+    // too tall → shrink height
+    const newH = r.w / normRatio;
+    if (anchor === 'nw' || anchor === 'ne' || anchor === 'n') {
+      r.h = newH;
+    } else if (anchor === 'sw' || anchor === 'se' || anchor === 's') {
+      r.y = r.y + (r.h - newH);
+      r.h = newH;
+    } else {
+      r.y = r.y + (r.h - newH) / 2;
+      r.h = newH;
+    }
+  }
+  // Clamp into [0, 1]² without changing dims (slide if needed)
+  if (r.x < 0) r.x = 0;
+  if (r.y < 0) r.y = 0;
+  if (r.x + r.w > 1) r.x = 1 - r.w;
+  if (r.y + r.h > 1) r.y = 1 - r.h;
+  if (r.w > 1) r.w = 1;
+  if (r.h > 1) r.h = 1;
+  return r;
+}
+
+// Refit the current rect to a new aspect lock — keep the rect's center
+// where it is, then size the largest rect of the new aspect that fits both
+// inside [0,1]² AND inside the previous rect's "spirit" (we use the smaller
+// of current w / current h scaled to ratio).
+function refitRectToAspect(normRatio) {
+  if (!normRatio) return;
+  const r = { ...CROP.rect };
+  const cx = r.x + r.w / 2;
+  const cy = r.y + r.h / 2;
+  // Largest rect at normRatio aspect that fits the prior rect's bbox
+  let newW = r.w;
+  let newH = newW / normRatio;
+  if (newH > r.h) {
+    newH = r.h;
+    newW = newH * normRatio;
+  }
+  // Clamp to canvas bounds (re-shrink if needed)
+  if (newW > 1) { newW = 1; newH = newW / normRatio; }
+  if (newH > 1) { newH = 1; newW = newH * normRatio; }
+  r.w = newW;
+  r.h = newH;
+  r.x = clamp(cx - newW / 2, 0, 1 - newW);
+  r.y = clamp(cy - newH / 2, 0, 1 - newH);
+  CROP.rect = r;
 }
 
 els.cropOpenBtn.addEventListener('click', () => { openCropModal().catch(console.error); });
@@ -1129,7 +1331,23 @@ els.cropModalCloseBtn.addEventListener('click', () => els.cropModal.close());
 els.cropCancelBtn.addEventListener('click', () => els.cropModal.close());
 els.cropResetBtn.addEventListener('click', () => {
   CROP.rect = { x: 0, y: 0, w: 1, h: 1 };
+  // Reset honors the current aspect lock — if user has 1:1 selected, the
+  // "reset" rect is the largest 1:1 rect that fits the canvas, not 1×1.
+  const ratio = pxAspectToNorm(parseAspectToken(CROP.aspect));
+  if (ratio) refitRectToAspect(ratio);
   updateCropRectPosition();
+});
+
+// Aspect lock segmented control — pick a constraint and the rect snaps to
+// the largest rect of that aspect that fits the previous rect's center.
+els.cropAspectSeg.querySelectorAll('button').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    CROP.aspect = btn.dataset.val;
+    syncCropAspectSeg();
+    const ratio = pxAspectToNorm(parseAspectToken(CROP.aspect));
+    if (ratio) refitRectToAspect(ratio);
+    updateCropRectPosition();
+  });
 });
 els.cropApplyBtn.addEventListener('click', () => {
   const r = CROP.rect;
