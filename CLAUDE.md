@@ -448,11 +448,11 @@ The original HEIC `File` is kept on `entry.heicSource` so `uploadForExif` can fe
 
 The lazy load means non-HEIC users never download the wasm bundle.
 
-### PWA / offline (`public/service-worker.js` + `public/manifest.webmanifest`)
+### PWA / offline (`public/service-worker.js` + `public/manifest.json`)
 
 The app is a PWA — it can be installed to the home screen and runs offline after the first visit. Two pieces:
 
-- `manifest.webmanifest` declares the app metadata (name, icons, theme color, standalone display) so install prompts work in Chrome/Edge/Safari (iOS 16.4+).
+- `manifest.json` declares the app metadata (name, icons, theme color, standalone display) so install prompts work in Chrome/Edge/Safari (iOS 16.4+). The file uses the `.json` extension (not `.webmanifest`) deliberately: Aliyun OSS's default MIME map doesn't include `.webmanifest` and falls back to `application/octet-stream`, which browsers reject. `.json` resolves to `application/json` everywhere, which the manifest spec accepts.
 - `service-worker.js` precaches the SPA shell on install (cache-first, stale-while-revalidate on subsequent visits). On `activate` it purges any older caches whose names start with `phototools-shell-` but don't match the current `CACHE_VERSION`.
 
 What's precached: index.html, every `.js` and `.css` shipped, vendored libs (exifr, piexif, jszip — but NOT libheif-bundle.js), `fonts.css`, `logos.json`, `logo.svg`, the manifest itself.

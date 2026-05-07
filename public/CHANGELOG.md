@@ -16,6 +16,7 @@
 ### 🐛 修复
 
 - 比例锁定按钮重复点击越裁越小 — `refitRectToAspect` 之前是"在前一个 rect 内 fit"，每次都基于上一帧缩水。改成"在原图内最大 fit + 居中"，每次点击都从原图算起。1:1 → 3:4 → 1:1 现在每次都给出同一个最大 1:1 框
+- 阿里云 OSS 镜像上 PWA manifest 失效 — Aliyun OSS 默认 MIME 表里没有 `.webmanifest`，回退成 `application/octet-stream`，浏览器拒认 manifest，PWA 安装、theme color、standalone 模式全失效。改名 `manifest.webmanifest` → `manifest.json`，OSS 推断为 `application/json`（W3C manifest 规范接受），同时更新 HTML link 引用、SW 预缓存列表，bump CACHE_VERSION → v5 让现有 PWA 装机自动收到新 shell
 
 ## 0.4 · 2026-05-06
 
