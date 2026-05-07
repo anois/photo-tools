@@ -2203,6 +2203,12 @@ async function openChangelog() {
 
 els.changelogBtn.addEventListener('click', () => { openChangelog(); });
 els.changelogModalCloseBtn.addEventListener('click', () => els.changelogModal.close());
+// Tap on backdrop closes the modal (mobile users have no Esc key; desktop
+// gets it for free as a parity bonus). The backdrop is the dialog element
+// itself outside its inner content rect, so we test the click target.
+els.changelogModal.addEventListener('click', (e) => {
+  if (e.target === els.changelogModal) els.changelogModal.close();
+});
 checkChangelogBadge();
 
 // ─── Section nav (top of controls panel) ───────────────────────────────

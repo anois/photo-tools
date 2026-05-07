@@ -4,7 +4,13 @@
 
 每次有意义的功能 / 修复 / 优化都记到这里 —— 同一份文件既给开发者看，也通过顶栏 ✦ 按钮在应用内展示给用户。
 
-## 0.6 · 2026-05-07
+## 0.7 · 2026-05-07
+
+### 🐛 修复 + 📱 移动端
+
+- **更新日志滚动条彻底隐藏** — 上一轮换皮 / 移除 mask-image 之后，macOS "始终显示滚动条" 偏好下仍会冒一根 14px 灰条。原因：之前是"换更细的皮"，但定制皮在系统强制 always-show 偏好下仍以原生宽度渲染。本轮改成**完全隐藏**滚动条（`scrollbar-width: none` + `::-webkit-scrollbar { display: none }`），靠已有的顶/底渐隐 mask 单独承担"还有内容"的视觉信号；同时去掉 `scrollbar-gutter: stable` 让渐隐 mask 恢复全宽（之前为了给滚动条让位收了 12px）。验证：3 档视口下 `body.offsetWidth - body.clientWidth === 0`
+- **更新日志在手机上变 bottom sheet** — 之前在手机上仍是居中卡片 modal，宽度紧、关闭 X 在右上角拇指够不到、纯居中淡入与 iOS 系统视觉语言完全脱节。现在 ≤768px 视口自动切换：从底部弹起的全宽 sheet（`max-height: 92dvh` + `cubic-bezier(0.32, 0.72, 0, 1)` 320ms 上滑动画 — iOS 系统 sheet easing），顶部一根 36×4 拖拽 handle pill 提示可关闭，关闭按钮挪到**左**上角（拇指自然区，对应 iOS Mail / Notes 阅读型 modal 惯例）。桌面端保持原居中卡片不变
+- **点击 modal 背景关闭** — Esc 在桌面好用、在手机不存在；现在点击 dialog 背景区域（内容卡片之外）也能关，桌面顺带受益。配合可见的关闭按钮，符合移动端 modal 的双重 dismiss 惯例
 
 ### 🐛 修复
 
