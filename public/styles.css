@@ -61,6 +61,50 @@ body {
   overflow: hidden;
 }
 
+/* =========================================================
+   SCROLLBARS — one consistent darkroom skin for every overflow container.
+   WebKit gets the explicit thumb styling; Firefox honors `scrollbar-color`
+   on the same selectors. Inactive thumbs barely register; active/hover
+   thumbs glow accent-line so the user knows the bar is interactive.
+   ========================================================= */
+.pane-controls,
+.rail-items,
+.changelog-modal-body,
+.export-errors {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+.pane-controls::-webkit-scrollbar,
+.rail-items::-webkit-scrollbar,
+.changelog-modal-body::-webkit-scrollbar,
+.export-errors::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.pane-controls::-webkit-scrollbar-track,
+.rail-items::-webkit-scrollbar-track,
+.changelog-modal-body::-webkit-scrollbar-track,
+.export-errors::-webkit-scrollbar-track {
+  background: transparent;
+}
+.pane-controls::-webkit-scrollbar-thumb,
+.rail-items::-webkit-scrollbar-thumb,
+.changelog-modal-body::-webkit-scrollbar-thumb,
+.export-errors::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  transition: background-color 160ms;
+}
+.pane-controls::-webkit-scrollbar-thumb:hover,
+.rail-items::-webkit-scrollbar-thumb:hover,
+.changelog-modal-body::-webkit-scrollbar-thumb:hover,
+.export-errors::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-line);
+}
+.rail-items::-webkit-scrollbar { width: 6px; }
+
 /* Tiny film grain over the whole UI */
 .grain {
   position: fixed; inset: 0;
@@ -253,10 +297,7 @@ kbd {
   padding: 8px 20px 40px;
 }
 
-.pane-controls::-webkit-scrollbar { width: 8px; }
-.pane-controls::-webkit-scrollbar-track { background: transparent; }
-.pane-controls::-webkit-scrollbar-thumb { background: var(--line); border-radius: 2px; }
-.pane-controls::-webkit-scrollbar-thumb:hover { background: var(--line-strong); }
+/* Pane-controls uses the standard scroll skin (defined globally below). */
 
 .group {
   padding: 18px 0 20px;
@@ -749,10 +790,11 @@ input[type="range"]::-moz-range-thumb {
   box-shadow: 0 20px 60px rgba(0,0,0,0.6);
 }
 .changelog-modal::backdrop { background: rgba(0,0,0,0.55); backdrop-filter: blur(4px); }
-.changelog-modal-inner { display: flex; flex-direction: column; max-height: 86vh; }
+.changelog-modal-inner { display: flex; flex-direction: column; max-height: 86vh; min-height: 0; }
 .changelog-modal-head {
   display: flex; align-items: center; justify-content: space-between;
   padding: 14px 18px; border-bottom: 1px solid var(--line);
+  background: linear-gradient(180deg, rgba(255,255,255,0.02), transparent);
 }
 .changelog-modal-head h3 {
   margin: 0;
@@ -761,59 +803,90 @@ input[type="range"]::-moz-range-thumb {
   letter-spacing: 0.14em;
   color: var(--text);
 }
-.changelog-modal-head .btn-ghost { padding: 4px 10px; font-size: 16px; line-height: 1; }
 .changelog-modal-body {
   flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
-  padding: 18px 22px 24px;
-  font: 14px/1.55 var(--f-ui);
+  padding: 22px 26px 28px;
+  font: 14px/1.65 var(--f-ui);
   color: var(--text);
+  /* Soft fade at top + bottom edges hints there's more content above/below
+     and prevents the abrupt "text touches the modal head/foot" look. */
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 18px, #000 calc(100% - 18px), transparent 100%);
+          mask-image: linear-gradient(to bottom, transparent 0, #000 18px, #000 calc(100% - 18px), transparent 100%);
 }
 .changelog-modal-body h1 {
-  font: 500 16px/1.3 var(--f-display);
-  margin: 0 0 6px;
+  font: 500 17px/1.3 var(--f-display);
+  font-variation-settings: "opsz" 144, "SOFT" 100;
+  margin: 0 0 8px;
   color: var(--text);
+  letter-spacing: -0.005em;
 }
 .changelog-modal-body h2 {
-  font: 500 14px/1.3 var(--f-mono);
+  font: 500 13px/1.3 var(--f-mono);
   text-transform: uppercase;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.14em;
   color: var(--accent);
-  margin: 22px 0 8px;
-  padding-bottom: 6px;
-  border-bottom: 1px solid var(--line);
+  margin: 28px 0 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--accent-line);
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
 }
+.changelog-modal-body h2:first-of-type { margin-top: 8px; }
 .changelog-modal-body h3 {
   font: 500 12px/1.3 var(--f-ui);
-  color: var(--text-muted);
-  margin: 14px 0 6px;
+  text-transform: none;
+  letter-spacing: 0.02em;
+  color: var(--text);
+  margin: 18px 0 8px;
 }
 .changelog-modal-body p {
-  margin: 0 0 10px;
+  margin: 0 0 12px;
   color: var(--text-muted);
 }
 .changelog-modal-body ul {
-  margin: 4px 0 12px;
-  padding-left: 18px;
-  list-style: disc;
+  margin: 6px 0 16px;
+  padding-left: 0;
+  list-style: none;
   color: var(--text);
 }
-.changelog-modal-body li { margin-bottom: 4px; }
+.changelog-modal-body li {
+  position: relative;
+  margin-bottom: 9px;
+  padding-left: 18px;
+  line-height: 1.65;
+}
+/* Square accent marker — replaces the default disc dot with something that
+   matches the darkroom industrial typography. */
+.changelog-modal-body li::before {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 0.78em;
+  width: 5px; height: 5px;
+  background: var(--accent);
+  opacity: 0.65;
+  border-radius: 1px;
+}
 .changelog-modal-body strong { color: var(--text); font-weight: 600; }
 .changelog-modal-body code {
-  font: 500 12px/1 var(--f-mono);
+  font: 500 11.5px/1 var(--f-mono);
   background: var(--bg-sunken);
   border: 1px solid var(--line);
-  padding: 1px 5px;
+  padding: 2px 6px;
   border-radius: var(--r-sm);
   color: var(--text);
+  vertical-align: 1px;
+  white-space: nowrap;
 }
-.changelog-modal-body a { color: var(--accent); text-decoration: none; border-bottom: 1px solid var(--accent-line); }
+.changelog-modal-body a { color: var(--accent); text-decoration: none; border-bottom: 1px solid var(--accent-line); transition: color 120ms, border-color 120ms; }
 .changelog-modal-body a:hover { color: var(--text); border-bottom-color: var(--text); }
 .changelog-modal-body hr {
   border: 0;
-  border-top: 1px solid var(--line);
-  margin: 18px 0;
+  border-top: 1px dashed var(--line);
+  margin: 22px 0;
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
@@ -876,16 +949,21 @@ input[type="range"]::-moz-range-thumb {
   letter-spacing: 0.01em;
   color: var(--text);
 }
-.crop-modal-x {
+/* Round X close button — shared across all dialog modals
+   (crop, changelog, export). One source of visual truth for "close". */
+.modal-x {
   appearance: none; -webkit-appearance: none;
   border: 1px solid var(--line); background: var(--bg-sunken);
   color: var(--text-muted);
   width: 28px; height: 28px;
   display: inline-flex; align-items: center; justify-content: center;
   border-radius: 999px; cursor: pointer;
-  transition: color 120ms, border-color 120ms, background 120ms;
+  padding: 0;
+  transition: color 120ms, border-color 120ms, background 120ms, transform 120ms;
 }
-.crop-modal-x:hover { color: var(--text); border-color: var(--line-strong); background: var(--bg-chrome); }
+.modal-x:hover { color: var(--text); border-color: var(--accent-line); background: var(--accent-wash); }
+.modal-x:active { transform: scale(0.92); }
+.modal-x:focus-visible { outline: 1px solid var(--accent-line); outline-offset: 2px; }
 
 .crop-aspect-bar {
   display: flex; align-items: center; gap: 14px;
@@ -1233,9 +1311,8 @@ input[type="range"]::-moz-range-thumb {
 }
 .export-modal::backdrop { background: rgba(0,0,0,0.55); backdrop-filter: blur(4px); }
 .export-modal-inner { padding: 22px 22px 18px; }
-.export-modal-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 14px; }
+.export-modal-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
 .export-modal-head h3 { font: 500 14px/1 var(--f-mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--text); margin: 0; }
-.export-modal-head .btn-ghost { padding: 4px 10px; font-size: 11px; }
 .export-modal-body { display: flex; flex-direction: column; gap: 10px; }
 .export-stage { font: 500 11px/1 var(--f-mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-muted); }
 .export-counter { font: 600 28px/1 var(--f-mono); color: var(--text); }
@@ -1592,9 +1669,7 @@ input[type="range"]::-moz-range-thumb {
   gap: 6px;
   outline: none;
 }
-.rail-items::-webkit-scrollbar { width: 6px; }
-.rail-items::-webkit-scrollbar-track { background: transparent; }
-.rail-items::-webkit-scrollbar-thumb { background: var(--line); border-radius: 2px; }
+/* Rail uses the standard scroll skin. */
 
 .rail-item {
   position: relative;
@@ -1947,7 +2022,7 @@ input[type="range"]::-moz-range-thumb {
   }
   .export-modal-body { flex: 1; }
   .export-counter { font-size: 36px; }
-  .export-modal-head .btn-ghost { font-size: 12px; padding: 8px 14px; min-height: 38px; }
+  .export-modal-head .modal-x { width: 36px; height: 36px; }
 }
 
 /* Landscape-phone refinement: when the mobile stacked layout is active and

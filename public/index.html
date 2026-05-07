@@ -422,7 +422,9 @@
   <div class="changelog-modal-inner">
     <div class="changelog-modal-head">
       <h3 id="changelog-modal-title" data-i18n="changelog.title">What's new</h3>
-      <button id="changelog-modal-close" type="button" class="btn-ghost" data-i18n-aria-label="changelog.close" aria-label="Close">×</button>
+      <button id="changelog-modal-close" type="button" class="modal-x" data-i18n-aria-label="changelog.close" aria-label="Close">
+        <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
     </div>
     <div class="changelog-modal-body" id="changelog-body">
       <p data-i18n="changelog.loading">loading…</p>
@@ -438,7 +440,7 @@
         <span class="crop-modal-step">01</span>
         <h3 id="crop-modal-title" data-i18n="crop.title">Crop</h3>
       </div>
-      <button id="crop-modal-close" type="button" class="crop-modal-x" data-i18n-aria-label="crop.close" aria-label="Close">
+      <button id="crop-modal-close" type="button" class="modal-x" data-i18n-aria-label="crop.close" aria-label="Close">
         <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
       </button>
     </div>
@@ -497,7 +499,9 @@
   <div class="export-modal-inner">
     <div class="export-modal-head">
       <h3 id="export-modal-title" data-i18n="export.modalTitle">Exporting…</h3>
-      <button id="export-modal-close" class="btn-ghost" type="button" hidden data-i18n="export.close">Close</button>
+      <button id="export-modal-close" class="modal-x" type="button" hidden data-i18n-aria-label="export.close" aria-label="Close">
+        <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
     </div>
     <div class="export-modal-body">
       <div class="export-stage" id="export-stage" data-i18n="export.stageRender">Rendering</div>

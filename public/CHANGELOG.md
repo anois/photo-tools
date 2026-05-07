@@ -6,6 +6,12 @@
 
 ## 0.6 · 2026-05-07
 
+### 📜 弹窗与滚动条统一 (Modal & scrollbar polish)
+
+- **三个 modal 统一一种关闭按钮** — 之前 crop 用圆形 X、changelog 用方形 ghost+`×` 字符、export 用文字按钮 `关闭`，三套并存。统一抽出 `.modal-x` 圆形 X 图标按钮（28px 圆 + accent-line hover + focus-visible 红色光晕），三个 modal 都用同一份
+- **更新日志可读性大改** — 之前列表条目太挤、`<code>` 内联标签基线偏、滚动条是默认 macOS 灰条。现在：(1) `<li>` 之间加 9px gap + 行高 1.65 + 红色小方块 marker（替换默认 disc 圆点）；(2) 顶部 / 底部 mask-image 渐隐 18px，长内容滚动时不再"硬切到 modal 头/尾"；(3) 段落间距、版本块红色下划线分隔更明显；(4) `<code>` 行内代码 `vertical-align: 1px` 修基线、`white-space: nowrap` 防止换行；(5) 字体提到 14px / 1.65，中文阅读更舒服
+- **统一暗房风格滚动条** — `.changelog-modal-body` / `.export-errors` 之前没有 `::-webkit-scrollbar` 样式，浏览器吐默认条；现在和 `.pane-controls` / `.rail-items` 共用同一份："非活动状态几乎不可见 / hover 高亮 accent-line"，4 个滚动容器视觉一致。Firefox 走 `scrollbar-color` 同步
+
 ### ✨ UI 细节打磨 (UI polish pass)
 
 - **导出进度条改用主题红色** — 之前批量导出弹窗的进度条用蓝色 `#5b8def → #7aa3ff` 渐变，是全 UI 唯一一处偏离暗房红的地方，最有仪式感的瞬间反而最跳。改成 `--accent → #f05a4b` 红色渐变 + accent glow，错误列表也从桃色 `#ffa67a` 统一为 `--accent`
