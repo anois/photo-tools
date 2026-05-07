@@ -100,17 +100,25 @@ When iterating on this project:
 
     Quality bar: each captured lesson must include enough *why* (the failure mode it prevents) that a future reader can judge edge cases, not just mechanically obey. Rules without their reasoning rot into superstition.
 
-13. **Mobile-first UI iteration — phone is the primary surface, not an afterthought.** This is a personal-use tool whose owner ships from a phone more often than from a laptop. Every UI change must include a mobile path before being claimed done. A design that only fits on a 1280px-wide laptop is *incomplete*, regardless of how good it looks on desktop. Concrete rules:
+13. **Surface-native UI design — mobile and desktop are sibling experiences, each with its own native idioms.** This is a personal-use tool whose owner ships primarily from a phone but also uses it on a laptop. Both surfaces are first-class — neither is the other's fallback or scaled-up/scaled-down derivative. Approach UI changes from the perspective of a senior interaction designer: shared **model** (cfg, EXIF, render pipeline, presets — `app.js` / `clientRender.js` / `shared/render.js`) feeds two **presentation layers** that diverge with intent, each speaking the gestures, affordances, and density appropriate to its surface.
 
-    - **Design at phone width first.** Default mental viewport is 390-430px wide (iPhone 14 / 15). Sketch the mobile composition before the desktop one — desktop is the secondary surface that usually just gets more breathing room. If your design only resolves at ≥1024px, you've designed the wrong thing.
-    - **Touch targets ≥ 44×44px.** Apple HIG minimum. Cursor-sized chrome (24px chips, dense top rails) doesn't survive on touch — fingers fat-finger adjacent controls and produce wrong-photo edits or accidental closes.
-    - **Verify on mobile viewports via chrome-devtools MCP** (rule 3): `resize_page(width: 390, height: 844)` for iPhone, `resize_page(width: 768, height: 1024)` for iPad. Snapshot + screenshot in both. Don't ship a UI change after only validating at desktop width.
-    - **Three-pane desktop layouts (sidebar + canvas + filmstrip) don't survive mobile.** Plan a separate mobile composition explicitly: typical patterns are bottom-sheet for controls + full-bleed canvas + horizontal filmstrip pinned to top or bottom. The mobile path is not "the desktop layout, scaled" — it's its own composition that may share components but rearranges them.
-    - **HEIC import is a mobile feature.** Every iPhone photo is HEIC by default; regressing the HEIC path (`public/heic.js`) breaks the primary flow even if desktop JPEG/PNG still work.
-    - **iOS Safari pitfalls already documented in "Pitfalls discovered during build"** (`canvas.toBlob` silent downsizing >5MP, `OffscreenCanvas` 4096px cap, EXIF Orientation reset). Re-test these on every render-pipeline change; an iOS regression here means broken exports for the primary-use surface.
-    - **Modal close on mobile**: tap-outside dismiss + a visibly large close button (mobile users have no Esc key). Both, not either.
-    - **Sticky bottom action bar for primary CTAs** (Export, Apply) when the user is mid-scroll on a long control list — fingers don't naturally reach the top of the screen, and one-handed reach to a top-mounted Export button is hostile.
-    - **Safe-area insets**: `env(safe-area-inset-*)` for any element pinned to viewport edges (notch, home indicator). PWA installed to home screen exposes these directly.
+    - **Design both surfaces deliberately, in the same pass.** Sketch the mobile composition AND the desktop composition before writing CSS. They share components (frame picker, EXIF chips, slider semantics) but rearrange them with different interaction grammars. Don't derive one from the other — each gets its own design pass and its own native flourishes.
+    - **Native idioms per surface — use them, don't mash them up:**
+      - **Mobile**: bottom sheets for control panels (one section at a time, snap-points like Apple Maps); swipe between photos in the filmstrip; thumb-zone primary CTAs (Export pinned bottom-right, within thumb arc); fullscreen canvas mode; tap-and-hold for what would be hover (long-press for tooltips / context); pinch + double-tap to zoom canvas; haptic-style confirmations.
+      - **Desktop**: persistent multi-pane composition (sidebar + canvas + filmstrip); hover-revealed affordances; right-click context menus where useful; rich keyboard shortcuts (J/K, Cmd+E, Cmd+1..7, [); drag-and-drop import; tooltips on hover; dense control layout with optional power-user flourishes (chord shortcuts, bulk select).
+    - **Anti-patterns:**
+      - Hover-only chrome on touch (invisible to mobile users).
+      - 290px-wide desktop sidebar squeezed into a 390px phone (overflows or shrinks unusably).
+      - Forcing desktop users to operate via single-thumb bottom sheets (slow, low information density, no keyboard payoff).
+      - Disabling mobile-native gestures (swipe, pinch) because "we have arrow keys on desktop" — mobile users have neither keys nor patience.
+      - Treating either surface as "responsive output of the other" — that's a tell that one surface was never actually designed.
+    - **Default mental viewports for each pass**: 390×844 (iPhone 14, primary mobile), 768×1024 (iPad portrait — the hybrid territory that surfaces the worst tensions), 1440×900 (typical laptop). All three must work; the iPad pass is where bad assumptions break first.
+    - **Touch targets ≥ 44×44px** on any element a touch user can tap. Desktop hover affordances may be smaller, but the touch-reachable variant of every control must hit ≥44px (Apple HIG).
+    - **Verify both surfaces via chrome-devtools MCP** (rule 3) — snapshot + screenshot at all three breakpoints, not just desktop.
+    - **HEIC import is mobile-primary.** Every iPhone photo is HEIC by default; regressing `public/heic.js` breaks the primary mobile flow even if desktop JPEG/PNG still work.
+    - **iOS Safari pitfalls already in "Pitfalls discovered during build"** (`canvas.toBlob` silent downsizing >5MP, `OffscreenCanvas` 4096px cap, EXIF Orientation reset) need re-testing on every render-pipeline change — an iOS regression here means broken exports for the primary-use surface.
+    - **Modal dismissal**: tap-outside + visible close button on mobile (no Esc key), Esc additionally on desktop.
+    - **Safe-area insets** (`env(safe-area-inset-*)`) for any element pinned to viewport edges (notch, home indicator). PWA install to home screen exposes these directly.
 
 ## Quick start
 
