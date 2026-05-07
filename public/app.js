@@ -1202,17 +1202,19 @@ function refitCropCanvas() {
   const availW = Math.max(0, sRect.width  - PAD * 2);
   const availH = Math.max(0, sRect.height - PAD * 2);
   if (!availW || !availH) return;
-  // Rotated bbox dims (true source pixels). Drives both the px readout
-  // and the canvas fit-scale. Updated on every refit since rotation can
-  // change them.
-  const bbox = R.rotatedBboxDims(CROP.bm, CROP.rotation || 0);
-  CROP.trueW = bbox.w;
-  CROP.trueH = bbox.h;
-  // Largest scale where the rotated bbox fits avail (capped at 1 — never
-  // upscale a small source).
-  const ratio = Math.min(availW / bbox.w, availH / bbox.h, 1);
-  const dispW = Math.max(1, Math.round(bbox.w * ratio));
-  const dispH = Math.max(1, Math.round(bbox.h * ratio));
+  // Inscribed safe-area dims at the current rotation. The canvas is
+  // sized to this rect (not the larger rotated bbox), so the modal
+  // displays a rectangular zoom-into-the-rotated-photo with no
+  // transparent corners — the bitmap content overflows past the canvas
+  // edges and gets clipped naturally. Matches the Lightroom / iOS Photos
+  // straighten preview behavior the user asked for.
+  const safe = R.inscribedSafeArea(CROP.bm, CROP.rotation || 0);
+  CROP.trueW = safe.w;
+  CROP.trueH = safe.h;
+  // Cap at 1 — never upscale a small source.
+  const ratio = Math.min(availW / safe.w, availH / safe.h, 1);
+  const dispW = Math.max(1, Math.round(safe.w * ratio));
+  const dispH = Math.max(1, Math.round(safe.h * ratio));
   const c = els.cropCanvas;
   if (c.width !== dispW || c.height !== dispH) {
     c.width = dispW;

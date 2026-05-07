@@ -69,23 +69,22 @@ function pathRoundRect(ctx, x, y, w, h, r) {
 }
 function clipRoundRect(ctx, x, y, w, h, r) { pathRoundRect(ctx, x, y, w, h, r); ctx.clip(); }
 
-// Mirrors clientRender.js — see that file for the design notes. Single
-// transform-composition path for any rotation angle (0°, 90°, anything).
+// Mirrors clientRender.js — see that file for the full design notes. Crop
+// coords are normalized in the inscribed safe area (rotation-dependent),
+// not the rotated bbox, so rendered output never has transparent corners.
 function drawRotatedCroppedSrc(ctx, bm, dst, rot, crop) {
   const rRad = ((Number(rot) || 0) % 360 + 360) % 360 * Math.PI / 180;
-  const cosR = Math.abs(Math.cos(rRad));
-  const sinR = Math.abs(Math.sin(rRad));
-  const rotW = bm.width * cosR + bm.height * sinR;
-  const rotH = bm.width * sinR + bm.height * cosR;
+  const safe = R.inscribedSafeArea(bm, rot);
+  const safeW = safe.w, safeH = safe.h;
 
   const cx = crop && crop.x != null ? crop.x : 0;
   const cy = crop && crop.y != null ? crop.y : 0;
   const cw = crop && crop.w > 0 ? crop.w : 1;
   const ch = crop && crop.h > 0 ? crop.h : 1;
-  const cropPxW = cw * rotW;
-  const cropPxH = ch * rotH;
-  const cropOffX = (cx + cw / 2 - 0.5) * rotW;
-  const cropOffY = (cy + ch / 2 - 0.5) * rotH;
+  const cropPxW = cw * safeW;
+  const cropPxH = ch * safeH;
+  const cropOffX = (cx + cw / 2 - 0.5) * safeW;
+  const cropOffY = (cy + ch / 2 - 0.5) * safeH;
   const ratio = Math.max(dst.w / cropPxW, dst.h / cropPxH);
 
   ctx.translate(dst.x + dst.w / 2, dst.y + dst.h / 2);
@@ -270,10 +269,10 @@ async function renderJob(msg) {
       ...frame.layout
     };
     const rot = ((Number(cfg.rotation) || 0) % 360 + 360) % 360;
-    const bbox = R.rotatedBboxDims(bitmap, rot);
+    const safe = R.inscribedSafeArea(bitmap, rot);
     const cropW = cfg.crop && cfg.crop.w > 0 ? cfg.crop.w : 1;
     const cropH = cfg.crop && cfg.crop.h > 0 ? cfg.crop.h : 1;
-    const meta = { width: bbox.w * cropW, height: bbox.h * cropH };
+    const meta = { width: safe.w * cropW, height: safe.h * cropH };
     const layout = R.computeLayout(meta, layoutOpts);
     const effectiveTextStyle = layout.caption.placement === 'overlay' ? 'light' : frame.textStyle;
     const captionSvg = R.buildCaptionSvg(normExif, layout, {

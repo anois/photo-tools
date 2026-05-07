@@ -1102,26 +1102,41 @@
   }
 
   // ======================================================================
-  // Rotation bounding-box math (for arbitrary angles)
+  // Inscribed safe area (for crop semantics on arbitrary rotation)
   // ======================================================================
 
-  // Returns the axis-aligned bounding box dims, in pixels, of a bitmap
-  // rotated by `rot` degrees (CW). For 0/180 it's the bitmap dims; for
-  // 90/270 it's the swapped dims; for any other angle the bbox grows to
-  // accommodate the rotated corners.
+  // Returns the largest axis-aligned (in rotated-frame) rectangle that fits
+  // entirely INSIDE the rotated bitmap — i.e., the largest rect that
+  // contains only valid bitmap pixels and zero transparent corners. The
+  // rect's aspect tracks the rotated bbox's aspect (rotW : rotH), which
+  // means at axis-aligned angles (0/90/180/270) the safe area equals the
+  // full rotated source dims (no shrinkage), while at intermediate angles
+  // it smoothly contracts to inscribe inside the rotated content.
   //
-  // Used by callers that need to know the post-rotation silhouette in
-  // pixels — layout aspect math, crop modal canvas sizing, cover-fit
-  // calculations against the rotated content.
-  function rotatedBboxDims(bm, rot) {
+  // This is the "straighten preview" shape used by Lightroom / iOS Photos:
+  // the user always sees a clean rectangular crop window, never empty
+  // corners, and as they rotate the photo zooms slightly to fill the
+  // window edge-to-edge.
+  //
+  // Math: with c = |cos(rot)|, s = |sin(rot)|, the rotated bbox has
+  // dims (bw·c + bh·s) × (bw·s + bh·c). The fit constraints for a rect
+  // at the rotated bbox's aspect a are W = a·H plus
+  //   W·c + H·s ≤ bw, W·s + H·c ≤ bh
+  // which solve to H = min(bw / (a·c + s), bh / (a·s + c)).
+  function inscribedSafeArea(bm, rot) {
     const r = ((Number(rot) || 0) % 360 + 360) % 360;
     const rad = r * Math.PI / 180;
-    const cosR = Math.abs(Math.cos(rad));
-    const sinR = Math.abs(Math.sin(rad));
-    return {
-      w: bm.width * cosR + bm.height * sinR,
-      h: bm.width * sinR + bm.height * cosR
-    };
+    const c = Math.abs(Math.cos(rad));
+    const s = Math.abs(Math.sin(rad));
+    const bw = bm.width, bh = bm.height;
+    const rotW = bw * c + bh * s;
+    const rotH = bw * s + bh * c;
+    const a = rotW / rotH;
+    const hA = bw / (a * c + s);
+    const hB = bh / (a * s + c);
+    const safeH = Math.min(hA, hB);
+    const safeW = a * safeH;
+    return { w: safeW, h: safeH };
   }
 
   // ======================================================================
@@ -1283,7 +1298,7 @@
     // Collage (2–4 photos)
     collageCellRects: collageCellRects,
 
-    // Rotation bbox math
-    rotatedBboxDims: rotatedBboxDims
+    // Inscribed safe area (rotation-aware crop bounds)
+    inscribedSafeArea: inscribedSafeArea
   };
 });

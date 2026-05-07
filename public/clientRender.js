@@ -282,25 +282,29 @@
   // rotated+cropped bitmap, cover-fit into a destination rect" — so the
   // bg uses this with cell = full canvas, crop = the user's crop, rot =
   // the user's rotation.
+  //
+  // Crop coordinates are normalized in the inscribed safe area (the
+  // largest rect inside the rotated bitmap that has no transparent
+  // corners). At axis-aligned angles (0°/90°/180°/270°) the safe area
+  // equals the full rotated bitmap, so this is the same as cropping
+  // against the rotated bbox; at other angles the safe area shrinks
+  // smoothly to inscribe the rotated content. Net effect: the visible
+  // crop output is always free of transparent corners.
   function drawRotatedCroppedSrc(ctx, bm, dst, rot, crop) {
     const rRad = ((Number(rot) || 0) % 360 + 360) % 360 * Math.PI / 180;
-    const cosR = Math.abs(Math.cos(rRad));
-    const sinR = Math.abs(Math.sin(rRad));
-    // Rotated bbox (the bitmap's silhouette after rotation, in pixels).
-    // For 0/180 = bitmap dims, for 90/270 = swapped, for everything else
-    // larger than both.
-    const rotW = bm.width * cosR + bm.height * sinR;
-    const rotH = bm.width * sinR + bm.height * cosR;
+    const safe = R.inscribedSafeArea(bm, rot);
+    const safeW = safe.w, safeH = safe.h;
 
     const cx = crop && crop.x != null ? crop.x : 0;
     const cy = crop && crop.y != null ? crop.y : 0;
     const cw = crop && crop.w > 0 ? crop.w : 1;
     const ch = crop && crop.h > 0 ? crop.h : 1;
-    const cropPxW = cw * rotW;
-    const cropPxH = ch * rotH;
-    // Crop center offset from the rotated-bbox center, in pixels.
-    const cropOffX = (cx + cw / 2 - 0.5) * rotW;
-    const cropOffY = (cy + ch / 2 - 0.5) * rotH;
+    const cropPxW = cw * safeW;
+    const cropPxH = ch * safeH;
+    // Crop center offset from the safe area's center (which is the
+    // rotated-frame origin = source center).
+    const cropOffX = (cx + cw / 2 - 0.5) * safeW;
+    const cropOffY = (cy + ch / 2 - 0.5) * safeH;
     // Cover-fit: the crop region should cover the full destination rect.
     const ratio = Math.max(dst.w / cropPxW, dst.h / cropPxH);
 
@@ -442,16 +446,16 @@
     };
     if (opts.customScale != null) layoutOpts.customScale = opts.customScale;
     if (opts.quality)             layoutOpts.quality     = opts.quality;
-    // Rotation + crop pre-image: post-rotation bbox dims grow for any
-    // non-axis-aligned angle, then crop scales them down. computeLayout
-    // needs the final cropped+rotated silhouette so the foreground rect
-    // matches what the user will see in it. cfg.rotation is now a float
-    // (any angle), so we use rotatedBboxDims for the bbox math.
+    // Rotation + crop pre-image: cfg.crop is normalized in the rotation-
+    // dependent inscribed safe area (the largest rect inside the rotated
+    // source — see R.inscribedSafeArea). Layout uses crop × safe area so
+    // the foreground rect aspect tracks what the user will actually see,
+    // including the rotation-induced zoom-in at non-axis-aligned angles.
     const rot = ((Number(cfg.rotation) || 0) % 360 + 360) % 360;
-    const bbox = R.rotatedBboxDims(bitmap, rot);
+    const safe = R.inscribedSafeArea(bitmap, rot);
     const cropW = cfg.crop && cfg.crop.w > 0 ? cfg.crop.w : 1;
     const cropH = cfg.crop && cfg.crop.h > 0 ? cfg.crop.h : 1;
-    const meta = { width: bbox.w * cropW, height: bbox.h * cropH };
+    const meta = { width: safe.w * cropW, height: safe.h * cropH };
     const layout = R.computeLayout(meta, layoutOpts);
     const effectiveTextStyle = layout.caption.placement === 'overlay' ? 'light' : frame.textStyle;
     const captionArgs = {
