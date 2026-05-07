@@ -453,11 +453,21 @@ The lazy load means non-HEIC users never download the wasm bundle.
 The app is a PWA — it can be installed to the home screen and runs offline after the first visit. Two pieces:
 
 - `manifest.json` declares the app metadata (name, icons, theme color, standalone display) so install prompts work in Chrome/Edge/Safari (iOS 16.4+). The file uses the `.json` extension (not `.webmanifest`) deliberately: Aliyun OSS's default MIME map doesn't include `.webmanifest` and falls back to `application/octet-stream`, which browsers reject. `.json` resolves to `application/json` everywhere, which the manifest spec accepts.
-- `service-worker.js` precaches the SPA shell on install (cache-first, stale-while-revalidate on subsequent visits). On `activate` it purges any older caches whose names start with `phototools-shell-` but don't match the current `CACHE_VERSION`.
+- `service-worker.js` runs a two-strategy fetch handler: **navigation requests go network-first** (returning users see the latest deploy in one round-trip; cache only kicks in when offline), **assets go stale-while-revalidate** (cache-first paint, refresh in the background, next visit picks up new bytes). On `activate` it purges any older caches whose names start with `phototools-shell-` but don't match the current `CACHE_VERSION`.
 
 What's precached: index.html, every `.js` and `.css` shipped, vendored libs (exifr, piexif, jszip — but NOT libheif-bundle.js), `fonts.css`, `logos.json`, `logo.svg`, the manifest itself.
 
 What isn't: `vendor/libheif-bundle.js` (~1.2MB) is excluded from precache because most users never touch HEIC. It's cached opportunistically the first time it's fetched, like any other same-origin GET.
+
+### Cache layering — the SW is the authoritative layer
+
+Three cache layers are in play; understanding their interaction matters when reasoning about staleness:
+
+1. **Browser HTTP cache** — controlled server-side. OSS sends `Cache-Control: no-cache` for HTML and `public, max-age=86400` (1 day) for everything else (configured in `.github/workflows/deploy.yml`). Pages sets defaults that are similar in behavior.
+2. **SW cache** — controlled by `service-worker.js`. The SW always fetches with `{cache: 'reload'}`, so its refreshes go straight to origin and bypass the HTTP cache layer above. This makes the SW the authority on what's cached for the application — HTTP cache is just a cold-start speedup.
+3. **`service-worker.js` itself** — the page registers it with `{updateViaCache: 'none'}`, which tells the browser to bypass HTTP cache when fetching the SW file. Without this, a 1-day-cached SW would mean a deploy + `CACHE_VERSION` bump wouldn't reach users for up to a day. With it, every navigation re-checks the SW within minutes.
+
+Net effect: deploy lands → user navigates → browser fetches HTML from origin (no-cache) → page boots → fresh SW.js fetched → new SW installs → "Refresh to update" banner appears → click → page reloads on the new SW + new shell. End-to-end propagation in seconds.
 
 **Bumping the cache**: when you change shell behavior (new precache asset, change to render pipeline that breaks compat with old cached files), bump `CACHE_VERSION` in `service-worker.js`. The activate handler purges caches that don't match.
 

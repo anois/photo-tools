@@ -2209,7 +2209,14 @@ checkChangelogBadge();
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', async () => {
     try {
-      const reg = await navigator.serviceWorker.register('service-worker.js');
+      // updateViaCache:'none' forces the browser to bypass its HTTP cache
+      // when fetching the SW file itself. Without this, a 24h-cached
+      // service-worker.js would mean a deploy + version bump wouldn't
+      // reach the user for up to a day. With it, every navigation re-
+      // checks the SW from origin so update checks land within minutes.
+      const reg = await navigator.serviceWorker.register('service-worker.js', {
+        updateViaCache: 'none'
+      });
       // A SW can already be in `waiting` at registration time if the user
       // closed the tab during a previous update window — surface that too.
       if (reg.waiting && navigator.serviceWorker.controller) showUpdateBanner(reg.waiting);

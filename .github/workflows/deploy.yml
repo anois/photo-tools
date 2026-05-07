@@ -96,3 +96,14 @@ jobs:
           folder:          ./public
           # Incremental: skip files whose ETag matches; faster than full sync.
           incremental:     true
+          # Cache-Control headers. The action's defaults are 'no-cache' for
+          # HTML and 'max-age=2592000' (30 days) for everything else — but
+          # 30 days is too long for our non-hashed asset filenames, since a
+          # browser-cached app.js could survive multiple deploys before
+          # expiring. Tighten to 1 day; the service worker handles freshness
+          # within that window via stale-while-revalidate.
+          # service-worker.js itself bypasses HTTP cache via the page's
+          # registration call (updateViaCache:'none'), so its longer TTL
+          # here doesn't keep users on stale code.
+          htmlCacheControl:  'no-cache'
+          otherCacheControl: 'public, max-age=86400'

@@ -1,15 +1,23 @@
 /* photo-tools — service worker.
  *
- * Precache the SPA shell on install (cache-first, stale-while-revalidate on
- * subsequent visits) so the app loads instantly and works offline. The
- * libheif-js wasm bundle (~1.2MB) is excluded from precache because most
- * users never touch HEIC; it's cached on demand the first time it's fetched.
+ * Cache strategy:
+ *   - Navigation requests (`document`) → network-first. Latest HTML wins
+ *     when online; cached HTML only on hard offline. This is what stops a
+ *     returning user from being stuck on yesterday's deploy.
+ *   - All other GET requests → stale-while-revalidate. Serve cached for
+ *     instant paint, refresh from origin in the background; next visit
+ *     gets the fresh copy.
+ *   - Every network fetch the SW makes uses {cache: 'reload'}, so the
+ *     browser's own HTTP cache layer can't poison the SW's cache with
+ *     stale bytes. The SW is the single authority for what's cached.
+ *   - libheif-js wasm bundle (~1.2MB) is excluded from precache (most
+ *     users never touch HEIC) and lazy-cached on first use.
  *
  * Bump CACHE_VERSION on any change to the precache list or shell behavior;
  * the activate handler purges any cache whose name doesn't match.
  */
 
-const CACHE_VERSION = 'v5';
+const CACHE_VERSION = 'v6';
 const CACHE_NAME = 'phototools-shell-' + CACHE_VERSION;
 
 // Files that make up the offline-capable SPA shell. Paths are relative to
@@ -48,8 +56,15 @@ self.addEventListener('install', (event) => {
   // available" banner and only swaps in the new SW when the user clicks
   // refresh, so they aren't surprised by a mid-session reload. The banner
   // posts {type:'SKIP_WAITING'} below to trigger the swap on demand.
+  //
+  // Precache fetches are wrapped with cache:'reload' so each one bypasses
+  // the browser's HTTP cache. Without this, a 30-min-old cached app.js at
+  // the HTTP layer would land in the SW's v6 precache verbatim, defeating
+  // the version bump's whole point.
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(PRECACHE))
+    caches.open(CACHE_NAME).then((cache) =>
+      cache.addAll(PRECACHE.map((u) => new Request(u, { cache: 'reload' })))
+    )
   );
 });
 
@@ -75,33 +90,48 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
 
+  const isNavigation = req.mode === 'navigate' || req.destination === 'document';
+
   event.respondWith((async () => {
     const cache = await caches.open(CACHE_NAME);
-    const cached = await cache.match(req);
 
-    // Stale-while-revalidate: serve cached immediately, refresh in background.
-    const networkPromise = fetch(req).then((res) => {
-      // Only cache successful, basic (same-origin) responses. Opaque or
-      // error responses must not pollute the cache.
+    // Helper: fetch from origin (NOT browser HTTP cache) and put a copy
+    // into the SW cache before returning. cache:'reload' is what makes
+    // the SW the authoritative cache layer — without it, browser's HTTP
+    // cache can hand the SW stale bytes that get re-cached as "fresh".
+    const fromNetwork = () => fetch(req, { cache: 'reload' }).then((res) => {
       if (res && res.status === 200 && res.type === 'basic') {
         cache.put(req, res.clone()).catch(() => {});
       }
       return res;
-    }).catch(() => null);
+    });
 
+    // ─── Navigation: network-first ─────────────────────────────────────
+    // Returning users always see the latest deploy in one round-trip.
+    // Offline → fall back to whatever index.html the cache holds.
+    if (isNavigation) {
+      try {
+        const fresh = await fromNetwork();
+        if (fresh) return fresh;
+      } catch (_) { /* offline / DNS fail → fall through */ }
+      const cached = await cache.match(req);
+      if (cached) return cached;
+      const indexCached = await cache.match('./index.html');
+      if (indexCached) return indexCached;
+      return new Response('Offline and not in cache', { status: 503, statusText: 'Offline' });
+    }
+
+    // ─── Asset: stale-while-revalidate ─────────────────────────────────
+    // Cache hit → instant paint; spawn a background refresh so the next
+    // visit picks up any new bytes. Cache miss → wait for network.
+    const cached = await cache.match(req);
+    const networkPromise = fromNetwork().catch(() => null);
     if (cached) {
-      // Don't await the background refresh — let it race; the cached copy
-      // is what the user sees this navigation.
       networkPromise.catch(() => {});
       return cached;
     }
     const fresh = await networkPromise;
     if (fresh) return fresh;
-    // Last-resort offline fallback for navigations: serve cached index.
-    if (req.mode === 'navigate') {
-      const indexCached = await cache.match('./index.html');
-      if (indexCached) return indexCached;
-    }
     return new Response('Offline and not in cache', { status: 503, statusText: 'Offline' });
   })());
 });

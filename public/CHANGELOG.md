@@ -17,6 +17,7 @@
 
 - 比例锁定按钮重复点击越裁越小 — `refitRectToAspect` 之前是"在前一个 rect 内 fit"，每次都基于上一帧缩水。改成"在原图内最大 fit + 居中"，每次点击都从原图算起。1:1 → 3:4 → 1:1 现在每次都给出同一个最大 1:1 框
 - 阿里云 OSS 镜像上 PWA manifest 失效 — Aliyun OSS 默认 MIME 表里没有 `.webmanifest`，回退成 `application/octet-stream`，浏览器拒认 manifest，PWA 安装、theme color、standalone 模式全失效。改名 `manifest.webmanifest` → `manifest.json`，OSS 推断为 `application/json`（W3C manifest 规范接受），同时更新 HTML link 引用、SW 预缓存列表，bump CACHE_VERSION → v5 让现有 PWA 装机自动收到新 shell
+- 浏览器缓存导致用户卡在旧版本 — 之前 SW 整体走 stale-while-revalidate，HTML 也是先吐缓存后台刷新，意味着用户回访第一次还是看到旧版，得**第二次访问**才会被升级 banner 通知。重做缓存策略：(1) SW 拆两条路径 —— navigation 走 **network-first**（在线时永远拿最新 HTML，offline 才 fallback），其它资源继续 SWR；(2) SW 内所有 `fetch` 都加 `cache: 'reload'` 绕过浏览器 HTTP cache，让 SW 成为唯一权威缓存层；(3) SW 注册参数 `updateViaCache: 'none'`，浏览器更新 SW 文件本身时也跳 HTTP cache；(4) OSS 部署 workflow 显式设 `htmlCacheControl: 'no-cache'` + `otherCacheControl: 'public, max-age=86400'`（1 天，原默认 30 天太久）。CACHE_VERSION → v6。net 效果：deploy 落地后用户首次回访就看到新版，往返不超过几秒
 
 ## 0.4 · 2026-05-06
 
