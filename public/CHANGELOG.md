@@ -6,6 +6,10 @@
 
 ## 0.6 · 2026-05-07
 
+### 🐛 修复
+
+- 更新日志右侧仍显示 macOS 原生粗灰滚动条 — 上一轮以为换皮肤就够了，实际是 `mask-image` 的副作用：WebKit 在被 mask 的滚动元素上会**回退到 OS 默认 overlay 滚动条**，自定义 `::-webkit-scrollbar` 被无视。修法把渐隐效果从 `.changelog-modal-body` 上拿掉，改用 `.changelog-modal-inner::before/::after` 两条 22px 高的绝对定位渐变盖在 body 上方/下方，body 自己只剩 `scrollbar-gutter: stable`，自定义滚动条恢复生效。验证：`offsetWidth - clientWidth` 从 0 变 11px 即定制条占位
+
 ### 🧭 区段导航 + 错误可见性 (Section nav & error visibility)
 
 - **左栏顶部加 A · B · C · D · E · F · G 跳转条** — 7 个段以前只能滚轮翻找，现在顶部一排 sticky 字母 pill，点击平滑滚动到对应段，IntersectionObserver-style 滚动监听让"当前段"的字母自动高亮 accent。同时区段标题里的 A/B/C 红色徽章修了 `flex: 1` 把它撑开成红条的 bug，现在稳稳是 22×22 圆角方块（之前 18×18 + accent-line 描边）
