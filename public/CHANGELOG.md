@@ -6,6 +6,13 @@
 
 ## 0.6 · 2026-05-07
 
+### 🧭 区段导航 + 错误可见性 (Section nav & error visibility)
+
+- **左栏顶部加 A · B · C · D · E · F · G 跳转条** — 7 个段以前只能滚轮翻找，现在顶部一排 sticky 字母 pill，点击平滑滚动到对应段，IntersectionObserver-style 滚动监听让"当前段"的字母自动高亮 accent。同时区段标题里的 A/B/C 红色徽章修了 `flex: 1` 把它撑开成红条的 bug，现在稳稳是 22×22 圆角方块（之前 18×18 + accent-line 描边）
+- **错误状态状态栏看得见了** — `.statusbar.err` 之前红字红点对比度太低，用户根本察觉不到出错。重做：(1) 状态栏顶边变成 1px accent 红线；(2) 左侧 280px 渐隐红色 wash；(3) 状态点改成红色小方块 + 0.9s 脉冲；(4) 文字改 `#ff7a6c`（比 `--accent` 稍亮，在 bg-chrome 上对比度 5+）+ 600 字重；(5) 进入 err 态时 600ms 红色背景闪烁后退到稳态。和暗房"录制中 / 警报"指示灯一个语义
+- **裁剪 modal 三按钮统一形态** — 之前 重置 / 取消 是 mono-caps 小 ghost 按钮、应用 是大红填充，三个不等高不同字号。新增 `.btn-secondary`（透明底 + line 边框 + UI 字 + center justify），重置/取消/应用 现在共用 `.btn` 基础尺寸，主次层级靠填充色区分（应用红填、重置/取消透明），符合标准三档按钮约定
+- **滚动条可见度提升** — Changelog 那条之前用 `--line`（rgba 7%）太隐，看起来像默认 macOS 灰条。现在 thumb 提到 `--line-strong`（rgba 13%）+ 宽度 8→10px，4 个滚动容器（`.pane-controls` / `.rail-items` / `.changelog-modal-body` / `.export-errors`）一致
+
 ### 📜 弹窗与滚动条统一 (Modal & scrollbar polish)
 
 - **三个 modal 统一一种关闭按钮** — 之前 crop 用圆形 X、changelog 用方形 ghost+`×` 字符、export 用文字按钮 `关闭`，三套并存。统一抽出 `.modal-x` 圆形 X 图标按钮（28px 圆 + accent-line hover + focus-visible 红色光晕），三个 modal 都用同一份

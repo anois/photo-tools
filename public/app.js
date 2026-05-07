@@ -2205,6 +2205,60 @@ els.changelogBtn.addEventListener('click', () => { openChangelog(); });
 els.changelogModalCloseBtn.addEventListener('click', () => els.changelogModal.close());
 checkChangelogBadge();
 
+// ─── Section nav (top of controls panel) ───────────────────────────────
+// Click a letter pill → smooth-scroll the panel so that section's heading
+// sits just under the sticky nav. IntersectionObserver tracks which
+// section's heading is currently in the visible band and toggles .active
+// on the corresponding pill so the user always knows where they are.
+(function wireSectionNav() {
+  const nav = document.getElementById('section-nav');
+  if (!nav) return;
+  const items = nav.querySelectorAll('.section-nav-item');
+  const sections = document.querySelectorAll('.pane-controls [data-section]');
+  if (!sections.length) return;
+  const pane = document.querySelector('.pane-controls');
+
+  items.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const target = document.querySelector('[data-section="' + btn.dataset.jump + '"]');
+      if (!target) return;
+      // The nav is sticky and ~46px tall — scroll so the section heading
+      // lands flush below it, not behind it.
+      const navH = nav.offsetHeight + 4;
+      const top = target.offsetTop - navH;
+      pane.scrollTo({ top, behavior: 'smooth' });
+    });
+  });
+
+  // Mark the section whose body covers the most of the visible band.
+  // rootMargin trims the band so a section is "active" only when its
+  // header is past the nav and its body is well into view.
+  const setActive = (key) => {
+    items.forEach((b) => b.classList.toggle('active', b.dataset.jump === key));
+  };
+
+  // Manual scroll-position based active detection (rootMargin on a
+  // scroll-container'd IO is buggy across browsers when the parent has
+  // sticky children of its own). Cheap enough at 7 sections.
+  let raf = 0;
+  const onScroll = () => {
+    if (raf) return;
+    raf = requestAnimationFrame(() => {
+      raf = 0;
+      const navBottom = nav.getBoundingClientRect().bottom;
+      let active = sections[0].dataset.section;
+      sections.forEach((sec) => {
+        const r = sec.getBoundingClientRect();
+        // Section becomes active once its top crosses below the nav line.
+        if (r.top - navBottom <= 16) active = sec.dataset.section;
+      });
+      setActive(active);
+    });
+  };
+  pane.addEventListener('scroll', onScroll, { passive: true });
+  onScroll();
+})();
+
 // ─── PWA service-worker registration + upgrade prompt ──────────────────
 // Precaches the SPA shell so the app loads instantly + works offline. The
 // SW is at public/service-worker.js so its scope is the deploy root.
