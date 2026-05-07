@@ -129,13 +129,8 @@
       </div>
       <div class="row">
         <div class="field">
-          <label class="field-label"><span data-i18n="frame.rotate">Rotate</span></label>
-          <div class="rotate-row">
-            <button id="rotate-ccw" type="button" class="rotate-btn" data-i18n-aria-label="frame.rotateCcw" data-i18n-title="frame.rotateCcw" aria-label="Rotate 90° counter-clockwise">↶</button>
-            <button id="rotate-cw" type="button" class="rotate-btn" data-i18n-aria-label="frame.rotateCw" data-i18n-title="frame.rotateCw" aria-label="Rotate 90° clockwise">↷</button>
-            <button id="crop-open-btn" type="button" class="btn-ghost" data-i18n="frame.crop">Crop…</button>
-            <span class="field-readout" id="rotate-val">0°</span>
-          </div>
+          <label class="field-label"><span data-i18n="frame.geometry">Geometry</span> <span class="field-readout" id="geometry-readout">—</span></label>
+          <button id="crop-open-btn" type="button" class="btn-ghost geometry-btn" data-i18n="frame.cropAndRotate">Crop & rotate…</button>
         </div>
       </div>
       <details class="frame-advanced" id="frosted-advanced">
@@ -457,6 +452,14 @@
         <button data-val="9:16" role="radio" aria-checked="false">9<span class="crop-aspect-sep">:</span>16</button>
         <button data-val="16:9" role="radio" aria-checked="false">16<span class="crop-aspect-sep">:</span>9</button>
       </div>
+    </div>
+    <div class="crop-rotate-bar">
+      <span class="crop-rotate-label" data-i18n="crop.rotate">Rotate</span>
+      <button id="crop-rot-ccw" type="button" class="crop-rot-btn" data-i18n-title="frame.rotateCcw" aria-label="Rotate 90° counter-clockwise">↶</button>
+      <input id="crop-angle" type="range" min="-180" max="180" step="0.5" value="0" class="crop-angle-slider" />
+      <button id="crop-rot-cw" type="button" class="crop-rot-btn" data-i18n-title="frame.rotateCw" aria-label="Rotate 90° clockwise">↷</button>
+      <span class="crop-angle-val" id="crop-angle-val">0.0°</span>
+      <button id="crop-rot-reset" type="button" class="crop-rot-text-btn" data-i18n="crop.rotateReset">Reset</button>
     </div>
     <div class="crop-stage" id="crop-stage">
       <div class="crop-stage-glow" aria-hidden="true"></div>

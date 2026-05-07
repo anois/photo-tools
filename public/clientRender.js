@@ -127,7 +127,10 @@
     const cropTag = crop
       ? `c${(crop.x || 0).toFixed(3)},${(crop.y || 0).toFixed(3)},${(crop.w || 1).toFixed(3)},${(crop.h || 1).toFixed(3)}`
       : 'c0';
-    return k + '|r' + (rot || 0) + '|' + cropTag + '|' + (file ? (file.name + ':' + file.size + ':' + file.lastModified) : 'na');
+    // Round rotation to 0.1° so float-y slider values don't shard the
+    // cache across imperceptibly-different angles.
+    const rotTag = 'r' + (rot ? Number(rot).toFixed(1) : '0');
+    return k + '|' + rotTag + '|' + cropTag + '|' + (file ? (file.name + ':' + file.size + ':' + file.lastModified) : 'na');
   }
 
   function bgCacheTouch(key, entry) {
@@ -257,29 +260,55 @@
     ctx.clip();
   }
 
-  // Draw `bm` cover-fit into `cell`, optionally rotating CW by `rot` (0/90/
-  // 180/270 degrees) and cropping by `crop` ({x,y,w,h} normalized in post-
-  // rotation space). Rotation is applied around the cell center after
-  // clipping to a rounded rect of `radius`. Cover-fit is computed against
-  // the rotated+cropped silhouette so the visible content covers the cell.
+  // Draw `bm` cover-fit into `cell`, applying CW rotation `rot` (any
+  // angle in degrees) and crop `crop` ({x,y,w,h} normalized in post-
+  // rotation [0..1]² of the rotated bbox). Cell is clipped to a rounded
+  // rect of `radius`.
+  //
+  // Implementation: transform composition. We don't compute axis-aligned
+  // bitmap source rects (which only worked for 90° multiples); instead we
+  // set up a coordinate system on canvas where the crop rect's center is
+  // at the cell center, scaled to cover-fit, then rotate, then drawImage
+  // the bitmap centered at the (rotated) origin. This handles 0°, 90°,
+  // and any angle in between with a single code path.
   function drawCellPhoto(ctx, cell, bm, rot, radius, crop) {
     ctx.save();
     clipRoundRect(ctx, cell.x, cell.y, cell.w, cell.h, radius);
-    const sr = R.srcRectFromCropRotation(bm, rot, crop);
-    const ratio = Math.max(cell.w / sr.screenW, cell.h / sr.screenH);
-    const dw = sr.sw * ratio;
-    const dh = sr.sh * ratio;
-    if (rot) {
-      ctx.translate(cell.x + cell.w / 2, cell.y + cell.h / 2);
-      ctx.rotate(rot * Math.PI / 180);
-      ctx.drawImage(bm, sr.sx, sr.sy, sr.sw, sr.sh, -dw / 2, -dh / 2, dw, dh);
-    } else {
-      ctx.drawImage(bm, sr.sx, sr.sy, sr.sw, sr.sh,
-        cell.x + (cell.w - dw) / 2,
-        cell.y + (cell.h - dh) / 2,
-        dw, dh);
-    }
+    drawRotatedCroppedSrc(ctx, bm, cell, rot, crop);
     ctx.restore();
+  }
+
+  // Shared between fg cells and the frosted bg pass. Both want "draw the
+  // rotated+cropped bitmap, cover-fit into a destination rect" — so the
+  // bg uses this with cell = full canvas, crop = the user's crop, rot =
+  // the user's rotation.
+  function drawRotatedCroppedSrc(ctx, bm, dst, rot, crop) {
+    const rRad = ((Number(rot) || 0) % 360 + 360) % 360 * Math.PI / 180;
+    const cosR = Math.abs(Math.cos(rRad));
+    const sinR = Math.abs(Math.sin(rRad));
+    // Rotated bbox (the bitmap's silhouette after rotation, in pixels).
+    // For 0/180 = bitmap dims, for 90/270 = swapped, for everything else
+    // larger than both.
+    const rotW = bm.width * cosR + bm.height * sinR;
+    const rotH = bm.width * sinR + bm.height * cosR;
+
+    const cx = crop && crop.x != null ? crop.x : 0;
+    const cy = crop && crop.y != null ? crop.y : 0;
+    const cw = crop && crop.w > 0 ? crop.w : 1;
+    const ch = crop && crop.h > 0 ? crop.h : 1;
+    const cropPxW = cw * rotW;
+    const cropPxH = ch * rotH;
+    // Crop center offset from the rotated-bbox center, in pixels.
+    const cropOffX = (cx + cw / 2 - 0.5) * rotW;
+    const cropOffY = (cy + ch / 2 - 0.5) * rotH;
+    // Cover-fit: the crop region should cover the full destination rect.
+    const ratio = Math.max(dst.w / cropPxW, dst.h / cropPxH);
+
+    ctx.translate(dst.x + dst.w / 2, dst.y + dst.h / 2);
+    ctx.scale(ratio, ratio);
+    ctx.translate(-cropOffX, -cropOffY);
+    ctx.rotate(rRad);
+    ctx.drawImage(bm, -bm.width / 2, -bm.height / 2);
   }
 
   // Core compose: draws the bg + foreground + caption on the given canvas
@@ -292,7 +321,7 @@
     canvas.height = H;
     const ctx = canvas.getContext('2d');
 
-    const rotForBg = ((args.rotation | 0) + 360) % 360;
+    const rotForBg = ((Number(args.rotation) || 0) % 360 + 360) % 360;
     // Custom bg image: when present + frame is frosted, the user-supplied
     // image becomes the bg source instead of the photo itself. Decoded
     // lazily by decodeCustomBg (cached) so re-renders don't re-decode.
@@ -314,21 +343,16 @@
       ctx.save();
       ctx.filter = `blur(${sigma}px) saturate(${params.bg.saturation}) brightness(${params.bg.brightness})`;
       // Custom bg ignores the user's rotation + crop — the bg image is
-      // independent of the photo and shouldn't tilt or crop with it.
-      const usePhotoTransform = !customBgBm;
-      const sr = usePhotoTransform
-        ? R.srcRectFromCropRotation(src, rotForBg, args.crop)
-        : R.srcRectFromCropRotation(src, 0, null);
-      const ratio = Math.max(W / sr.screenW, H / sr.screenH);
-      const dw = sr.sw * ratio;
-      const dh = sr.sh * ratio;
-      if (usePhotoTransform && rotForBg) {
-        ctx.translate(W / 2, H / 2);
-        ctx.rotate(rotForBg * Math.PI / 180);
-        ctx.drawImage(src, sr.sx, sr.sy, sr.sw, sr.sh, -dw / 2, -dh / 2, dw, dh);
-      } else {
-        ctx.drawImage(src, sr.sx, sr.sy, sr.sw, sr.sh, (W - dw) / 2, (H - dh) / 2, dw, dh);
-      }
+      // independent of the photo and shouldn't tilt or crop with it. The
+      // self-bg path uses the same transform-composition helper as the fg
+      // cells so 0°, 90°, or arbitrary angles all go through one code path.
+      const useTx = !customBgBm;
+      drawRotatedCroppedSrc(
+        ctx, src,
+        { x: 0, y: 0, w: W, h: H },
+        useTx ? rotForBg : 0,
+        useTx ? args.crop : null
+      );
       ctx.restore();
       if (params.bg.darken) {
         ctx.fillStyle = `rgba(0,0,0,${params.bg.darken})`;
@@ -362,7 +386,7 @@
     }
 
     // ─── Foreground (rounded photo, or N-cell collage) ───────────────────
-    const rot = ((args.rotation | 0) + 360) % 360;
+    const rot = ((Number(args.rotation) || 0) % 360 + 360) % 360;
     const cells = R.collageCellRects(args.collage, layout);
     if (cells && Array.isArray(args.bitmaps) && args.bitmaps.length >= cells.length) {
       for (let i = 0; i < cells.length; i++) {
@@ -418,16 +442,16 @@
     };
     if (opts.customScale != null) layoutOpts.customScale = opts.customScale;
     if (opts.quality)             layoutOpts.quality     = opts.quality;
-    // Rotation + crop pre-image: post-rotation dims swap when the user
-    // rotates 90°/270°, and crop scales them down further. computeLayout
-    // needs to see the final cropped+rotated silhouette so the foreground
-    // rect ends up the right shape for what'll actually be drawn into it.
-    const rot = ((cfg.rotation | 0) + 360) % 360;
-    const postW = (rot === 90 || rot === 270) ? bitmap.height : bitmap.width;
-    const postH = (rot === 90 || rot === 270) ? bitmap.width  : bitmap.height;
+    // Rotation + crop pre-image: post-rotation bbox dims grow for any
+    // non-axis-aligned angle, then crop scales them down. computeLayout
+    // needs the final cropped+rotated silhouette so the foreground rect
+    // matches what the user will see in it. cfg.rotation is now a float
+    // (any angle), so we use rotatedBboxDims for the bbox math.
+    const rot = ((Number(cfg.rotation) || 0) % 360 + 360) % 360;
+    const bbox = R.rotatedBboxDims(bitmap, rot);
     const cropW = cfg.crop && cfg.crop.w > 0 ? cfg.crop.w : 1;
     const cropH = cfg.crop && cfg.crop.h > 0 ? cfg.crop.h : 1;
-    const meta = { width: postW * cropW, height: postH * cropH };
+    const meta = { width: bbox.w * cropW, height: bbox.h * cropH };
     const layout = R.computeLayout(meta, layoutOpts);
     const effectiveTextStyle = layout.caption.placement === 'overlay' ? 'light' : frame.textStyle;
     const captionArgs = {

@@ -53,6 +53,10 @@
         rotateCcw: '逆时针 90°',
         rotateCw: '顺时针 90°',
         crop: '裁剪…',
+        cropAndRotate: '裁剪 & 旋转…',
+        geometry: '几何调整',
+        geometryClean: '原图',
+        geometryCropped: '已裁剪',
         customBg: '自定义背景图',
         customBgHint: 'JPEG / PNG · 替换默认的自我磨砂背景源',
         customBgClear: '移除',
@@ -244,7 +248,7 @@
         dismiss: '关闭'
       },
       crop: {
-        title: '裁剪',
+        title: '裁剪 & 旋转',
         close: '关闭',
         reset: '重置',
         cancel: '取消',
@@ -252,7 +256,9 @@
         readout: '{w}% × {h}%',
         aspect: '比例',
         aspectFree: '自由',
-        aspectFrame: '当前画幅'
+        aspectFrame: '当前画幅',
+        rotate: '旋转',
+        rotateReset: '归零'
       },
       changelog: {
         button: '更新日志',
@@ -297,6 +303,10 @@
         rotateCcw: 'Rotate 90° counter-clockwise',
         rotateCw: 'Rotate 90° clockwise',
         crop: 'Crop…',
+        cropAndRotate: 'Crop & rotate…',
+        geometry: 'Geometry',
+        geometryClean: 'untouched',
+        geometryCropped: 'cropped',
         customBg: 'Custom bg image',
         customBgHint: 'JPEG / PNG · replaces the self-bg blur source',
         customBgClear: 'Remove',
@@ -488,7 +498,7 @@
         dismiss: 'Dismiss'
       },
       crop: {
-        title: 'Crop',
+        title: 'Crop & rotate',
         close: 'Close',
         reset: 'Reset',
         cancel: 'Cancel',
@@ -496,7 +506,9 @@
         readout: '{w}% × {h}%',
         aspect: 'Aspect',
         aspectFree: 'Free',
-        aspectFrame: 'Frame'
+        aspectFrame: 'Frame',
+        rotate: 'Rotate',
+        rotateReset: 'Zero'
       },
       changelog: {
         button: "What's new",

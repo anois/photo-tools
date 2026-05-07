@@ -4,6 +4,23 @@
 
 每次有意义的功能 / 修复 / 优化都记到这里 —— 同一份文件既给开发者看，也通过顶栏 ✦ 按钮在应用内展示给用户。
 
+## 0.5 · 2026-05-07
+
+### 🌀 旋转 & 裁剪 (Rotate & crop overhaul)
+
+- **旋转改为任意角度** — `cfg.rotation` 从 0/90/180/270 整数升级为 [0, 360) 浮点数，渲染管线（前台 + worker）的 fg 与 frosted bg pass 全改用 transform composition（`drawRotatedCroppedSrc`）。0°、90°、30°、−15.5° 走同一份代码路径
+- **旋转控件并入裁剪 modal** — B · Frame 段不再有独立的 ↶ ↷，改为单按钮 "裁剪 & 旋转…"。打开 modal 后 stage 上方多一条旋转工具栏：↶ 90° 步进 / 滑块（−180° → +180°，0.5° 步精度）/ ↷ 90° 步进 / 实时角度读数 / 归零按钮。slider 拖动实时同步主预览 + modal 画布 + 顶栏的 frame badge
+- **B · Frame 几何摘要** — "Crop & rotate…" 按钮上方新增一行 mono-caps 读数（如 `−15.5°　·　已裁剪`），让用户在不打开 modal 的情况下也知道当前几何状态
+- **预览 modal 画布按旋转 bbox 动态 resize** — 拖滑块时画布会跟随旋转后的 bounding box 重新 fit 到 stage，非 90° 角度下角落自然出现透明区，是标准的"straighten preview"视感
+
+### 🐛 修复
+
+- 比例锁定按钮重复点击越裁越小 — `refitRectToAspect` 之前是"在前一个 rect 内 fit"，每次都基于上一帧缩水。改成"在原图内最大 fit + 居中"，每次点击都从原图算起。1:1 → 3:4 → 1:1 现在每次都给出同一个最大 1:1 框
+
+### ⚠️ 已知限制
+
+- 非轴对齐角度（比如 23°）下，裁剪框可以被拖到旋转 bbox 的透明角落区域，导出后那里会是黑边（JPEG）/ 透明（PNG）。后续会加 inscribed-rect 自动约束，目前需用户手动避开
+
 ## 0.4 · 2026-05-06
 
 ### 🪞 交互打磨 (Interaction polish)

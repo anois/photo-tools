@@ -1102,40 +1102,26 @@
   }
 
   // ======================================================================
-  // Crop + rotation source-rect math
+  // Rotation bounding-box math (for arbitrary angles)
   // ======================================================================
 
-  // Translate a normalized crop rect (in post-rotation [0..1] coords) plus a
-  // CW rotation into the bitmap-space rectangle that drawImage's first 4
-  // arguments (sx, sy, sw, sh) need. screenW/screenH are the rect's
-  // dimensions in post-rotation pixels — useful when callers need to do
-  // cover-fit math against the rotated/cropped silhouette rather than the
-  // unrotated bitmap.
+  // Returns the axis-aligned bounding box dims, in pixels, of a bitmap
+  // rotated by `rot` degrees (CW). For 0/180 it's the bitmap dims; for
+  // 90/270 it's the swapped dims; for any other angle the bbox grows to
+  // accommodate the rotated corners.
   //
-  // The rotation maps the cropped post-rotation rect back to the bitmap's
-  // un-rotated coordinates because drawImage's source rect is always
-  // un-rotated; the rotation is applied via ctx.rotate at draw time.
-  function srcRectFromCropRotation(bm, rot, crop) {
-    const r = ((rot | 0) + 360) % 360;
-    const postW = (r === 90 || r === 270) ? bm.height : bm.width;
-    const postH = (r === 90 || r === 270) ? bm.width  : bm.height;
-    const cx = crop && isFinite(crop.x) ? crop.x : 0;
-    const cy = crop && isFinite(crop.y) ? crop.y : 0;
-    const cw = crop && isFinite(crop.w) && crop.w > 0 ? crop.w : 1;
-    const ch = crop && isFinite(crop.h) && crop.h > 0 ? crop.h : 1;
-    const pcx = cx * postW, pcy = cy * postH;
-    const pcw = cw * postW, pch = ch * postH;
-    let sx, sy, sw, sh;
-    if (r === 90) {
-      sx = pcy; sy = bm.height - pcx - pcw; sw = pch; sh = pcw;
-    } else if (r === 180) {
-      sx = bm.width - pcx - pcw; sy = bm.height - pcy - pch; sw = pcw; sh = pch;
-    } else if (r === 270) {
-      sx = bm.width - pcy - pch; sy = pcx; sw = pch; sh = pcw;
-    } else {
-      sx = pcx; sy = pcy; sw = pcw; sh = pch;
-    }
-    return { sx: sx, sy: sy, sw: sw, sh: sh, screenW: pcw, screenH: pch };
+  // Used by callers that need to know the post-rotation silhouette in
+  // pixels — layout aspect math, crop modal canvas sizing, cover-fit
+  // calculations against the rotated content.
+  function rotatedBboxDims(bm, rot) {
+    const r = ((Number(rot) || 0) % 360 + 360) % 360;
+    const rad = r * Math.PI / 180;
+    const cosR = Math.abs(Math.cos(rad));
+    const sinR = Math.abs(Math.sin(rad));
+    return {
+      w: bm.width * cosR + bm.height * sinR,
+      h: bm.width * sinR + bm.height * cosR
+    };
   }
 
   // ======================================================================
@@ -1297,7 +1283,7 @@
     // Collage (2–4 photos)
     collageCellRects: collageCellRects,
 
-    // Crop + rotation source-rect math
-    srcRectFromCropRotation: srcRectFromCropRotation
+    // Rotation bbox math
+    rotatedBboxDims: rotatedBboxDims
   };
 });

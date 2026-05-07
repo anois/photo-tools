@@ -125,9 +125,12 @@ const els = {
   signatureOpacityVal: document.getElementById('signature-opacity-val'),
   collageLayout: document.getElementById('collage-layout'),
   collageSlots: document.getElementById('collage-slots'),
-  rotateCcw: document.getElementById('rotate-ccw'),
-  rotateCw: document.getElementById('rotate-cw'),
-  rotateVal: document.getElementById('rotate-val'),
+  geometryReadout: document.getElementById('geometry-readout'),
+  cropRotCcw: document.getElementById('crop-rot-ccw'),
+  cropRotCw: document.getElementById('crop-rot-cw'),
+  cropAngle: document.getElementById('crop-angle'),
+  cropAngleVal: document.getElementById('crop-angle-val'),
+  cropRotReset: document.getElementById('crop-rot-reset'),
   cropOpenBtn: document.getElementById('crop-open-btn'),
   cropModal: document.getElementById('crop-modal'),
   cropModalCloseBtn: document.getElementById('crop-modal-close'),
@@ -453,9 +456,30 @@ function syncCustomBgFromCfg(cfg) {
   els.customBgName.textContent = has ? (cb.name || 'image') : '—';
 }
 
+// Update only the readouts (modal angle text + B · Frame geometry hint)
+// from the active rotation/crop. Used when the slider is itself the source
+// of the change — writing back to slider.value mid-drag can snap the
+// thumb between +180 and -180 (geometrically equivalent but visually
+// jarring).
+function syncRotationReadouts(cfg) {
+  const r = ((Number(cfg.rotation) || 0) % 360 + 360) % 360;
+  const sliderV = r > 180 ? r - 360 : r;
+  if (els.cropAngleVal) els.cropAngleVal.textContent = sliderV.toFixed(1) + '°';
+  if (els.geometryReadout) {
+    const parts = [];
+    if (Math.abs(sliderV) >= 0.05) parts.push('<em>' + sliderV.toFixed(1) + '°</em>');
+    if (cfg.crop) parts.push(T('frame.geometryCropped'));
+    els.geometryReadout.innerHTML = parts.length ? parts.join(' · ') : T('frame.geometryClean');
+  }
+}
+
 function syncRotateFromCfg(cfg) {
-  const r = ((cfg.rotation | 0) % 360 + 360) % 360;
-  els.rotateVal.textContent = r + '°';
+  // Full sync: slider position + readouts. Used when source ≠ slider
+  // (modal open, photo switch, ↶ ↷ click, reset click).
+  const r = ((Number(cfg.rotation) || 0) % 360 + 360) % 360;
+  const sliderV = r > 180 ? r - 360 : r;
+  if (els.cropAngle) els.cropAngle.value = String(sliderV);
+  syncRotationReadouts(cfg);
 }
 
 // Floating canvas badge: small mono-caps label hovering top-left of the
@@ -470,9 +494,18 @@ function updateFrameBadge(cfg) {
   const tplLabel   = String(cfg.template || '').toUpperCase().replace(/-/g, '·');
   els.canvasBadgeFrame.textContent = frameLabel || '—';
   els.canvasBadgeTemplate.textContent = tplLabel || '—';
-  const rot = ((cfg.rotation | 0) % 360 + 360) % 360;
-  els.canvasBadgeRot.hidden = (rot === 0);
-  els.canvasBadgeRotVal.textContent = rot + '°';
+  const r = ((Number(cfg.rotation) || 0) % 360 + 360) % 360;
+  // Show rotation only when meaningful — sub-0.05° values come from slider
+  // float drift after a "reset to 0" click and shouldn't surface.
+  const visible = Math.abs(r) >= 0.05 && Math.abs(r - 360) >= 0.05;
+  els.canvasBadgeRot.hidden = !visible;
+  if (visible) {
+    const display = r > 180 ? r - 360 : r;
+    // Whole-degree values render without a decimal; otherwise 1 decimal place.
+    els.canvasBadgeRotVal.textContent = (Math.abs(display - Math.round(display)) < 0.05)
+      ? Math.round(display) + '°'
+      : display.toFixed(1) + '°';
+  }
   els.canvasFrameBadge.hidden = false;
 }
 
@@ -1005,16 +1038,41 @@ els.signatureOpacity.addEventListener('input', () => {
   requestRender();
 });
 
-// ─── Rotation wiring (90° increments) ───────────────────────────────────
-function bumpRotation(delta) {
+// ─── Rotation wiring (lives inside the crop modal) ──────────────────────
+// Rotation is now a free-form float in [0, 360) — the modal hosts a slider
+// for fine angle adjustment plus ↶ ↷ buttons for ±90° quick jumps. Both
+// write through to cfg.rotation and re-render the modal canvas + the main
+// preview pane in one shot.
+function setRotation(angle, opts) {
   const cfg = activeCfg();
-  cfg.rotation = (((cfg.rotation | 0) + delta) % 360 + 360) % 360;
-  syncRotateFromCfg(cfg);
-  flashRotation(delta, cfg.rotation);
+  let r = Number(angle) || 0;
+  if (Math.abs(r) < 0.05) r = 0;   // snap sub-degree dust to clean zero
+  const norm = ((r % 360) + 360) % 360;
+  cfg.rotation = norm;
+  // Skip the slider-write when the slider IS the source — would snap thumb
+  // between +180 / -180 mid-drag.
+  if (opts && opts.fromSlider) syncRotationReadouts(cfg);
+  else                          syncRotateFromCfg(cfg);
+  if (CROP.bm) {
+    CROP.rotation = norm;
+    refitCropCanvas();
+  }
+  if (opts && opts.flashDelta != null) {
+    flashRotation(opts.flashDelta, norm);
+  }
   requestRender();
 }
-els.rotateCcw.addEventListener('click', () => bumpRotation(-90));
-els.rotateCw.addEventListener('click', () => bumpRotation(90));
+
+function bumpRotation(delta) {
+  const cur = Number(activeCfg().rotation) || 0;
+  setRotation(cur + delta, { flashDelta: delta });
+}
+els.cropRotCcw.addEventListener('click', () => bumpRotation(-90));
+els.cropRotCw.addEventListener('click', () => bumpRotation(90));
+els.cropAngle.addEventListener('input', () => {
+  setRotation(Number(els.cropAngle.value) || 0, { fromSlider: true });
+});
+els.cropRotReset.addEventListener('click', () => setRotation(0));
 
 // Transient rotation indicator — flashes for ~700ms after each rotate
 // click, showing the new total angle. Direction comes from the click
@@ -1114,42 +1172,47 @@ async function openCropModal() {
     return;
   }
   const bm = await CR.loadBitmap(active.file, 1440);
-  const rot = (((active.cfg.rotation | 0) % 360) + 360) % 360;
   CROP.bm = bm;
-  CROP.rotation = rot;
-  CROP.trueW = (rot === 90 || rot === 270) ? bm.height : bm.width;
-  CROP.trueH = (rot === 90 || rot === 270) ? bm.width  : bm.height;
+  CROP.rotation = ((Number(active.cfg.rotation) || 0) % 360 + 360) % 360;
+  // trueW/trueH are recomputed from the rotated bbox inside
+  // refitCropCanvas, since they shift whenever the user changes rotation.
   CROP.rect = active.cfg.crop ? { ...active.cfg.crop } : { x: 0, y: 0, w: 1, h: 1 };
   CROP.aspect = 'free';
   syncCropAspectSeg();
+  syncRotateFromCfg(active.cfg);    // surface current angle on the slider
   els.cropModal.showModal();
   // Wait one frame for the dialog to settle into its definite height, then
-  // measure the stage and pre-scale the bitmap into a canvas of exactly
-  // that fit-size. From that point on the canvas's CSS box equals the
-  // visible image — no contain-margins, so the rect overlay aligns
-  // perfectly with the pixels under the user's cursor.
+  // size the canvas + draw. refitCropCanvas + drawCropModalCanvas together
+  // produce a canvas whose CSS box is the rotated bbox, scaled to exactly
+  // fit the stage — no contain-margins, no overflow.
   requestAnimationFrame(refitCropCanvas);
 }
 
-// Compute display dims from the stage's content area, set the canvas's
-// intrinsic dims to match, and redraw the bitmap (rotated if needed) into
-// it. Called on modal open + on every stage resize so the canvas always
-// fills the available area without overflowing it.
+// Recompute the canvas's intrinsic dims from the rotated bounding box at
+// the current rotation, fit to the stage, then redraw. Called on modal
+// open, on stage resize (ResizeObserver), and on every rotation change —
+// the rotated bbox grows for non-axis-aligned angles, so the canvas size
+// has to track it for the visible image to stay fitted.
 function refitCropCanvas() {
   if (!CROP.bm || !els.cropModal.open) return;
   const stage = els.cropStage;
   const sRect = stage.getBoundingClientRect();
-  // Padding mirrors the .crop-stage CSS rule. Subtract on both axes.
+  // Padding mirrors the .crop-stage CSS rule.
   const PAD = 28;
   const availW = Math.max(0, sRect.width  - PAD * 2);
   const availH = Math.max(0, sRect.height - PAD * 2);
   if (!availW || !availH) return;
-  // Largest scale where the post-rotation source still fits within avail.
-  // Cap at 1 so we never UPscale a tiny image — the user gets the source
-  // at native size or smaller, never blurry from being stretched up.
-  const ratio = Math.min(availW / CROP.trueW, availH / CROP.trueH, 1);
-  const dispW = Math.max(1, Math.round(CROP.trueW * ratio));
-  const dispH = Math.max(1, Math.round(CROP.trueH * ratio));
+  // Rotated bbox dims (true source pixels). Drives both the px readout
+  // and the canvas fit-scale. Updated on every refit since rotation can
+  // change them.
+  const bbox = R.rotatedBboxDims(CROP.bm, CROP.rotation || 0);
+  CROP.trueW = bbox.w;
+  CROP.trueH = bbox.h;
+  // Largest scale where the rotated bbox fits avail (capped at 1 — never
+  // upscale a small source).
+  const ratio = Math.min(availW / bbox.w, availH / bbox.h, 1);
+  const dispW = Math.max(1, Math.round(bbox.w * ratio));
+  const dispH = Math.max(1, Math.round(bbox.h * ratio));
   const c = els.cropCanvas;
   if (c.width !== dispW || c.height !== dispH) {
     c.width = dispW;
@@ -1159,31 +1222,29 @@ function refitCropCanvas() {
   updateCropRectPosition();
 }
 
-// Draw CROP.bm into the modal canvas at the canvas's intrinsic dims,
-// applying CROP.rotation (the photo's per-cfg rotation, since the user
-// crops in the orientation they see in the preview pane).
+// Draw the source bitmap into the modal canvas at the current rotation.
+// Canvas's intrinsic dims = rotated bbox × fit-scale (set by the caller
+// in refitCropCanvas). The bitmap is drawn centered, rotated, scaled by
+// that same fit factor — its rotated silhouette fills the canvas
+// exactly, with transparent corners outside the silhouette for non-90°
+// angles (the typical "straighten" preview look).
 function drawCropModalCanvas() {
   const c = els.cropCanvas;
   const ctx = c.getContext('2d');
   const bm = CROP.bm;
-  if (!bm) return;
-  const rot = CROP.rotation;
+  if (!bm || !CROP.trueW) return;
   const W = c.width;
   const H = c.height;
+  const rRad = ((Number(CROP.rotation) || 0) % 360 + 360) % 360 * Math.PI / 180;
+  // Same scale used by refitCropCanvas to size the canvas. Use one of
+  // the two ratios — both equal because bbox is fitted in both axes.
+  const scale = W / CROP.trueW;
   ctx.clearRect(0, 0, W, H);
-  if (!rot) {
-    ctx.drawImage(bm, 0, 0, W, H);
-    return;
-  }
   ctx.save();
   ctx.translate(W / 2, H / 2);
-  ctx.rotate(rot * Math.PI / 180);
-  // For 90/270, the rotated frame's width corresponds to the canvas's
-  // height (and vice versa); the bitmap occupies the rotated rect of
-  // (drawW × drawH) which we compute so it covers the canvas exactly.
-  const drawW = (rot === 90 || rot === 270) ? H : W;
-  const drawH = (rot === 90 || rot === 270) ? W : H;
-  ctx.drawImage(bm, -drawW / 2, -drawH / 2, drawW, drawH);
+  ctx.scale(scale, scale);
+  ctx.rotate(rRad);
+  ctx.drawImage(bm, -bm.width / 2, -bm.height / 2);
   ctx.restore();
 }
 
@@ -1350,30 +1411,29 @@ function snapAspect(r, handle, normRatio) {
   return r;
 }
 
-// Refit the current rect to a new aspect lock — keep the rect's center
-// where it is, then size the largest rect of the new aspect that fits both
-// inside [0,1]² AND inside the previous rect's "spirit" (we use the smaller
-// of current w / current h scaled to ratio).
+// Refit the rect to a new aspect lock. Always picks the LARGEST rect of
+// `normRatio` aspect that fits within the full image [0,1]², centered.
+// Crucially, this is computed against the WHOLE IMAGE, not the prior rect
+// — clicking 1:1, then 3:4, then 1:1 again should give the same maximal
+// 1:1 rect every time, not progressively shrink.
 function refitRectToAspect(normRatio) {
   if (!normRatio) return;
-  const r = { ...CROP.rect };
-  const cx = r.x + r.w / 2;
-  const cy = r.y + r.h / 2;
-  // Largest rect at normRatio aspect that fits the prior rect's bbox
-  let newW = r.w;
-  let newH = newW / normRatio;
-  if (newH > r.h) {
-    newH = r.h;
-    newW = newH * normRatio;
+  let newW, newH;
+  if (normRatio >= 1) {
+    // Wider in normalized coords → width is the limiter, fill the image's
+    // full width and let height come out smaller.
+    newW = 1;
+    newH = 1 / normRatio;
+  } else {
+    newH = 1;
+    newW = normRatio;
   }
-  // Clamp to canvas bounds (re-shrink if needed)
-  if (newW > 1) { newW = 1; newH = newW / normRatio; }
-  if (newH > 1) { newH = 1; newW = newH * normRatio; }
-  r.w = newW;
-  r.h = newH;
-  r.x = clamp(cx - newW / 2, 0, 1 - newW);
-  r.y = clamp(cy - newH / 2, 0, 1 - newH);
-  CROP.rect = r;
+  CROP.rect = {
+    x: (1 - newW) / 2,
+    y: (1 - newH) / 2,
+    w: newW,
+    h: newH
+  };
 }
 
 els.cropOpenBtn.addEventListener('click', () => { openCropModal().catch(console.error); });

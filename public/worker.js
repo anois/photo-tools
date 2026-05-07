@@ -69,23 +69,36 @@ function pathRoundRect(ctx, x, y, w, h, r) {
 }
 function clipRoundRect(ctx, x, y, w, h, r) { pathRoundRect(ctx, x, y, w, h, r); ctx.clip(); }
 
+// Mirrors clientRender.js — see that file for the design notes. Single
+// transform-composition path for any rotation angle (0°, 90°, anything).
+function drawRotatedCroppedSrc(ctx, bm, dst, rot, crop) {
+  const rRad = ((Number(rot) || 0) % 360 + 360) % 360 * Math.PI / 180;
+  const cosR = Math.abs(Math.cos(rRad));
+  const sinR = Math.abs(Math.sin(rRad));
+  const rotW = bm.width * cosR + bm.height * sinR;
+  const rotH = bm.width * sinR + bm.height * cosR;
+
+  const cx = crop && crop.x != null ? crop.x : 0;
+  const cy = crop && crop.y != null ? crop.y : 0;
+  const cw = crop && crop.w > 0 ? crop.w : 1;
+  const ch = crop && crop.h > 0 ? crop.h : 1;
+  const cropPxW = cw * rotW;
+  const cropPxH = ch * rotH;
+  const cropOffX = (cx + cw / 2 - 0.5) * rotW;
+  const cropOffY = (cy + ch / 2 - 0.5) * rotH;
+  const ratio = Math.max(dst.w / cropPxW, dst.h / cropPxH);
+
+  ctx.translate(dst.x + dst.w / 2, dst.y + dst.h / 2);
+  ctx.scale(ratio, ratio);
+  ctx.translate(-cropOffX, -cropOffY);
+  ctx.rotate(rRad);
+  ctx.drawImage(bm, -bm.width / 2, -bm.height / 2);
+}
+
 function drawCellPhoto(ctx, cell, bm, rot, radius, crop) {
   ctx.save();
   clipRoundRect(ctx, cell.x, cell.y, cell.w, cell.h, radius);
-  const sr = R.srcRectFromCropRotation(bm, rot, crop);
-  const ratio = Math.max(cell.w / sr.screenW, cell.h / sr.screenH);
-  const dw = sr.sw * ratio;
-  const dh = sr.sh * ratio;
-  if (rot) {
-    ctx.translate(cell.x + cell.w / 2, cell.y + cell.h / 2);
-    ctx.rotate(rot * Math.PI / 180);
-    ctx.drawImage(bm, sr.sx, sr.sy, sr.sw, sr.sh, -dw / 2, -dh / 2, dw, dh);
-  } else {
-    ctx.drawImage(bm, sr.sx, sr.sy, sr.sw, sr.sh,
-      cell.x + (cell.w - dw) / 2,
-      cell.y + (cell.h - dh) / 2,
-      dw, dh);
-  }
+  drawRotatedCroppedSrc(ctx, bm, cell, rot, crop);
   ctx.restore();
 }
 
@@ -96,7 +109,7 @@ async function compose(canvas, args) {
   canvas.height = H;
   const ctx = canvas.getContext('2d');
 
-  const rot = ((args.rotation | 0) + 360) % 360;
+  const rot = ((Number(args.rotation) || 0) % 360 + 360) % 360;
   // Decode custom bg if the caller passed one. Workers have no shared cache
   // — the cost is one fetch+createImageBitmap per render job, which is
   // negligible compared to the actual blur+encode pass.
@@ -114,20 +127,13 @@ async function compose(canvas, args) {
     const src = customBgBm || bitmap;
     ctx.save();
     ctx.filter = `blur(${sigma}px) saturate(${params.bg.saturation}) brightness(${params.bg.brightness})`;
-    const usePhotoTransform = !customBgBm;
-    const sr = usePhotoTransform
-      ? R.srcRectFromCropRotation(src, rot, args.crop)
-      : R.srcRectFromCropRotation(src, 0, null);
-    const ratio = Math.max(W / sr.screenW, H / sr.screenH);
-    const dw = sr.sw * ratio;
-    const dh = sr.sh * ratio;
-    if (usePhotoTransform && rot) {
-      ctx.translate(W / 2, H / 2);
-      ctx.rotate(rot * Math.PI / 180);
-      ctx.drawImage(src, sr.sx, sr.sy, sr.sw, sr.sh, -dw / 2, -dh / 2, dw, dh);
-    } else {
-      ctx.drawImage(src, sr.sx, sr.sy, sr.sw, sr.sh, (W - dw) / 2, (H - dh) / 2, dw, dh);
-    }
+    const useTx = !customBgBm;
+    drawRotatedCroppedSrc(
+      ctx, src,
+      { x: 0, y: 0, w: W, h: H },
+      useTx ? rot : 0,
+      useTx ? args.crop : null
+    );
     ctx.restore();
     if (params.bg.darken) {
       ctx.fillStyle = `rgba(0,0,0,${params.bg.darken})`;
@@ -263,12 +269,11 @@ async function renderJob(msg) {
       quality: quality || 'standard',
       ...frame.layout
     };
-    const rot = ((cfg.rotation | 0) + 360) % 360;
-    const postW = (rot === 90 || rot === 270) ? bitmap.height : bitmap.width;
-    const postH = (rot === 90 || rot === 270) ? bitmap.width  : bitmap.height;
+    const rot = ((Number(cfg.rotation) || 0) % 360 + 360) % 360;
+    const bbox = R.rotatedBboxDims(bitmap, rot);
     const cropW = cfg.crop && cfg.crop.w > 0 ? cfg.crop.w : 1;
     const cropH = cfg.crop && cfg.crop.h > 0 ? cfg.crop.h : 1;
-    const meta = { width: postW * cropW, height: postH * cropH };
+    const meta = { width: bbox.w * cropW, height: bbox.h * cropH };
     const layout = R.computeLayout(meta, layoutOpts);
     const effectiveTextStyle = layout.caption.placement === 'overlay' ? 'light' : frame.textStyle;
     const captionSvg = R.buildCaptionSvg(normExif, layout, {
