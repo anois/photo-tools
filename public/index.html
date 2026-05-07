@@ -54,24 +54,34 @@
 <!-- WORKSPACE -->
 <main class="workspace">
 
-  <!-- LEFT: CONTROLS -->
-  <aside class="pane pane-controls" data-i18n-aria-label="sections.source">
+  <!-- LEFT: SHELL = activity bar + controls pane. Activity bar is the
+       persistent vertical section navigator (desktop only); the pane on
+       its right collapses to width 0 when the user toggles via the chevron
+       at the top of the bar or the `[` keyboard shortcut. On mobile the
+       shell becomes display:contents and the activity bar hides — controls
+       flow under the canvas as before. -->
+  <aside class="pane-shell" id="pane-shell">
 
-    <!-- Section index: sticky letter rail. Clicking a letter smooth-scrolls
-         the panel to that section; an IntersectionObserver in app.js sets
-         .active on the letter whose section is currently centered in view. -->
-    <nav class="section-nav" id="section-nav" aria-label="Jump to section">
-      <button type="button" class="section-nav-item active" data-jump="A" data-i18n-title="sections.source" title="Source"><span>A</span></button>
-      <button type="button" class="section-nav-item" data-jump="B" data-i18n-title="sections.frame" title="Frame"><span>B</span></button>
-      <button type="button" class="section-nav-item" data-jump="C" data-i18n-title="sections.caption" title="Caption"><span>C</span></button>
-      <button type="button" class="section-nav-item" data-jump="D" data-i18n-title="sections.exif" title="EXIF"><span>D</span></button>
-      <button type="button" class="section-nav-item" data-jump="E" data-i18n-title="sections.collage" title="Collage"><span>E</span></button>
-      <button type="button" class="section-nav-item" data-jump="F" data-i18n-title="sections.signature" title="Signature"><span>F</span></button>
-      <button type="button" class="section-nav-item" data-jump="G" data-i18n-title="sections.export" title="Export"><span>G</span></button>
+    <!-- Activity bar: 7 letter tiles + collapse toggle. Desktop only. -->
+    <nav class="activity-bar" id="activity-bar" aria-label="Section navigation">
+      <button type="button" class="activity-collapse" id="pane-collapse-btn" data-i18n-aria-label="nav.collapse" aria-label="Collapse panel">
+        <svg viewBox="0 0 12 12" width="11" height="11" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M8 2L4 6l4 4"/></svg>
+      </button>
+      <ul class="activity-tiles">
+        <li><button type="button" class="activity-tile active" data-jump="A" data-i18n-aria-label="sections.source" aria-label="Source">a</button></li>
+        <li><button type="button" class="activity-tile" data-jump="B" data-i18n-aria-label="sections.frame" aria-label="Frame">b</button></li>
+        <li><button type="button" class="activity-tile" data-jump="C" data-i18n-aria-label="sections.caption" aria-label="Caption">c</button></li>
+        <li><button type="button" class="activity-tile" data-jump="D" data-i18n-aria-label="sections.exif" aria-label="EXIF">d</button></li>
+        <li><button type="button" class="activity-tile" data-jump="E" data-i18n-aria-label="sections.collage" aria-label="Collage">e</button></li>
+        <li><button type="button" class="activity-tile" data-jump="F" data-i18n-aria-label="sections.signature" aria-label="Signature">f</button></li>
+        <li><button type="button" class="activity-tile" data-jump="G" data-i18n-aria-label="sections.export" aria-label="Export">g</button></li>
+      </ul>
     </nav>
 
+  <aside class="pane pane-controls" data-i18n-aria-label="sections.source">
+
     <section class="group" data-section="A">
-      <h2 class="sec-head"><span class="sec-mark">A</span><span data-i18n="sections.source">Source</span></h2>
+      <h2 class="sec-head"><span data-i18n="sections.source">Source</span></h2>
       <label class="file-drop" id="file-drop">
         <input id="file-input" type="file" accept="image/jpeg,image/png,image/heic,image/heif,.heic,.heif" multiple />
         <div class="file-drop-inner">
@@ -89,7 +99,7 @@
 
     <!-- B · Frame -->
     <section class="group" data-section="B">
-      <h2 class="sec-head"><span class="sec-mark">B</span><span data-i18n="sections.frame">Frame</span></h2>
+      <h2 class="sec-head"><span data-i18n="sections.frame">Frame</span></h2>
       <details class="preset-panel" id="preset-panel">
         <summary><span data-i18n="frame.presets">Presets</span> <span class="summary-hint" data-i18n="frame.presetsHint">save · apply · share</span></summary>
         <div class="row">
@@ -215,7 +225,7 @@
 
     <!-- C · Caption -->
     <section class="group" data-section="C">
-      <h2 class="sec-head"><span class="sec-mark">C</span><span data-i18n="sections.caption">Caption</span></h2>
+      <h2 class="sec-head"><span data-i18n="sections.caption">Caption</span></h2>
       <div class="row">
         <div class="field">
           <label class="field-label" data-i18n="caption.template">Template</label>
@@ -249,7 +259,7 @@
     </section>
 
     <section class="group" data-section="D">
-      <h2 class="sec-head"><span class="sec-mark">D</span><span data-i18n="sections.exif">EXIF</span></h2>
+      <h2 class="sec-head"><span data-i18n="sections.exif">EXIF</span></h2>
       <div id="exif-warn" class="warn" hidden></div>
       <details class="exif" id="exif-details">
         <summary><span data-i18n="exif.summary">EXIF</span> <span class="summary-hint" data-i18n="exif.summaryHint">read · edit</span></summary>
@@ -281,7 +291,7 @@
 
     <!-- E · Collage -->
     <section class="group" data-section="E">
-      <h2 class="sec-head"><span class="sec-mark">E</span><span data-i18n="sections.collage">Collage</span></h2>
+      <h2 class="sec-head"><span data-i18n="sections.collage">Collage</span></h2>
       <div class="row">
         <div class="field">
           <label class="field-label" data-i18n="collage.layout">Layout</label>
@@ -300,7 +310,7 @@
 
     <!-- F · Signature -->
     <section class="group" data-section="F">
-      <h2 class="sec-head"><span class="sec-mark">F</span><span data-i18n="sections.signature">Signature</span></h2>
+      <h2 class="sec-head"><span data-i18n="sections.signature">Signature</span></h2>
       <label class="file-drop signature-drop" id="signature-drop">
         <input id="signature-input" type="file" accept="image/svg+xml,image/png" />
         <div class="file-drop-inner">
@@ -342,7 +352,7 @@
     </section>
 
     <section class="group" data-section="G">
-      <h2 class="sec-head"><span class="sec-mark">G</span><span data-i18n="sections.export">Export</span></h2>
+      <h2 class="sec-head"><span data-i18n="sections.export">Export</span></h2>
       <div class="row row-2">
         <div class="field">
           <label class="field-label" data-i18n="export.quality">Quality</label>
@@ -370,7 +380,8 @@
       </div>
     </section>
 
-  </aside>
+  </aside><!-- /.pane-controls -->
+  </aside><!-- /.pane-shell -->
 
   <!-- CENTER: CANVAS -->
   <section class="pane pane-canvas" id="canvas-pane" data-i18n-aria-label="canvas.emptyTitle">

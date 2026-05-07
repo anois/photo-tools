@@ -36,6 +36,7 @@
         signature: '签名',
         export: '导出'
       },
+      nav: { collapse: '收起侧栏', expand: '展开侧栏' },
       source: {
         importTitle: '导入照片',
         hintDesktop: 'JPEG / PNG / HEIC · 可多选 · 拖到此处',
@@ -237,7 +238,7 @@
         batchPrefix: '批量 · {n} 张',
         batchDone: '完成 · {n} 个错误',
         batchFail: '批量失败',
-        hint: 'J/K · 方向键  切换  ·  Enter 选中  ·  Esc 关闭'
+        hint: 'J/K 切换 · ⌘1-7 跳章节 · [ 折叠侧栏 · ⌘E 导出 · Esc 关闭'
       },
       footer: { brandShip: 'frame · caption · ship' },
       update: {
@@ -284,6 +285,7 @@
         signature: 'Signature',
         export: 'Export'
       },
+      nav: { collapse: 'Collapse panel', expand: 'Expand panel' },
       source: {
         importTitle: 'Import photos',
         hintDesktop: 'JPEG / PNG / HEIC · multi-select · drag here',
@@ -485,7 +487,7 @@
         batchPrefix: 'batch · {n} files',
         batchDone: 'done · {n} errors',
         batchFail: 'batch failed',
-        hint: 'J/K · arrows  switch  ·  Enter select  ·  Esc close'
+        hint: 'J/K switch · ⌘1-7 jump · [ collapse · ⌘E export · Esc close'
       },
       footer: { brandShip: 'frame · caption · ship' },
       update: {

@@ -44,6 +44,8 @@ html, body { margin: 0; padding: 0; height: 100%; }
   /* Layout */
   --rail-w: 150px;
   --controls-w: 360px;
+  --activity-w: 52px;
+  --shell-w: calc(var(--activity-w) + var(--controls-w));
   --topbar-h: 52px;
   --statusbar-h: 32px;
 }
@@ -284,9 +286,13 @@ kbd {
 
 .workspace {
   display: grid;
-  grid-template-columns: var(--controls-w) 1fr var(--rail-w);
+  grid-template-columns: var(--shell-w) 1fr var(--rail-w);
   min-height: 0;
   overflow: hidden;
+  transition: grid-template-columns 220ms cubic-bezier(.4, 0, .2, 1);
+}
+.workspace[data-pane-collapsed] {
+  grid-template-columns: var(--activity-w) 1fr var(--rail-w);
 }
 
 .pane {
@@ -295,118 +301,206 @@ kbd {
 }
 
 /* =========================================================
-   LEFT — CONTROLS
+   LEFT SHELL — activity bar + collapsible controls pane.
+   The shell lives as one workspace cell; internally it splits into a
+   fixed-width activity bar (always present, desktop) and a flexible
+   controls cell that animates to width 0 when collapsed.
    ========================================================= */
-
-.pane-controls {
+.pane-shell {
+  display: grid;
+  grid-template-columns: var(--activity-w) 1fr;
+  min-height: 0;
   background: var(--bg-chrome);
   border-right: 1px solid var(--line);
-  overflow-y: auto;
-  padding: 0 20px 40px;
-  scroll-behavior: smooth;
+  transition: grid-template-columns 220ms cubic-bezier(.4, 0, .2, 1);
+}
+.workspace[data-pane-collapsed] .pane-shell {
+  grid-template-columns: var(--activity-w) 0px;
 }
 
 /* =========================================================
-   SECTION NAV — sticky letter rail at the top of the controls panel.
-   Reads as a darkroom mode-dial: 7 channels, click to jump, current
-   section glows accent. Equal-width pills tuned to fit 320px content
-   width (360 panel − 40 horizontal padding).
+   ACTIVITY BAR — vertical section navigator + collapse toggle.
+   Persistent on desktop; hidden on mobile (.pane-shell becomes
+   display:contents and the bar drops out of layout entirely).
+   Visual: 40×40 tiles in a 52px column, Fraunces lowercase letter,
+   active state painted with an accent left-edge bar + bg-elev tile
+   fill. A subtle dashed "film leader" spine connects tile centers.
    ========================================================= */
-.section-nav {
-  position: sticky;
-  top: 0;
-  z-index: 6;
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 3px;
-  margin: 0 -20px;
-  padding: 10px 20px 8px;
-  background: linear-gradient(180deg,
-    var(--bg-chrome) 0%,
-    var(--bg-chrome) 70%,
-    rgba(20, 22, 25, 0.85) 100%);
-  backdrop-filter: blur(6px);
-  border-bottom: 1px solid var(--line-subtle);
-}
-.section-nav-item {
-  appearance: none; -webkit-appearance: none;
-  display: inline-flex;
+.activity-bar {
+  display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  height: 28px;
-  padding: 0;
+  border-right: 1px solid var(--line);
+  padding: 10px 0 16px;
+  gap: 10px;
+  background: var(--bg-chrome);
+  position: relative;
+  z-index: 5;
+}
+.activity-collapse {
+  appearance: none; -webkit-appearance: none;
+  width: 32px; height: 32px;
+  display: inline-flex; align-items: center; justify-content: center;
   background: transparent;
   border: 1px solid transparent;
-  border-radius: var(--r-sm);
-  cursor: pointer;
-  position: relative;
-  transition: color 140ms, background 140ms, border-color 140ms, transform 80ms;
-}
-.section-nav-item span {
-  font: 600 10px/1 var(--f-mono);
-  letter-spacing: 0.06em;
+  border-radius: var(--r-md);
   color: var(--text-dim);
-  transition: color 140ms;
+  cursor: pointer;
+  transition: color 140ms, background 140ms, border-color 140ms, transform 220ms cubic-bezier(.4, 0, .2, 1);
 }
-.section-nav-item:hover {
+.activity-collapse:hover {
+  color: var(--text-muted);
   background: var(--bg-elev);
   border-color: var(--line);
 }
-.section-nav-item:hover span { color: var(--text); }
-.section-nav-item:active { transform: translateY(1px); }
-.section-nav-item.active {
-  background: var(--accent-soft);
-  border-color: var(--accent-line);
-  box-shadow: inset 0 -2px 0 var(--accent);
-}
-.section-nav-item.active span { color: var(--accent); }
-.section-nav-item:focus-visible {
+.activity-collapse:focus-visible {
   outline: 1px solid var(--accent-line);
   outline-offset: 2px;
 }
+.workspace[data-pane-collapsed] .activity-collapse {
+  /* Chevron flips to point right when collapsed */
+  transform: rotate(180deg);
+}
+.activity-tiles {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  position: relative;
+}
+/* Film-leader: a faint dashed vertical spine running through tile centers.
+   Sits behind the tiles via z-index, breaks visually wherever a tile
+   covers it (and especially at the active tile's bg-elev fill). */
+.activity-tiles::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 18px;
+  bottom: 18px;
+  width: 0;
+  border-left: 1px dashed var(--line);
+  transform: translateX(-0.5px);
+  opacity: 0.6;
+  pointer-events: none;
+}
+.activity-tile {
+  appearance: none; -webkit-appearance: none;
+  position: relative;
+  width: 40px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font: 500 17px/1 var(--f-display);
+  font-variation-settings: "opsz" 144, "SOFT" 100;
+  color: var(--text-dim);
+  background: transparent;
+  border: 0;
+  border-radius: var(--r-md);
+  cursor: pointer;
+  transition: color 140ms, background 140ms;
+}
+.activity-tile:hover {
+  color: var(--text-muted);
+  background: var(--bg-elev);
+}
+.activity-tile:active { transform: scale(0.96); }
+.activity-tile.active {
+  color: var(--accent);
+  background: var(--bg-elev);
+}
+/* Active marker: 3px-wide accent bar pinned to the LEFT edge of the
+   activity column (extends past the tile's left edge into the column
+   padding). Also dims the tile's bg-elev to "active tile" tone. */
+.activity-tile.active::before {
+  content: '';
+  position: absolute;
+  left: -7px;       /* tile centered in 52px col → margin (52-40)/2 = 6 */
+  top: 8px;
+  width: 3px;
+  height: 24px;
+  background: var(--accent);
+  border-radius: 0 2px 2px 0;
+  box-shadow: 0 0 6px var(--accent-glow);
+}
+.activity-tile:focus-visible {
+  outline: 1px solid var(--accent-line);
+  outline-offset: 2px;
+}
+/* Hover tooltip — slides out from the right edge after 200ms.
+   Reads aria-label so we get free i18n via the existing data-i18n
+   pipeline. text-transform uppercase only affects Latin (zh-CN
+   stays as-is per project convention). */
+.activity-tile::after {
+  content: attr(aria-label);
+  position: absolute;
+  left: calc(100% + 10px);
+  top: 50%;
+  padding: 5px 10px;
+  background: #0a0a0a;
+  color: var(--text);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-sm);
+  font: 500 10px/1 var(--f-mono);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(-50%) translateX(-4px);
+  transition: opacity 120ms ease-out, transform 120ms ease-out;
+  z-index: 100;
+}
+@media (hover: hover) {
+  .activity-tile:hover::after {
+    opacity: 1;
+    transform: translateY(-50%) translateX(0);
+    transition-delay: 200ms;
+  }
+}
 
-/* The first .group's top border collides with the section-nav's bottom
-   border. Drop it. */
-.section-nav + .group { border-top: none; }
-.section-nav + .group { padding-top: 14px; }
-
-/* Pane-controls uses the standard scroll skin (defined globally below). */
+/* =========================================================
+   PANE-CONTROLS — the actual section content.
+   ========================================================= */
+.pane-controls {
+  background: var(--bg-chrome);
+  overflow-y: auto;
+  overflow-x: hidden;
+  min-width: 0;
+  padding: 14px 20px 40px;
+  scroll-behavior: smooth;
+}
+.workspace[data-pane-collapsed] .pane-controls {
+  /* During the 220ms shrink, content stays painted (no flash) and
+     simply gets clipped by overflow-x: hidden as the cell width drops
+     from 360px to 0. Once collapsed, pointer-events off so the offscreen
+     content can't be tabbed into accidentally. */
+  pointer-events: none;
+}
 
 .group {
   padding: 18px 0 20px;
   border-top: 1px solid var(--line-subtle);
 }
-.group:first-child { border-top: none; }
+.group:first-child { border-top: none; padding-top: 4px; }
 
+/* Section heading: now a slim mono-caps label with a hairline rule
+   underneath. The activity bar already carries the A/B/C semantics so
+   the heading has no letter prefix anymore — it's just the section
+   name as a printed dial label. */
 .sec-head {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   gap: 10px;
   margin: 0 0 14px;
+  padding-bottom: 8px;
   font: 500 10px/1 var(--f-mono);
   text-transform: uppercase;
-  letter-spacing: 0.18em;
-  color: var(--text-muted);
-}
-.sec-head .sec-mark {
-  /* flex: 0 0 auto stops `.sec-head span { flex: 1 }` (which targets the
-     label) from also stretching the mark — the explicit width: 18px would
-     otherwise lose to flex-basis: 0. */
-  flex: 0 0 auto;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px; height: 22px;
-  font-size: 9px;
-  color: var(--accent);
-  background: var(--accent-soft);
-  border: 1px solid var(--accent-line);
-  border-radius: 3px;
-  font-family: var(--f-mono);
-  font-weight: 600;
-  letter-spacing: 0;
-  box-shadow: inset 0 0 0 1px rgba(0,0,0,0.2);
+  letter-spacing: 0.2em;
+  color: var(--text-dim);
+  border-bottom: 1px solid var(--line);
 }
 .sec-head span { flex: 1; }
 
@@ -2013,6 +2107,18 @@ input[type="range"]::-moz-range-thumb {
     overflow: visible;
   }
 
+  /* Pane-shell on mobile: dissolve the desktop activity-bar + controls
+     two-column grid so children flow as direct workspace blocks (matches
+     the pre-shell layout). Activity bar itself hides — mobile has no
+     screen real estate for a vertical column, the bottom-dock pattern
+     in Stage 3 will replace it. */
+  .pane-shell {
+    display: contents;
+  }
+  .activity-bar {
+    display: none;
+  }
+
   /* Rail: horizontal strip just under topbar, also sticky so it stays
      accessible while scrolling controls. Fixed min-height so the canvas
      pane's sticky-top calc stays valid whether the rail is empty or not. */
@@ -2077,7 +2183,12 @@ input[type="range"]::-moz-range-thumb {
   .pane-controls {
     border-right: none;
     border-top: 1px solid var(--line);
-    overflow-y: visible;
+    /* Override BOTH axes — desktop sets overflow-x: hidden so the pane
+       can shrink to 0 width during collapse animation, but on mobile
+       there's no collapse and we need natural page-flow scroll. If only
+       overflow-y is reset, browsers normalize the mismatched axes
+       (visible + hidden) and force overflow-y back to auto. */
+    overflow: visible;
     max-height: none;
     padding: 4px 16px 32px;
     /* respect bottom safe-area (gesture bar) */

@@ -6,6 +6,13 @@
 
 ## 0.7 · 2026-05-07
 
+### 🧭 桌面侧栏重构
+
+- **顶端横排 A-G 按钮整体移除，左侧加一根 52px 宽的活动栏（activity bar）** — 之前 7 个章节导航是 pane 内顶端的 sticky 横条，被反馈"丑陋"且密度低、占内容垂直空间。重做为 VSCode/Linear 风格的垂直 activity bar，常驻在 pane 左侧最外层。每个 tile 是 40×40 圆角方块、Fraunces 小写字母 a-g（lowercase serif 在 darkroom 调子里更有性格）、active 态贴左缘 3px 红色竖条 + accent glow，hover 200ms 后右侧弹出 mono caps tooltip。tile 之间一根 1px 虚线"film leader"竖脊连接 tile 中心，呼应胶卷胎记
+- **侧栏可折叠为只剩 activity bar** — 顶部新增 32×32 chevron 折叠开关，点击/`[` 键切换。展开态 412px（52 activity + 360 controls）、折叠态仅 52px。canvas 抢占空出来的 360px。`workspace[data-pane-collapsed]` 驱动 CSS 用 220ms `cubic-bezier(.4, 0, .2, 1)` 平滑动画 grid-template-columns。折叠状态 localStorage 持久化（`phototools.paneCollapsed`），下次打开还是上次的样子。折叠时点任意 tile = 自动展开 + 跳到该章节
+- **桌面键盘语法**：`[` 折叠/展开侧栏 · `⌘1-7` 跳到 A-G 章节（之前只能滚轮翻找）。状态栏的快捷键提示同步更新
+- **章节标题改成印刷标签风格** — 不再是 "A 原图" 加红色徽章，而是裸 "原图" 用 mono caps + 0.2em 字距 + 底部 1px hairline 横线，像暗室设备面板上的丝印标签。letter 由 activity bar 承担，省掉重复语义
+
 ### 🐛 修复 + 📱 移动端
 
 - **更新日志滚动条彻底隐藏** — 上一轮换皮 / 移除 mask-image 之后，macOS "始终显示滚动条" 偏好下仍会冒一根 14px 灰条。原因：之前是"换更细的皮"，但定制皮在系统强制 always-show 偏好下仍以原生宽度渲染。本轮改成**完全隐藏**滚动条（`scrollbar-width: none` + `::-webkit-scrollbar { display: none }`），靠已有的顶/底渐隐 mask 单独承担"还有内容"的视觉信号；同时去掉 `scrollbar-gutter: stable` 让渐隐 mask 恢复全宽（之前为了给滚动条让位收了 12px）。验证：3 档视口下 `body.offsetWidth - body.clientWidth === 0`

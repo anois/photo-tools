@@ -2211,58 +2211,117 @@ els.changelogModal.addEventListener('click', (e) => {
 });
 checkChangelogBadge();
 
-// ─── Section nav (top of controls panel) ───────────────────────────────
-// Click a letter pill → smooth-scroll the panel so that section's heading
-// sits just under the sticky nav. IntersectionObserver tracks which
-// section's heading is currently in the visible band and toggles .active
-// on the corresponding pill so the user always knows where they are.
-(function wireSectionNav() {
-  const nav = document.getElementById('section-nav');
-  if (!nav) return;
-  const items = nav.querySelectorAll('.section-nav-item');
+// ─── Activity bar — vertical section nav + pane collapse ───────────────
+// Click a letter tile → smooth-scroll the controls pane so that section's
+// heading lands at the top of the visible band. While scrolling, an
+// rAF-batched scroll listener tracks which section is currently topmost
+// and toggles .active on the corresponding tile.
+//
+// Collapse: chevron at top of the bar (or `[` keystroke) flips the
+// workspace[data-pane-collapsed] attribute, which animates the controls
+// cell to 0 width via CSS. Click any tile while collapsed = auto-expand.
+//
+// Keyboard: Cmd/Ctrl+1..7 jumps to A..G; `[` toggles collapse.
+(function wireActivityBar() {
+  const workspace = document.querySelector('.workspace');
+  const bar = document.getElementById('activity-bar');
+  const collapseBtn = document.getElementById('pane-collapse-btn');
+  const tiles = bar.querySelectorAll('.activity-tile');
   const sections = document.querySelectorAll('.pane-controls [data-section]');
-  if (!sections.length) return;
   const pane = document.querySelector('.pane-controls');
+  if (!sections.length || !pane) return;
 
-  items.forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const target = document.querySelector('[data-section="' + btn.dataset.jump + '"]');
-      if (!target) return;
-      // The nav is sticky and ~46px tall — scroll so the section heading
-      // lands flush below it, not behind it.
-      const navH = nav.offsetHeight + 4;
-      const top = target.offsetTop - navH;
-      pane.scrollTo({ top, behavior: 'smooth' });
-    });
+  const COLLAPSED_KEY = 'phototools.paneCollapsed';
+
+  function isCollapsed() {
+    return workspace.hasAttribute('data-pane-collapsed');
+  }
+  function setCollapsed(collapsed) {
+    workspace.toggleAttribute('data-pane-collapsed', collapsed);
+    try { localStorage.setItem(COLLAPSED_KEY, collapsed ? '1' : '0'); } catch (_) {}
+    const labelKey = collapsed ? 'nav.expand' : 'nav.collapse';
+    collapseBtn.setAttribute('data-i18n-aria-label', labelKey);
+    if (window.I18N) collapseBtn.setAttribute('aria-label', window.I18N.t(labelKey));
+  }
+  // Restore prior collapse state (silent — no animation on first paint).
+  try {
+    if (localStorage.getItem(COLLAPSED_KEY) === '1') {
+      // Disable the transition for the initial paint, then restore.
+      const ws = workspace; const shell = document.getElementById('pane-shell');
+      const wsT = ws.style.transition; const shT = shell ? shell.style.transition : '';
+      ws.style.transition = 'none'; if (shell) shell.style.transition = 'none';
+      setCollapsed(true);
+      requestAnimationFrame(() => {
+        ws.style.transition = wsT; if (shell) shell.style.transition = shT;
+      });
+    }
+  } catch (_) {}
+
+  function jumpToSection(key) {
+    const target = document.querySelector('[data-section="' + key + '"]');
+    if (!target) return;
+    if (isCollapsed()) {
+      // While pane is collapsed (width 0), section.offsetTop reports the
+      // wrong value — sections wrap their text differently at zero width
+      // and pile up taller. Wait for the 220ms grid-template-columns
+      // transition to finish, THEN measure offsetTop in the new layout.
+      setCollapsed(false);
+      setTimeout(() => {
+        pane.scrollTo({ top: target.offsetTop - 4, behavior: 'smooth' });
+      }, 240);
+    } else {
+      pane.scrollTo({ top: target.offsetTop - 4, behavior: 'smooth' });
+    }
+  }
+
+  tiles.forEach((btn) => {
+    btn.addEventListener('click', () => jumpToSection(btn.dataset.jump));
   });
+  collapseBtn.addEventListener('click', () => setCollapsed(!isCollapsed()));
 
-  // Mark the section whose body covers the most of the visible band.
-  // rootMargin trims the band so a section is "active" only when its
-  // header is past the nav and its body is well into view.
+  // Active-tile tracking — same rAF-batched scroll-pos approach as before.
   const setActive = (key) => {
-    items.forEach((b) => b.classList.toggle('active', b.dataset.jump === key));
+    tiles.forEach((b) => b.classList.toggle('active', b.dataset.jump === key));
   };
-
-  // Manual scroll-position based active detection (rootMargin on a
-  // scroll-container'd IO is buggy across browsers when the parent has
-  // sticky children of its own). Cheap enough at 7 sections.
   let raf = 0;
   const onScroll = () => {
     if (raf) return;
     raf = requestAnimationFrame(() => {
       raf = 0;
-      const navBottom = nav.getBoundingClientRect().bottom;
+      const paneTop = pane.getBoundingClientRect().top;
       let active = sections[0].dataset.section;
       sections.forEach((sec) => {
         const r = sec.getBoundingClientRect();
-        // Section becomes active once its top crosses below the nav line.
-        if (r.top - navBottom <= 16) active = sec.dataset.section;
+        if (r.top - paneTop <= 16) active = sec.dataset.section;
       });
       setActive(active);
     });
   };
   pane.addEventListener('scroll', onScroll, { passive: true });
   onScroll();
+
+  // Keyboard: `[` toggles collapse, Cmd/Ctrl+1..7 jumps to section.
+  const SECTION_KEYS = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
+  document.addEventListener('keydown', (e) => {
+    if (e.target.matches('input, textarea, select') || e.target.isContentEditable) return;
+    if (e.key === '[' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+      setCollapsed(!isCollapsed());
+      e.preventDefault();
+      return;
+    }
+    if ((e.metaKey || e.ctrlKey) && /^[1-7]$/.test(e.key)) {
+      jumpToSection(SECTION_KEYS[parseInt(e.key, 10) - 1]);
+      e.preventDefault();
+    }
+  });
+
+  // Locale flip → refresh the chevron's aria-label
+  if (window.I18N && window.I18N.onChange) {
+    window.I18N.onChange(() => {
+      const labelKey = isCollapsed() ? 'nav.expand' : 'nav.collapse';
+      collapseBtn.setAttribute('aria-label', window.I18N.t(labelKey));
+    });
+  }
 })();
 
 // ─── PWA service-worker registration + upgrade prompt ──────────────────
