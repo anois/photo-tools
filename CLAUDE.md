@@ -30,9 +30,10 @@ When iterating on this project:
    - Bundled real brand logos (Wikimedia Commons first, simple-icons fallback) in original colors.
    - Chinese in the chat, English in code/commits/files.
 
-3. **Manual browser testing.** There's no automated CI since the backend is gone. After non-trivial changes, two flows:
+3. **Browser testing — drive it yourself, don't ask the user.** There's no automated CI since the backend is gone. After any non-trivial change, verify in a real browser before claiming done. Three flows, in order of when each fits:
 
-   - `npm run dev` → `http://localhost:3000`, load a real EXIF-bearing photo, and verify: preview renders, single export downloads a JPEG with EXIF intact, batch ZIP packs all photos.
+   - **chrome-devtools MCP** — the default interactive verification layer. Spin up the dev server, then drive Chrome via `mcp__plugin_chrome-devtools-mcp_chrome-devtools__*`: `navigate_page` to localhost, `take_snapshot` for the a11y tree (gives you `uid` handles), `click` / `fill` / `evaluate_script` to drive the UI, `take_screenshot` for visual confirmation, and `evaluate_script` for computed styles, DOM state, network, console messages. Use it proactively for any UI / CSS / event-wiring change AND as a regression check after refactors that touch the render or export path. Reading the source CSS or the diff alone is not verification — *something is broken until the rendered output proves otherwise*. **Cache caveat**: when verifying a fix that ships in a precached asset (`styles.css`, `app.js`, etc.), the previously-installed SW will sit `waiting` while the old one keeps serving stale bytes — see "Verifying a shipped CSS/shell fix" in the PWA section for the SKIP_WAITING + caches.delete + reload sequence to run *before* judging the fix.
+   - `npm run dev` → `http://localhost:3000`, load a real EXIF-bearing photo, and verify: preview renders, single export downloads a JPEG with EXIF intact, batch ZIP packs all photos. Use this when you need a free-form human-style smoke against real files (the MCP can't ergonomically pick a file from the user's disk through the OS file picker).
    - `npm run smoke` → `http://localhost:3001/smoke.html`. This is a visual-regression aid that re-renders each `data/<id>_framed.jpg` baseline through the current pipeline and shows diff %, side-by-side. Green &lt;1%, yellow 1–3%, red &gt;3%. ~0.5% baseline noise is expected from JPEG-encode chroma + EXIF re-attach jitter even with no pipeline change. Run after any layout-math edit (rotation, collage cell rects, padding, caption zone, font subsetting). Cfgs for each fixture live inline at the top of `smoke.html` and mirror the canonical look documented for each `data/` pair.
 
 4. **Auto-update `public/CHANGELOG.md` in the same commit as any user-visible change. The agent does this without being prompted.** This is the project's most-visible promise: GitHub visitors see CHANGELOG.md and the in-app ✦ pill renders it live. Skipping it on a feature/fix commit is a regression of the project's contract with users — don't ship a feature without telling them.
@@ -78,6 +79,26 @@ When iterating on this project:
 9. **Good-enough over precise.** The approximate text-width estimator is fine for centering; don't swap it for a font-metrics library unless a misalignment is visually reported.
 
 10. **Don't auto-revert explicit user choices.** If the user says "use Wikimedia logos in original colors", don't switch to monochrome "for consistency" later.
+
+11. **Confirm the requirement is fully resolved before committing — keep history clean.** A commit lands only after the change has been verified end-to-end against the actual user-visible behavior (rule 3, browser testing). No "fix: actually fix it this time" / "fix: forgot the changelog" / "fix: typo from previous commit" follow-ups — they pollute the visible history that users browse on GitHub and read in the in-app changelog modal. Concretely:
+
+    - **Verify before committing, not after.** If a user reports a bug, reproduce it in the browser, ship the fix, then *re-verify in the browser that the symptom is gone*. Rule 3 is the gate, not an afterthought.
+    - **One requirement → one commit.** If a single user request implies multiple changes (code + CHANGELOG + CLAUDE.md + README), they go in the same commit. Don't fragment a logically atomic change into a stutter of fixups.
+    - **Amend, don't append, before pushing.** If you discover a missed file or wrong message *before* `git push`, amend the working commit. Once pushed, treat history as immutable and write the next commit forward — but the only reason to ever land a "fix-up" commit on `main` is genuine new information, not the previous commit's incompleteness.
+    - **Don't pre-commit speculatively.** Don't commit a half-done attempt "to checkpoint progress" expecting to refine it in subsequent commits — local changes hold state perfectly well, and the published history shouldn't carry intermediate stumbles.
+
+12. **Retrospect before each commit — distill recurring lessons into project rules.** Right before staging the final commit for a completed iteration (and *after* rule 11's end-to-end verification), pause and ask: *what went wrong this round that wasn't covered by an existing rule?* If the answer is non-empty, capture the lesson in the same commit before pushing. Without this step the same trap recurs across sessions because the agent has no persistent memory of "we already learned this." The bar for what to capture:
+
+    - **Was there a wrong-turn or wasted round?** (e.g. "spent a round chasing a CSS bug that was actually a stale SW cache" → write the SW-cache caveat into the PWA section + add a verification-time rule.)
+    - **Did the user have to correct or re-direct the approach?** (a correction that's specific to *this codebase / this workflow* belongs here; correction that's specific to *this user's preferences* belongs in the auto-memory system, not here.)
+    - **Would a future Claude session, with no memory of today, fall into the same trap?** If yes, capture it. If the lesson is already implicit in existing rules or in the code itself, don't restate it.
+
+    Where the lesson lands depends on its type:
+    - Concrete technical gotcha tied to a specific subsystem → "Pitfalls discovered during build" section, or the relevant subsystem section (PWA, render pipeline, EXIF, etc.).
+    - Process / workflow rule that should govern *every* future change → a new numbered rule in this list.
+    - One-off implementation detail that's already obvious from the code → don't write it down; the code is the source of truth (rule 7).
+
+    Quality bar: each captured lesson must include enough *why* (the failure mode it prevents) that a future reader can judge edge cases, not just mechanically obey. Rules without their reasoning rot into superstition.
 
 ## Quick start
 
@@ -474,6 +495,23 @@ Net effect: deploy lands → user navigates → browser fetches HTML from origin
 **Upgrade UX**: the install handler does **not** call `skipWaiting()` automatically — silently swapping JS mid-session leads to weird half-loaded states. Instead, when `app.js` detects a `installed` SW waiting (via `registration.updatefound` + `statechange`), it surfaces the `#update-banner` ("New version available · Refresh"). Click → `waitingSw.postMessage({type:'SKIP_WAITING'})` → SW activates → `controllerchange` fires → page reloads cleanly. There's a `message` listener in the SW that translates that postMessage into `self.skipWaiting()`.
 
 **Dev caveat**: the SW caches files aggressively. During development run with DevTools "Update on reload" enabled, or unregister the SW via DevTools → Application → Service Workers. Otherwise edits to `app.js` etc. won't show up until the next stale-while-revalidate cycle completes.
+
+**Verifying a shipped CSS/shell fix in Chrome (or Chrome MCP) — activate the new SW first.** After bumping `CACHE_VERSION` and shipping a fix that lives in `styles.css` / a precached asset, opening the page in a browser that already has the previous SW installed will give a *false negative*: the new SW installs as `waiting` while the old (`active`) SW keeps serving the previous cache, so computed styles and `cssRules` reflect the pre-fix CSS even though the file on disk is correct. Diagnostic signature:
+
+- `await caches.keys()` → both `phototools-shell-v<old>` and `phototools-shell-v<new>` present
+- `(await navigator.serviceWorker.getRegistrations())[0]` → has both `active` and `waiting`
+- The CSSOM rules for the affected selector are missing the new properties
+
+Before judging the fix, force-activate the new SW + drop caches + hard reload:
+
+```js
+const regs = await navigator.serviceWorker.getRegistrations();
+for (const r of regs) r.waiting?.postMessage({ type: 'SKIP_WAITING' });
+for (const n of await caches.keys()) await caches.delete(n);
+location.reload();
+```
+
+Then re-check computed styles. Only conclude "fix doesn't work" after this dance — otherwise you'll waste a round re-fixing already-correct code (and a real fix is what's left over after subtracting cache staleness from the apparent failure). Same logic applies whether you're driving the browser by hand or via `mcp__plugin_chrome-devtools-mcp_chrome-devtools__*`.
 
 ### EXIF round-trip (`public/exifio.js`)
 
