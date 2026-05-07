@@ -218,6 +218,13 @@ function setStatus(keyOrText, mode, vars) {
   els.statusbar.classList.toggle('err', mode === 'err');
 }
 
+// Number + dim unit ('70 px' rendered as `70` strong + `PX` dim·smaller).
+// Pass null/empty unit for unitless values; falls back to plain textContent.
+function setReadoutNum(el, value, unit) {
+  if (unit) el.innerHTML = String(value) + '<span class="ru">' + unit + '</span>';
+  else el.textContent = String(value);
+}
+
 function refreshLocaleSensitive() {
   els.status.textContent = T(currentStatus.key, currentStatus.vars);
   // Defaults / readouts that store a literal need to be repainted from cfg.
@@ -415,10 +422,10 @@ function syncControlsFromCfg(cfg) {
   setSegActive(els.frameSeg, cfg.frame);
   els.template.value = cfg.template;
   els.padding.value = cfg.padding;
-  els.paddingVal.textContent = T('frame.paddingUnit', { n: cfg.padding });
+  setReadoutNum(els.paddingVal, cfg.padding, 'px');
   if (cfg.captionHeight != null) {
     els.captionH.value = cfg.captionHeight;
-    els.captionHVal.textContent = T('frame.captionUnit', { n: cfg.captionHeight });
+    setReadoutNum(els.captionHVal, cfg.captionHeight, 'px');
   } else {
     els.captionHVal.textContent = T('frame.captionAuto');
   }
@@ -427,7 +434,8 @@ function syncControlsFromCfg(cfg) {
     els.bgBlur.value = cfg.bgBlur != null ? cfg.bgBlur : frame.bg.blurSigma;
     els.bgBrightness.value = cfg.bgBrightness != null ? cfg.bgBrightness : frame.bg.brightness;
     els.bgSaturation.value = cfg.bgSaturation != null ? cfg.bgSaturation : frame.bg.saturation;
-    els.bgBlurVal.textContent = cfg.bgBlur != null ? String(cfg.bgBlur) : T('frame.defaultReadout');
+    if (cfg.bgBlur != null) setReadoutNum(els.bgBlurVal, cfg.bgBlur, 'px');
+    else els.bgBlurVal.textContent = T('frame.defaultReadout');
     els.bgBrightnessVal.textContent = cfg.bgBrightness != null ? Number(cfg.bgBrightness).toFixed(2) : T('frame.defaultReadout');
     els.bgSaturationVal.textContent = cfg.bgSaturation != null ? Number(cfg.bgSaturation).toFixed(2) : T('frame.defaultReadout');
   }
@@ -436,8 +444,8 @@ function syncControlsFromCfg(cfg) {
   els.shadowBlur.value = cfg.shadowBlur;
   els.shadowOffset.value = cfg.shadowOffsetY;
   els.shadowOpacity.value = cfg.shadowOpacity;
-  els.shadowBlurVal.textContent = String(cfg.shadowBlur);
-  els.shadowOffsetVal.textContent = String(cfg.shadowOffsetY);
+  setReadoutNum(els.shadowBlurVal, cfg.shadowBlur, 'px');
+  setReadoutNum(els.shadowOffsetVal, cfg.shadowOffsetY, 'px');
   els.shadowOpacityVal.textContent = Number(cfg.shadowOpacity).toFixed(2);
   els.showFields.querySelectorAll('input[type=checkbox]').forEach((cb) => {
     cb.checked = !!cfg.showFields[cb.dataset.key];
@@ -602,9 +610,9 @@ function syncSignatureFromCfg(cfg) {
   const scalePct = Math.round((has ? (cl.scale != null ? cl.scale : 0.06) : 0.06) * 100);
   const opacity = has ? (cl.opacity != null ? cl.opacity : 1) : 1;
   els.signatureScale.value = scalePct;
-  els.signatureScaleVal.textContent = scalePct + '%';
+  setReadoutNum(els.signatureScaleVal, scalePct, '%');
   els.signatureOpacity.value = opacity;
-  els.signatureOpacityVal.textContent = Math.round(opacity * 100) + '%';
+  setReadoutNum(els.signatureOpacityVal, Math.round(opacity * 100), '%');
   els.signaturePosSeg.querySelectorAll('button').forEach((b) => { b.disabled = !has; });
   els.signatureScale.disabled = !has;
   els.signatureOpacity.disabled = !has;
@@ -825,15 +833,15 @@ function onFrameChange(frameName) {
   els.shadowBlur.value = sd.blur;
   els.shadowOffset.value = sd.offsetY;
   els.shadowOpacity.value = sd.opacity;
-  els.shadowBlurVal.textContent = String(sd.blur);
-  els.shadowOffsetVal.textContent = String(sd.offsetY);
+  setReadoutNum(els.shadowBlurVal, sd.blur, 'px');
+  setReadoutNum(els.shadowOffsetVal, sd.offsetY, 'px');
   els.shadowOpacityVal.textContent = sd.opacity.toFixed(2);
 }
 
 els.bgBlur.addEventListener('input', () => {
   const v = Number(els.bgBlur.value);
   activeCfg().bgBlur = v;
-  els.bgBlurVal.textContent = String(v);
+  setReadoutNum(els.bgBlurVal, v, 'px');
   requestRender();
 });
 els.bgBrightness.addEventListener('input', () => {
@@ -857,13 +865,13 @@ els.resetBgBtn.addEventListener('click', () => {
 els.shadowBlur.addEventListener('input', () => {
   const v = Number(els.shadowBlur.value);
   activeCfg().shadowBlur = v;
-  els.shadowBlurVal.textContent = String(v);
+  setReadoutNum(els.shadowBlurVal, v, 'px');
   requestRender();
 });
 els.shadowOffset.addEventListener('input', () => {
   const v = Number(els.shadowOffset.value);
   activeCfg().shadowOffsetY = v;
-  els.shadowOffsetVal.textContent = String(v);
+  setReadoutNum(els.shadowOffsetVal, v, 'px');
   requestRender();
 });
 els.shadowOpacity.addEventListener('input', () => {
@@ -883,7 +891,7 @@ els.quality.addEventListener('change',  () => { state.quality = els.quality.valu
 els.padding.addEventListener('input', () => {
   const v = Number(els.padding.value);
   activeCfg().padding = v;
-  els.paddingVal.textContent = T('frame.paddingUnit', { n: v });
+  setReadoutNum(els.paddingVal, v, 'px');
   requestRender();
 });
 
@@ -892,7 +900,7 @@ els.padding.addEventListener('input', () => {
 els.captionH.addEventListener('input', () => {
   const v = Number(els.captionH.value);
   activeCfg().captionHeight = v;
-  els.captionHVal.textContent = T('frame.captionUnit', { n: v });
+  setReadoutNum(els.captionHVal, v, 'px');
   requestRender();
 });
 els.captionHVal.addEventListener('dblclick', () => {
@@ -1025,7 +1033,7 @@ els.signatureScale.addEventListener('input', () => {
   if (!cfg.customLogo) return;
   const pct = Number(els.signatureScale.value);
   cfg.customLogo = { ...cfg.customLogo, scale: pct / 100 };
-  els.signatureScaleVal.textContent = pct + '%';
+  setReadoutNum(els.signatureScaleVal, pct, '%');
   requestRender();
 });
 
@@ -1034,7 +1042,7 @@ els.signatureOpacity.addEventListener('input', () => {
   if (!cfg.customLogo) return;
   const v = Number(els.signatureOpacity.value);
   cfg.customLogo = { ...cfg.customLogo, opacity: v };
-  els.signatureOpacityVal.textContent = Math.round(v * 100) + '%';
+  setReadoutNum(els.signatureOpacityVal, Math.round(v * 100), '%');
   requestRender();
 });
 
@@ -1985,9 +1993,9 @@ els.presetSelect.addEventListener('change', () => {
     const sc = Math.round((preset.customLogo.scale != null ? preset.customLogo.scale : 0.06) * 100);
     const op = preset.customLogo.opacity != null ? preset.customLogo.opacity : 1;
     els.signatureScale.value = sc;
-    els.signatureScaleVal.textContent = sc + '%';
+    setReadoutNum(els.signatureScaleVal, sc, '%');
     els.signatureOpacity.value = op;
-    els.signatureOpacityVal.textContent = Math.round(op * 100) + '%';
+    setReadoutNum(els.signatureOpacityVal, Math.round(op * 100), '%');
     els.signaturePosSeg.querySelectorAll('button').forEach((b) => { b.disabled = false; });
     els.signatureScale.disabled = false;
     els.signatureOpacity.disabled = false;

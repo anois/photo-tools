@@ -58,7 +58,7 @@
   <aside class="pane pane-controls" data-i18n-aria-label="sections.source">
 
     <section class="group">
-      <h2 class="sec-head"><i>A</i><span data-i18n="sections.source">Source</span></h2>
+      <h2 class="sec-head"><span class="sec-mark">A</span><span data-i18n="sections.source">Source</span></h2>
       <label class="file-drop" id="file-drop">
         <input id="file-input" type="file" accept="image/jpeg,image/png,image/heic,image/heif,.heic,.heif" multiple />
         <div class="file-drop-inner">
@@ -76,7 +76,7 @@
 
     <!-- B · Frame -->
     <section class="group">
-      <h2 class="sec-head"><i>B</i><span data-i18n="sections.frame">Frame</span></h2>
+      <h2 class="sec-head"><span class="sec-mark">B</span><span data-i18n="sections.frame">Frame</span></h2>
       <details class="preset-panel" id="preset-panel">
         <summary><span data-i18n="frame.presets">Presets</span> <span class="summary-hint" data-i18n="frame.presetsHint">save · apply · share</span></summary>
         <div class="row">
@@ -117,7 +117,7 @@
       </div>
       <div class="row">
         <div class="field">
-          <label class="field-label"><span data-i18n="frame.padding">Padding</span> <span class="field-readout" id="padding-val">70 px</span></label>
+          <label class="field-label"><span data-i18n="frame.padding">Padding</span> <span class="field-readout" id="padding-val">70<span class="ru">px</span></span></label>
           <input id="padding" type="range" min="0" max="200" value="70" step="2" />
         </div>
       </div>
@@ -202,7 +202,7 @@
 
     <!-- C · Caption -->
     <section class="group">
-      <h2 class="sec-head"><i>C</i><span data-i18n="sections.caption">Caption</span></h2>
+      <h2 class="sec-head"><span class="sec-mark">C</span><span data-i18n="sections.caption">Caption</span></h2>
       <div class="row">
         <div class="field">
           <label class="field-label" data-i18n="caption.template">Template</label>
@@ -236,7 +236,7 @@
     </section>
 
     <section class="group">
-      <h2 class="sec-head"><i>D</i><span data-i18n="sections.exif">EXIF</span></h2>
+      <h2 class="sec-head"><span class="sec-mark">D</span><span data-i18n="sections.exif">EXIF</span></h2>
       <div id="exif-warn" class="warn" hidden></div>
       <details class="exif" id="exif-details">
         <summary><span data-i18n="exif.summary">EXIF</span> <span class="summary-hint" data-i18n="exif.summaryHint">read · edit</span></summary>
@@ -268,7 +268,7 @@
 
     <!-- E · Collage -->
     <section class="group">
-      <h2 class="sec-head"><i>E</i><span data-i18n="sections.collage">Collage</span></h2>
+      <h2 class="sec-head"><span class="sec-mark">E</span><span data-i18n="sections.collage">Collage</span></h2>
       <div class="row">
         <div class="field">
           <label class="field-label" data-i18n="collage.layout">Layout</label>
@@ -287,7 +287,7 @@
 
     <!-- F · Signature -->
     <section class="group">
-      <h2 class="sec-head"><i>F</i><span data-i18n="sections.signature">Signature</span></h2>
+      <h2 class="sec-head"><span class="sec-mark">F</span><span data-i18n="sections.signature">Signature</span></h2>
       <label class="file-drop signature-drop" id="signature-drop">
         <input id="signature-input" type="file" accept="image/svg+xml,image/png" />
         <div class="file-drop-inner">
@@ -316,20 +316,20 @@
       </div>
       <div class="row">
         <div class="field">
-          <label class="field-label"><span data-i18n="signature.size">Size</span> <span class="field-readout" id="signature-scale-val">6%</span></label>
+          <label class="field-label"><span data-i18n="signature.size">Size</span> <span class="field-readout" id="signature-scale-val">6<span class="ru">%</span></span></label>
           <input id="signature-scale" type="range" min="3" max="20" step="1" value="6" />
         </div>
       </div>
       <div class="row">
         <div class="field">
-          <label class="field-label"><span data-i18n="signature.opacity">Opacity</span> <span class="field-readout" id="signature-opacity-val">100%</span></label>
+          <label class="field-label"><span data-i18n="signature.opacity">Opacity</span> <span class="field-readout" id="signature-opacity-val">100<span class="ru">%</span></span></label>
           <input id="signature-opacity" type="range" min="0.2" max="1" step="0.05" value="1" />
         </div>
       </div>
     </section>
 
     <section class="group">
-      <h2 class="sec-head"><i>G</i><span data-i18n="sections.export">Export</span></h2>
+      <h2 class="sec-head"><span class="sec-mark">G</span><span data-i18n="sections.export">Export</span></h2>
       <div class="row row-2">
         <div class="field">
           <label class="field-label" data-i18n="export.quality">Quality</label>

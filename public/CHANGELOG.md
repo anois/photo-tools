@@ -4,6 +4,23 @@
 
 每次有意义的功能 / 修复 / 优化都记到这里 —— 同一份文件既给开发者看，也通过顶栏 ✦ 按钮在应用内展示给用户。
 
+## 0.6 · 2026-05-07
+
+### ✨ UI 细节打磨 (UI polish pass)
+
+- **导出进度条改用主题红色** — 之前批量导出弹窗的进度条用蓝色 `#5b8def → #7aa3ff` 渐变，是全 UI 唯一一处偏离暗房红的地方，最有仪式感的瞬间反而最跳。改成 `--accent → #f05a4b` 红色渐变 + accent glow，错误列表也从桃色 `#ffa67a` 统一为 `--accent`
+- **分段控件激活态更显眼** — `.seg button.active` 之前是红字（contrast ~3.6:1，11px 偏弱），改成白字 + 600 字重 + 底部 2px 红色 inset 标记，读起来像真实的机械键 / tab 高亮
+- **Slider thumb 全局统一** — 之前裁剪 modal 用白边红心、主面板用灰白圆点，同一控件两套外观。统一成 12px 红心 + 2px 白边 + accent glow，focus-visible 时外扩 4px accent-soft 光晕
+- **Select 用真正的 SVG 雪佛龙** — 替换掉用两个线性渐变拼出来的 X 形 chevron，inline SVG 三态（默认 dim / hover muted / focus accent）
+- **数值与单位视觉分层** — Padding / Caption height / Shadow blur·offset / Signature size·opacity 等读数把单位（PX / %）拆出来用更小、更暗的字号，"70 px" 变成强调数字 + 弱化单位，更像仪表盘读数
+- **Disabled 按钮不再隐形** — 未导入照片时 Export current / Batch · ZIP 透明度从 0.4 提到 0.55，首屏就能看见这两个功能存在
+- **Chip 键盘焦点态** — Show fields 段的复选 chip 现在键盘 Tab 切到时有 accent-line 边框 + 光晕，不再"切到了不知道"
+- **品牌点慢呼吸** — 顶栏左上的红点之前永远静态，加了 4.5s 呼吸（5px → 11px glow），让首屏不那么死板。`prefers-reduced-motion` 下自动停
+- **Crop modal Apply 主按钮加重** — 比 Reset / Cancel 略大、字重 600、accent glow，主路径不再被同高 ghost 按钮淹没
+- **状态栏文字按 locale 大写** — EN locale 下 mono-caps + 字距，与 brand-sub / sec-head / kbd 统一；zh-CN locale 下保持原样（中文不能 uppercase）
+- **`<i>A/B/C…</i>` 改 `<span class="sec-mark">`** — 区段编号徽章原来用 `<i>` 标签 + `font-style: normal` 反着用，屏幕阅读器会读成"重点：A"。改成语义中性的 span
+- **杂项**：Frame badge 与 preview-loading 标签风格统一（都用 3px 方块 + 同一 backdrop blur）；裸 `rgba(229, 73, 58, …)` 字面量全部抽成 `--accent-wash` / `--accent-vignette` 变量；Update banner 删掉重复的 1px outer shadow；preview-canvas 背景 `#101115` 改用 `--bg-canvas` 变量
+
 ## 0.5 · 2026-05-07
 
 ### 🌀 旋转 & 裁剪 (Rotate & crop overhaul)
