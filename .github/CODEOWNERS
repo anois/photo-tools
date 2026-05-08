@@ -1,0 +1,4 @@
+# 全仓默认 owner / default owner for the whole repo.
+# 将来加协作者或拆分子目录所有权时再细化。
+# Add per-path owners later when more contributors join.
+* @anois
