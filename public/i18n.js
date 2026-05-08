@@ -24,9 +24,66 @@
         photos: '张',
         switch: '切换',
         export: '导出',
+        import: '导入',
         github: '在 GitHub 查看源码'
       },
       lang: { zh: '中', en: 'EN', label: '语言' },
+      lookbar: {
+        frame: '相框',
+        template: '模板',
+        aspect: '画幅',
+        quality: '质量'
+      },
+      picker: {
+        frame: '选择相框',
+        frameSub: ' 款 · 4 个家族',
+        template: '选择文字模板',
+        templateSub: ' 款 · 4 个语法',
+        aspect: '画幅比例',
+        aspectSub: '5 个预设 + 自定义',
+        quality: '导出',
+        qualitySub: '质量 + 格式'
+      },
+      workshop: {
+        title: '工作台',
+        open: '打开工作台',
+        close: '关闭工作台',
+        padding: '边距 + 文字带',
+        exifOverride: '按图覆盖',
+        signature: '签名',
+        tabs: {
+          tweak: '微调',
+          exif: 'EXIF',
+          sign: '签名',
+          tile: '拼贴',
+          lib: '预设库'
+        }
+      },
+      cmdk: {
+        open: '打开命令面板',
+        title: '命令面板',
+        search: '搜索',
+        placeholder: '搜索相框 / 模板 / 操作…',
+        empty: '没有匹配项。试试"毛玻璃"、"导出"、"1:1"。',
+        groupFrames: '相框',
+        groupTemplates: '文字模板',
+        groupAspects: '画幅',
+        groupActions: '操作',
+        aspectLabel: '画幅',
+        actions: {
+          exportCurrent: '导出当前照片',
+          exportBatch: '批量导出 ZIP',
+          crop: '裁剪 & 旋转…',
+          editExif: '编辑 EXIF',
+          uploadSignature: '上传签名',
+          collage: '配置拼贴',
+          savePreset: '保存为预设',
+          copyShare: '复制分享链接',
+          applyFrameAll: '相框设置应用到全部',
+          changelog: '查看更新日志',
+          import: '导入照片'
+        }
+      },
       sections: {
         source: '原图',
         frame: '相框',
@@ -209,12 +266,19 @@
         quality: '质量',
         format: '格式',
         qualities: {
-          standard: '标准 · 1440',
-          high: '高清 · 2×',
-          original: '原始 · 原生'
+          standard: '标准',
+          high: '高清',
+          original: '原始'
         },
-        exportCurrent: '导出当前',
+        qualityNative: '原生',
+        qualityHelp: {
+          standard: '社交分享。文件最小、导出最快。',
+          high: '打印 / 大屏。约 3× 文件体积。',
+          original: '源分辨率。像素级精度，最慢。iOS Safari 可能上限 4096px。'
+        },
+        exportCurrent: '导出',
         batchZip: '批量 · ZIP',
+        batchShort: 'ZIP',
         modalTitle: '导出中…',
         modalDoneTitle: '已完成',
         modalDoneWithErrors: '完成 · 有错误',
@@ -229,9 +293,11 @@
       canvas: {
         dropHint: '拖入照片以导入',
         emptyTitle: '尚未载入照片',
-        emptySubDesktop: '从左侧导入，或拖到此处。',
-        emptySubMobile: '点击上方“导入照片”。',
+        emptySubLookbar: '从顶栏导入，或直接把照片拖到画布。',
         rendering: '渲染中'
+      },
+      statusbar: {
+        hints: '<kbd>J</kbd> / <kbd>K</kbd> 切照片 · <kbd>⌘K</kbd> 搜索 · <kbd>⌘E</kbd> 导出 · 空格 看原图 · esc 关闭'
       },
       rail: {
         head: '胶卷',
@@ -322,9 +388,66 @@
         photos: 'photos',
         switch: 'switch',
         export: 'export',
+        import: 'import',
         github: 'View source on GitHub'
       },
       lang: { zh: '中', en: 'EN', label: 'Language' },
+      lookbar: {
+        frame: 'Frame',
+        template: 'Template',
+        aspect: 'Aspect',
+        quality: 'Quality'
+      },
+      picker: {
+        frame: 'Pick a frame',
+        frameSub: ' styles · 4 families',
+        template: 'Caption template',
+        templateSub: ' layouts · 4 grammars',
+        aspect: 'Aspect ratio',
+        aspectSub: '5 presets + custom',
+        quality: 'Export',
+        qualitySub: 'quality + format'
+      },
+      workshop: {
+        title: 'Workshop',
+        open: 'Open workshop',
+        close: 'Close workshop',
+        padding: 'Padding & caption',
+        exifOverride: 'Override (per photo)',
+        signature: 'Signature',
+        tabs: {
+          tweak: 'Tweak',
+          exif: 'EXIF',
+          sign: 'Sign',
+          tile: 'Tile',
+          lib: 'Library'
+        }
+      },
+      cmdk: {
+        open: 'Open command palette',
+        title: 'Command palette',
+        search: 'Search',
+        placeholder: 'Search frames, templates, actions…',
+        empty: 'No matches. Try “frosted”, “export”, or “1:1”.',
+        groupFrames: 'Frames',
+        groupTemplates: 'Templates',
+        groupAspects: 'Aspects',
+        groupActions: 'Actions',
+        aspectLabel: 'Aspect',
+        actions: {
+          exportCurrent: 'Export current photo',
+          exportBatch: 'Export batch as ZIP',
+          crop: 'Crop & rotate…',
+          editExif: 'Edit EXIF override',
+          uploadSignature: 'Upload signature',
+          collage: 'Configure collage',
+          savePreset: 'Save look as preset',
+          copyShare: 'Copy share link',
+          applyFrameAll: 'Apply frame to all photos',
+          changelog: 'Open changelog',
+          import: 'Import photos'
+        }
+      },
       sections: {
         source: 'Source',
         frame: 'Frame',
@@ -507,12 +630,19 @@
         quality: 'Quality',
         format: 'Format',
         qualities: {
-          standard: 'Standard · 1440',
-          high: 'High · 2×',
-          original: 'Original · native'
+          standard: 'Standard',
+          high: 'High',
+          original: 'Original'
         },
-        exportCurrent: 'Export current',
+        qualityNative: 'native',
+        qualityHelp: {
+          standard: 'Web sharing & messaging.',
+          high: 'Print & large displays.',
+          original: 'Source-resolution. iOS Safari may cap at 4096px.'
+        },
+        exportCurrent: 'Export',
         batchZip: 'Batch · ZIP',
+        batchShort: 'ZIP',
         modalTitle: 'Exporting…',
         modalDoneTitle: 'Exported',
         modalDoneWithErrors: 'Exported · errors',
@@ -527,9 +657,11 @@
       canvas: {
         dropHint: 'Drop photos to import',
         emptyTitle: 'No photo loaded',
-        emptySubDesktop: 'Import from the left panel, or drop here.',
-        emptySubMobile: 'Tap “Import photos” above.',
+        emptySubLookbar: 'Import from the topbar, or drop here.',
         rendering: 'rendering'
+      },
+      statusbar: {
+        hints: '<kbd>J</kbd> / <kbd>K</kbd> photo · <kbd>⌘K</kbd> search · <kbd>⌘E</kbd> export · space peek · esc close'
       },
       rail: {
         head: 'Roll',
