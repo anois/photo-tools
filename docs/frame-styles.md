@@ -2,7 +2,7 @@
 
 **v0.10 · 2026-05-08**
 
-photo-tools 的相框系统当前共 **9 款相框 × 4 个家族**，每个家族两到三款变体。本文档说明每款相框的设计意图、视觉灵感、技术实现、推荐配对的水印模板、以及已知的不适用场景，作为后续整改的 review 基线。
+photo-tools 的相框系统当前共 **10 款相框 × 4 个家族**，每个家族两到三款变体。本文档说明每款相框的设计意图、视觉灵感、技术实现、推荐配对的水印模板、以及已知的不适用场景，作为后续整改的 review 基线。
 
 ---
 
@@ -186,7 +186,7 @@ photo-tools 的相框系统当前共 **9 款相框 × 4 个家族**，每个家�
 
 ## 4. 胶片 / Film
 
-**家族定位**：实物胶片质感、电影感。当前家族只有 1 款（`film-35`），但留出扩展位（如 `film-medium-format` 中画幅胶片）。
+**家族定位**：实物胶片质感、电影感。当前家族 2 款：35mm 电影胶片 + 120 中画幅胶片，覆盖 motion-picture 和 medium-format 两条主流胶片审美轨。
 
 ### 4.1 `film-35` （35mm 胶片）🆕
 
@@ -229,6 +229,41 @@ photo-tools 的相框系统当前共 **9 款相框 × 4 个家族**，每个家�
   - `date-lens`（简单时间戳）
 - **跨画幅适配性**（自适应齿孔密度修复后）：9:16 / 3:4 / 4:3 / 1:1 / 16:9 全部信号清晰，旧版"不适合极端宽画幅"的限制已**解除**。3:4 portrait 信号最强（最接近真实胶片单帧比例）
 
+### 4.2 `film-mf` （中画幅胶片）🆕
+
+> 跟 `film-35` 是表亲，但视觉语法刻意拉开距离——一眼区分"35mm 电影胶片"和"120 中画幅胶卷"。
+
+- **设计意图**：把照片包装成一帧 120 卷装中画幅胶片（Hasselblad / Mamiya / Rolleiflex 出片风格）。视觉栈：
+  ```
+  [stock label: "FUJIFILM · 120 · ASA 640"     6×6]   ← 顶部 header strip
+  [photo, with cream hairline]                          ← 主图，奶油细线锁边
+  [07 / 12]                                             ← bottom frame number
+  [caption strip]
+  ```
+- **视觉灵感**：120 roll film（Kodak Portra 400 / Fuji Pro 400H / Ilford HP5+）的实物外观——较宽的 rebate（黑边）、印在边缘的 brand stock 文本、1..12 编号
+- **跟 `film-35` 的关键差异**（从远处也能一眼区分）：
+  - **没有齿孔**——120 卷装胶片**真实上**没有 sprocket holes，胶片靠 paper backing 推进。doc 末尾候选清单原本提议"齿孔模式更稀疏"，但深入实物对比后发现"无齿孔"才是 medium-format 最强的视觉签名，遵从实物
+  - **更厚的 rebate**：`topPaddingBoost: 130` + `bottomPaddingBoost: 160`（vs film-35 的 70 / 90）。120 负片实物的边距比 35mm 大很多，proportionally 也是
+  - **更长的 stock label**：`BRAND · 120 · ASA NNN`（vs film-35 的 `BRAND · NNNT · DX`）。120 没有 DX code（DX 是 35mm 罐头独有），也没有 T 后缀（tungsten balance 是 cinematic 35mm 才有的概念），所以诚实标注 `ASA`
+  - **frame number 用 `NN / 12`**（vs film-35 的 `· DDA ·`）。6×6 一卷 12 张是黄金标准，"X of 12" 是 medium-format 用户最熟悉的进度提示形式
+  - **顶部右上角 `6×6` 标签**——medium-format 最 iconic 的方画幅符号，不能埋
+- **技术实现**：
+  - `bg.type: 'solid', color: '#100c08'`（同 film-35，warm dark，保持胶片家族色调统一）
+  - `layout.topPaddingBoost: 130 / bottomPaddingBoost: 160`（更宽 rebate 给 stock label / frame number 留呼吸空间）
+  - decorate hook：
+    - 顶部 stock label `BRAND · 120 · ASA ${ISO}` 左对齐 fgL，cream 0.82 alpha，bold 15×scale；右上角 `6×6` 同行，cream 0.62 alpha，13×scale
+    - 底部 frame number `NN / 12` 左对齐，cream 0.78 alpha，14×scale，Y 用 `layout.caption.y` 算 photo↔caption gutter 中点（同 film-35，一致的 label 高度）
+    - 照片边 cream 0.10 alpha hairline（同 film-35）
+  - shadowDefault: 0 / 0 / 0（同 film-35，胶片是 2D）
+- **推荐配对**：
+  - `passport`（最贴 medium-format 那种"严肃记录"调性）
+  - `minimal-text`（极简一行参数）
+  - `slate`（场记板 mono 字体，跟胶片同语系）
+- **跨画幅适配性**：1:1（最贴近 6×6 真实画幅）信号最强；3:4 / 9:16 / 4:3 也都成立。16:9 极端宽画幅由于上下 rebate 占比变高，主图被挤窄，信号弱化但仍可读
+- **不适合**：
+  - 极致宽画幅（16:9 + ）—— rebate 占比过高
+  - 没有 EXIF Make 的源图（label 降级为 `FILM · 120 · ASA 400`，可读但少了真实感）
+
 ---
 
 ## 跨家族取舍
@@ -246,8 +281,8 @@ photo-tools 的相框系统当前共 **9 款相框 × 4 个家族**，每个家�
 
 | 风格 | textStyle | 原因 |
 |---|---|---|
-| frosted / frosted-noir / gallery-noir / film-35 | `light` | 深底白字 |
-| gallery-white / polaroid / instax / editorial | `dark` | 浅底深字 |
+| frosted / frosted-noir / gallery-noir / film-35 / film-mf | `light` | 深底白字 |
+| gallery-white / polaroid / instax / editorial / editorial-mirror | `dark` | 浅底深字 |
 
 ### 推荐 frame × template 默认配对
 
@@ -260,7 +295,9 @@ photo-tools 的相框系统当前共 **9 款相框 × 4 个家族**，每个家�
 | polaroid | date-lens | wordmark |
 | instax | date-lens | wordmark |
 | film-35 | passport | slate / date-lens |
+| film-mf | passport | minimal-text / slate |
 | editorial | headline | wordmark |
+| editorial-mirror | headline | wordmark |
 
 > **当前并未实现"切相框时自动切默认模板"**——这是 Phase 5 的待办项。改造后用户切到 editorial 自动配 headline，切到 polaroid 自动配 date-lens，省一步操作。
 
@@ -280,7 +317,7 @@ photo-tools 的相框系统当前共 **9 款相框 × 4 个家族**，每个家�
 
 ## 后续候选改造方向（求 review 意见）
 
-1. **是否再加一款 `film-medium-format`（中画幅胶片）？** 6×6 / 6×7 画幅；齿孔模式更稀疏；leader 印章更长。能丰富胶片家族但是开发成本中
+1. ~~**是否再加一款 `film-medium-format`（中画幅胶片）？**~~ ✅ **已实现**：作为 `film-mf`（参见 4.2 节）。设计上偏离了 doc 原始建议的"齿孔更稀疏"——深入实物对比后发现**真实 120 中画幅胶片没有齿孔**（靠 paper backing 推进，不是 sprocket），"无齿孔 + 更厚 rebate + 1/12 frame number + 6×6 标签"才是 medium-format 最强的视觉签名。slug 用 `film-mf` 而非 `film-medium-format`，跟 `film-35` 的简写约定保持一致
 2. ~~**`gallery-noir` 的 phosphor 高光线现在很弱（rgba 0.16）—— 是否需要更明显？**~~ ✅ **已实现**：alpha 0.16 → 0.28（参见 2.2 节）。0.28 是 doc 建议探索区间 0.25–0.35 的下限，凑近看是清晰的细线但不抢戏，结构性边框感没出现。0.35 测过一次太硬了，回退
 3. ~~**`editorial` 是否需要 left-aligned 镜像变体？**~~ ✅ **已实现**：作为独立 frame `editorial-mirror`（参见 1.4 节），不走 cfg flag——保持 frame 的"一个 key 一种视觉"原则，preset / share-code 也跟其他 frame 一样直接流转。新增 layout 选项 `extraLeftInset` 是 `extraRightInset` 的镜像，两者互斥
 4. **`polaroid` / `instax` 的底部 caption 区是否应该限制只能用某些模板？** 当前如果用户在 polaroid 配 `slate`（场记板），mono 字体 + 4 行数据塞进底部小白条会很挤。要不要在 picker 里隐藏不兼容的组合，或给一个 warning？
@@ -300,6 +337,7 @@ photo-tools 的相框系统当前共 **9 款相框 × 4 个家族**，每个家�
 | polaroid | `public/frames/polaroid.js` | — |
 | instax | `public/frames/instax.js` | — |
 | film-35 | `public/frames/film-35.js` | — |
+| film-mf | `public/frames/film-mf.js` | — |
 | editorial | `public/frames/editorial.js` | — |
 | editorial-mirror | `public/frames/editorial-mirror.js` | — |
 
