@@ -4,6 +4,25 @@
 
 每次有意义的功能 / 修复 / 优化都记到这里 —— 同一份文件既给开发者看，也通过顶栏 ✦ 按钮在应用内展示给用户。
 
+## 0.15.1 · 2026-05-09
+
+### ✨ 界面美感细节优化
+
+继 0.15 工具栏重设计后的一轮 typography + motion polish。把 Fraunces serif 推到更多有"编辑感"的位置，让画面节奏更像暗房而不是 SaaS 表单。
+
+- **底部 Look bar 更舒展** —— 高度 40 → 44px，chip 间距、swatch（20×14 → 24×18）、value 字号（13 → 14.5px）一起放大。caret 从文字 `▾` 换成 SVG，picker 打开时旋转 180°
+- **active chip 跟随的暖色光** —— Look bar 顶端的 accent 高光线现在动态跟着当前打开的 chip 居中，连同后面的 radial halo 一起。这是个细微的"当前焦点的余晖"，让操作有方向感
+- **chip value 切换微动效** —— 切相框 / 切模板时，对应 chip 的 value 文字做一个 360ms 的上抬+渐显（不是硬切换）
+- **canvas 顶部 frame 徽章重做** —— 从 mono 大写改为 pill 形状 + Fraunces italic 相框名 + 一个小型实色 swatch（跟 lookchip 一致的色板系统）。一眼能看到当前 frame 的颜色身份
+- **filmstrip 头部** —— "胶卷 / 00" 改用 Fraunces italic 标题 + accent 红 Fraunces 数字，整体小窄条变成像真实胶卷盒上的 label。空状态加了一个灰色虚线 aperture 圈
+- **状态栏** —— 状态文字 "就绪" 走 Fraunces italic，前面加一个 4px accent 红呼吸点，键盘提示用 mono kbd 框包起来
+- **空状态** —— title / subtitle 都改为 Fraunces italic，aperture mark 旋转动画从 6s/15° 升到 7s/22.5° + 1.04× 微缩放，更慢更有呼吸
+- **picker 标题 + 家族头部** —— 选择相框 / 选择文字模板等 picker 标题统一改为 Fraunces italic 19px。家族下的 "● 编辑 / ● 画廊" 圆点加 accent glow 阴影
+- **picker tile 入场动画** —— 打开 picker 时，11 个 tile 按 22ms 的 cascade 时序依次淡入上抬，整个 picker 像舒展开来而不是"砰"地出现
+- **canvas 背景层加暖意** —— 顶部 60% 区域注入 0.025 alpha 暖色 wash，底部 40% 注入极淡的 accent 红 vignette，原有的中心透明 → 边缘黑的圆形 vignette 保留。整体读起来像低光暗房而不是 IDE 黑
+
+无功能变化、无 schema 变化、smoke 0.53% 维持 baseline。
+
 ## 0.15 · 2026-05-08
 
 ### 🎛 工具栏重设计 · 画布主导 + 底部 Look bar + 工作台抽屉

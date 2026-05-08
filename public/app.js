@@ -527,18 +527,23 @@ function syncRotateFromCfg(cfg) {
   syncRotationReadouts(cfg);
 }
 
-// Floating canvas badge: small mono-caps label hovering top-left of the
-// preview canvas, showing FRAME · TEMPLATE (and rotation when non-zero).
-// Hidden when no photo is loaded, so the empty state stays uncluttered.
+// Floating canvas badge: a discreet pill hovering top-left of the
+// preview canvas, showing live frame swatch + frame name (Fraunces
+// italic) · template name + rotation when non-zero. Hidden when no
+// photo loaded so the empty state stays uncluttered.
 function updateFrameBadge(cfg) {
   if (!cfg || state.activeIdx < 0) {
     els.canvasFrameBadge.hidden = true;
     return;
   }
-  const frameLabel = String(cfg.frame || '').toUpperCase().replace(/-/g, '·');
-  const tplLabel   = String(cfg.template || '').toUpperCase().replace(/-/g, '·');
-  els.canvasBadgeFrame.textContent = frameLabel || '—';
-  els.canvasBadgeTemplate.textContent = tplLabel || '—';
+  const frameKey = cfg.frame || 'frosted';
+  const tplKey = cfg.template || 'minimal-text';
+  const frameLabel = T('frame.styles.' + frameKey) || frameKey;
+  const tplLabel = T('caption.templates.' + tplKey) || tplKey;
+  els.canvasBadgeFrame.textContent = frameLabel;
+  els.canvasBadgeTemplate.textContent = tplLabel;
+  const swatch = document.getElementById('canvas-badge-swatch');
+  if (swatch) swatch.setAttribute('data-frame', frameKey);
   const r = ((Number(cfg.rotation) || 0) % 360 + 360) % 360;
   // Show rotation only when meaningful — sub-0.05° values come from slider
   // float drift after a "reset to 0" click and shouldn't surface.
@@ -2885,7 +2890,7 @@ checkChangelogBadge();
   //    forward to the hidden seg buttons so wireSeg's handler runs.
   const frameSegHidden = els.frameSeg;
   const frameTilesByVal = {};
-  ALL_FRAMES.forEach((val) => {
+  ALL_FRAMES.forEach((val, idx) => {
     const family = FRAME_FAMILIES[val];
     const grid = document.getElementById('frame-seg-' + family);
     if (!grid) return;
@@ -2896,6 +2901,7 @@ checkChangelogBadge();
     tile.className = 'frame-tile';
     tile.dataset.val = val;
     tile.dataset.family = family;
+    tile.style.setProperty('--i', String(idx));
     tile.innerHTML = `
       <span class="frame-tile-preview"><span class="frame-tile-photo"></span></span>
       <span class="frame-tile-name"></span>
@@ -2916,7 +2922,7 @@ checkChangelogBadge();
   // ── Build template tile buttons (typography preview cards).
   const tmplSegHidden = els.templateSeg;
   const tmplTilesByVal = {};
-  ALL_TEMPLATES.forEach((val) => {
+  ALL_TEMPLATES.forEach((val, idx) => {
     const family = TEMPLATE_FAMILIES[val];
     const grid = document.getElementById('tmpl-seg-' + family);
     if (!grid) return;
@@ -2927,6 +2933,7 @@ checkChangelogBadge();
     tile.className = 'tmpl-tile';
     tile.dataset.val = val;
     tile.dataset.family = family;
+    tile.style.setProperty('--i', String(idx));
     const preview = (TEMPLATE_PREVIEWS[val] || (() => ''))();
     const previewHtml = preview.split('\n').map((l) => l.replace(/&/g, '&amp;').replace(/</g, '&lt;')).join('<br>');
     tile.innerHTML = `
@@ -2953,15 +2960,23 @@ checkChangelogBadge();
   function tmplLabel(val) {
     return window.I18N ? T('caption.templates.' + val) : (val || '');
   }
+  function setChipValue(el, next) {
+    if (!el || el.textContent === next) return;
+    el.textContent = next;
+    el.classList.remove('is-changing');
+    // Re-trigger the keyframe animation by forcing reflow.
+    void el.offsetWidth;
+    el.classList.add('is-changing');
+  }
   function syncLookchips() {
     const cfg = activeCfg();
     if (!cfg) return;
     if (swatch) swatch.setAttribute('data-frame', cfg.frame || 'frosted');
-    if (frameVal) frameVal.textContent = frameLabel(cfg.frame);
-    if (tmplVal) tmplVal.textContent = tmplLabel(cfg.template);
-    if (aspectVal) aspectVal.textContent = (cfg.aspect || '').replace(':', ' : ');
+    setChipValue(frameVal, frameLabel(cfg.frame));
+    setChipValue(tmplVal, tmplLabel(cfg.template));
+    setChipValue(aspectVal, (cfg.aspect || '').replace(':', ' : '));
     if (qualityVal && els.quality) {
-      qualityVal.textContent = T(QUALITY_LABELS_KEY[els.quality.value] || 'export.qualities.standard');
+      setChipValue(qualityVal, T(QUALITY_LABELS_KEY[els.quality.value] || 'export.qualities.standard'));
     }
     // Active tile in the picker
     Object.values(frameTilesByVal).forEach((t) => t.classList.toggle('active', t.dataset.val === cfg.frame));
@@ -2980,7 +2995,26 @@ checkChangelogBadge();
 
   // ── Picker overlay.
   const overlay = document.getElementById('picker-overlay');
+  const lookbar = document.getElementById('lookbar');
   let activePicker = null;
+  function setActiveChipGlow(anchor) {
+    // Drives the lookbar's --active-chip-x CSS variable so the warm
+    // accent halo on the bar's ceiling tracks the focused chip. When
+    // anchor is null, the variable falls back to 50% (CSS default) and
+    // the picker-open data-attr toggles opacity to dim the glow.
+    if (!lookbar) return;
+    if (!anchor) {
+      lookbar.removeAttribute('data-picker-open');
+      lookbar.style.removeProperty('--active-chip-x');
+      lookbar.style.removeProperty('--active-chip-w');
+      return;
+    }
+    const r = anchor.getBoundingClientRect();
+    const center = r.left + r.width / 2;
+    lookbar.style.setProperty('--active-chip-x', center + 'px');
+    lookbar.style.setProperty('--active-chip-w', Math.round(r.width * 1.6) + 'px');
+    lookbar.dataset.pickerOpen = 'true';
+  }
   function openPicker(name, anchor) {
     closePicker(true);
     const el = document.getElementById('picker-' + name);
@@ -2992,6 +3026,7 @@ checkChangelogBadge();
     activePicker = name;
     document.querySelectorAll('.lookchip').forEach((c) => c.removeAttribute('data-open'));
     if (anchor) anchor.setAttribute('data-open', 'true');
+    setActiveChipGlow(anchor);
     positionPicker(el, anchor);
   }
   function closePicker(silent) {
@@ -2999,8 +3034,9 @@ checkChangelogBadge();
     overlay.setAttribute('aria-hidden', 'true');
     document.querySelectorAll('.lookchip').forEach((c) => c.removeAttribute('data-open'));
     activePicker = null;
+    setActiveChipGlow(null);
     if (silent) {
-      // No transition cleanup needed — caller is about to open another one.
+      // Caller is about to open another picker — no transition cleanup.
     }
   }
   function positionPicker(el, anchor) {
