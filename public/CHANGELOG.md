@@ -4,6 +4,18 @@
 
 每次有意义的功能 / 修复 / 优化都记到这里 —— 同一份文件既给开发者看，也通过顶栏 ✦ 按钮在应用内展示给用户。
 
+## 0.16.1 · 2026-05-09
+
+### 🛠 工作台入口提升 + picker tile i18n 修复
+
+两个细节问题集中处理：
+
+- **工作台入口从顶栏挪到左轨** —— 之前只是顶栏一个小 ⏤ icon，太隐晦。改为左轨 chip-group 下方的一行 prominent 入口：圆形 wrench 图标 + Fraunces italic「工作台 / Workshop」+ 一行 mono caps hint「裁剪 · EXIF · 签名 · 拼贴 · 预设」+ ↗ caret，dashed 边框 hover 转 solid + accent 红，明显是"打开另一个面板"的语义而不是普通操作按钮
+- **frame / template picker 的 tile 名称跟随 locale 切换** —— 之前 tile-name 是从 hidden seg 按钮的 `textContent` 在生成时复制过来的，所以一旦切语言（中→英 / 英→中），tile name 永远停在那一刻的语言、不会跟随更新。现在 tile-name 加 `data-i18n="frame.styles.<key>"` / `caption.templates.<key>`，由 `I18N.applyDom()` 在切语言时自动重绘
+- **tile 名称改 Fraunces italic** —— 跟 picker 标题、相框徽章、状态栏的 italic 调性统一，从 11px Hanken Grotesk 升到 13px italic Fraunces，selected 状态着 accent 红
+- **EN 模板名称去缩写** —— `Brand · L` / `Brand · R` 还原为 `Brand · logo` / `Brand · right`（picker tile 的横向空间足够，不需要再缩）；中文同步从 `品牌左` / `品牌右` 改为 `品牌·logo` / `品牌·右`，跟 doc 4 节命名一致
+- 顶栏少了 workshop 入口，节奏更松弛：brand · 计数 · ⌘K · 中-EN · changelog · GitHub
+
 ## 0.16 · 2026-05-09
 
 ### 🧭 Look bar 改回左侧 · 三栏对称 + Import 归位
