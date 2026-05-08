@@ -57,7 +57,9 @@ This project is maintained autonomously by [Claude Code](https://claude.com/clau
 - **Single + batch export** with EXIF round-trip preserved on JPEG (Make / Model / focal / aperture / shutter / ISO / lens / date / GPS)
 - **Web-Worker pool** for batch render off the main thread
 - **Bilingual UI** — Chinese / English toggle in the topbar; auto-detects browser locale on first visit, persists choice in `localStorage`
-- **Mobile-friendly** sticky-preview stacked layout for phones
+- **Surface-native interaction** — desktop and mobile each speak their own gesture grammar (not one scaled-up from the other):
+  - **Desktop**: collapsible left sidebar with a vertical activity bar (`a–g` tiles, accent-bar active marker, dashed film-leader spine), `[` to fold, `⌘1–7` to jump sections, hold `Space` to peek at the unframed source (Photoshop/Lightroom convention), right-click on a filmstrip thumbnail for an "apply this photo's frame/EXIF to all" + "remove" context menu.
+  - **Mobile (≤768px)**: thumb-zone Export dock pinned to the viewport bottom (52pt CTA, safe-area-aware), horizontal swipe on the canvas for prev/next photo, 0.5s long-press on the canvas to peek at the original, long-press a thumbnail to bring up the same context menu, changelog modal slides up as an iOS-style bottom sheet with drag handle.
 
 ## Preview
 

@@ -57,7 +57,9 @@
 - **单张 + 批量导出** 都保留源图 EXIF（Make / Model / 焦距 / 光圈 / 快门 / ISO / 镜头 / 日期 / GPS）
 - **Web Worker 池** 把批量渲染挪出主线程
 - **中英双语 UI** — 顶栏一键切换；首次访问按浏览器语言自动选择，并通过 `localStorage` 记住选择
-- **移动端适配** — 用 sticky preview + 垂直堆叠布局，调参时预览始终可见
+- **桌面 / 移动端各自原生交互** — 不是把同一份界面缩放到两端，而是分别用各自惯用的手势语法：
+  - **桌面端**：左侧可折叠侧栏 + 52px 垂直 activity bar（`a–g` tile、accent 竖条 active 标记、虚线 film-leader 脊）、`[` 折叠 / 展开、`⌘1–7` 跳章节、按住 `Space` 看原图（Photoshop / Lightroom 惯例）、缩略图右键弹"把这张相框 / EXIF 应用到全部"+"移除"菜单
+  - **移动端 (≤768px)**：拇指区 Export dock 固定屏底（52pt 主 CTA、安全区感知）、canvas 横滑切上 / 下一张、长按 0.5 秒看原图、缩略图长按弹同一份菜单、更新日志 modal 走 iOS 风格 bottom sheet 上滑 + 顶部拖拽 handle
 
 ## 效果预览
 
