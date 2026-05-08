@@ -23,3 +23,9 @@ Thumbs.db
 /tmp/
 out.jpg
 out.png
+
+# Browser-MCP scratchpads (chrome-devtools-mcp screenshots, ad-hoc test
+# data copies under public/ for dev-server access). These are session
+# artifacts, not source.
+/screenshots/
+/public/data/
