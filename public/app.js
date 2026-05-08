@@ -2998,21 +2998,25 @@ checkChangelogBadge();
   const lookbar = document.getElementById('lookbar');
   let activePicker = null;
   function setActiveChipGlow(anchor) {
-    // Drives the lookbar's --active-chip-x CSS variable so the warm
-    // accent halo on the bar's ceiling tracks the focused chip. When
-    // anchor is null, the variable falls back to 50% (CSS default) and
-    // the picker-open data-attr toggles opacity to dim the glow.
+    // Drives the lookbar's --active-chip-y CSS variable so the warm
+    // accent halo on the rail's right edge tracks the focused chip
+    // vertically. When anchor is null, the halo falls back to the
+    // chip-group's vertical center and the picker-open data-attr
+    // toggles opacity to dim the glow.
     if (!lookbar) return;
     if (!anchor) {
       lookbar.removeAttribute('data-picker-open');
-      lookbar.style.removeProperty('--active-chip-x');
-      lookbar.style.removeProperty('--active-chip-w');
+      lookbar.style.removeProperty('--active-chip-y');
+      lookbar.style.removeProperty('--active-chip-h');
       return;
     }
     const r = anchor.getBoundingClientRect();
-    const center = r.left + r.width / 2;
-    lookbar.style.setProperty('--active-chip-x', center + 'px');
-    lookbar.style.setProperty('--active-chip-w', Math.round(r.width * 1.6) + 'px');
+    const lr = lookbar.getBoundingClientRect();
+    // y relative to the lookbar (not viewport), since the ::before is
+    // positioned within the lookbar's own coordinate space.
+    const yWithinBar = r.top + r.height / 2 - lr.top;
+    lookbar.style.setProperty('--active-chip-y', yWithinBar + 'px');
+    lookbar.style.setProperty('--active-chip-h', Math.round(r.height * 1.6) + 'px');
     lookbar.dataset.pickerOpen = 'true';
   }
   function openPicker(name, anchor) {
@@ -3042,19 +3046,26 @@ checkChangelogBadge();
   function positionPicker(el, anchor) {
     if (window.innerWidth <= 768) {
       // Mobile: full-width bottom sheet, CSS handles it.
-      el.style.left = '';
-      el.style.right = '';
+      el.style.removeProperty('--picker-top');
       return;
     }
     if (!anchor) return;
+    // Vertical anchor: align picker's vertical center with the clicked
+    // chip's vertical center. Clamp to viewport so a chip near the
+    // top/bottom doesn't push the picker off-screen.
     const r = anchor.getBoundingClientRect();
-    el.style.left = '0';
-    // Read the actual rendered width
-    const w = el.getBoundingClientRect().width || 540;
-    let x = r.left + r.width / 2 - w / 2;
-    if (x < 12) x = 12;
-    if (x + w > window.innerWidth - 12) x = window.innerWidth - w - 12;
-    el.style.left = x + 'px';
+    const chipCY = r.top + r.height / 2;
+    // Read the picker's own height; if not yet rendered (first open),
+    // fall back to a reasonable estimate. We translateY -50% in CSS so
+    // the picker centers on the y-coordinate we set.
+    const pickerH = el.getBoundingClientRect().height || 480;
+    const margin = 16;
+    const minTop = margin + pickerH / 2;
+    const maxTop = window.innerHeight - margin - pickerH / 2;
+    let y = chipCY;
+    if (y < minTop) y = minTop;
+    if (y > maxTop) y = maxTop;
+    el.style.setProperty('--picker-top', y + 'px');
   }
   document.querySelectorAll('.lookchip[data-picker]').forEach((chip) => {
     chip.addEventListener('click', (e) => {
