@@ -138,6 +138,19 @@ When iterating on this project:
     - 仅文档 / 注释 / 内部重构 / 开发工具改动**不**触发版本 bump，也不进 CHANGELOG（rule 4：CHANGELOG 给用户看，不是 commit 考古）。
     - 破坏性变更必须同时（a）保留迁移代码或 alias（参见 rule 4 提到的 `frosted-dark` → `frosted-noir` 别名做法），或者（b）显式 bump MAJOR 并在 CHANGELOG 的 `### ⚠️ Breaking` 块说明影响 + 用户应对。两者必居其一，不能默默改语义。
 
+15. **GitHub workflow — PR-driven, never push directly to `main`.** Classic branch protection on `main` (added 2026-05-08 via #4) enforces: PR required, linear history, no force push, no deletion, admin included. Approval count is 0 so a solo maintainer self-merges; CODEOWNERS defaults the whole repo to `@anois`.
+
+    **Why**: Even for a single-maintainer repo the PR record is the durable surface for *why* a change shipped — Issue link, design discussion, test plan. Direct-to-main pushes leave none of that, and the project was visibly drifting that way (a 7-commit backlog had piled up directly on `main` before the PR-driven flow landed). The PR description box also becomes the durable answer to "what was the test plan?" for future agent sessions.
+
+    **How to apply**:
+    - **Branch name**: `<type>/<kebab-slug>`, where `<type>` ∈ {`feat`, `fix`, `chore`, `docs`, `refactor`}. e.g. `feat/custom-aspect-ratio`, `chore/repo-governance`. Slug ≤ 5 words.
+    - **Commit & PR title prefix**: same vocabulary (`feat:` / `fix:` / `docs:` / `chore:` / `refactor:`). PR title ≤ 70 chars. PR body uses the `.github/PULL_REQUEST_TEMPLATE.md` skeleton (Summary / Why / How / Test plan).
+    - **Issue linking**: `Closes #N` in the PR body for the issue this PR resolves (auto-closes on merge); `Refs #N` for related-only. After merging an Issue-driven PR, also leave a short comment on the Issue summarizing the fix + linking the PR — see #2 / #3 for the precedent.
+    - **Merge style**: **squash by default**. Linear history is enforced — the GitHub UI will refuse a merge commit. Use rebase merge only if the intermediate commits in the PR are individually meaningful and worth preserving on `main`.
+    - **CHANGELOG**: still ships in the same commit as the user-visible change (rule 4 unchanged); the PR body also surfaces it via the linked issue.
+    - **Local `main` resync after merge**: `git pull --rebase origin main`. Plain `git pull` (default merge) creates a merge commit that conflicts with the linear-history rule on the next push.
+    - **Don't weaken the protection to push faster.** If `git push origin main` is rejected with `protected branch hook declined`, that's the rule working — branch off and open a PR. The audit trail is more valuable than the saved seconds. The protection JSON lives in GitHub settings, not in this repo, so a future agent that "fixes" a rejected push by editing protection rules is silently regressing the contract.
+
 ## Quick start
 
 ```bash
