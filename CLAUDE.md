@@ -124,6 +124,20 @@ When iterating on this project:
     - **Modal dismissal**: tap-outside + visible close button on mobile (no Esc key), Esc additionally on desktop.
     - **Safe-area insets** (`env(safe-area-inset-*)`) for any element pinned to viewport edges (notch, home indicator). PWA install to home screen exposes these directly.
 
+14. **遵循语义化版本（SemVer 2.0.0）—— `MAJOR.MINOR.PATCH`，每次面向用户的提交都必须带上对应的版本号 bump，并体现在 `public/CHANGELOG.md` 顶部的 `## ` 块标题里。** 这是项目对外的兼容性契约，也是 in-app ✦ 弹窗判断"有新版本"的依据（它读 CHANGELOG 第一个 `## ` 块的版本号）。版本号怎么涨，按以下规则裁断：
+
+    - **PATCH (`0.10.0` → `0.10.1`)** — 用户可观察的 bug 修复、视觉微调、文案订正、性能优化。不增不删功能，不动 cfg / preset / share-code 的 schema。
+    - **MINOR (`0.10.1` → `0.11.0`)** — 新增 frame / template / 输出格式 / 导出选项 / 显示字段 / 键盘快捷键 / 整块 UI 区域。新增意味着旧 cfg 里没有的字段被引入；老的 preset / share-code 仍能正常解析（向后兼容）。
+    - **MAJOR (`0.x` → `1.0.0`，或将来 `1.x` → `2.0.0`)** — 不向后兼容的破坏性变化：cfg schema 改字段语义且不写迁移、移除 frame / template 没留 alias、preset `v` 字段升级且拒绝旧版本、share-code 解码协议改变、删除已发布的快捷键 / 选项。**0.x 阶段**（当前所处）按 SemVer 惯例：破坏性变化通常 bump MINOR 即可，但**必须**在 CHANGELOG 该块用 `### ⚠️ Breaking` 子标题显式标出来，给用户一个看得见的警告。
+
+    **Why**: 没有版本号约束的 CHANGELOG 会迅速变成"今天加了点啥"的流水账，in-app 弹窗也无法精准告知"你错过的具体变更范围"；尤其本项目的 preset / share-code 是会真实跨版本流转的产物，schema 兼容性必须能被一眼判读。
+
+    **How to apply**:
+    - 提交前先看 `public/CHANGELOG.md` 顶部当前版本号，按本次改动的最高级别决定 bump（一次提交里 feat + fix 同时存在时按 feat 的级别 bump，不要分裂成两次提交）。
+    - 新版本块插在文件最顶部（rule 4 约定），标题格式 `## MAJOR.MINOR.PATCH · YYYY-MM-DD`；同一天多次发版用第三段递增即可。
+    - 仅文档 / 注释 / 内部重构 / 开发工具改动**不**触发版本 bump，也不进 CHANGELOG（rule 4：CHANGELOG 给用户看，不是 commit 考古）。
+    - 破坏性变更必须同时（a）保留迁移代码或 alias（参见 rule 4 提到的 `frosted-dark` → `frosted-noir` 别名做法），或者（b）显式 bump MAJOR 并在 CHANGELOG 的 `### ⚠️ Breaking` 块说明影响 + 用户应对。两者必居其一，不能默默改语义。
+
 ## Quick start
 
 ```bash
