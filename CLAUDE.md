@@ -264,16 +264,30 @@ Each frame style is a single self-contained file under `public/frames/`. It runs
 
 The shell loads every frame script after `shared/render.js`: index.html via `<script>` tags, worker.js via `importScripts`, smoke.html with the `public/` prefix, service-worker.js via the precache list. Adding a frame means creating one new file and adding it to those four lists (plus the seg button + i18n label below).
 
-| name | bg | textStyle | layout mods | shadowDefault (blur/offsetY/opacity) |
-|------|-----|-----------|-------------|--------------------------------------|
-| `frosted`      | blurred self-image, light dim | light | — | 80 / 24 / 0.35 |
-| `frosted-dark` | blurred self-image, stronger dim | light | — | 90 / 28 / 0.45 |
-| `white`        | solid `#f5f5f5`       | dark  | — | 80 / 24 / 0.30 |
-| `black`        | solid `#121212`       | light | — | 80 / 24 / 0.50 |
-| `polaroid`     | solid `#fafafa`       | dark  | `extraBottom: 180, fgYBoost: -80, radiusOverride: 8` | 0 / 0 / 0 (flat) |
-| `instax`       | solid `#fffdf6`       | dark  | `extraBottom: 240, fgYBoost: -120, radiusOverride: 4` | 30 / 12 / 0.18 |
+Frames are organized into 4 visual families. The seg buttons in `#frame-seg` carry a `data-family` attribute so future CSS can group them visually.
+
+| family | name | bg | textStyle | layout mods | shadowDefault (blur/offsetY/opacity) | decorate |
+|---|---|---|---|---|---|---|
+| **Editorial** | `frosted`        | blurred self-image, light dim | light | — | 80 / 24 / 0.35 | — |
+| | `frosted-noir` (alias `frosted-dark`) | blurred self-image, stronger dim | light | — | 90 / 28 / 0.45 | — |
+| **Gallery** | `gallery-white` (alias `white`) | solid `#f4f3ee` | dark | — | 60 / 18 / 0.18 | passe-partout double thin lines (1.5px outer, 0.9px inner) |
+| | `gallery-noir` (alias `black`) | solid `#171717` | light | — | 90 / 28 / 0.55 | inner phosphor highlight ring (~0.7px) |
+| **Instant** | `polaroid` | solid `#fafafa` | dark  | `extraBottom: 180, fgYBoost: -80, radiusOverride: 8` | 0 / 0 / 0 (flat) | — |
+| | `instax`   | solid `#fffdf6` | dark  | `extraBottom: 240, fgYBoost: -120, radiusOverride: 4` | 30 / 12 / 0.18 | — |
+| **Film** | `film-35`   | solid `#0c0c0c` | light | `topPaddingBoost: 70, bottomPaddingBoost: 90` | 0 / 0 / 0 | 7 sprocket-hole pairs top+bottom + cream "F · 4000 · DX" leader stamp (brand-letter + ISO from EXIF) |
+| | `editorial` | solid `#f4f0e6` | dark  | `extraRightInset: 350, captionPrefer: 'right'` | 70 / 22 / 0.22 | — |
 
 Each frame carries a `shadowDefault` (drop shadow under the rounded foreground photo). User-tunable via the **D · Shadow** UI (3 sliders) and overrideable in cfg. `opacity = 0` short-circuits the entire shadow render path.
+
+**Frame `decorate` hook**. `R.registerFrame` accepts an optional `decorate(ctx, layout, args)` function. `compose()` runs it AFTER caption rendering and BEFORE the user signature overlay, mirrored across `clientRender.js` and `worker.js`. Use it for frame-specific decorative passes — gallery passe-partout, film sprocket holes, editorial separator lines, slide-mount labels, etc. Must be self-contained: workers have no DOM, so don't call `document.createElement` from inside; use `ctx` primitives + `R.pathRoundRect` (the public rounded-rect path helper, with arcTo fallback for older Safari).
+
+**`layout.outputPx`** is a soft scaling factor for hairlines: `Math.max(1, N * outputPx)` produces stroke widths that stay thin even at `quality: high` (where naive `N * scale` would bloat to 3-4 canvas-px). Defined as `Math.max(0.5, scale * 0.6)`. Use this in decorate hooks for borders, separator lines, fine print stamps — anything that should READ as a hairline regardless of export resolution.
+
+**Asymmetric layout options** (frame `layout` field):
+- `topPaddingBoost` / `bottomPaddingBoost` (base-1440 units): symmetric vertical extension. `film-35` uses both to make room for sprocket rows; instant frames historically used only the bottom variant via `extraBottom` (which boosts the *caption zone*, not the padding).
+- `extraRightInset` (base-1440 units): carves a strip out of the right side of the canvas for asymmetric editorial layouts. When > 0, the foreground anchors to left padding instead of centering, so the right strip becomes a clean vertical zone.
+- `fgXOffset` (base-1440 units): horizontal shift of the centered photo, ignored when `extraRightInset` is in effect.
+- `captionPrefer`: `'right' | 'left'` — overrides the default bottom-priority caption routing. Editorial uses this so caption auto-routes into the wide right strip even though the bottom strip would also fit. Falls back to default priority order when the preferred zone's gap is too small.
 
 ### Render parameter resolution (`resolveRenderParams`)
 
@@ -286,15 +300,21 @@ Each frame carries a `shadowDefault` (drop shadow under the rounded foreground p
 
 ### Templates (in `public/shared/render.js`)
 
-| key              | Layout                                                              |
-|------------------|---------------------------------------------------------------------|
-| `minimal-text`   | Centered single line: brand [· model]  focal aperture shutter ISO  (extras on second line) |
-| `brand-logo`     | Two-column with divider: brand-logo + model on left, params on right |
-| `brand-right`    | Mirror of brand-logo: params on left, brand-logo on right           |
-| `tech-stack`     | Vertical stack: brand / model / params / lens·date  — camera-OSD style |
-| `date-lens`      | Single line: date · lens (with lens brand logo inline when matched) |
+Templates are organized into 4 grammars. Spec / Brand / Editorial / Stamp — pick the family by the role caption metadata plays in the composition.
 
-All five templates support a **flash indicator** (small ⚡ glyph) when `showFields.flash === true` AND `exif.flashFired === true`. Helpers: `flashGlyphSvg(x, baselineY, textSize, fill)` + `flashGlyphWidth(textSize)` in `public/shared/render.js`. Each template handles its own positioning math (centered templates fold the glyph width into their `totalW` calc; column templates append after the relevant params line).
+| family | key | Layout |
+|---|---|---|
+| **Spec** | `minimal-text` | Centered single line: brand [· model]  focal aperture shutter ISO  (extras on second line) |
+| | `tech-stack`   | Vertical stack: brand / model / params / lens·date — camera-OSD style |
+| **Brand** | `brand-logo`   | Two-column with divider: brand-logo + model on left, params on right |
+| | `brand-right`  | Mirror of brand-logo: params on left, brand-logo on right (kept until Phase 3 mirror flag refactor) |
+| **Editorial** | `wordmark`   | Oversized brand mark / text + tiny date subline — luxury-minimalist |
+| | `headline`   | Big "GPS · YYYY.MM" hero line + small spec subline; degrades to date-only when GPS missing |
+| **Stamp** | `date-lens`  | Single line: date · lens (with lens brand logo inline when matched) |
+| | `slate`      | Monospace OSD field grid (DATE / CAM / LENS / EXP) with hairline rules between rows |
+| | `passport`   | Tiny bordered postmark stamp with date + GPS — best in caption zones with breathing room |
+
+All bottom-strip templates support a **flash indicator** (small ⚡ glyph) when `showFields.flash === true` AND `exif.flashFired === true`. Helpers: `flashGlyphSvg(x, baselineY, textSize, fill)` + `flashGlyphWidth(textSize)` in `public/shared/render.js`. Each template handles its own positioning math. The four newer templates (`wordmark` / `headline` / `slate` / `passport`) don't yet wire the flash glyph — flash is a "Spec / Brand" concern; editorial and stamp grammars deliberately stay clean.
 
 **Add a template**:
 1. Write a function inside `public/shared/render.js` and register it in the `TEMPLATES` map.

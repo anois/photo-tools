@@ -41,8 +41,8 @@
 
 ## 特性
 
-- **6 种相框风格** — frosted、frosted-dark、white、black、polaroid、instax
-- **5 种字幕模板** — minimal-text、brand-logo、brand-right、tech-stack、date-lens
+- **4 个家族 · 8 种相框风格** — 编辑（frosted、frosted-noir）/ 画廊（gallery-white 双层细线衬纸、gallery-noir phosphor 高光）/ 即影（polaroid、instax）/ 胶片（film-35 齿孔 + leader 印章、editorial 杂志非对称版式）
+- **4 个语法 · 9 种字幕模板** — Spec（minimal-text、tech-stack）/ Brand（brand-logo、brand-right）/ Editorial（wordmark 大字字标、headline GPS+日期标题）/ Stamp（date-lens、slate OSD 字段格、passport 邮印戳）
 - **真实品牌 logo 内嵌** — Fujifilm、Sony、Leica、Nikon、Canon、Apple、Xiaomi、OPPO、Vivo、DJI…（来自 Wikimedia Commons + simple-icons）
 - **EXIF 自动解析**，每张照片可独立手动覆盖；当 `LensModel` 缺失时用 `LensInfo` 数组反推镜头型号
 - **自定义签名水印** — 上传 SVG/PNG 钉在前景照片的某个角落；通过 `localStorage` 跨会话保留
