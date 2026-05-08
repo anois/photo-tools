@@ -45,7 +45,7 @@ html, body { margin: 0; padding: 0; height: 100%; }
   --rail-w: 80px;
   --topbar-h: 52px;
   --statusbar-h: 28px;
-  --lookbar-h: 64px;
+  --lookbar-w: 168px;
 }
 
 body {
@@ -298,7 +298,7 @@ kbd {
 
 .workspace {
   display: grid;
-  grid-template-columns: 1fr var(--rail-w);
+  grid-template-columns: var(--lookbar-w) 1fr var(--rail-w);
   min-height: 0;
   overflow: hidden;
 }
@@ -2385,99 +2385,158 @@ input[type="range"]::-moz-range-thumb {
 }
 
 /* =========================================================
-   LOOK BAR — bottom dock, the always-visible hot path.
+   LOOK BAR — vertical left rail, the always-visible hot path.
+   Sits between the topbar and the statusbar, anchored to the
+   workspace's left edge. Holds Import at top, 4 chips middle,
+   Export group at bottom. Aesthetic stays consistent with the
+   rest of the editorial-darkroom palette: glassy dark backdrop,
+   accent halo that tracks the focused chip, Fraunces italic for
+   value text.
    ========================================================= */
 .lookbar {
   position: relative;
   z-index: 6;
   display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 0 20px;
-  height: var(--lookbar-h);
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 12px 14px;
+  width: var(--lookbar-w);
+  height: 100%;
   background:
-    radial-gradient(ellipse 360px 80px at var(--active-chip-x, 50%) 0%, rgba(229,73,58,0.06) 0%, transparent 70%),
-    linear-gradient(to bottom, rgba(20,22,25,0.86), rgba(15,17,20,0.94));
-  backdrop-filter: blur(24px) saturate(160%);
-  -webkit-backdrop-filter: blur(24px) saturate(160%);
-  border-top: 1px solid var(--line-strong);
+    radial-gradient(ellipse 120px 320px at 100% var(--active-chip-y, 50%), rgba(229,73,58,0.06) 0%, transparent 70%),
+    linear-gradient(to right, rgba(20,22,25,0.92), rgba(15,17,20,0.96));
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  border-right: 1px solid var(--line-strong);
   flex-shrink: 0;
-  /* --active-chip-x is set in JS to follow the active picker's chip;
-     when nothing is active it falls back to 50%. The accent halo above
-     is positioned with that variable, so the warm wash on the lookbar
-     ceiling tracks the user's current focus. */
-  --active-chip-x: 50%;
-  --active-chip-w: 0px;
-  transition: --active-chip-x 280ms cubic-bezier(0.2,0.8,0.2,1);
+  /* --active-chip-y is set in JS to the y-center of the open chip
+     within the lookbar. The accent halo on the right edge tracks
+     focus down the rail. */
+  --active-chip-y: 50%;
+  --active-chip-h: 0px;
 }
 .lookbar::before {
-  /* Top accent hairline highlight. Default position centered with
-     soft falloff, but follows the active chip when one is open via
-     CSS variables driven from the toolbar shell JS. The line itself
-     is just 1px but layered atop a wider radial halo on the lookbar
-     bg gives the impression of a "lit edge" that responds to focus. */
+  /* Right-edge hairline accent — the rail's "lit edge". Tracks the
+     active chip vertically; when no picker is open, fades to a soft
+     glow at the chip-group's vertical center. */
   content: '';
   position: absolute;
-  top: 0;
-  left: var(--active-chip-x, 50%);
-  width: max(220px, var(--active-chip-w, 220px));
-  height: 1px;
-  transform: translateX(-50%);
-  background: linear-gradient(to right, transparent, var(--accent-line), transparent);
+  right: -1px;
+  top: var(--active-chip-y, 50%);
+  width: 1px;
+  height: max(48px, var(--active-chip-h, 48px));
+  transform: translateY(-50%);
+  background: linear-gradient(to bottom, transparent, var(--accent-line), transparent);
   filter: blur(0.4px);
   pointer-events: none;
-  transition: left 280ms cubic-bezier(0.2,0.8,0.2,1),
-              width 280ms cubic-bezier(0.2,0.8,0.2,1),
+  transition: top 280ms cubic-bezier(0.2,0.8,0.2,1),
+              height 280ms cubic-bezier(0.2,0.8,0.2,1),
               opacity 200ms ease;
-  opacity: 0.7;
+  opacity: 0.55;
 }
 .lookbar[data-picker-open="true"]::before { opacity: 1; }
 
+/* Import — primary action at the top of the rail. Subtle ghost
+   button with import icon + label; clicking triggers the hidden
+   <input type="file"> via the toolbar shell. */
+.lookbar-import {
+  appearance: none;
+  -webkit-appearance: none;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 11px 12px;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-line);
+  border-radius: var(--r-md);
+  color: var(--text);
+  font: 500 12px/1 var(--f-ui);
+  cursor: pointer;
+  transition: all 160ms ease;
+  flex-shrink: 0;
+}
+.lookbar-import:hover {
+  background: rgba(229, 73, 58, 0.18);
+  transform: translateY(-1px);
+}
+.lookbar-import:active { transform: translateY(0.5px); }
+.lookbar-import-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  flex: 0 0 auto;
+  box-shadow: 0 4px 10px -3px rgba(229,73,58,0.5);
+}
+.lookbar-import-label {
+  letter-spacing: 0.04em;
+}
+
 .chip-group {
   display: flex;
-  align-items: stretch;
-  background: rgba(0,0,0,0.22);
+  flex-direction: column;
+  background: rgba(0,0,0,0.24);
   border: 1px solid var(--line);
   border-radius: var(--r-md);
   overflow: hidden;
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.02);
 }
 .chip-group .lookchip + .lookchip {
-  border-left: 1px solid var(--line);
+  border-top: 1px solid var(--line);
 }
 
 .lookchip {
   appearance: none;
   -webkit-appearance: none;
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: 11px;
-  padding: 8px 14px;
-  height: 44px;
+  gap: 10px;
+  padding: 9px 11px 9px 10px;
   background: transparent;
   border: 0;
   cursor: pointer;
   position: relative;
-  transition: background 160ms ease, transform 200ms cubic-bezier(0.2,0.8,0.2,1);
+  transition: background 160ms ease;
   min-width: 0;
+  width: 100%;
+  text-align: left;
 }
 .lookchip:hover { background: rgba(255,255,255,0.04); }
-.lookchip:active { transform: translateY(0.5px); }
+.lookchip:active { background: rgba(255,255,255,0.06); }
 .lookchip[data-open="true"] {
-  background: linear-gradient(to bottom, var(--accent-soft), transparent 80%);
+  background: linear-gradient(to right, var(--accent-soft), transparent 90%);
 }
 .lookchip[data-open="true"]::after {
+  /* Vertical accent rule on the right edge — replaces the bottom underline
+     from the horizontal layout. Tracks the active chip selection. */
   content: '';
   position: absolute;
-  bottom: -1px;
-  left: 10px;
-  right: 10px;
-  height: 2px;
+  right: -1px;
+  top: 8px;
+  bottom: 8px;
+  width: 2px;
   background: var(--accent);
   border-radius: 1px;
   box-shadow: 0 0 6px var(--accent-glow);
 }
-.lookchip[data-open="true"] .lookchip-caret { transform: rotate(180deg); }
+.lookchip[data-open="true"] .lookchip-caret { transform: rotate(-90deg); }
+.lookchip-caret {
+  /* Caret rotates from "down ▾" → "left ◂" when chip is open, signalling
+     the picker pops out to the right. */
+  transform: rotate(-90deg);     /* default: pointing right (collapsed) */
+  transition: transform 220ms cubic-bezier(0.2,0.8,0.2,1), color 160ms ease;
+  margin-left: auto;
+  width: 9px; height: 9px;
+  color: var(--text-dim);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.lookchip[data-open="true"] .lookchip-caret { color: var(--accent); }
 .lookchip-icon {
   width: 24px;
   height: 18px;
@@ -2524,16 +2583,16 @@ input[type="range"]::-moz-range-thumb {
   color: var(--text-dim);
 }
 .lookchip-value {
-  font: 400 14.5px/1 var(--f-display);
+  font: 400 14px/1 var(--f-display);
   font-variation-settings: "opsz" 144, "SOFT" 100;
   letter-spacing: -0.01em;
   color: var(--text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 154px;
-  /* Subtle cross-fade when the value text changes (driven by a CSS
-     animation toggled via .is-changing in the toolbar shell JS). */
+  /* Cap to fit the 168px rail comfortably, accounting for the 24px
+     swatch + 9px caret + ~24px combined padding. */
+  max-width: 96px;
   transition: opacity 140ms ease;
 }
 .lookchip-value.is-changing {
@@ -2546,32 +2605,24 @@ input[type="range"]::-moz-range-thumb {
 .lookchip[data-open="true"] .lookchip-value {
   color: var(--accent);
 }
-.lookchip-caret {
-  width: 9px; height: 9px;
-  color: var(--text-dim);
-  margin-left: 2px;
-  transition: transform 220ms cubic-bezier(0.2,0.8,0.2,1), color 160ms ease;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-.lookchip[data-open="true"] .lookchip-caret { color: var(--accent); }
 
-.lookbar-spacer { flex: 1; }
+.lookbar-spacer { flex: 1; min-height: 12px; }
 
 .export-group {
   display: flex;
-  align-items: stretch;
+  flex-direction: column;
   gap: 6px;
 }
 .export-btn {
   appearance: none;
   -webkit-appearance: none;
-  display: inline-flex;
+  display: flex;
   align-items: center;
+  justify-content: center;
   gap: 9px;
-  padding: 0 18px 0 16px;
-  height: 40px;
+  padding: 0 14px;
+  width: 100%;
+  height: 44px;
   background: linear-gradient(to bottom, #f25744, var(--accent));
   border: 0;
   border-radius: var(--r-md);
@@ -2604,10 +2655,11 @@ input[type="range"]::-moz-range-thumb {
   background: rgba(0,0,0,0.18);
   border-radius: 3px;
   letter-spacing: 0.04em;
+  margin-left: 2px;
 }
 .export-btn:disabled kbd { display: none; }
 .export-btn-secondary {
-  padding: 0 12px;
+  height: 32px;
   background: var(--bg-elev);
   color: var(--text-muted);
   box-shadow: inset 0 0 0 1px var(--line);
@@ -2651,7 +2703,12 @@ input[type="range"]::-moz-range-thumb {
 
 .picker {
   position: absolute;
-  bottom: calc(var(--lookbar-h) + 14px);
+  /* Pops out to the right of the left rail, vertically anchored to the
+     clicked chip's center. JS sets --picker-top to chip.y-center; the
+     picker is then translated up to half its height to actually align
+     center-to-center. */
+  left: calc(var(--lookbar-w) + 14px);
+  top: var(--picker-top, 50%);
   background: var(--bg-elev);
   border: 1px solid var(--line-strong);
   border-radius: var(--r-lg);
@@ -2659,23 +2716,23 @@ input[type="range"]::-moz-range-thumb {
     0 30px 80px -20px rgba(0,0,0,0.6),
     0 0 0 1px rgba(255,255,255,0.03);
   padding: 18px;
-  width: min(640px, calc(100vw - 32px));
-  max-height: calc(100vh - var(--lookbar-h) - 80px);
+  width: min(640px, calc(100vw - var(--lookbar-w) - var(--rail-w) - 40px));
+  max-height: calc(100vh - var(--topbar-h) - var(--statusbar-h) - 32px);
   overflow: hidden;
   display: flex;
   flex-direction: column;
   opacity: 0;
-  transform: translateY(8px);
+  transform: translate(-8px, -50%);
   transition: opacity 220ms ease, transform 220ms cubic-bezier(0.2,0.8,0.2,1);
   pointer-events: none;
 }
 .picker-overlay[data-open="true"] .picker:not([hidden]) {
   opacity: 1;
-  transform: translateY(0);
+  transform: translate(0, -50%);
   pointer-events: auto;
 }
 .picker[hidden] { display: none; }
-.picker-narrow { width: min(420px, calc(100vw - 32px)); }
+.picker-narrow { width: min(420px, calc(100vw - var(--lookbar-w) - var(--rail-w) - 40px)); }
 
 .picker-header {
   display: flex;
@@ -3373,11 +3430,11 @@ input[type="range"]::-moz-range-thumb {
   letter-spacing: -0.005em;
 }
 
-/* The body grid: topbar / workspace / lookbar / statusbar. Replaces the
-   prior 3-pane block layout. */
+/* Body grid: 3 rows · topbar / 1fr / statusbar. The workspace itself is
+   a 3-column grid (lookbar / canvas / filmstrip) — see .workspace below. */
 body {
   display: grid;
-  grid-template-rows: var(--topbar-h) 1fr var(--lookbar-h) var(--statusbar-h);
+  grid-template-rows: var(--topbar-h) 1fr var(--statusbar-h);
   height: 100vh;
   height: 100dvh;
   overflow: hidden;
@@ -3406,9 +3463,13 @@ body {
   :root {
     --topbar-h: 44px;
     --statusbar-h: 0px;
-    --lookbar-h: 96px;
+    --lookbar-h: 116px;
   }
   body {
+    /* On phones, the lookbar reverts to a bottom sheet so the workspace
+       stays canvas-on-top + sheet-below — keeps native iOS / Android
+       feel. The lookbar moves OUT of the workspace flow into a fixed-
+       bottom layer, freeing the workspace to fill row 2. */
     grid-template-rows: var(--topbar-h) 1fr var(--lookbar-h);
   }
 
@@ -3424,9 +3485,6 @@ body {
   .cmdk-trigger { display: none; }
   .topbar-meta { gap: 6px; }
   .topbar-meta .topbar-pill { width: 36px; height: 32px; padding: 0; justify-content: center; }
-  .topbar-meta .topbar-pill[id="import-btn"] span,
-  .topbar-meta .topbar-pill[id="import-btn"] svg { color: inherit; }
-  .topbar-meta .topbar-pill[id="import-btn"] span { display: none; }
 
   .workspace {
     grid-template-columns: 1fr;
@@ -3438,54 +3496,91 @@ body {
   .file-drop-hint-mobile  { display: inline; }
   .empty-sub-desktop { display: none; }
 
-  /* Lookbar becomes a bottom sheet: chips on row 1, full-width Export below. */
+  /* Lookbar becomes a bottom sheet: chips horizontal, full-width Export
+     row beneath, Import inline as a small accent pill at the top. */
   .lookbar {
+    /* Lift out of the workspace's left grid cell — fixed-bottom layer. */
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    width: 100vw;
+    height: var(--lookbar-h);
     flex-direction: column;
-    align-items: stretch;
     gap: 8px;
     padding: 10px 14px;
     padding-bottom: max(10px, env(safe-area-inset-bottom));
-    height: auto;
-    min-height: var(--lookbar-h);
+    border-right: none;
     border-top: 1px solid var(--line-strong);
     border-radius: 16px 16px 0 0;
     background: linear-gradient(to bottom, rgba(20,22,25,0.95), rgba(15,17,20,0.99));
+    z-index: 8;
   }
   .lookbar::before {
-    /* Drag-handle pill replaces the desktop accent rule */
+    /* Drag-handle pill at top of sheet — desktop accent rail rule
+       gets re-purposed visually. */
     top: 6px;
+    right: auto;
+    left: 50%;
     width: 36px;
     height: 4px;
+    transform: translateX(-50%);
     background: var(--line-strong);
     border-radius: 2px;
     filter: none;
   }
+  /* Import condenses into a compact pill that sits inline with the
+     chip row's parent — tap launches the file input the same as
+     desktop. */
+  .lookbar-import {
+    align-self: flex-start;
+    padding: 6px 12px 6px 8px;
+    height: 32px;
+    margin-top: 8px;
+    font-size: 11.5px;
+  }
+  .lookbar-import-glyph { width: 18px; height: 18px; }
   .chip-group {
-    margin-top: 10px;
+    flex-direction: row;
     width: 100%;
   }
-  .lookchip { flex: 1; padding: 5px 8px; min-width: 0; }
+  .chip-group .lookchip + .lookchip { border-top: 0; border-left: 1px solid var(--line); }
+  .lookchip { flex: 1; padding: 6px 8px; min-width: 0; }
   .lookchip-icon { width: 18px; height: 12px; }
   .lookchip-key { font-size: 7.5px; letter-spacing: 0.14em; }
   .lookchip-value { font-size: 12px; max-width: none; }
   .lookchip-caret { display: none; }
+  .lookchip[data-open="true"]::after {
+    /* Underline rule replaces the right-edge accent for horizontal mobile. */
+    top: auto;
+    bottom: -1px;
+    left: 8px; right: 8px;
+    width: auto; height: 2px;
+  }
 
   .lookbar-spacer { display: none; }
-  .export-group { width: 100%; gap: 6px; }
-  .export-btn { flex: 1; height: 44px; justify-content: center; padding: 0 14px; }
+  .export-group {
+    flex-direction: row;
+    gap: 6px;
+  }
+  .export-btn { flex: 1; height: 44px; padding: 0 14px; }
   .export-btn kbd { display: none; }
-  .export-btn-secondary { flex: 0 0 auto; padding: 0 14px; }
+  .export-btn-secondary { flex: 0 0 auto; padding: 0 14px; height: 44px; }
 
-  /* Picker becomes a bottom sheet, top-rounded full-width */
+  /* Picker becomes a bottom sheet — overrides the desktop right-anchor
+     rules. */
   .picker, .picker-narrow {
-    bottom: 0;
+    top: auto;
     left: 0;
     right: 0;
+    bottom: var(--lookbar-h);
     width: 100vw;
     max-width: 100vw;
     border-radius: var(--r-lg) var(--r-lg) 0 0;
     border-bottom: none;
-    max-height: 84vh;
+    max-height: 70vh;
+    transform: translate(0, 8px);
+  }
+  .picker-overlay[data-open="true"] .picker:not([hidden]) {
+    transform: translate(0, 0);
   }
   .frame-tile-grid { grid-template-columns: repeat(3, 1fr); }
   .tmpl-tile-grid  { grid-template-columns: 1fr 1fr; }

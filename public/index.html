@@ -40,10 +40,6 @@
       <span data-i18n="cmdk.search">search</span>
       <kbd>⌘K</kbd>
     </button>
-    <button id="import-btn" type="button" class="topbar-pill topbar-pill-strong" data-i18n-aria-label="source.importTitle" data-i18n-title="source.importTitle">
-      <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M12 5v10m0 0l-4-4m4 4l4-4M5 19h14"/></svg>
-      <span data-i18n="topbar.import">import</span>
-    </button>
     <button id="workshop-trigger" type="button" class="topbar-pill" data-i18n-aria-label="workshop.open" data-i18n-title="workshop.open" aria-label="Open workshop">
       <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M5 6h14M5 12h14M5 18h14"/></svg>
     </button>
@@ -61,8 +57,64 @@
   </div>
 </header>
 
-<!-- WORKSPACE: canvas dominates, right rail for filmstrip, lookbar pinned bottom. -->
+<!-- WORKSPACE: 3-column grid · left look bar / canvas / right filmstrip. -->
 <main class="workspace">
+
+  <!-- LEFT LOOK BAR — vertical chip rail, pinned to canvas left edge -->
+  <aside class="lookbar" id="lookbar" aria-label="Look bar">
+    <button id="import-btn" class="lookbar-import" type="button" data-i18n-aria-label="source.importTitle" data-i18n-title="source.importTitle">
+      <span class="lookbar-import-glyph" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M12 5v10m0 0l-4-4m4 4l4-4M5 19h14"/></svg>
+      </span>
+      <span class="lookbar-import-label" data-i18n="topbar.import">Import</span>
+    </button>
+
+    <div class="chip-group">
+      <button class="lookchip" data-picker="frame" type="button" aria-haspopup="dialog">
+        <span class="lookchip-icon" id="lookchip-frame-swatch" data-frame="frosted"></span>
+        <span class="lookchip-text">
+          <span class="lookchip-key" data-i18n="lookbar.frame">Frame</span>
+          <span class="lookchip-value" id="lookchip-frame-value">Frosted</span>
+        </span>
+        <span class="lookchip-caret" aria-hidden="true"><svg viewBox="0 0 12 12" width="9" height="9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M3 4.5l3 3 3-3"/></svg></span>
+      </button>
+      <button class="lookchip" data-picker="template" type="button" aria-haspopup="dialog">
+        <span class="lookchip-text">
+          <span class="lookchip-key" data-i18n="lookbar.template">Template</span>
+          <span class="lookchip-value" id="lookchip-template-value">Minimal</span>
+        </span>
+        <span class="lookchip-caret" aria-hidden="true"><svg viewBox="0 0 12 12" width="9" height="9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M3 4.5l3 3 3-3"/></svg></span>
+      </button>
+      <button class="lookchip" data-picker="aspect" type="button" aria-haspopup="dialog">
+        <span class="lookchip-text">
+          <span class="lookchip-key" data-i18n="lookbar.aspect">Aspect</span>
+          <span class="lookchip-value" id="lookchip-aspect-value">9:16</span>
+        </span>
+        <span class="lookchip-caret" aria-hidden="true"><svg viewBox="0 0 12 12" width="9" height="9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M3 4.5l3 3 3-3"/></svg></span>
+      </button>
+      <button class="lookchip" data-picker="quality" type="button" aria-haspopup="dialog">
+        <span class="lookchip-text">
+          <span class="lookchip-key" data-i18n="lookbar.quality">Quality</span>
+          <span class="lookchip-value" id="lookchip-quality-value">Std</span>
+        </span>
+        <span class="lookchip-caret" aria-hidden="true"><svg viewBox="0 0 12 12" width="9" height="9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M3 4.5l3 3 3-3"/></svg></span>
+      </button>
+    </div>
+
+    <div class="lookbar-spacer"></div>
+
+    <div class="export-group">
+      <button id="export-btn" class="export-btn" type="button" disabled>
+        <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M12 4v12m0 0l-4-4m4 4l4-4M5 20h14"/></svg>
+        <span data-i18n="export.exportCurrent">Export</span>
+        <kbd>⌘E</kbd>
+      </button>
+      <button id="batch-btn" class="export-btn export-btn-secondary" type="button" disabled data-i18n-title="export.batchZip" aria-label="Batch · ZIP">
+        <span class="export-batch-label" data-i18n="export.batchShort">ZIP</span>
+        <kbd>⌘⇧E</kbd>
+      </button>
+    </div>
+  </aside>
 
   <!-- CANVAS -->
   <section class="pane pane-canvas" id="canvas-pane" data-i18n-aria-label="canvas.emptyTitle">
@@ -122,56 +174,7 @@
 
 </main>
 
-<!-- LOOK BAR — pinned bottom, the always-visible hot path. -->
-<footer class="lookbar" id="lookbar">
-  <div class="chip-group">
-    <button class="lookchip" data-picker="frame" type="button" aria-haspopup="dialog">
-      <span class="lookchip-icon" id="lookchip-frame-swatch" data-frame="frosted"></span>
-      <span class="lookchip-text">
-        <span class="lookchip-key" data-i18n="lookbar.frame">Frame</span>
-        <span class="lookchip-value" id="lookchip-frame-value">Frosted</span>
-      </span>
-      <span class="lookchip-caret" aria-hidden="true"><svg viewBox="0 0 12 12" width="9" height="9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M3 4.5l3 3 3-3"/></svg></span>
-    </button>
-    <button class="lookchip" data-picker="template" type="button" aria-haspopup="dialog">
-      <span class="lookchip-text">
-        <span class="lookchip-key" data-i18n="lookbar.template">Template</span>
-        <span class="lookchip-value" id="lookchip-template-value">Minimal</span>
-      </span>
-      <span class="lookchip-caret" aria-hidden="true"><svg viewBox="0 0 12 12" width="9" height="9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M3 4.5l3 3 3-3"/></svg></span>
-    </button>
-    <button class="lookchip" data-picker="aspect" type="button" aria-haspopup="dialog">
-      <span class="lookchip-text">
-        <span class="lookchip-key" data-i18n="lookbar.aspect">Aspect</span>
-        <span class="lookchip-value" id="lookchip-aspect-value">9:16</span>
-      </span>
-      <span class="lookchip-caret" aria-hidden="true"><svg viewBox="0 0 12 12" width="9" height="9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M3 4.5l3 3 3-3"/></svg></span>
-    </button>
-    <button class="lookchip" data-picker="quality" type="button" aria-haspopup="dialog">
-      <span class="lookchip-text">
-        <span class="lookchip-key" data-i18n="lookbar.quality">Quality</span>
-        <span class="lookchip-value" id="lookchip-quality-value">Std</span>
-      </span>
-      <span class="lookchip-caret" aria-hidden="true"><svg viewBox="0 0 12 12" width="9" height="9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M3 4.5l3 3 3-3"/></svg></span>
-    </button>
-  </div>
-
-  <div class="lookbar-spacer"></div>
-
-  <div class="export-group">
-    <button id="export-btn" class="export-btn" type="button" disabled>
-      <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M12 4v12m0 0l-4-4m4 4l4-4M5 20h14"/></svg>
-      <span data-i18n="export.exportCurrent">Export</span>
-      <kbd>⌘E</kbd>
-    </button>
-    <button id="batch-btn" class="export-btn export-btn-secondary" type="button" disabled data-i18n-title="export.batchZip" aria-label="Batch · ZIP">
-      <span class="export-batch-label" data-i18n="export.batchShort">ZIP</span>
-      <kbd>⌘⇧E</kbd>
-    </button>
-  </div>
-</footer>
-
-<!-- HIDDEN INPUTS — file inputs the topbar Import button + custom-bg uploader trigger. -->
+<!-- HIDDEN INPUTS — file inputs the lookbar Import button + custom-bg uploader trigger. -->
 <input id="file-input" type="file" accept="image/jpeg,image/png,image/heic,image/heif,.heic,.heif" multiple hidden />
 
 <!-- ============================================================ -->

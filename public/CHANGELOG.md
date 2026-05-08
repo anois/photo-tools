@@ -4,6 +4,23 @@
 
 每次有意义的功能 / 修复 / 优化都记到这里 —— 同一份文件既给开发者看，也通过顶栏 ✦ 按钮在应用内展示给用户。
 
+## 0.16 · 2026-05-09
+
+### 🧭 Look bar 改回左侧 · 三栏对称 + Import 归位
+
+桌面端：把 0.15 引入的底部 Look bar 旋转为**左侧垂直工具轨**。Layout 变成 `[左 lookbar | 中 canvas | 右 filmstrip]` 三栏，左右对称给画布天然居中感，跟编辑工具（Lightroom / Capture One）的传统布局一致。
+
+- **Import 按钮归位** —— 从顶栏挪到左轨顶部，不再被 `topbar-pill` 26×26 圆形 icon 容器拉变形。新位置是个带圆形 accent 红 glyph + label 的紧凑行，跟左轨整体调性一致
+- **chips 垂直堆叠** —— 4 个 chip 从横排改竖排，每行 swatch 左 / key+value 中 / caret 右。caret 默认指向右（`◀`），picker 打开时旋转到下（`▼`），暗示弹出方向
+- **active chip 跟随光改为垂直** —— 0.15.1 加的 lookbar 暖色光晕从顶部水平改成右边缘垂直，跟着当前打开的 chip 上下滑动；右边缘的 1px accent rule 也跟着 chip y 位置 + 高度走
+- **picker 弹出方向** —— 从向上展开改为向右展开，水平 `left: lookbar-w + 14px`，垂直跟随 chip y-center（clamp 进 viewport），整体感像"chip 旁边推开一扇门"
+- **Export group 在左轨底部** —— 大红 Export + 灰 ZIP 全宽堆叠，仍是 thumb-zone 友好的 44px 高
+- **顶栏更清爽** —— 拿掉 import 按钮后，顶栏只剩 brand / 计数 / ⌘K / workshop / 中-EN / changelog / GitHub，节奏更松弛
+
+移动端 (≤768px) **保持 0.15 的底部 sheet 模式不变** —— 手机上 thumb-zone 在屏幕底部，不在屏幕侧边。`.lookbar` 在 `@media (max-width: 768px)` 里 reset 为 fixed-bottom + horizontal chip row + Import 缩成顶部小 accent pill。设计语言不变，只是 surface-native（rule 13）。
+
+无 cfg/preset/share-code schema 变化；smoke 0.53% / 0.38% 持平 baseline。
+
 ## 0.15.1 · 2026-05-09
 
 ### ✨ 界面美感细节优化
