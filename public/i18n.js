@@ -139,6 +139,10 @@
           author: '作者',
           flash: '闪灯',
           gps: 'GPS'
+        },
+        compat: {
+          narrow: '当前相框的底部文字带偏窄，这个模板的多行布局塞进去会显拥挤。建议改用 极简 / 日期·镜头 / 护照戳。',
+          rotated: '当前相框的文字带走垂直方向（旋转 ±90°），横排参数模板被旋转后字符竖排，可读性差。建议改用 标题 / 字标。'
         }
       },
       exif: {
@@ -433,6 +437,10 @@
           author: 'Author',
           flash: 'Flash',
           gps: 'GPS'
+        },
+        compat: {
+          narrow: 'This frame has a narrow bottom caption strip; multi-row templates feel cramped here. Try Minimal, Date · lens, or Passport.',
+          rotated: 'This frame’s caption runs vertically (±90°); horizontally-laid templates become unreadable when rotated. Try Headline or Wordmark.'
         }
       },
       exif: {

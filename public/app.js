@@ -265,6 +265,9 @@ function refreshLocaleSensitive() {
   // Preset select's "(Choose a preset)" placeholder needs re-localizing too,
   // since it was rendered as plain <option> text rather than via data-i18n.
   if (els.presetSelect) populatePresetSelect(els.presetSelect.value);
+  // Template-compat hint copy comes from the i18n dictionary, so flip
+  // languages while the hint is visible needs a repaint.
+  refreshTemplateCompatHint();
 }
 
 // ─── Asset bundle: pre-baked logos.json + base64-inlined fonts.css ───────
@@ -453,6 +456,7 @@ function syncControlsFromCfg(cfg) {
   syncFamilyFromValue(els.frameFamilySeg, els.frameSeg, cfg.frame);
   setSegActive(els.templateSeg, cfg.template);
   syncFamilyFromValue(els.templateFamilySeg, els.templateSeg, cfg.template);
+  refreshTemplateCompatHint();
   els.padding.value = cfg.padding;
   setReadoutNum(els.paddingVal, cfg.padding, 'px');
   if (cfg.captionHeight != null) {
@@ -1071,12 +1075,42 @@ els.aspectPresets.forEach((btn) => {
 });
 
 wireSeg(els.frameSeg, 'frame', (val) => { syncFamilyFromValue(els.frameFamilySeg, els.frameSeg, val); onFrameChange(val); });
-wireSeg(els.templateSeg, 'template', (val) => { syncFamilyFromValue(els.templateFamilySeg, els.templateSeg, val); });
+wireSeg(els.templateSeg, 'template', (val) => { syncFamilyFromValue(els.templateFamilySeg, els.templateSeg, val); refreshTemplateCompatHint(); });
 wireFamilyTabs(els.frameFamilySeg, els.frameSeg, (val) => { activeCfg().frame = val; onFrameChange(val); requestRender(); });
-wireFamilyTabs(els.templateFamilySeg, els.templateSeg, (val) => { activeCfg().template = val; requestRender(); });
+wireFamilyTabs(els.templateFamilySeg, els.templateSeg, (val) => { activeCfg().template = val; refreshTemplateCompatHint(); requestRender(); });
 
 // ─── bg/shadow sync ──────────────────────────────────────────────────────
 // Frame switch resets bg overrides to "use preset" (null) and shadow sliders
+// Frame×template combos that render poorly. Soft hint, not a hard
+// disable — some users may want the combo anyway. Two failure modes:
+//   - 'narrow': frames with a narrow bottom caption strip (instant
+//     family) cramming a multi-row spec template
+//   - 'rotated': frames where caption rotates ±90° (editorial family)
+//     trying to use a horizontally-laid spec template
+const TEMPLATE_INCOMPAT = {
+  polaroid:           { slate: 'narrow',  'tech-stack': 'narrow'  },
+  instax:             { slate: 'narrow',  'tech-stack': 'narrow'  },
+  torn:               { slate: 'narrow',  'tech-stack': 'narrow'  },
+  editorial:          { slate: 'rotated', 'tech-stack': 'rotated' },
+  'editorial-mirror': { slate: 'rotated', 'tech-stack': 'rotated' }
+};
+
+function refreshTemplateCompatHint() {
+  const cfg = activeCfg();
+  const map = TEMPLATE_INCOMPAT[cfg.frame];
+  const key = map && map[cfg.template];
+  const el = document.getElementById('template-compat-hint');
+  const text = document.getElementById('template-compat-hint-text');
+  if (!el || !text) return;
+  if (key) {
+    text.textContent = T('caption.compat.' + key);
+    el.hidden = false;
+  } else {
+    el.hidden = true;
+  }
+}
+
+// `onFrameChange` resets bgBlur/brightness/saturation to "use preset" and
 // to that frame's shadowDefault on the active cfg. Also toggles the frosted-
 // only Advanced panel. Only affects the current photo (per-photo cfg).
 function onFrameChange(frameName) {
@@ -1106,6 +1140,7 @@ function onFrameChange(frameName) {
   setReadoutNum(els.shadowBlurVal, sd.blur, 'px');
   setReadoutNum(els.shadowOffsetVal, sd.offsetY, 'px');
   els.shadowOpacityVal.textContent = sd.opacity.toFixed(2);
+  refreshTemplateCompatHint();
 }
 
 els.bgBlur.addEventListener('input', () => {
