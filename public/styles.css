@@ -1940,7 +1940,10 @@ input[type="range"]::-moz-range-thumb {
    ========================================================= */
 
 .pane-canvas {
-  background: var(--bg-canvas);
+  background:
+    radial-gradient(ellipse 60% 50% at 50% 30%, rgba(255,200,150,0.025) 0%, transparent 65%),
+    radial-gradient(ellipse 40% 30% at 50% 100%, rgba(229,73,58,0.035) 0%, transparent 60%),
+    var(--bg-canvas);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1950,8 +1953,8 @@ input[type="range"]::-moz-range-thumb {
 .canvas-vignette {
   position: absolute; inset: 0;
   background:
-    radial-gradient(ellipse at center, transparent 35%, rgba(0,0,0,0.55) 100%),
-    linear-gradient(180deg, rgba(255,255,255,0.01), transparent 120px);
+    radial-gradient(ellipse at center, transparent 30%, rgba(0,0,0,0.6) 100%),
+    linear-gradient(180deg, rgba(255,255,255,0.012), transparent 140px);
   pointer-events: none;
 }
 
@@ -2037,26 +2040,28 @@ input[type="range"]::-moz-range-thumb {
 .empty-aperture {
   color: var(--accent);
   opacity: 0.55;
-  filter: drop-shadow(0 0 12px var(--accent-vignette));
-  margin-bottom: 4px;
-  animation: empty-iris 6s ease-in-out infinite;
+  filter: drop-shadow(0 0 18px var(--accent-vignette));
+  margin-bottom: 8px;
+  animation: empty-iris 7s ease-in-out infinite;
 }
 @keyframes empty-iris {
-  0%, 100% { transform: rotate(0deg); opacity: 0.5; }
-  50%      { transform: rotate(15deg); opacity: 0.7; }
+  0%, 100% { transform: rotate(0deg) scale(1); opacity: 0.5; }
+  50%      { transform: rotate(22.5deg) scale(1.04); opacity: 0.72; }
 }
 .empty-title {
-  font: 400 18px/1.1 var(--f-display);
+  font: 400 22px/1.1 var(--f-display);
   font-variation-settings: "opsz" 144, "SOFT" 100;
-  letter-spacing: -0.005em;
+  font-style: italic;
+  letter-spacing: -0.012em;
   color: var(--text-muted);
   margin: 0;
 }
 .empty-sub {
-  font: 500 10px/1.5 var(--f-mono);
-  text-transform: uppercase;
-  letter-spacing: 0.16em;
+  font: 400 12px/1.5 var(--f-display);
+  font-variation-settings: "opsz" 144, "SOFT" 100;
+  font-style: italic;
   color: var(--text-dim);
+  letter-spacing: -0.005em;
   margin: 0;
 }
 
@@ -2065,32 +2070,47 @@ input[type="range"]::-moz-range-thumb {
    Helps users orient when they switch photos with different cfgs. */
 .canvas-frame-badge {
   position: absolute;
-  top: 20px; left: 20px;
+  top: 22px; left: 22px;
   z-index: 3;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 10px;
+  gap: 9px;
+  padding: 7px 12px 7px 9px;
   background: rgba(20, 22, 25, 0.72);
   border: 1px solid var(--line);
-  border-radius: 3px;
+  border-radius: 999px;
   font: 500 10px/1 var(--f-mono);
+  letter-spacing: 0.16em;
   text-transform: uppercase;
-  letter-spacing: 0.14em;
   color: var(--text-muted);
-  backdrop-filter: blur(8px) saturate(1.1);
+  backdrop-filter: blur(10px) saturate(1.2);
+  -webkit-backdrop-filter: blur(10px) saturate(1.2);
   pointer-events: none;
   animation: badge-in 280ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 .canvas-frame-badge[hidden] { display: none; }
-.canvas-frame-badge em {
-  font-style: normal;
-  color: var(--accent);
-  font-weight: 600;
+/* Live frame swatch dot — same color rules as the lookchip-icon, just
+   smaller. Reuse the same data-frame attribute from the markup. */
+.canvas-badge-swatch {
+  width: 12px; height: 9px;
+  border-radius: 2px;
+  border: 1px solid var(--line-strong);
+  display: inline-block;
+  flex: 0 0 auto;
+  position: relative;
+  overflow: hidden;
 }
-.canvas-badge-sep { color: var(--text-dim); }
+.canvas-frame-badge em {
+  font: 400 12px/1 var(--f-display);
+  font-variation-settings: "opsz" 144, "SOFT" 100;
+  font-style: italic;
+  color: var(--text);
+  letter-spacing: -0.005em;
+  text-transform: none;
+}
+.canvas-badge-sep { color: var(--text-dim); margin: 0 2px; opacity: 0.7; }
 .canvas-badge-rot { color: var(--text-dim); }
-.canvas-badge-rot em { color: var(--text); font-weight: 500; }
+.canvas-badge-rot em { color: var(--text); font-style: normal; font-weight: 500; font-size: 11px; }
 .canvas-badge-rot[hidden] { display: none; }
 @keyframes badge-in {
   from { opacity: 0; transform: translateY(-4px); }
@@ -2170,22 +2190,26 @@ input[type="range"]::-moz-range-thumb {
 }
 
 .rail-head {
-  padding: 14px 16px 12px;
+  padding: 16px 14px 12px;
   border-bottom: 1px solid var(--line);
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: space-between;
+  gap: 4px;
 }
 .rail-head-label {
-  font: 500 10px/1 var(--f-mono);
-  text-transform: uppercase;
-  letter-spacing: 0.18em;
-  color: var(--text-muted);
+  font: 400 14px/1 var(--f-display);
+  font-variation-settings: "opsz" 144, "SOFT" 100;
+  font-style: italic;
+  color: var(--text);
+  letter-spacing: -0.005em;
 }
 .rail-head-count {
-  font: 500 10px/1 var(--f-mono);
-  color: var(--text-dim);
-  letter-spacing: 0.04em;
+  font: 400 18px/1 var(--f-display);
+  font-variation-settings: "opsz" 144, "SOFT" 100;
+  color: var(--accent);
+  letter-spacing: -0.01em;
+  font-feature-settings: 'tnum' 1;
 }
 
 .rail-items {
@@ -2255,12 +2279,22 @@ input[type="range"]::-moz-range-thumb {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 40px 12px;
+  gap: 12px;
+  padding: 32px 8px;
   text-align: center;
   color: var(--text-dim);
-  font: 500 10px/1.6 var(--f-mono);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
+  font: 400 12px/1.5 var(--f-display);
+  font-variation-settings: "opsz" 144, "SOFT" 100;
+  font-style: italic;
+  letter-spacing: -0.005em;
+}
+.rail-empty::before {
+  /* Faint dashed-circle aperture mark — reads as "waiting for film". */
+  content: '';
+  width: 28px; height: 28px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 50%;
+  position: relative;
 }
 
 .rail-foot {
@@ -2358,38 +2392,55 @@ input[type="range"]::-moz-range-thumb {
   z-index: 6;
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 0 18px;
+  gap: 14px;
+  padding: 0 20px;
   height: var(--lookbar-h);
-  background: linear-gradient(to bottom, rgba(20,22,25,0.86), rgba(15,17,20,0.94));
+  background:
+    radial-gradient(ellipse 360px 80px at var(--active-chip-x, 50%) 0%, rgba(229,73,58,0.06) 0%, transparent 70%),
+    linear-gradient(to bottom, rgba(20,22,25,0.86), rgba(15,17,20,0.94));
   backdrop-filter: blur(24px) saturate(160%);
   -webkit-backdrop-filter: blur(24px) saturate(160%);
   border-top: 1px solid var(--line-strong);
   flex-shrink: 0;
+  /* --active-chip-x is set in JS to follow the active picker's chip;
+     when nothing is active it falls back to 50%. The accent halo above
+     is positioned with that variable, so the warm wash on the lookbar
+     ceiling tracks the user's current focus. */
+  --active-chip-x: 50%;
+  --active-chip-w: 0px;
+  transition: --active-chip-x 280ms cubic-bezier(0.2,0.8,0.2,1);
 }
 .lookbar::before {
-  /* Top accent hairline highlight — gives the bar a "lit edge" feel.
-     Centered, fading out at both ends so it reads as a soft glow under
-     the active picker, not a structural rule. */
+  /* Top accent hairline highlight. Default position centered with
+     soft falloff, but follows the active chip when one is open via
+     CSS variables driven from the toolbar shell JS. The line itself
+     is just 1px but layered atop a wider radial halo on the lookbar
+     bg gives the impression of a "lit edge" that responds to focus. */
   content: '';
   position: absolute;
   top: 0;
-  left: 50%;
-  width: 220px;
+  left: var(--active-chip-x, 50%);
+  width: max(220px, var(--active-chip-w, 220px));
   height: 1px;
   transform: translateX(-50%);
   background: linear-gradient(to right, transparent, var(--accent-line), transparent);
-  filter: blur(0.5px);
+  filter: blur(0.4px);
   pointer-events: none;
+  transition: left 280ms cubic-bezier(0.2,0.8,0.2,1),
+              width 280ms cubic-bezier(0.2,0.8,0.2,1),
+              opacity 200ms ease;
+  opacity: 0.7;
 }
+.lookbar[data-picker-open="true"]::before { opacity: 1; }
 
 .chip-group {
   display: flex;
   align-items: stretch;
-  background: rgba(0,0,0,0.18);
+  background: rgba(0,0,0,0.22);
   border: 1px solid var(--line);
   border-radius: var(--r-md);
   overflow: hidden;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.02);
 }
 .chip-group .lookchip + .lookchip {
   border-left: 1px solid var(--line);
@@ -2400,38 +2451,42 @@ input[type="range"]::-moz-range-thumb {
   -webkit-appearance: none;
   display: inline-flex;
   align-items: center;
-  gap: 9px;
-  padding: 8px 12px;
-  height: 40px;
+  gap: 11px;
+  padding: 8px 14px;
+  height: 44px;
   background: transparent;
   border: 0;
   cursor: pointer;
   position: relative;
-  transition: background 120ms ease;
+  transition: background 160ms ease, transform 200ms cubic-bezier(0.2,0.8,0.2,1);
   min-width: 0;
 }
 .lookchip:hover { background: rgba(255,255,255,0.04); }
+.lookchip:active { transform: translateY(0.5px); }
 .lookchip[data-open="true"] {
-  background: var(--accent-soft);
+  background: linear-gradient(to bottom, var(--accent-soft), transparent 80%);
 }
 .lookchip[data-open="true"]::after {
   content: '';
   position: absolute;
   bottom: -1px;
-  left: 8px;
-  right: 8px;
+  left: 10px;
+  right: 10px;
   height: 2px;
   background: var(--accent);
   border-radius: 1px;
+  box-shadow: 0 0 6px var(--accent-glow);
 }
+.lookchip[data-open="true"] .lookchip-caret { transform: rotate(180deg); }
 .lookchip-icon {
-  width: 20px;
-  height: 14px;
-  border-radius: 2px;
+  width: 24px;
+  height: 18px;
+  border-radius: 3px;
   border: 1px solid var(--line-strong);
   flex: 0 0 auto;
   position: relative;
   overflow: hidden;
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,0.18);
 }
 .lookchip-icon[data-frame="frosted"]        { background: linear-gradient(135deg, #243648 0%, #4a4055 50%, #2a3344 100%); filter: blur(0.5px); }
 .lookchip-icon[data-frame="frosted-noir"]   { background: linear-gradient(135deg, #0e1422 0%, #1a1418 50%, #0a0a10 100%); }
@@ -2464,25 +2519,43 @@ input[type="range"]::-moz-range-thumb {
 }
 .lookchip-key {
   font: 500 8.5px/1 var(--f-mono);
-  letter-spacing: 0.18em;
+  letter-spacing: 0.22em;
   text-transform: uppercase;
   color: var(--text-dim);
 }
 .lookchip-value {
-  font: 500 13px/1 var(--f-display);
-  font-feature-settings: 'ss01';
-  letter-spacing: -0.005em;
+  font: 400 14.5px/1 var(--f-display);
+  font-variation-settings: "opsz" 144, "SOFT" 100;
+  letter-spacing: -0.01em;
   color: var(--text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 132px;
+  max-width: 154px;
+  /* Subtle cross-fade when the value text changes (driven by a CSS
+     animation toggled via .is-changing in the toolbar shell JS). */
+  transition: opacity 140ms ease;
+}
+.lookchip-value.is-changing {
+  animation: lookchip-flash 360ms cubic-bezier(0.2,0.8,0.2,1);
+}
+@keyframes lookchip-flash {
+  0% { opacity: 0.35; transform: translateY(-1.5px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+.lookchip[data-open="true"] .lookchip-value {
+  color: var(--accent);
 }
 .lookchip-caret {
-  font-size: 9px;
+  width: 9px; height: 9px;
   color: var(--text-dim);
-  margin-left: 1px;
+  margin-left: 2px;
+  transition: transform 220ms cubic-bezier(0.2,0.8,0.2,1), color 160ms ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
+.lookchip[data-open="true"] .lookchip-caret { color: var(--accent); }
 
 .lookbar-spacer { flex: 1; }
 
@@ -2608,25 +2681,29 @@ input[type="range"]::-moz-range-thumb {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  margin-bottom: 14px;
+  margin-bottom: 16px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--line);
   flex-shrink: 0;
 }
 .picker-title {
   margin: 0;
-  font: 500 17px/1 var(--f-display);
-  font-feature-settings: 'ss01';
-  letter-spacing: -0.005em;
+  font: 400 19px/1 var(--f-display);
+  font-variation-settings: "opsz" 144, "SOFT" 100;
+  font-style: italic;
+  letter-spacing: -0.01em;
   color: var(--text);
 }
 .picker-subtitle {
   font: 500 10px/1 var(--f-mono);
-  letter-spacing: 0.18em;
+  letter-spacing: 0.22em;
   color: var(--text-dim);
   text-transform: uppercase;
 }
 .picker-subtitle em {
   font-style: normal;
-  color: var(--text-muted);
+  color: var(--accent);
+  font-weight: 600;
   margin-right: 4px;
 }
 
@@ -2652,22 +2729,24 @@ input[type="range"]::-moz-range-thumb {
 
 .picker-family-head {
   font: 500 9.5px/1 var(--f-mono);
-  letter-spacing: 0.18em;
+  letter-spacing: 0.22em;
   color: var(--text-muted);
   text-transform: uppercase;
-  margin-bottom: 10px;
-  padding-bottom: 6px;
-  border-bottom: 1px solid var(--line);
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line-subtle);
   display: flex;
-  gap: 8px;
+  gap: 10px;
   align-items: baseline;
 }
 .picker-family-head::before {
   content: '';
-  width: 4px;
-  height: 4px;
+  width: 5px;
+  height: 5px;
   background: var(--accent);
   border-radius: 50%;
+  box-shadow: 0 0 6px var(--accent-glow);
+  align-self: center;
 }
 
 .frame-family-group { margin-bottom: 14px; }
@@ -2688,11 +2767,33 @@ input[type="range"]::-moz-range-thumb {
   border: 0;
   padding: 0;
   cursor: pointer;
-  transition: transform 140ms cubic-bezier(0.2,0.8,0.2,1);
+  transition: transform 220ms cubic-bezier(0.2,0.8,0.2,1);
   position: relative;
   text-align: left;
+  /* Stagger reveal: when the picker opens we cascade tiles in via a
+     CSS animation, indexed by the tile's --i custom property which JS
+     sets at generation time. */
+  opacity: 0;
+  transform: translateY(6px);
+  animation: tile-rise 380ms cubic-bezier(0.2,0.8,0.2,1) forwards;
+  animation-delay: calc(var(--i, 0) * 22ms + 60ms);
 }
-.frame-tile:hover { transform: translateY(-2px); }
+.frame-tile:hover {
+  transform: translateY(-3px);
+  animation: none;          /* hover overrides the entry animation */
+  opacity: 1;
+}
+@keyframes tile-rise {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+/* Re-trigger entry stagger every time the picker opens. */
+.picker[hidden] .frame-tile,
+.picker[hidden] .tmpl-tile {
+  animation: none;
+  opacity: 0;
+  transform: translateY(6px);
+}
 .frame-tile.active .frame-tile-preview {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
@@ -2810,17 +2911,24 @@ input[type="range"]::-moz-range-thumb {
   border: 1px solid var(--line);
   padding: 12px 14px 14px;
   background: var(--bg-canvas);
-  transition: all 140ms ease;
+  transition: border-color 160ms ease, transform 220ms cubic-bezier(0.2,0.8,0.2,1), background 160ms ease;
   display: flex;
   flex-direction: column;
   gap: 8px;
   min-height: 92px;
   text-align: left;
   color: inherit;
+  /* Same stagger reveal as frame tiles. */
+  opacity: 0;
+  transform: translateY(6px);
+  animation: tile-rise 380ms cubic-bezier(0.2,0.8,0.2,1) forwards;
+  animation-delay: calc(var(--i, 0) * 22ms + 60ms);
 }
 .tmpl-tile:hover {
   border-color: var(--line-strong);
-  transform: translateY(-1px);
+  transform: translateY(-2px);
+  animation: none;
+  opacity: 1;
 }
 .tmpl-tile.active {
   border-color: var(--accent);
@@ -3147,9 +3255,11 @@ input[type="range"]::-moz-range-thumb {
 }
 .workshop-title {
   margin: 0;
-  font: 500 18px/1 var(--f-display);
-  font-feature-settings: 'ss01';
-  letter-spacing: -0.005em;
+  font: 400 22px/1 var(--f-display);
+  font-variation-settings: "opsz" 144, "SOFT" 100;
+  font-style: italic;
+  letter-spacing: -0.012em;
+  color: var(--text);
 }
 .workshop-tabs {
   display: flex;
@@ -3223,28 +3333,45 @@ input[type="range"]::-moz-range-thumb {
 .statusbar {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
   height: var(--statusbar-h);
-  padding: 0 18px;
+  padding: 0 20px;
   border-top: 1px solid var(--line);
   background: var(--bg-base);
-  font: 500 10px/1 var(--f-mono);
-  letter-spacing: 0.06em;
-  color: var(--text-dim);
-  text-transform: uppercase;
   flex-shrink: 0;
 }
+.statusbar::before {
+  /* Tiny accent dot — reads as "darkroom is online". */
+  content: '';
+  width: 4px; height: 4px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 5px var(--accent-glow);
+  margin-right: 2px;
+  flex: 0 0 auto;
+}
 .statusbar-spacer { flex: 1; }
-.statusbar-hints { color: var(--text-dim); text-transform: none; letter-spacing: 0; font-family: var(--f-ui); font-size: 11px; }
+.statusbar-hints {
+  font: 400 11px/1 var(--f-ui);
+  color: var(--text-dim);
+  letter-spacing: 0;
+}
 .statusbar-hints kbd {
-  font: 500 10px/1 var(--f-mono);
+  font: 500 9.5px/1 var(--f-mono);
   padding: 2px 5px;
   border: 1px solid var(--line);
   border-radius: 3px;
   color: var(--text-muted);
-  margin: 0 1px;
+  margin: 0 2px;
+  background: var(--bg-elev);
 }
-#status { color: var(--text-muted); }
+#status {
+  font: 400 12px/1 var(--f-display);
+  font-variation-settings: "opsz" 144, "SOFT" 100;
+  font-style: italic;
+  color: var(--text-muted);
+  letter-spacing: -0.005em;
+}
 
 /* The body grid: topbar / workspace / lookbar / statusbar. Replaces the
    prior 3-pane block layout. */
