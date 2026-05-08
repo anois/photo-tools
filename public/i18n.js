@@ -99,7 +99,9 @@
           'tech-stack': '技术栈 · 竖排',
           'date-lens': '日期 · 镜头',
           wordmark: '字标 · 大字品牌',
-          headline: '标题 · 地点 + 日期'
+          headline: '标题 · 地点 + 日期',
+          slate: '场记板 · OSD 字段格',
+          passport: '护照戳 · 邮印'
         },
         showFields: '显示字段',
         fields: {
@@ -368,7 +370,9 @@
           'tech-stack': 'Tech stack · vertical',
           'date-lens': 'Date · lens',
           wordmark: 'Wordmark · large brand',
-          headline: 'Headline · place + date'
+          headline: 'Headline · place + date',
+          slate: 'Slate · OSD field grid',
+          passport: 'Passport · postmark'
         },
         showFields: 'Show fields',
         fields: {

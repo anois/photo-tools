@@ -1256,6 +1256,116 @@
     return style + headEl + subEl;
   }
 
+  // Slate: clapper-board / camera-OSD field grid in monospace. Each
+  // metadata field gets its own labeled cell ("DATE / CAM / LENS / EXP")
+  // separated by hairlines, like a film slate or DIT log overlay. Uses
+  // system monospace fallback (`ui-monospace, "SF Mono"…`) so we don't
+  // need to inline a Plex Mono subset just for this template.
+  function tSlate(exif, layout, fontFaceCss, opts) {
+    const colors = captionColors(opts.textStyle);
+    const show = opts.showFields;
+    const s = layout.scale || 1;
+    const cx = layout.W / 2;
+    const cy = layout.textBaselineY;
+
+    const date = on(show, 'date') ? (exif.date || '——') : '——';
+    const cam = (on(show, 'brand') ? (exif.make || '').toString().toUpperCase() : '').trim();
+    const model = (on(show, 'model') ? (exif.model || '') : '').trim();
+    const camLine = [cam, model].filter(Boolean).join(' ') || '——';
+    const lens = (on(show, 'lens') ? (exif.lensModel || '') : '').trim() || '——';
+    const params = [
+      on(show, 'focal')    ? exif.focalLength  : '',
+      on(show, 'aperture') ? exif.fNumber      : '',
+      on(show, 'shutter')  ? exif.exposureTime : '',
+      on(show, 'iso')      ? exif.iso          : ''
+    ].filter(Boolean).join(' · ') || '——';
+
+    const labelPx = Math.max(Math.round(11 * s), Math.round(layout.H * 0.08));
+    const valPx = Math.max(Math.round(15 * s), Math.round(labelPx * 1.35));
+    const lineH = Math.round(valPx * 1.55);
+    const monoStack = '"SFMono-Regular", "SF Mono", Menlo, Monaco, Consolas, monospace';
+
+    const rows = [
+      ['DATE', date],
+      ['CAM',  camLine],
+      ['LENS', lens],
+      ['EXP',  params]
+    ];
+    const totalH = rows.length * lineH;
+    const firstY = Math.round(cy - totalH / 2 + lineH * 0.7);
+
+    // Two-column metric: label cell width fixed (~"LENS" + padding),
+    // value cell takes remainder. Compute label cell from the longest
+    // canonical label so columns align across all rows.
+    const labelW = Math.round(estimateTextWidth('LENS  ', labelPx, 600, Math.round(2 * s)));
+    const colGap = Math.round(20 * s);
+    const totalRowW = Math.min(layout.W * 0.78, labelW + colGap + estimateTextWidth(camLine, valPx, 400, 0));
+    const startX = Math.round(cx - totalRowW / 2);
+    const valStartX = startX + labelW + colGap;
+
+    const style = '<style>' + fontFaceCss +
+      '.sl-label{font:600 ' + labelPx + 'px ' + monoStack + ';fill:' + colors.accent + ';letter-spacing:' + Math.round(2 * s) + 'px;}' +
+      '.sl-val{font:400 ' + valPx + 'px ' + monoStack + ';fill:' + colors.brand + ';letter-spacing:' + Math.round(0.5 * s) + 'px;}' +
+      '</style>';
+
+    let out = style;
+    rows.forEach(function (row, i) {
+      const y = firstY + i * lineH;
+      out += '<text x="' + startX + '" y="' + y + '" text-anchor="start" class="sl-label">' + escapeXml(row[0]) + '</text>';
+      out += '<text x="' + valStartX + '" y="' + y + '" text-anchor="start" class="sl-val">' + escapeXml(row[1]) + '</text>';
+      // Hairline between rows (skip the last row's bottom rule).
+      if (i < rows.length - 1) {
+        const ruleY = y + Math.round(lineH * 0.30);
+        out += '<line x1="' + startX + '" y1="' + ruleY + '" x2="' + (startX + Math.round(totalRowW)) + '" y2="' + ruleY + '" stroke="' + colors.accent + '" stroke-width="' + Math.max(1, Math.round(0.6 * s)) + '" opacity="0.35"/>';
+      }
+    });
+    return out;
+  }
+
+  // Passport: tiny boxed corner stamp with date + GPS (bordered rect,
+  // monospace, faux-print-on-document feel). Render is intentionally
+  // small so it sits like a postmark — never the visual lead of the
+  // composition. Best paired with frames whose caption zone is wide
+  // (frosted, gallery, editorial) so the stamp has breathing room.
+  function tPassport(exif, layout, fontFaceCss, opts) {
+    const colors = captionColors(opts.textStyle);
+    const show = opts.showFields;
+    const s = layout.scale || 1;
+    const cx = layout.W / 2;
+    const cy = layout.textBaselineY;
+
+    const date = on(show, 'date') ? (exif.date || '') : '';
+    const gps = on(show, 'gps') ? (exif.gps || '') : '';
+    const lines = [date, gps].filter(Boolean);
+    if (!lines.length) return '<style>' + fontFaceCss + '</style>';
+
+    const px = Math.max(Math.round(13 * s), Math.round(layout.H * 0.18));
+    const lineH = Math.round(px * 1.6);
+    const padX = Math.round(px * 1.4);
+    const padY = Math.round(px * 0.85);
+    const monoStack = '"SFMono-Regular", "SF Mono", Menlo, Monaco, Consolas, monospace';
+    // Box width: longest line + 2× horizontal padding. Use a generous
+    // estimator with monospace assumptions (each glyph ≈ 0.6em).
+    const longest = lines.reduce(function (a, b) { return b.length > a.length ? b : a; }, '');
+    const textW = Math.round(longest.length * px * 0.6);
+    const boxW = textW + padX * 2;
+    const boxH = lines.length * lineH + padY * 2 - Math.round(lineH * 0.3);
+    const boxX = Math.round(cx - boxW / 2);
+    const boxY = Math.round(cy - boxH / 2);
+
+    const style = '<style>' + fontFaceCss +
+      '.pp-text{font:500 ' + px + 'px ' + monoStack + ';fill:' + colors.brand + ';letter-spacing:' + Math.round(1.5 * s) + 'px;text-transform:uppercase;}' +
+      '</style>';
+
+    let out = style;
+    out += '<rect x="' + boxX + '" y="' + boxY + '" width="' + boxW + '" height="' + boxH + '" fill="none" stroke="' + colors.accent + '" stroke-width="' + Math.max(1, Math.round(1 * s)) + '" rx="' + Math.round(2 * s) + '" opacity="0.7"/>';
+    lines.forEach(function (line, i) {
+      const y = boxY + padY + (i + 1) * lineH - Math.round(lineH * 0.3);
+      out += '<text x="' + cx + '" y="' + y + '" text-anchor="middle" class="pp-text">' + escapeXml(line) + '</text>';
+    });
+    return out;
+  }
+
   const TEMPLATES = {
     'minimal-text': tMinimalText,
     'brand-logo':   tBrandLogo,
@@ -1263,7 +1373,9 @@
     'tech-stack':   tTechStack,
     'brand-right':  tBrandRight,
     wordmark:       tWordmark,
-    headline:       tHeadline
+    headline:       tHeadline,
+    slate:          tSlate,
+    passport:       tPassport
   };
 
   // Build the template's inner SVG content (no outer <svg> wrapper).
