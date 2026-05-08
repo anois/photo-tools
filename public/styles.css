@@ -2039,6 +2039,13 @@ input[type="range"]::-moz-range-thumb {
 }
 
 /* =========================================================
+   MOBILE DOCK — hidden on desktop, fixed-bottom thumb-zone CTAs on
+   mobile. The actual layout work lives in the mobile media query
+   block further down; this default just keeps it out of the way.
+   ========================================================= */
+.mobile-dock { display: none; }
+
+/* =========================================================
    RESPONSIVE — narrow desktop / tablet
    ========================================================= */
 
@@ -2201,18 +2208,74 @@ input[type="range"]::-moz-range-thumb {
   .file-drop { padding: 18px 14px; }
   .file-drop-icon { width: 40px; height: 40px; }
 
-  /* Statusbar: shrink, drop the hint. */
+  /* Statusbar: shrink, drop the hint, sit ABOVE the mobile dock so
+     export-progress text stays visible during batch runs. The dock
+     owns the bottom safe-area inset; statusbar drops it. */
   .statusbar {
-    position: sticky;
-    bottom: 0;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: var(--mobile-dock-h);
     height: var(--statusbar-h);
     padding-left: max(14px, env(safe-area-inset-left));
     padding-right: max(14px, env(safe-area-inset-right));
-    padding-bottom: env(safe-area-inset-bottom);
+    padding-bottom: 0;
     background: var(--bg-chrome);
+    border-top: 1px solid var(--line-subtle);
     z-index: 7;
   }
   .status-hint { display: none; }
+
+  /* ── Mobile dock: thumb-zone primary CTAs ──────────────────────────────
+     Pinned to viewport bottom + safe-area inset. Export Current is the
+     primary accent-fill button, Batch · ZIP is secondary. Both inflate
+     to 52pt tall (Apple HIG floor + comfortable padding for export-mode
+     fingertips). Backdrop-blur over the canvas underneath gives the
+     dock a soft chrome layer like iOS Music's Now Playing bar.
+     The two buttons mirror the disabled state of the buried in-section
+     export buttons via a MutationObserver in app.js. */
+  :root { --mobile-dock-h: 76px; }
+  .mobile-dock {
+    display: flex;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 8;
+    gap: 10px;
+    padding: 10px 14px;
+    padding-left: max(14px, env(safe-area-inset-left));
+    padding-right: max(14px, env(safe-area-inset-right));
+    padding-bottom: max(10px, env(safe-area-inset-bottom));
+    background: rgba(20, 22, 25, 0.92);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-top: 1px solid var(--line-strong);
+  }
+  .mobile-dock .btn {
+    flex: 1;
+    min-height: 52px;
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .mobile-dock-cta { flex: 1.6; }   /* Export gets ~62%, Batch ~38% */
+  .mobile-dock-batch { flex: 1; }
+  /* Disabled CTAs in the dock fade more aggressively than in-section
+     ones — at this size, the accent fill on a disabled button reads as
+     "tappable" on a quick glance. Push it to 0.4 so the user clearly
+     reads "no photo loaded yet". */
+  .mobile-dock .btn:disabled { opacity: 0.4; }
+
+  /* Pane-controls bottom padding now needs to clear BOTH the dock
+     and the statusbar that floats above it. */
+  .pane-controls {
+    padding-bottom: calc(var(--statusbar-h) + var(--mobile-dock-h) + 16px);
+  }
+
+  /* Hide the duplicate Export buttons buried in section G — the dock
+     replaces them on mobile. Section G's quality/format selects stay
+     visible (still useful to tweak before tapping the dock CTA). */
+  .group[data-section="G"] .actions { display: none; }
 
   /* ── Touch-friendly form / control sizing ──────────────────────────────
      Apple HIG: 44pt minimum touch target. We inflate slider thumbs,

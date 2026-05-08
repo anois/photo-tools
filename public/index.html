@@ -546,6 +546,21 @@
   <button id="update-banner-dismiss" type="button" class="update-banner-dismiss" data-i18n-aria-label="update.dismiss" aria-label="Dismiss">×</button>
 </div>
 
+<!-- MOBILE DOCK — thumb-zone primary CTAs.
+     Hidden on desktop (display: none below the 768px breakpoint). Mirrors
+     the disabled state of the buried Export buttons in section G via a
+     MutationObserver in app.js, and forwards clicks to them. Pinned to
+     the viewport bottom + safe-area inset so the Export button sits in
+     the iOS thumb arc instead of buried at the end of a 7-section scroll. -->
+<nav class="mobile-dock" id="mobile-dock" aria-label="Quick actions">
+  <button id="mobile-export-btn" type="button" class="btn btn-primary mobile-dock-cta" disabled>
+    <span data-i18n="export.exportCurrent">Export current</span>
+  </button>
+  <button id="mobile-batch-btn" type="button" class="btn btn-secondary mobile-dock-batch" disabled>
+    <span data-i18n="export.batchZip">Batch · ZIP</span>
+  </button>
+</nav>
+
 <!-- STATUS BAR -->
 <footer class="statusbar">
   <span class="status-dot" aria-hidden="true"></span>

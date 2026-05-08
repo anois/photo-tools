@@ -167,6 +167,8 @@ const els = {
   customBgClearBtn: document.getElementById('custom-bg-clear-btn'),
   exportBtn: document.getElementById('export-btn'),
   batchBtn: document.getElementById('batch-btn'),
+  mobileExportBtn: document.getElementById('mobile-export-btn'),
+  mobileBatchBtn: document.getElementById('mobile-batch-btn'),
   clearExifBtn: document.getElementById('clear-exif-btn'),
   applyExifAllBtn: document.getElementById('apply-exif-all-btn'),
   copyRawExifBtn: document.getElementById('copy-raw-exif-btn'),
@@ -1879,6 +1881,29 @@ async function runBatch() {
   }
 }
 els.batchBtn.addEventListener('click', runBatch);
+
+// ─── Mobile dock — mirror disabled state + forward clicks ───────────────
+// The mobile dock holds duplicate Export/Batch buttons in a fixed-bottom
+// thumb-zone bar. Rather than refactor every site that toggles the
+// originals' `disabled` (there are ~6 such places scattered through
+// export, batch, and selection logic), we observe the original buttons'
+// disabled attribute and mirror it onto the dock buttons. Click handlers
+// just `.click()`-forward to the originals, which run the actual logic.
+// Note: HTMLElement.click() on a disabled element is a no-op — so the
+// disabled mirror is what gates user-facing button availability.
+(function wireMobileDock() {
+  const pairs = [
+    [els.exportBtn, els.mobileExportBtn],
+    [els.batchBtn, els.mobileBatchBtn],
+  ];
+  pairs.forEach(([source, target]) => {
+    if (!source || !target) return;
+    target.disabled = source.disabled;
+    new MutationObserver(() => { target.disabled = source.disabled; })
+      .observe(source, { attributes: true, attributeFilter: ['disabled'] });
+    target.addEventListener('click', () => source.click());
+  });
+})();
 
 // ─── Presets ─────────────────────────────────────────────────────────────
 // A preset captures the "look" half of cfg (everything except per-photo EXIF
