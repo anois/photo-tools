@@ -193,6 +193,8 @@
         navigate: '上下切换',
         ariaList: '已导入照片',
         ariaPane: '照片胶卷',
+        applyFrameFromHere: '把这张的相框设置应用到全部',
+        applyExifFromHere: '把这张的 EXIF 应用到全部',
         removeOne: '从胶卷中移除'
       },
       status: {
@@ -443,6 +445,8 @@
         navigate: 'navigate',
         ariaList: 'Imported photos',
         ariaPane: 'Photo roll',
+        applyFrameFromHere: "Apply this photo's frame to all",
+        applyExifFromHere: "Apply this photo's EXIF to all",
         removeOne: 'Remove from roll'
       },
       status: {

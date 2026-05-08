@@ -1729,56 +1729,73 @@ els.clearExifBtn.addEventListener('click', () => {
   requestRender();
 });
 
-// Apply the current photo's full frame configuration (everything *except*
-// EXIF) to all loaded photos in one click. Covers aspect, frame, template,
-// padding, captionHeight, bg overrides, shadow, and showFields. The intent:
-// once you've dialed a look on one photo, propagate it across the batch.
-els.applyFrameAllBtn.addEventListener('click', () => {
-  const active = state.files[state.activeIdx];
-  if (!active) return;
+// Apply a source photo's full frame configuration (everything *except* EXIF)
+// to all OTHER loaded photos. Covers aspect, frame, template, padding,
+// captionHeight, bg overrides, shadow, and showFields. The intent: once
+// you've dialed a look on one photo, propagate it across the batch.
+//
+// Source defaults to the active photo (B-section button path) but the rail
+// context menu passes the right-clicked photo so the user doesn't have to
+// switch active first.
+function applyFrameToAll(src) {
+  if (!src) return;
   if (state.files.length <= 1) {
     setStatus('status.onlyOne', 'err');
     setTimeout(() => setStatus('status.ready'), 1500);
     return;
   }
-  const src = active.cfg;
   const FRAME_KEYS = [
     'aspect', 'frame', 'template', 'padding', 'captionHeight',
     'bgBlur', 'bgBrightness', 'bgSaturation',
     'shadowBlur', 'shadowOffsetY', 'shadowOpacity'
   ];
   for (const f of state.files) {
-    if (f === active) continue;
-    for (const k of FRAME_KEYS) f.cfg[k] = src[k];
-    f.cfg.showFields = { ...src.showFields };
-    f.cfg.customLogo = src.customLogo ? { ...src.customLogo } : null;
-    f.cfg.customBg = src.customBg ? { ...src.customBg } : null;
+    if (f === src) continue;
+    for (const k of FRAME_KEYS) f.cfg[k] = src.cfg[k];
+    f.cfg.showFields = { ...src.cfg.showFields };
+    f.cfg.customLogo = src.cfg.customLogo ? { ...src.cfg.customLogo } : null;
+    f.cfg.customBg = src.cfg.customBg ? { ...src.cfg.customBg } : null;
+  }
+  // If the active photo received settings, re-sync its controls to reflect
+  // them. (When the source IS the active photo this is a noop.)
+  if (state.activeIdx >= 0 && state.files[state.activeIdx] !== src) {
+    syncControlsFromCfg(state.files[state.activeIdx].cfg);
+    requestRender();
   }
   setStatus('status.appliedFrame', null, { n: state.files.length - 1 });
   setTimeout(() => setStatus('status.ready'), 1800);
-  // The active photo's UI is already correct; no need to re-sync controls.
+}
+els.applyFrameAllBtn.addEventListener('click', () => {
+  applyFrameToAll(state.files[state.activeIdx]);
 });
 
-// Apply the current photo's EXIF override to all loaded photos. Each other
-// photo keeps its own auto-parsed metadata for keys NOT in the override —
-// only the user-edited fields propagate. Useful for e.g. setting author
-// across the whole batch, or correcting a misparsed brand globally.
-els.applyExifAllBtn.addEventListener('click', () => {
-  const active = state.files[state.activeIdx];
-  if (!active) return;
-  const src = active.cfg.exifOverride || {};
-  const keys = Object.keys(src);
+// Apply a source photo's EXIF override to all OTHER loaded photos. Each
+// other photo keeps its own auto-parsed metadata for keys NOT in the
+// override — only the user-edited fields propagate. Useful for e.g.
+// setting author across the whole batch, or correcting a misparsed brand
+// globally.
+function applyExifToAll(src) {
+  if (!src) return;
+  const ov = src.cfg.exifOverride || {};
+  const keys = Object.keys(ov);
   if (state.files.length <= 1) {
     setStatus('status.onlyOne', 'err');
     setTimeout(() => setStatus('status.ready'), 1500);
     return;
   }
   for (const f of state.files) {
-    if (f === active) continue;
-    f.cfg.exifOverride = { ...src };
+    if (f === src) continue;
+    f.cfg.exifOverride = { ...ov };
+  }
+  if (state.activeIdx >= 0 && state.files[state.activeIdx] !== src) {
+    applyOverrideToInputs(state.files[state.activeIdx].cfg.exifOverride);
+    requestRender();
   }
   setStatus('status.appliedExif', null, { n: keys.length, m: state.files.length - 1 });
   setTimeout(() => setStatus('status.ready'), 1800);
+}
+els.applyExifAllBtn.addEventListener('click', () => {
+  applyExifToAll(state.files[state.activeIdx]);
 });
 
 // ─── Keyboard nav ────────────────────────────────────────────────────────
@@ -2175,7 +2192,10 @@ els.batchBtn.addEventListener('click', runBatch);
     const action = btn.dataset.action;
     const idx = pendingIdx;
     closeMenu();
+    const src = state.files[idx];
     if (action === 'remove') removeFile(idx);
+    else if (action === 'apply-frame') applyFrameToAll(src);
+    else if (action === 'apply-exif') applyExifToAll(src);
   });
 })();
 

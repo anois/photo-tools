@@ -550,7 +550,14 @@
      desktop or long-press on mobile against any filmstrip thumbnail. The
      pendingIdx is captured on open and acted on by the menu item's click. -->
 <div id="rail-context-menu" class="rail-context-menu" role="menu" hidden>
-  <button type="button" class="rail-context-item" data-action="remove" role="menuitem" data-i18n="rail.removeOne">
+  <button type="button" class="rail-context-item" data-action="apply-frame" role="menuitem" data-i18n="rail.applyFrameFromHere">
+    Apply this photo's frame to all
+  </button>
+  <button type="button" class="rail-context-item" data-action="apply-exif" role="menuitem" data-i18n="rail.applyExifFromHere">
+    Apply this photo's EXIF to all
+  </button>
+  <hr class="rail-context-sep" />
+  <button type="button" class="rail-context-item rail-context-item-danger" data-action="remove" role="menuitem" data-i18n="rail.removeOne">
     Remove this photo
   </button>
 </div>

@@ -1223,6 +1223,18 @@ input[type="range"]::-moz-range-thumb {
   color: var(--accent);
   outline: none;
 }
+/* The destructive item gets a slightly hotter hover to set it apart from
+   the safe "apply" actions above the separator. */
+.rail-context-item-danger:hover,
+.rail-context-item-danger:focus-visible {
+  background: var(--accent);
+  color: #fff;
+}
+.rail-context-sep {
+  margin: 4px 6px;
+  border: 0;
+  border-top: 1px solid var(--line);
+}
 @media (max-width: 768px) {
   /* Bigger touch targets on mobile (48pt floor) */
   .rail-context-item { padding: 14px 14px; font-size: 14px; }
