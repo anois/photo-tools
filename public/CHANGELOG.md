@@ -4,6 +4,37 @@
 
 每次有意义的功能 / 修复 / 优化都记到这里 —— 同一份文件既给开发者看，也通过顶栏 ✦ 按钮在应用内展示给用户。
 
+## 0.15 · 2026-05-08
+
+### 🎛 工具栏重设计 · 画布主导 + 底部 Look bar + 工作台抽屉
+
+把左侧 360px 侧栏 + 52px 活动栏整个**删掉**——画布拿回那 412px 的横向空间。所有控件按使用频率分三层重新组织，主路径永远 0 击可见，深度功能 1 击可达不暴露。
+
+**Tier 1 · 永远在的 Look bar**（屏幕底部，glassmorphic）：5 个 chip + Export，覆盖每次使用都要碰的"换风格 / 换模板 / 换画幅 / 调质量 / 导出"五件事。Frame chip 自带一个 12×8px 的 frame 实色色板，从 chip 本身就能瞥见当前相框的视觉标识。
+
+**Tier 2 · 1 击 popover · 视觉 picker**：点 chip 弹出聚焦 picker（mutually exclusive，永远只一个 active）。
+- **相框 picker**：11 款相框按 4 家族分组（编辑 / 画廊 / 即影 / 胶片），每个 tile 是当前画幅下的 mini-render preview——撕纸的锯齿边、35mm 的齿孔、宝丽来的小圆角全都体现在 thumbnail 里，**选 frame 从此是看图，不是读名字**
+- **模板 picker**：9 个模板按 4 grammar 分组，每个 tile 是用真实样片 EXIF 渲染的 typography 预览。"slate" 长什么样、"wordmark" 多大字号一看就知道
+- **画幅 picker** + **质量 picker**：聚焦小弹窗，含详细描述和"自定义画幅"入口
+
+**Tier 3 · 工作台抽屉**：右上角 ⋯ 按钮 → 从右侧滑入 440px drawer。5 互斥 tab 装下所有低频但关键的功能：
+- **微调** · 边距 / 文字带高度 / 几何调整 (crop & 旋转) / 高级 frosted bg / 高级 shadow / 显示字段 chips
+- **EXIF** · 11 个 override 输入 + 地图选点 + 应用到全部
+- **签名** · 上传 + 9 宫格定位 + size + opacity
+- **拼贴** · 6 种布局 + partner 文件挂载
+- **预设库** · 保存 / 应用 / 分享链接
+
+**⌘K 命令面板**：power-user 加速器。键盘 ⌘K (Mac) / Ctrl+K (Win) 召出，搜得到全部 11 相框 / 9 模板 / 5 画幅 / 11 操作。↑↓ Enter 完整键盘 nav。
+
+**移动端 native 底部 sheet**（≤768px viewport）：Look bar 自动重排为底部 sheet，drag handle 在顶、5 chip 紧凑横排、全宽 Export CTA 占 thumb-zone。Picker 全屏 take-over；工作台 drawer 变 92% 高度的底部全屏 sheet，跟 iOS / Android 习惯一致。
+
+**击数对比**（高频路径）：
+- Export current：从滚到底点击 (~2 击) → **0 击 + 1 click** = 1 击
+- 切相框：滚到 B 段点 chip (~2 击 + 视觉记忆) → 1 击点 frame chip + 1 击点 mini-render tile = 2 击但**视觉化选择消除"猜名字"**
+- 调质量：滚到导出段 → 1 击 chip
+
+**全部 cfg / preset / share-code / EXIF override schema 100% 兼容**——纯 UI 重构，旧预设 / 老 share-code 链接照常生效。
+
 ## 0.14.1 · 2026-05-08
 
 ### 💡 模板兼容性提示

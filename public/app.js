@@ -179,8 +179,6 @@ const els = {
   customBgClearBtn: document.getElementById('custom-bg-clear-btn'),
   exportBtn: document.getElementById('export-btn'),
   batchBtn: document.getElementById('batch-btn'),
-  mobileExportBtn: document.getElementById('mobile-export-btn'),
-  mobileBatchBtn: document.getElementById('mobile-batch-btn'),
   clearExifBtn: document.getElementById('clear-exif-btn'),
   applyExifAllBtn: document.getElementById('apply-exif-all-btn'),
   copyRawExifBtn: document.getElementById('copy-raw-exif-btn'),
@@ -490,6 +488,9 @@ function syncControlsFromCfg(cfg) {
   syncCollageFromActive();
   syncRotateFromCfg(cfg);
   syncCustomBgFromCfg(cfg);
+  // Repaint the lookbar chips (frame swatch / value text) — wireToolbarShell
+  // exposes the sync helper on window and is loaded after this function.
+  if (window.PhotoToolsShell) window.PhotoToolsShell.syncLookchips();
 }
 
 function syncCustomBgFromCfg(cfg) {
@@ -2386,29 +2387,6 @@ async function runBatch() {
 }
 els.batchBtn.addEventListener('click', runBatch);
 
-// ─── Mobile dock — mirror disabled state + forward clicks ───────────────
-// The mobile dock holds duplicate Export/Batch buttons in a fixed-bottom
-// thumb-zone bar. Rather than refactor every site that toggles the
-// originals' `disabled` (there are ~6 such places scattered through
-// export, batch, and selection logic), we observe the original buttons'
-// disabled attribute and mirror it onto the dock buttons. Click handlers
-// just `.click()`-forward to the originals, which run the actual logic.
-// Note: HTMLElement.click() on a disabled element is a no-op — so the
-// disabled mirror is what gates user-facing button availability.
-(function wireMobileDock() {
-  const pairs = [
-    [els.exportBtn, els.mobileExportBtn],
-    [els.batchBtn, els.mobileBatchBtn],
-  ];
-  pairs.forEach(([source, target]) => {
-    if (!source || !target) return;
-    target.disabled = source.disabled;
-    new MutationObserver(() => { target.disabled = source.disabled; })
-      .observe(source, { attributes: true, attributeFilter: ['disabled'] });
-    target.addEventListener('click', () => source.click());
-  });
-})();
-
 // ─── Rail context menu — right-click (desktop) or long-press (mobile) ──
 // One floating menu reused for any thumbnail interaction. Captures the
 // idx of the targeted item on open; the menu's click handler reads that
@@ -2852,117 +2830,451 @@ els.changelogModal.addEventListener('click', (e) => {
 });
 checkChangelogBadge();
 
-// ─── Activity bar — vertical section nav + pane collapse ───────────────
-// Click a letter tile → smooth-scroll the controls pane so that section's
-// heading lands at the top of the visible band. While scrolling, an
-// rAF-batched scroll listener tracks which section is currently topmost
-// and toggles .active on the corresponding tile.
+// ─── Lookbar / picker / workshop / cmdk wiring ─────────────────────────
+// The whole "left sidebar" is gone. Hot path lives in the bottom Lookbar
+// (5 chips + Export). Less-used controls (padding sliders, EXIF override,
+// signature, collage, presets) live behind a right-side Workshop drawer.
+// Frame / template / aspect / quality each have a focused popover picker
+// that opens above its lookbar chip; pickers are mutually exclusive.
+// ⌘K opens a command palette that searches the whole feature space.
 //
-// Collapse: chevron at top of the bar (or `[` keystroke) flips the
-// workspace[data-pane-collapsed] attribute, which animates the controls
-// cell to 0 width via CSS. Click any tile while collapsed = auto-expand.
+// All of the original control elements (frame-seg, template-seg,
+// aspect-seg, quality, format) keep their IDs — they live inside the
+// pickers now, but the existing wireSeg + change-event handlers don't
+// know or care where the buttons live, so they keep working.
 //
-// Keyboard: Cmd/Ctrl+1..7 jumps to A..G; `[` toggles collapse.
-(function wireActivityBar() {
-  const workspace = document.querySelector('.workspace');
-  const bar = document.getElementById('activity-bar');
-  const collapseBtn = document.getElementById('pane-collapse-btn');
-  const tiles = bar.querySelectorAll('.activity-tile');
-  const sections = document.querySelectorAll('.pane-controls [data-section]');
-  const pane = document.querySelector('.pane-controls');
-  if (!sections.length || !pane) return;
-
-  const COLLAPSED_KEY = 'phototools.paneCollapsed';
-
-  function isCollapsed() {
-    return workspace.hasAttribute('data-pane-collapsed');
-  }
-  function setCollapsed(collapsed) {
-    workspace.toggleAttribute('data-pane-collapsed', collapsed);
-    try { localStorage.setItem(COLLAPSED_KEY, collapsed ? '1' : '0'); } catch (_) {}
-    const labelKey = collapsed ? 'nav.expand' : 'nav.collapse';
-    collapseBtn.setAttribute('data-i18n-aria-label', labelKey);
-    if (window.I18N) collapseBtn.setAttribute('aria-label', window.I18N.t(labelKey));
-  }
-  // Restore prior collapse state (silent — no animation on first paint).
-  try {
-    if (localStorage.getItem(COLLAPSED_KEY) === '1') {
-      // Disable the transition for the initial paint, then restore.
-      const ws = workspace; const shell = document.getElementById('pane-shell');
-      const wsT = ws.style.transition; const shT = shell ? shell.style.transition : '';
-      ws.style.transition = 'none'; if (shell) shell.style.transition = 'none';
-      setCollapsed(true);
-      requestAnimationFrame(() => {
-        ws.style.transition = wsT; if (shell) shell.style.transition = shT;
-      });
-    }
-  } catch (_) {}
-
-  function jumpToSection(key) {
-    const target = document.querySelector('[data-section="' + key + '"]');
-    if (!target) return;
-    if (isCollapsed()) {
-      // While pane is collapsed (width 0), section.offsetTop reports the
-      // wrong value — sections wrap their text differently at zero width
-      // and pile up taller. Wait for the 220ms grid-template-columns
-      // transition to finish, THEN measure offsetTop in the new layout.
-      setCollapsed(false);
-      setTimeout(() => {
-        pane.scrollTo({ top: target.offsetTop - 4, behavior: 'smooth' });
-      }, 240);
-    } else {
-      pane.scrollTo({ top: target.offsetTop - 4, behavior: 'smooth' });
-    }
-  }
-
-  tiles.forEach((btn) => {
-    btn.addEventListener('click', () => jumpToSection(btn.dataset.jump));
-  });
-  collapseBtn.addEventListener('click', () => setCollapsed(!isCollapsed()));
-
-  // Active-tile tracking — same rAF-batched scroll-pos approach as before.
-  const setActive = (key) => {
-    tiles.forEach((b) => b.classList.toggle('active', b.dataset.jump === key));
+// This block:
+//   1. Generates visual frame/template tile buttons inside the picker
+//      grids (they proxy clicks to the hidden seg buttons → wireSeg
+//      already wired).
+//   2. Syncs the lookchip values + swatch from the active cfg.
+//   3. Manages picker open/close (1 active at a time).
+//   4. Wires the workshop drawer + 5 互斥 tabs.
+//   5. Wires the ⌘K command palette + keyboard nav.
+//   6. Wires the import button + the lookbar Export keyboard shortcut.
+(function wireToolbarShell() {
+  // ── Frame metadata for the cmdk + tile name display.
+  const FRAME_FAMILIES = {
+    frosted: 'editorial', 'frosted-noir': 'editorial', editorial: 'editorial', 'editorial-mirror': 'editorial',
+    'gallery-white': 'gallery', 'gallery-noir': 'gallery',
+    polaroid: 'instant', instax: 'instant', torn: 'instant',
+    'film-35': 'film', 'film-mf': 'film',
   };
-  let raf = 0;
-  const onScroll = () => {
-    if (raf) return;
-    raf = requestAnimationFrame(() => {
-      raf = 0;
-      const paneTop = pane.getBoundingClientRect().top;
-      let active = sections[0].dataset.section;
-      sections.forEach((sec) => {
-        const r = sec.getBoundingClientRect();
-        if (r.top - paneTop <= 16) active = sec.dataset.section;
-      });
-      setActive(active);
+  const ALL_FRAMES = Object.keys(FRAME_FAMILIES);
+  const ALL_TEMPLATES = ['minimal-text', 'tech-stack', 'brand-logo', 'brand-right', 'wordmark', 'headline', 'date-lens', 'slate', 'passport'];
+  const TEMPLATE_FAMILIES = {
+    'minimal-text': 'spec', 'tech-stack': 'spec',
+    'brand-logo': 'brand', 'brand-right': 'brand',
+    wordmark: 'editorial', headline: 'editorial',
+    'date-lens': 'stamp', slate: 'stamp', passport: 'stamp',
+  };
+  const TEMPLATE_PREVIEWS = {
+    'minimal-text': () => 'FUJIFILM · X-M5  50mm F3.2 1/210s ISO640',
+    'tech-stack': () => 'FUJIFILM\nX-M5\n50mm · F3.2\n1/210s · ISO640',
+    'brand-logo': () => '▣  FUJIFILM\n   X-M5',
+    'brand-right': () => 'FUJIFILM  ▣\nX-M5',
+    'wordmark': () => 'FUJIFILM',
+    'headline': () => '40°N · 116°E\n2026.03',
+    'date-lens': () => '2026.03.21 · 50mm',
+    'slate': () => 'DATE 2026.03.21\nCAM  X-M5\nLENS 50mm\nEXP  F3.2 / 1/210s',
+    'passport': () => '2026.03.21\n40°N · 116°E',
+  };
+  const QUALITY_LABELS_KEY = { standard: 'export.qualities.standard', high: 'export.qualities.high', original: 'export.qualities.original' };
+
+  // ── Build visual frame tile buttons inside each family grid. Clicks
+  //    forward to the hidden seg buttons so wireSeg's handler runs.
+  const frameSegHidden = els.frameSeg;
+  const frameTilesByVal = {};
+  ALL_FRAMES.forEach((val) => {
+    const family = FRAME_FAMILIES[val];
+    const grid = document.getElementById('frame-seg-' + family);
+    if (!grid) return;
+    const segBtn = frameSegHidden.querySelector('[data-val="' + val + '"]');
+    if (!segBtn) return;
+    const tile = document.createElement('button');
+    tile.type = 'button';
+    tile.className = 'frame-tile';
+    tile.dataset.val = val;
+    tile.dataset.family = family;
+    tile.innerHTML = `
+      <span class="frame-tile-preview"><span class="frame-tile-photo"></span></span>
+      <span class="frame-tile-name"></span>
+      <span class="frame-tile-meta"></span>`;
+    tile.querySelector('.frame-tile-name').textContent = segBtn.textContent.trim();
+    tile.dataset.frame = val;
+    tile.querySelector('.frame-tile-preview').setAttribute('data-frame', val);
+    tile.addEventListener('click', () => {
+      // Forward to the hidden seg button (wireSeg already attached its
+      // click handler, which writes cfg.frame and triggers render).
+      segBtn.click();
+      closePicker();
     });
-  };
-  pane.addEventListener('scroll', onScroll, { passive: true });
-  onScroll();
+    grid.appendChild(tile);
+    frameTilesByVal[val] = tile;
+  });
 
-  // Keyboard: `[` toggles collapse, Cmd/Ctrl+1..7 jumps to section.
-  const SECTION_KEYS = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
-  document.addEventListener('keydown', (e) => {
-    if (e.target.matches('input, textarea, select') || e.target.isContentEditable) return;
-    if (e.key === '[' && !e.metaKey && !e.ctrlKey && !e.altKey) {
-      setCollapsed(!isCollapsed());
-      e.preventDefault();
+  // ── Build template tile buttons (typography preview cards).
+  const tmplSegHidden = els.templateSeg;
+  const tmplTilesByVal = {};
+  ALL_TEMPLATES.forEach((val) => {
+    const family = TEMPLATE_FAMILIES[val];
+    const grid = document.getElementById('tmpl-seg-' + family);
+    if (!grid) return;
+    const segBtn = tmplSegHidden.querySelector('[data-val="' + val + '"]');
+    if (!segBtn) return;
+    const tile = document.createElement('button');
+    tile.type = 'button';
+    tile.className = 'tmpl-tile';
+    tile.dataset.val = val;
+    tile.dataset.family = family;
+    const preview = (TEMPLATE_PREVIEWS[val] || (() => ''))();
+    const previewHtml = preview.split('\n').map((l) => l.replace(/&/g, '&amp;').replace(/</g, '&lt;')).join('<br>');
+    tile.innerHTML = `
+      <span class="tmpl-tile-name"></span>
+      <span class="tmpl-tile-preview">${previewHtml}</span>`;
+    tile.querySelector('.tmpl-tile-name').textContent = segBtn.textContent.trim();
+    tile.addEventListener('click', () => { segBtn.click(); closePicker(); });
+    grid.appendChild(tile);
+    tmplTilesByVal[val] = tile;
+  });
+
+  // ── Sync lookchip displays (frame swatch + name; template, aspect,
+  //    quality value text). Called after any cfg change that affects
+  //    a chip.
+  const swatch = document.getElementById('lookchip-frame-swatch');
+  const frameVal = document.getElementById('lookchip-frame-value');
+  const tmplVal = document.getElementById('lookchip-template-value');
+  const aspectVal = document.getElementById('lookchip-aspect-value');
+  const qualityVal = document.getElementById('lookchip-quality-value');
+
+  function frameLabel(val) {
+    return window.I18N ? T('frame.styles.' + val) : (val || '');
+  }
+  function tmplLabel(val) {
+    return window.I18N ? T('caption.templates.' + val) : (val || '');
+  }
+  function syncLookchips() {
+    const cfg = activeCfg();
+    if (!cfg) return;
+    if (swatch) swatch.setAttribute('data-frame', cfg.frame || 'frosted');
+    if (frameVal) frameVal.textContent = frameLabel(cfg.frame);
+    if (tmplVal) tmplVal.textContent = tmplLabel(cfg.template);
+    if (aspectVal) aspectVal.textContent = (cfg.aspect || '').replace(':', ' : ');
+    if (qualityVal && els.quality) {
+      qualityVal.textContent = T(QUALITY_LABELS_KEY[els.quality.value] || 'export.qualities.standard');
+    }
+    // Active tile in the picker
+    Object.values(frameTilesByVal).forEach((t) => t.classList.toggle('active', t.dataset.val === cfg.frame));
+    Object.values(tmplTilesByVal).forEach((t) => t.classList.toggle('active', t.dataset.val === cfg.template));
+    // Active row in quality picker
+    document.querySelectorAll('#quality-list .quality-row').forEach((r) => {
+      r.classList.toggle('active', r.dataset.quality === (els.quality && els.quality.value));
+    });
+    // Active button in format seg
+    document.querySelectorAll('#format-seg button').forEach((b) => {
+      b.classList.toggle('active', b.dataset.val === (els.format && els.format.value));
+      if (b.classList.contains('active')) b.setAttribute('aria-checked', 'true');
+      else b.setAttribute('aria-checked', 'false');
+    });
+  }
+
+  // ── Picker overlay.
+  const overlay = document.getElementById('picker-overlay');
+  let activePicker = null;
+  function openPicker(name, anchor) {
+    closePicker(true);
+    const el = document.getElementById('picker-' + name);
+    if (!el) return;
+    document.querySelectorAll('.picker').forEach((p) => { p.hidden = true; });
+    el.hidden = false;
+    overlay.dataset.open = 'true';
+    overlay.setAttribute('aria-hidden', 'false');
+    activePicker = name;
+    document.querySelectorAll('.lookchip').forEach((c) => c.removeAttribute('data-open'));
+    if (anchor) anchor.setAttribute('data-open', 'true');
+    positionPicker(el, anchor);
+  }
+  function closePicker(silent) {
+    overlay.dataset.open = 'false';
+    overlay.setAttribute('aria-hidden', 'true');
+    document.querySelectorAll('.lookchip').forEach((c) => c.removeAttribute('data-open'));
+    activePicker = null;
+    if (silent) {
+      // No transition cleanup needed — caller is about to open another one.
+    }
+  }
+  function positionPicker(el, anchor) {
+    if (window.innerWidth <= 768) {
+      // Mobile: full-width bottom sheet, CSS handles it.
+      el.style.left = '';
+      el.style.right = '';
       return;
     }
-    if ((e.metaKey || e.ctrlKey) && /^[1-7]$/.test(e.key)) {
-      jumpToSection(SECTION_KEYS[parseInt(e.key, 10) - 1]);
+    if (!anchor) return;
+    const r = anchor.getBoundingClientRect();
+    el.style.left = '0';
+    // Read the actual rendered width
+    const w = el.getBoundingClientRect().width || 540;
+    let x = r.left + r.width / 2 - w / 2;
+    if (x < 12) x = 12;
+    if (x + w > window.innerWidth - 12) x = window.innerWidth - w - 12;
+    el.style.left = x + 'px';
+  }
+  document.querySelectorAll('.lookchip[data-picker]').forEach((chip) => {
+    chip.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const name = chip.dataset.picker;
+      if (activePicker === name) { closePicker(); return; }
+      openPicker(name, chip);
+    });
+  });
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) closePicker();
+  });
+  // Re-position on viewport resize while picker is open
+  window.addEventListener('resize', () => {
+    if (!activePicker) return;
+    const el = document.getElementById('picker-' + activePicker);
+    const anchor = document.querySelector(`.lookchip[data-picker="${activePicker}"]`);
+    if (el && anchor) positionPicker(el, anchor);
+  });
+
+  // ── Quality + Format picker rows: write to the hidden <select> and
+  //    fire change so existing app.js handlers run.
+  document.querySelectorAll('#quality-list .quality-row').forEach((row) => {
+    row.addEventListener('click', () => {
+      els.quality.value = row.dataset.quality;
+      els.quality.dispatchEvent(new Event('change', { bubbles: true }));
+      syncLookchips();
+    });
+  });
+  document.querySelectorAll('#format-seg button').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      els.format.value = btn.dataset.val;
+      els.format.dispatchEvent(new Event('change', { bubbles: true }));
+      syncLookchips();
+    });
+  });
+
+  // ── Workshop drawer.
+  const wsOverlay = document.getElementById('workshop-overlay');
+  const wsTrigger = document.getElementById('workshop-trigger');
+  const wsClose = document.getElementById('workshop-close');
+  function openWorkshop(tab) {
+    wsOverlay.dataset.open = 'true';
+    wsOverlay.setAttribute('aria-hidden', 'false');
+    if (tab) setWorkshopTab(tab);
+  }
+  function closeWorkshop() {
+    wsOverlay.dataset.open = 'false';
+    wsOverlay.setAttribute('aria-hidden', 'true');
+  }
+  function setWorkshopTab(tab) {
+    document.querySelectorAll('.workshop-tab').forEach((t) => {
+      const on = t.dataset.tab === tab;
+      t.classList.toggle('active', on);
+      t.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+    document.querySelectorAll('.ws-tab').forEach((c) => {
+      c.dataset.active = (c.dataset.tab === tab) ? 'true' : 'false';
+    });
+  }
+  if (wsTrigger) wsTrigger.addEventListener('click', () => openWorkshop());
+  if (wsClose) wsClose.addEventListener('click', closeWorkshop);
+  wsOverlay.addEventListener('click', (e) => {
+    if (e.target === wsOverlay) closeWorkshop();
+  });
+  document.querySelectorAll('.workshop-tab').forEach((t) => {
+    t.addEventListener('click', () => setWorkshopTab(t.dataset.tab));
+  });
+
+  // ── Import button shortcut.
+  const importBtn = document.getElementById('import-btn');
+  const fileInput = document.getElementById('file-input');
+  if (importBtn && fileInput) {
+    importBtn.addEventListener('click', () => fileInput.click());
+  }
+
+  // ── Command palette (⌘K / Ctrl+K).
+  const cmdkOverlay = document.getElementById('cmdk-overlay');
+  const cmdkTrigger = document.getElementById('cmdk-trigger');
+  const cmdkInput = document.getElementById('cmdk-input');
+  const cmdkResults = document.getElementById('cmdk-results');
+
+  const ACTION_ITEMS = [
+    { type: 'action', key: 'export-current', i18n: 'cmdk.actions.exportCurrent', shortcut: ['⌘', 'E'], fn: () => els.exportBtn.click() },
+    { type: 'action', key: 'export-batch', i18n: 'cmdk.actions.exportBatch', shortcut: ['⌘', '⇧', 'E'], fn: () => els.batchBtn.click() },
+    { type: 'action', key: 'crop', i18n: 'cmdk.actions.crop', fn: () => document.getElementById('crop-open-btn').click() },
+    { type: 'action', key: 'edit-exif', i18n: 'cmdk.actions.editExif', fn: () => openWorkshop('exif') },
+    { type: 'action', key: 'upload-signature', i18n: 'cmdk.actions.uploadSignature', fn: () => openWorkshop('sign') },
+    { type: 'action', key: 'collage', i18n: 'cmdk.actions.collage', fn: () => openWorkshop('tile') },
+    { type: 'action', key: 'save-preset', i18n: 'cmdk.actions.savePreset', fn: () => { openWorkshop('lib'); setTimeout(() => document.getElementById('preset-save-btn').click(), 320); } },
+    { type: 'action', key: 'copy-share', i18n: 'cmdk.actions.copyShare', fn: () => { openWorkshop('lib'); setTimeout(() => document.getElementById('preset-share-btn').click(), 320); } },
+    { type: 'action', key: 'apply-frame-all', i18n: 'cmdk.actions.applyFrameAll', fn: () => document.getElementById('apply-frame-all-btn').click() },
+    { type: 'action', key: 'changelog', i18n: 'cmdk.actions.changelog', fn: () => document.getElementById('changelog-btn').click() },
+    { type: 'action', key: 'import', i18n: 'cmdk.actions.import', shortcut: ['⌘', 'O'], fn: () => fileInput.click() },
+  ];
+
+  function buildCmdkItems() {
+    const items = [];
+    ALL_FRAMES.forEach((k) => items.push({
+      type: 'frame', key: k, label: frameLabel(k),
+      group: T('cmdk.groupFrames') + ' · ' + T('frame.families.' + FRAME_FAMILIES[k]),
+      run: () => { frameSegHidden.querySelector('[data-val="' + k + '"]').click(); }
+    }));
+    ALL_TEMPLATES.forEach((k) => items.push({
+      type: 'template', key: k, label: tmplLabel(k),
+      group: T('cmdk.groupTemplates'),
+      run: () => { tmplSegHidden.querySelector('[data-val="' + k + '"]').click(); }
+    }));
+    ['9:16', '3:4', '1:1', '4:3', '16:9'].forEach((k) => items.push({
+      type: 'aspect', key: k, label: T('cmdk.aspectLabel') + ' ' + k,
+      group: T('cmdk.groupAspects'),
+      run: () => {
+        const segBtn = els.aspectSeg.querySelector('[data-val="' + k + '"]');
+        if (segBtn) segBtn.click();
+      }
+    }));
+    ACTION_ITEMS.forEach((a) => items.push({
+      type: 'action', key: a.key, label: T(a.i18n), shortcut: a.shortcut,
+      group: T('cmdk.groupActions'), run: a.fn
+    }));
+    return items;
+  }
+
+  function renderCmdk(query) {
+    const items = buildCmdkItems();
+    const q = (query || '').trim().toLowerCase();
+    const matched = q
+      ? items.filter((it) => it.label.toLowerCase().includes(q) || (it.key || '').toLowerCase().includes(q) || (it.group || '').toLowerCase().includes(q))
+      : items;
+    if (!matched.length) {
+      cmdkResults.innerHTML = `<div class="cmdk-empty">${T('cmdk.empty')}</div>`;
+      return;
+    }
+    const groups = {};
+    matched.forEach((it) => { (groups[it.group] = groups[it.group] || []).push(it); });
+    let html = '';
+    let firstActive = true;
+    Object.entries(groups).forEach(([g, list]) => {
+      html += `<div class="cmdk-group-title">${g}</div>`;
+      list.forEach((it) => {
+        const ico = it.type === 'frame'
+          ? `<span class="ico" data-frame="${it.key}"></span>`
+          : `<span class="ico" style="opacity:0.4"></span>`;
+        const sc = it.shortcut ? `<span class="cmdk-row-shortcut">${it.shortcut.map((k) => `<kbd>${k}</kbd>`).join('')}</span>` : '';
+        html += `<div class="cmdk-row${firstActive ? ' active' : ''}" data-type="${it.type}" data-key="${it.key}">
+          ${ico}
+          <span class="cmdk-row-name">${it.label.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</span>
+          <span class="cmdk-row-meta">${sc || it.type}</span>
+        </div>`;
+        firstActive = false;
+      });
+    });
+    cmdkResults.innerHTML = html;
+    cmdkResults.querySelectorAll('.cmdk-row').forEach((row) => {
+      row.addEventListener('click', () => {
+        runCmdk(row.dataset.type, row.dataset.key);
+        closeCmdk();
+      });
+    });
+    // Re-paint frame swatches on the cmdk-row .ico — uses lookchip-icon styles.
+    cmdkResults.querySelectorAll('.cmdk-row .ico[data-frame]').forEach((ico) => {
+      const f = ico.dataset.frame;
+      ico.classList.add('lookchip-icon');
+      ico.setAttribute('data-frame', f);
+    });
+  }
+  function runCmdk(type, key) {
+    const items = buildCmdkItems();
+    const it = items.find((i) => i.type === type && i.key === key);
+    if (it && typeof it.run === 'function') it.run();
+  }
+  function openCmdk() {
+    cmdkOverlay.dataset.open = 'true';
+    cmdkOverlay.setAttribute('aria-hidden', 'false');
+    if (cmdkInput) {
+      cmdkInput.value = '';
+      renderCmdk('');
+      setTimeout(() => cmdkInput.focus(), 60);
+    }
+  }
+  function closeCmdk() {
+    cmdkOverlay.dataset.open = 'false';
+    cmdkOverlay.setAttribute('aria-hidden', 'true');
+  }
+  if (cmdkTrigger) cmdkTrigger.addEventListener('click', openCmdk);
+  if (cmdkInput) cmdkInput.addEventListener('input', (e) => renderCmdk(e.target.value));
+  cmdkOverlay.addEventListener('click', (e) => {
+    if (e.target === cmdkOverlay) closeCmdk();
+  });
+
+  document.addEventListener('keydown', (e) => {
+    // ⌘K / Ctrl+K → toggle command palette
+    if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) {
       e.preventDefault();
+      if (cmdkOverlay.dataset.open === 'true') closeCmdk(); else openCmdk();
+      return;
+    }
+    // Esc closes any open overlay
+    if (e.key === 'Escape') {
+      if (activePicker) { closePicker(); return; }
+      if (cmdkOverlay.dataset.open === 'true') { closeCmdk(); return; }
+      if (wsOverlay.dataset.open === 'true') { closeWorkshop(); return; }
+    }
+    // Inside cmdk: ↑/↓/Enter
+    if (cmdkOverlay.dataset.open === 'true') {
+      const rows = Array.from(cmdkResults.querySelectorAll('.cmdk-row'));
+      if (!rows.length) return;
+      const idx = rows.findIndex((r) => r.classList.contains('active'));
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        rows.forEach((r) => r.classList.remove('active'));
+        const next = rows[Math.min(idx + 1, rows.length - 1)];
+        next.classList.add('active');
+        next.scrollIntoView({ block: 'nearest' });
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        rows.forEach((r) => r.classList.remove('active'));
+        const prev = rows[Math.max(idx - 1, 0)];
+        prev.classList.add('active');
+        prev.scrollIntoView({ block: 'nearest' });
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        const active = rows.find((r) => r.classList.contains('active'));
+        if (active) {
+          runCmdk(active.dataset.type, active.dataset.key);
+          closeCmdk();
+        }
+      }
     }
   });
 
-  // Locale flip → refresh the chevron's aria-label
+  // ── Hook into existing change paths so chips stay in sync.
+  // wireSeg fires the seg button click handler which writes activeCfg()[key]
+  // and calls requestRender(). We piggyback by re-syncing chips after any
+  // such click.
+  function syncOnChange() { syncLookchips(); }
+  frameSegHidden.addEventListener('click', syncOnChange);
+  tmplSegHidden.addEventListener('click', syncOnChange);
+  els.aspectSeg.addEventListener('click', syncOnChange);
+  if (els.quality) els.quality.addEventListener('change', syncOnChange);
+  if (els.format) els.format.addEventListener('change', syncOnChange);
+  // syncControlsFromCfg() (called on every photo switch / cfg apply) calls
+  // window.PhotoToolsShell.syncLookchips() at the end of its body — see the
+  // function definition above. That keeps chip text + active-tile state in
+  // sync with the active per-photo cfg without any monkey-patching here.
+
+  // Initial paint
   if (window.I18N && window.I18N.onChange) {
-    window.I18N.onChange(() => {
-      const labelKey = isCollapsed() ? 'nav.expand' : 'nav.collapse';
-      collapseBtn.setAttribute('aria-label', window.I18N.t(labelKey));
-    });
+    window.I18N.onChange(() => syncLookchips());
   }
+  // Defer initial sync to the next tick — wireSeg + cfg defaults need to
+  // settle first.
+  setTimeout(syncLookchips, 0);
+
+  // Expose minimal API for other modules / debugging.
+  window.PhotoToolsShell = { openWorkshop, openCmdk, openPicker, closePicker, syncLookchips };
 })();
 
 // ─── PWA service-worker registration + upgrade prompt ──────────────────

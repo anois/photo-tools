@@ -1,0 +1,1855 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>photo-tools · toolbar redesign · mockup</title>
+
+<!--
+  Standalone interactive mockup of the "Dock + Workshop drawer" redesign
+  proposed in toolbar-redesign.md. Drop into any browser and click around.
+
+  Not wired to the real app — uses a placeholder canvas and hardcoded frame
+  data. The point is to feel the new spatial composition + interaction
+  rhythm, not to render real photos.
+
+  Tries to match the project's existing visual language:
+    - Fraunces (display) + Hanken Grotesk (UI) + JetBrains Mono (technical)
+    - Warm dark background (#0a0c0e family) with accent red (#e5493a)
+    - Same 4 frame families and naming as the live app (v0.14.1)
+-->
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600&family=Hanken+Grotesk:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<style>
+:root {
+  --bg-base: #0a0c0e;
+  --bg-chrome: #141619;
+  --bg-elev: #1a1d22;
+  --bg-canvas: #050608;
+  --line: rgba(255,255,255,0.07);
+  --line-strong: rgba(255,255,255,0.13);
+  --line-subtle: rgba(255,255,255,0.04);
+  --text: #e8e9ea;
+  --text-muted: #858a90;
+  --text-dim: #4f545a;
+  --accent: #e5493a;
+  --accent-soft: rgba(229,73,58,0.12);
+  --accent-line: rgba(229,73,58,0.55);
+  --accent-glow: rgba(229,73,58,0.22);
+
+  --f-display: 'Fraunces', 'New York', Georgia, serif;
+  --f-ui: 'Hanken Grotesk', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --f-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Consolas, monospace;
+
+  --topbar-h: 48px;
+  --lookbar-h: 64px;
+  --rail-w: 64px;
+
+  --r-sm: 4px;
+  --r-md: 8px;
+  --r-lg: 12px;
+  --r-xl: 18px;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; height: 100%; }
+body {
+  background: var(--bg-base);
+  color: var(--text);
+  font: 400 13.5px/1.5 var(--f-ui);
+  letter-spacing: 0.005em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow: hidden;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  cursor: pointer;
+  letter-spacing: inherit;
+}
+button:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ============================================================
+   APP SHELL
+   ============================================================ */
+.shell {
+  display: grid;
+  grid-template-rows: var(--topbar-h) 1fr var(--lookbar-h);
+  height: 100vh;
+  height: 100svh;
+  background:
+    radial-gradient(circle at 20% -10%, var(--accent-glow) 0%, transparent 40%),
+    radial-gradient(circle at 100% 110%, rgba(80,90,120,0.10) 0%, transparent 50%),
+    var(--bg-base);
+}
+
+/* Subtle film-grain noise across the whole app (matches the photo-tools
+   "frosted" frame aesthetic — keep the workspace consistent with the
+   photos it produces). */
+.shell::before {
+  content: '';
+  position: fixed; inset: 0;
+  pointer-events: none;
+  opacity: 0.025;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  z-index: 9999;
+}
+
+/* ============================================================
+   TOPBAR
+   ============================================================ */
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 0 18px;
+  border-bottom: 1px solid var(--line);
+  background: rgba(10,12,14,0.4);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+.brand {
+  font: 500 21px/1 var(--f-display);
+  font-feature-settings: 'ss01';
+  letter-spacing: -0.01em;
+  color: var(--text);
+  display: flex; align-items: center; gap: 8px;
+}
+.brand .glyph {
+  width: 18px; height: 18px;
+  border: 1.5px solid var(--accent);
+  border-radius: 3px;
+  display: inline-block;
+  position: relative;
+}
+.brand .glyph::after {
+  content: ''; position: absolute;
+  inset: 3px; background: var(--accent); border-radius: 1px;
+}
+.brand-meta {
+  font: 500 9.5px/1 var(--f-mono);
+  letter-spacing: 0.18em;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  margin-left: 4px;
+  padding-left: 12px;
+  border-left: 1px solid var(--line-strong);
+}
+.topbar-spacer { flex: 1; }
+.topbar-actions { display: flex; align-items: center; gap: 4px; }
+.icon-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px;
+  border-radius: var(--r-sm);
+  color: var(--text-muted);
+  transition: all 120ms ease;
+  font-size: 14px;
+}
+.icon-btn:hover { color: var(--text); background: var(--line); }
+.kbd-hint {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 4px 7px 4px 8px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--line-strong);
+  color: var(--text-muted);
+  font: 500 11px/1 var(--f-mono);
+  letter-spacing: 0.04em;
+  transition: all 120ms ease;
+}
+.kbd-hint:hover { color: var(--text); border-color: var(--accent-line); background: var(--accent-soft); }
+.kbd-hint kbd {
+  font: inherit;
+  color: var(--text-dim);
+  display: inline-block;
+}
+.lang-toggle {
+  display: inline-flex;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-sm);
+  overflow: hidden;
+}
+.lang-toggle button {
+  padding: 4px 9px;
+  font: 500 10px/1 var(--f-mono);
+  color: var(--text-dim);
+  letter-spacing: 0.04em;
+}
+.lang-toggle button.active {
+  color: var(--text);
+  background: var(--accent-soft);
+}
+
+/* ============================================================
+   STAGE (canvas + filmstrip)
+   ============================================================ */
+.stage {
+  display: grid;
+  grid-template-columns: 1fr var(--rail-w);
+  min-height: 0;
+  position: relative;
+}
+.canvas-area {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  padding: 36px 36px 16px 36px;
+}
+.canvas-area::before {
+  /* atmospheric vignette behind the photo */
+  content: '';
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(ellipse at 50% 35%, rgba(255,200,180,0.04) 0%, transparent 60%),
+    radial-gradient(ellipse at 50% 100%, rgba(0,0,0,0.4) 0%, transparent 70%);
+  pointer-events: none;
+}
+.photo-card {
+  position: relative;
+  /* clamp gives a sane size at any viewport; aspect-ratio derives height. */
+  width: clamp(240px, 28vw, 480px);
+  aspect-ratio: 9 / 16;
+  height: auto;
+  max-height: 100%;
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow:
+    0 30px 80px -30px rgba(0,0,0,0.7),
+    0 0 0 1px rgba(255,255,255,0.04);
+  background: linear-gradient(135deg, #1a3a5e 0%, #324d68 30%, #4a3940 60%, #2a1f25 100%);
+}
+.photo-card::before {
+  /* Fake "industrial structure at dusk" approximating data/00012.JPG */
+  content: '';
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(ellipse at 50% 40%, rgba(255,200,150,0.18) 0%, transparent 50%),
+    linear-gradient(170deg,
+      #1d3854 0%,
+      #29466e 25%,
+      #1a2b3e 50%,
+      #0e1722 80%,
+      #08111e 100%);
+}
+.photo-card::after {
+  /* the structure silhouette */
+  content: '';
+  position: absolute; inset: 0;
+  background-image:
+    linear-gradient(to right, transparent 35%, rgba(0,0,0,0.5) 38%, rgba(0,0,0,0.7) 50%, rgba(0,0,0,0.5) 62%, transparent 65%),
+    linear-gradient(to top, rgba(0,0,0,0.6) 0%, transparent 30%);
+  background-blend-mode: multiply;
+}
+.photo-meta {
+  position: absolute;
+  bottom: 16px; left: 0; right: 0;
+  text-align: center;
+  font: 500 9.5px/1 var(--f-mono);
+  letter-spacing: 0.18em;
+  color: rgba(255,255,255,0.74);
+  text-transform: uppercase;
+}
+.photo-meta strong {
+  font: 500 11px/1 var(--f-display);
+  font-feature-settings: 'ss01';
+  letter-spacing: 0.04em;
+  color: rgba(255,255,255,0.92);
+  text-transform: none;
+  margin-right: 6px;
+}
+
+.canvas-frame-label {
+  position: absolute;
+  top: 18px; left: 50%;
+  transform: translateX(-50%);
+  display: inline-flex; gap: 8px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(10,12,14,0.6);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--line-strong);
+  font: 500 9.5px/1 var(--f-mono);
+  letter-spacing: 0.18em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+.canvas-frame-label .dot {
+  width: 6px; height: 6px;
+  background: var(--accent);
+  border-radius: 50%;
+  margin: auto 0;
+}
+
+/* ============================================================
+   FILMSTRIP (right rail)
+   ============================================================ */
+.filmstrip {
+  display: flex; flex-direction: column;
+  gap: 6px;
+  padding: 14px 8px;
+  border-left: 1px solid var(--line);
+  background: rgba(20,22,25,0.4);
+  overflow-y: auto;
+}
+.filmstrip::-webkit-scrollbar { display: none; }
+.thumb {
+  position: relative;
+  width: 48px; height: 64px;
+  border-radius: var(--r-sm);
+  overflow: hidden;
+  flex: 0 0 auto;
+  border: 1px solid var(--line);
+  cursor: pointer;
+  transition: all 120ms ease;
+}
+.thumb:hover { border-color: var(--line-strong); }
+.thumb.active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent), 0 0 12px var(--accent-glow);
+}
+.thumb-1 { background: linear-gradient(135deg,#1a3a5e,#2a1f25); }
+.thumb-2 { background: linear-gradient(135deg,#3d2820,#1a1410); }
+.thumb-3 { background: linear-gradient(135deg,#5a4030,#28201a); }
+.thumb-4 { background: linear-gradient(135deg,#1a2438,#0e1722); }
+.thumb-5 { background: linear-gradient(135deg,#3a1f1f,#1a0e0e); }
+.thumb .idx {
+  position: absolute;
+  top: 2px; right: 3px;
+  font: 500 8px/1 var(--f-mono);
+  color: rgba(255,255,255,0.7);
+  letter-spacing: 0.05em;
+}
+.filmstrip-meta {
+  margin-top: auto;
+  text-align: center;
+  font: 500 8.5px/1.4 var(--f-mono);
+  letter-spacing: 0.15em;
+  color: var(--text-dim);
+  text-transform: uppercase;
+}
+
+/* ============================================================
+   LOOK BAR (THE STAR — bottom dock)
+   ============================================================ */
+.lookbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 18px;
+  background:
+    linear-gradient(to bottom, rgba(20,22,25,0.85), rgba(15,17,20,0.92));
+  backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  border-top: 1px solid var(--line-strong);
+  position: relative;
+}
+.lookbar::before {
+  /* Top accent hairline highlight — gives the bar a "lit edge" feel */
+  content: '';
+  position: absolute;
+  top: 0; left: 50%;
+  width: 220px;
+  height: 1px;
+  background: linear-gradient(to right, transparent, var(--accent-line), transparent);
+  transform: translateX(-50%);
+  filter: blur(0.5px);
+}
+.chip-group {
+  display: flex; align-items: center;
+  background: rgba(0,0,0,0.18);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+}
+.chip-group .chip:not(:last-child) {
+  border-right: 1px solid var(--line);
+}
+
+.chip {
+  display: inline-flex; align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  height: 38px;
+  cursor: pointer;
+  transition: all 120ms ease;
+  position: relative;
+  min-width: 0;
+}
+.chip:hover { background: rgba(255,255,255,0.04); }
+.chip.active { background: var(--accent-soft); }
+.chip.active::after {
+  content: ''; position: absolute;
+  bottom: -1px; left: 6px; right: 6px;
+  height: 2px;
+  background: var(--accent);
+  border-radius: 1px;
+}
+.chip-icon {
+  width: 18px; height: 12px;
+  border-radius: 2px;
+  flex: 0 0 auto;
+  position: relative;
+  border: 1px solid var(--line-strong);
+  overflow: hidden;
+}
+.chip-icon[data-frame="frosted"] {
+  background: linear-gradient(135deg, #243648 0%, #4a4055 50%, #2a3344 100%);
+  filter: blur(0.5px);
+}
+.chip-icon[data-frame="frosted-noir"] {
+  background: linear-gradient(135deg, #0e1422 0%, #1a1418 50%, #0a0a10 100%);
+}
+.chip-icon[data-frame="editorial"] {
+  background: #f4f0e6;
+}
+.chip-icon[data-frame="editorial-mirror"] {
+  background: #f4f0e6;
+}
+.chip-icon[data-frame="gallery-white"] {
+  background: #f4f3ee;
+  border-color: rgba(0,0,0,0.15);
+}
+.chip-icon[data-frame="gallery-noir"] {
+  background: #171717;
+}
+.chip-icon[data-frame="polaroid"] {
+  background: #fafafa;
+}
+.chip-icon[data-frame="instax"] {
+  background: #fffdf6;
+}
+.chip-icon[data-frame="film-35"] {
+  background: #100c08;
+}
+.chip-icon[data-frame="film-35"]::before {
+  content: ''; position: absolute;
+  top: 1px; left: 1px; right: 1px; height: 1.5px;
+  background-image: linear-gradient(to right, #ebdcb8 0px, #ebdcb8 1.5px, transparent 1.5px, transparent 3px);
+  background-size: 3px 100%;
+}
+.chip-icon[data-frame="film-mf"] {
+  background: #100c08;
+}
+.chip-icon[data-frame="torn"] {
+  background: #f4ecd6;
+  clip-path: polygon(0 8%, 14% 4%, 28% 10%, 44% 2%, 60% 8%, 76% 4%, 88% 10%, 100% 6%, 100% 92%, 88% 96%, 72% 88%, 56% 96%, 40% 90%, 24% 96%, 12% 88%, 0 92%);
+}
+
+.chip-label {
+  display: flex; flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.chip-key {
+  font: 500 8.5px/1 var(--f-mono);
+  letter-spacing: 0.18em;
+  color: var(--text-dim);
+  text-transform: uppercase;
+}
+.chip-value {
+  font: 500 12.5px/1 var(--f-display);
+  font-feature-settings: 'ss01';
+  letter-spacing: -0.005em;
+  color: var(--text);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  max-width: 110px;
+}
+.chip-caret {
+  color: var(--text-dim);
+  font-size: 9px;
+  margin-left: 2px;
+}
+
+.lookbar-spacer { flex: 1; }
+
+.export-btn {
+  display: inline-flex; align-items: center;
+  gap: 9px;
+  padding: 10px 18px 10px 16px;
+  background: linear-gradient(to bottom, #f05642, var(--accent));
+  border-radius: var(--r-md);
+  font: 600 13px/1 var(--f-ui);
+  letter-spacing: 0.005em;
+  color: #fff;
+  height: 38px;
+  position: relative;
+  box-shadow:
+    0 4px 14px -4px rgba(229,73,58,0.5),
+    inset 0 1px 0 rgba(255,255,255,0.18);
+  transition: all 120ms ease;
+}
+.export-btn:hover {
+  background: linear-gradient(to bottom, #f76250, #ec4f3f);
+  box-shadow:
+    0 6px 18px -4px rgba(229,73,58,0.65),
+    inset 0 1px 0 rgba(255,255,255,0.22);
+}
+.export-btn:active { transform: translateY(0.5px); }
+.export-btn .ico { font-size: 14px; }
+.export-btn .kbd {
+  font: 500 10px/1 var(--f-mono);
+  padding: 3px 5px;
+  background: rgba(0,0,0,0.18);
+  border-radius: 3px;
+  letter-spacing: 0.04em;
+  margin-left: 2px;
+}
+
+/* ============================================================
+   PICKER OVERLAY (anchored above lookbar chips)
+   ============================================================ */
+.picker-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  pointer-events: none;
+}
+.picker-overlay[data-open="true"] { pointer-events: auto; }
+.picker-overlay::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: rgba(5,6,8,0.55);
+  backdrop-filter: blur(6px);
+  opacity: 0;
+  transition: opacity 220ms ease;
+}
+.picker-overlay[data-open="true"]::before { opacity: 1; }
+
+.picker {
+  position: absolute;
+  bottom: calc(var(--lookbar-h) + 14px);
+  background: var(--bg-elev);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-lg);
+  box-shadow:
+    0 30px 80px -20px rgba(0,0,0,0.6),
+    0 0 0 1px rgba(255,255,255,0.03);
+  padding: 18px;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 220ms ease, transform 220ms cubic-bezier(0.2,0.8,0.2,1);
+  pointer-events: none;
+  max-width: calc(100vw - 36px);
+}
+.picker-overlay[data-open="true"] .picker {
+  opacity: 1; transform: translateY(0); pointer-events: auto;
+}
+/* Explicit display:none for [hidden] — UA rule (specificity 0,0,1,1) gets
+   beat by class selectors above with display set, so we re-state the
+   intent here. */
+.picker[hidden] { display: none; }
+
+.picker-header {
+  display: flex; align-items: baseline; justify-content: space-between;
+  margin-bottom: 14px;
+}
+.picker-title {
+  font: 500 17px/1 var(--f-display);
+  font-feature-settings: 'ss01';
+  letter-spacing: -0.005em;
+}
+.picker-subtitle {
+  font: 500 10px/1 var(--f-mono);
+  letter-spacing: 0.18em;
+  color: var(--text-dim);
+  text-transform: uppercase;
+}
+
+.family-section { margin-bottom: 14px; }
+.family-section:last-child { margin-bottom: 0; }
+.family-header {
+  font: 500 10px/1 var(--f-mono);
+  letter-spacing: 0.18em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  margin-bottom: 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--line);
+  display: flex; gap: 8px; align-items: baseline;
+}
+.family-header::before {
+  content: '';
+  width: 4px; height: 4px;
+  background: var(--accent);
+  border-radius: 50%;
+}
+.family-header-count {
+  margin-left: auto;
+  font: 400 9px/1 var(--f-mono);
+  color: var(--text-dim);
+  letter-spacing: 0.12em;
+}
+.tile-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+.tile {
+  cursor: pointer;
+  transition: transform 140ms cubic-bezier(0.2,0.8,0.2,1);
+  position: relative;
+}
+.tile:hover { transform: translateY(-2px); }
+.tile.selected .tile-preview {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.tile.selected::after {
+  content: '✓';
+  position: absolute;
+  top: -6px; right: -6px;
+  width: 18px; height: 18px;
+  background: var(--accent);
+  color: white;
+  border-radius: 50%;
+  display: grid; place-items: center;
+  font-size: 10px;
+  font-weight: 600;
+  box-shadow: 0 4px 10px -2px rgba(229,73,58,0.4);
+}
+.tile-preview {
+  width: 100%;
+  aspect-ratio: 9 / 16;
+  border-radius: var(--r-md);
+  overflow: hidden;
+  position: relative;
+  background: var(--bg-canvas);
+}
+.tile-photo {
+  position: absolute;
+  inset: 14% 12%;
+  border-radius: 2px;
+  background: linear-gradient(135deg, #1d3854 0%, #29466e 30%, #1a2b3e 60%, #08111e 100%);
+}
+.tile-photo::before {
+  content: '';
+  position: absolute; inset: 0;
+  background-image: linear-gradient(to right, transparent 35%, rgba(0,0,0,0.5) 38%, rgba(0,0,0,0.7) 50%, rgba(0,0,0,0.5) 62%, transparent 65%);
+}
+.tile[data-frame="frosted"] .tile-preview { background: linear-gradient(135deg, #243648, #4a4055, #2a3344); }
+.tile[data-frame="frosted-noir"] .tile-preview { background: linear-gradient(135deg, #0e1422, #1a1418, #0a0a10); }
+.tile[data-frame="editorial"] .tile-preview, .tile[data-frame="editorial-mirror"] .tile-preview { background: #f4f0e6; }
+.tile[data-frame="editorial"] .tile-photo { inset: 10% 36% 30% 8%; }
+.tile[data-frame="editorial-mirror"] .tile-photo { inset: 10% 8% 30% 36%; }
+.tile[data-frame="gallery-white"] .tile-preview { background: #f4f3ee; }
+.tile[data-frame="gallery-white"] .tile-photo { inset: 16% 14%; outline: 0.5px solid rgba(0,0,0,0.3); outline-offset: 4px; }
+.tile[data-frame="gallery-noir"] .tile-preview { background: #171717; }
+.tile[data-frame="gallery-noir"] .tile-photo { inset: 16% 14%; box-shadow: 0 0 0 1px rgba(255,255,255,0.16); }
+.tile[data-frame="polaroid"] .tile-preview { background: #fafafa; }
+.tile[data-frame="polaroid"] .tile-photo { inset: 8% 10% 32% 10%; border-radius: 2px; }
+.tile[data-frame="instax"] .tile-preview { background: #fffdf6; }
+.tile[data-frame="instax"] .tile-photo { inset: 8% 10% 38% 10%; border-radius: 1px; }
+.tile[data-frame="film-35"] .tile-preview { background: #100c08; }
+.tile[data-frame="film-35"] .tile-preview::before {
+  content: '';
+  position: absolute; left: 8%; right: 8%; top: 8%;
+  height: 4px;
+  background-image: linear-gradient(to right, #ebdcb8 0px, #ebdcb8 3px, transparent 3px, transparent 8px);
+  background-size: 8px 100%;
+}
+.tile[data-frame="film-35"] .tile-preview::after {
+  content: '';
+  position: absolute; left: 8%; right: 8%; bottom: 8%;
+  height: 4px;
+  background-image: linear-gradient(to right, #ebdcb8 0px, #ebdcb8 3px, transparent 3px, transparent 8px);
+  background-size: 8px 100%;
+}
+.tile[data-frame="film-35"] .tile-photo { inset: 22% 12%; border-radius: 1px; }
+.tile[data-frame="film-mf"] .tile-preview { background: #100c08; }
+.tile[data-frame="film-mf"] .tile-photo { inset: 28% 14%; border-radius: 1px; }
+.tile[data-frame="torn"] .tile-preview { background: #f4ecd6; }
+.tile[data-frame="torn"] .tile-photo {
+  inset: 14% 12%;
+  clip-path: polygon(0 6%, 12% 2%, 28% 8%, 44% 0, 60% 8%, 78% 2%, 92% 8%, 100% 4%, 100% 92%, 88% 96%, 72% 88%, 56% 96%, 40% 90%, 22% 96%, 8% 88%, 0 92%);
+}
+
+.tile-name {
+  margin-top: 6px;
+  font: 500 11px/1.3 var(--f-ui);
+  color: var(--text);
+  letter-spacing: -0.005em;
+}
+.tile-meta {
+  font: 400 9.5px/1.3 var(--f-mono);
+  color: var(--text-dim);
+  letter-spacing: 0.04em;
+  margin-top: 1px;
+}
+
+/* ============================================================
+   TEMPLATE TILES (different shape — they're caption previews)
+   ============================================================ */
+.template-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+.template-tile {
+  cursor: pointer;
+  border-radius: var(--r-md);
+  border: 1px solid var(--line);
+  padding: 12px 14px 14px;
+  background: var(--bg-canvas);
+  transition: all 140ms ease;
+  display: flex; flex-direction: column;
+  gap: 6px;
+  min-height: 76px;
+}
+.template-tile:hover { border-color: var(--line-strong); transform: translateY(-1px); }
+.template-tile.selected {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.template-tile-name {
+  font: 500 11px/1 var(--f-ui);
+  letter-spacing: -0.005em;
+  color: var(--text);
+}
+.template-tile-preview {
+  flex: 1;
+  font: 500 11px/1.3 var(--f-mono);
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+  display: flex; align-items: center; justify-content: center;
+}
+
+/* ============================================================
+   ASPECT picker (small horizontal chips)
+   ============================================================ */
+.aspect-picker { padding: 4px; }
+.aspect-grid { display: flex; gap: 6px; flex-wrap: wrap; }
+.aspect-chip {
+  padding: 8px 14px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--line);
+  font: 500 12px/1 var(--f-mono);
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 120ms ease;
+}
+.aspect-chip:hover { border-color: var(--line-strong); color: var(--text); }
+.aspect-chip.selected { border-color: var(--accent); color: var(--text); background: var(--accent-soft); }
+.aspect-chip-custom {
+  border-style: dashed;
+  font-style: italic;
+  color: var(--text-dim);
+}
+
+/* ============================================================
+   QUALITY picker (vertical list with descriptions)
+   ============================================================ */
+.quality-list { display: flex; flex-direction: column; gap: 4px; min-width: 240px; }
+.quality-row {
+  display: flex; align-items: baseline; gap: 12px;
+  padding: 10px 12px;
+  border-radius: var(--r-md);
+  cursor: pointer;
+  transition: all 120ms ease;
+}
+.quality-row:hover { background: var(--line); }
+.quality-row.selected { background: var(--accent-soft); }
+.quality-row.selected .quality-name { color: var(--accent); }
+.quality-name {
+  font: 500 13px/1 var(--f-display);
+  font-feature-settings: 'ss01';
+  letter-spacing: -0.005em;
+}
+.quality-spec {
+  margin-left: auto;
+  font: 500 10px/1 var(--f-mono);
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+}
+.quality-help {
+  font: 400 11px/1.4 var(--f-ui);
+  color: var(--text-muted);
+  margin-top: 2px;
+  flex-basis: 100%;
+}
+
+/* ============================================================
+   COMMAND PALETTE (⌘K)
+   ============================================================ */
+.cmdk-overlay {
+  position: fixed; inset: 0; z-index: 80;
+  background: rgba(0,0,0,0.6);
+  backdrop-filter: blur(8px);
+  display: grid;
+  align-items: start;
+  justify-items: center;
+  padding-top: 14vh;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 200ms ease;
+}
+.cmdk-overlay[data-open="true"] { opacity: 1; pointer-events: auto; }
+.cmdk {
+  width: min(620px, calc(100vw - 32px));
+  background: var(--bg-elev);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-lg);
+  box-shadow:
+    0 40px 100px -20px rgba(0,0,0,0.7),
+    0 0 0 1px rgba(255,255,255,0.04);
+  overflow: hidden;
+  transform: translateY(-12px) scale(0.98);
+  transition: transform 220ms cubic-bezier(0.2,0.8,0.2,1);
+}
+.cmdk-overlay[data-open="true"] .cmdk { transform: translateY(0) scale(1); }
+.cmdk-input-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--line);
+}
+.cmdk-input-row .glyph {
+  color: var(--accent);
+  font: 500 17px/1 var(--f-display);
+}
+.cmdk-input {
+  flex: 1;
+  background: none; border: none;
+  font: 500 16px/1.2 var(--f-display);
+  font-feature-settings: 'ss01';
+  letter-spacing: -0.005em;
+  color: var(--text);
+  outline: none;
+}
+.cmdk-input::placeholder { color: var(--text-dim); }
+.cmdk-results {
+  max-height: 50vh;
+  overflow-y: auto;
+  padding: 8px;
+}
+.cmdk-empty {
+  padding: 24px;
+  font: 400 12px/1.5 var(--f-ui);
+  color: var(--text-muted);
+  text-align: center;
+}
+.cmdk-group-title {
+  padding: 10px 10px 4px;
+  font: 500 9.5px/1 var(--f-mono);
+  letter-spacing: 0.18em;
+  color: var(--text-dim);
+  text-transform: uppercase;
+}
+.cmdk-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 12px;
+  border-radius: var(--r-md);
+  cursor: pointer;
+  transition: all 100ms ease;
+}
+.cmdk-row.active, .cmdk-row:hover { background: var(--accent-soft); }
+.cmdk-row .ico {
+  width: 22px; height: 16px; flex: 0 0 auto;
+  border-radius: 2px;
+  border: 1px solid var(--line-strong);
+}
+.cmdk-row-name {
+  font: 500 13px/1 var(--f-ui);
+}
+.cmdk-row-meta {
+  margin-left: auto;
+  font: 500 10px/1 var(--f-mono);
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+}
+.cmdk-row-shortcut {
+  display: inline-flex; gap: 3px;
+}
+.cmdk-row-shortcut kbd {
+  font: 500 9.5px/1 var(--f-mono);
+  padding: 3px 5px;
+  background: var(--bg-canvas);
+  border-radius: 3px;
+  border: 1px solid var(--line);
+  color: var(--text-muted);
+}
+
+/* ============================================================
+   WORKSHOP DRAWER (right slide-in)
+   ============================================================ */
+.workshop-overlay {
+  position: fixed; inset: 0; z-index: 60;
+  pointer-events: none;
+}
+.workshop-overlay[data-open="true"] { pointer-events: auto; }
+.workshop-overlay::before {
+  content: ''; position: absolute; inset: 0;
+  background: rgba(5,6,8,0.5);
+  backdrop-filter: blur(4px);
+  opacity: 0;
+  transition: opacity 240ms ease;
+}
+.workshop-overlay[data-open="true"]::before { opacity: 1; }
+
+.workshop {
+  position: absolute;
+  top: 0; right: 0; bottom: 0;
+  width: min(420px, calc(100vw - 32px));
+  background: var(--bg-elev);
+  border-left: 1px solid var(--line-strong);
+  box-shadow: -30px 0 80px -20px rgba(0,0,0,0.6);
+  transform: translateX(100%);
+  transition: transform 320ms cubic-bezier(0.2,0.8,0.2,1);
+  display: flex; flex-direction: column;
+}
+.workshop-overlay[data-open="true"] .workshop { transform: translateX(0); }
+
+.workshop-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 18px 18px 12px;
+  border-bottom: 1px solid var(--line);
+}
+.workshop-title {
+  font: 500 18px/1 var(--f-display);
+  font-feature-settings: 'ss01';
+  letter-spacing: -0.005em;
+}
+.workshop-tabs {
+  display: flex;
+  padding: 12px 12px 0;
+  gap: 2px;
+  border-bottom: 1px solid var(--line);
+}
+.workshop-tab {
+  padding: 10px 14px;
+  border-radius: var(--r-sm) var(--r-sm) 0 0;
+  font: 500 11px/1 var(--f-mono);
+  letter-spacing: 0.12em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  cursor: pointer;
+  position: relative;
+  transition: color 120ms ease;
+}
+.workshop-tab:hover { color: var(--text); }
+.workshop-tab.active { color: var(--text); }
+.workshop-tab.active::after {
+  content: ''; position: absolute;
+  bottom: -1px; left: 8px; right: 8px; height: 2px;
+  background: var(--accent);
+}
+.workshop-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 18px;
+}
+.workshop-section { margin-bottom: 22px; }
+.workshop-section:last-child { margin-bottom: 0; }
+.workshop-section-title {
+  font: 500 9.5px/1 var(--f-mono);
+  letter-spacing: 0.18em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+.workshop-row {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 8px;
+}
+.workshop-label {
+  flex: 0 0 88px;
+  font: 400 12px/1 var(--f-ui);
+  color: var(--text-muted);
+}
+.workshop-input {
+  flex: 1;
+  background: var(--bg-canvas);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  padding: 8px 10px;
+  font: 400 12px/1 var(--f-mono);
+  color: var(--text);
+  letter-spacing: 0.02em;
+}
+.workshop-input:focus { outline: none; border-color: var(--accent-line); }
+.workshop-slider {
+  display: flex; align-items: center; gap: 8px; flex: 1;
+}
+.workshop-slider input[type="range"] {
+  flex: 1;
+  appearance: none;
+  background: var(--bg-canvas);
+  height: 4px;
+  border-radius: 2px;
+  outline: none;
+}
+.workshop-slider input[type="range"]::-webkit-slider-thumb {
+  appearance: none;
+  width: 14px; height: 14px;
+  background: var(--accent);
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 0 0 3px rgba(229,73,58,0.18);
+}
+.workshop-slider .val {
+  flex: 0 0 44px;
+  text-align: right;
+  font: 500 11px/1 var(--f-mono);
+  color: var(--text);
+}
+
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
+/* ============================================================
+   HUD (mockup helper, not part of the design)
+   ============================================================ */
+.hud {
+  position: fixed;
+  top: 8px; left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+  display: flex; gap: 8px; align-items: center;
+  font: 500 9.5px/1 var(--f-mono);
+  letter-spacing: 0.12em;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  padding: 5px 10px;
+  background: rgba(10,12,14,0.5);
+  border-radius: 999px;
+  pointer-events: none;
+}
+.hud .dot {
+  width: 6px; height: 6px;
+  background: var(--accent);
+  border-radius: 50%;
+  animation: pulse 2s infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+/* ============================================================
+   MOBILE (<900px) — bottom sheet pattern
+   ============================================================ */
+@media (max-width: 900px) {
+  :root {
+    --topbar-h: 44px;
+  }
+  .shell {
+    grid-template-rows: var(--topbar-h) 1fr auto;
+  }
+  .stage {
+    grid-template-columns: 1fr;
+  }
+  .filmstrip { display: none; }
+  .canvas-area {
+    padding: 14px;
+  }
+  .photo-card {
+    max-width: 100%;
+    max-height: calc(100vh - var(--topbar-h) - 110px - 32px);
+  }
+  /* Mobile: photo dots row above the sheet */
+  .canvas-area::after {
+    content: '·  ●  ·  ·  ·  ·';
+    position: absolute;
+    bottom: 4px; left: 0; right: 0;
+    text-align: center;
+    font: 500 10px/1 var(--f-mono);
+    color: var(--text-dim);
+    letter-spacing: 0.5em;
+  }
+
+  .lookbar {
+    height: auto;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    padding: 12px 14px 16px;
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
+    border-radius: 16px 16px 0 0;
+    border-top: none;
+    background: linear-gradient(to bottom, rgba(20,22,25,0.95), rgba(15,17,20,0.98));
+  }
+  .lookbar::before {
+    /* drag handle pill */
+    content: '';
+    top: 6px;
+    width: 36px; height: 4px;
+    background: var(--line-strong);
+    border-radius: 2px;
+    filter: none;
+  }
+  .chip-group {
+    margin-top: 10px;
+    width: 100%;
+  }
+  .chip { flex: 1; padding: 6px 10px; }
+  .chip-value { font-size: 11.5px; max-width: none; }
+  .chip-key { font-size: 7.5px; }
+  .lookbar-spacer { display: none; }
+  .export-btn {
+    width: 100%;
+    justify-content: center;
+    height: 44px;
+  }
+  .export-btn .kbd { display: none; }
+
+  /* Hide ⌘K on touch (it's keyboard-only) */
+  .kbd-hint { display: none; }
+
+  .picker {
+    bottom: 0;
+    left: 0; right: 0;
+    margin: 0;
+    border-radius: 16px 16px 0 0;
+    max-height: 80vh;
+    overflow-y: auto;
+  }
+  .tile-grid { grid-template-columns: repeat(3, 1fr); }
+  .template-grid { grid-template-columns: 1fr 1fr; }
+  .topbar { padding: 0 12px; gap: 8px; }
+  .brand-meta { display: none; }
+}
+
+/* prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation: none !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+</style>
+</head>
+<body>
+
+<div class="hud">
+  <span class="dot"></span>
+  <span>Mockup · Toolbar Redesign · Click chips · ⌘K</span>
+</div>
+
+<div class="shell">
+  <!-- ============== TOPBAR ============== -->
+  <header class="topbar">
+    <div class="brand">
+      <span class="glyph"></span>
+      photo·tools
+      <span class="brand-meta">v0.15-rc · redesign mockup</span>
+    </div>
+    <div class="topbar-spacer"></div>
+    <div class="topbar-actions">
+      <button class="kbd-hint" id="cmdk-trigger" aria-label="Open command palette">
+        Search · <kbd>⌘K</kbd>
+      </button>
+      <button class="icon-btn" id="workshop-trigger" aria-label="Workshop">⋯</button>
+      <div class="lang-toggle">
+        <button class="active">中</button><button>EN</button>
+      </div>
+      <button class="icon-btn" aria-label="Changelog">✦</button>
+      <button class="icon-btn" aria-label="GitHub">↗</button>
+    </div>
+  </header>
+
+  <!-- ============== STAGE: canvas + filmstrip ============== -->
+  <div class="stage">
+    <div class="canvas-area">
+      <div class="canvas-frame-label">
+        <span class="dot"></span>
+        <span id="stage-frame-name">Frosted</span>
+        <span style="opacity: 0.4; padding: 0 4px;">·</span>
+        <span id="stage-template-name">Minimal · text</span>
+        <span style="opacity: 0.4; padding: 0 4px;">·</span>
+        <span id="stage-aspect-name">9 : 16</span>
+      </div>
+      <div class="photo-card">
+        <div class="photo-meta">
+          <strong>FUJIFILM</strong> · X-M5 · 50mm F3.2 1/210s ISO640
+        </div>
+      </div>
+    </div>
+
+    <div class="filmstrip" aria-label="Photos">
+      <div class="thumb thumb-1 active"><span class="idx">01</span></div>
+      <div class="thumb thumb-2"><span class="idx">02</span></div>
+      <div class="thumb thumb-3"><span class="idx">03</span></div>
+      <div class="thumb thumb-4"><span class="idx">04</span></div>
+      <div class="thumb thumb-5"><span class="idx">05</span></div>
+      <div class="filmstrip-meta">5<br>photos</div>
+    </div>
+  </div>
+
+  <!-- ============== LOOK BAR ============== -->
+  <footer class="lookbar">
+    <div class="chip-group">
+      <button class="chip" data-picker="frame" data-picker-anchor="left" data-value="frosted">
+        <span class="chip-icon" data-frame="frosted"></span>
+        <span class="chip-label">
+          <span class="chip-key">Frame</span>
+          <span class="chip-value">Frosted</span>
+        </span>
+        <span class="chip-caret">▾</span>
+      </button>
+      <button class="chip" data-picker="template" data-picker-anchor="left">
+        <span class="chip-label">
+          <span class="chip-key">Template</span>
+          <span class="chip-value">Minimal · text</span>
+        </span>
+        <span class="chip-caret">▾</span>
+      </button>
+      <button class="chip" data-picker="aspect" data-picker-anchor="center">
+        <span class="chip-label">
+          <span class="chip-key">Aspect</span>
+          <span class="chip-value">9 : 16</span>
+        </span>
+        <span class="chip-caret">▾</span>
+      </button>
+      <button class="chip" data-picker="quality" data-picker-anchor="center">
+        <span class="chip-label">
+          <span class="chip-key">Quality</span>
+          <span class="chip-value">Std · 1×</span>
+        </span>
+        <span class="chip-caret">▾</span>
+      </button>
+    </div>
+
+    <div class="lookbar-spacer"></div>
+
+    <button class="export-btn">
+      <span class="ico">⤓</span>
+      <span>Export</span>
+      <span class="kbd">⌘E</span>
+    </button>
+  </footer>
+</div>
+
+<!-- ============== PICKER OVERLAY (dynamic content) ============== -->
+<div class="picker-overlay" id="picker-overlay" data-open="false">
+  <!-- FRAME picker -->
+  <div class="picker is-mounted" id="picker-frame" hidden>
+    <div class="picker-header">
+      <div class="picker-title">Pick a frame</div>
+      <div class="picker-subtitle">11 styles · 4 families</div>
+    </div>
+
+    <div class="family-section">
+      <div class="family-header">Editorial<span class="family-header-count">3</span></div>
+      <div class="tile-grid">
+        <div class="tile selected" data-frame="frosted"><div class="tile-preview"><div class="tile-photo"></div></div><div class="tile-name">Frosted</div><div class="tile-meta">毛玻璃</div></div>
+        <div class="tile" data-frame="frosted-noir"><div class="tile-preview"><div class="tile-photo"></div></div><div class="tile-name">Noir</div><div class="tile-meta">暗调</div></div>
+        <div class="tile" data-frame="editorial"><div class="tile-preview"><div class="tile-photo"></div></div><div class="tile-name">Spread</div><div class="tile-meta">杂志</div></div>
+        <div class="tile" data-frame="editorial-mirror"><div class="tile-preview"><div class="tile-photo"></div></div><div class="tile-name">Mirror</div><div class="tile-meta">镜像</div></div>
+      </div>
+    </div>
+
+    <div class="family-section">
+      <div class="family-header">Gallery<span class="family-header-count">2</span></div>
+      <div class="tile-grid">
+        <div class="tile" data-frame="gallery-white"><div class="tile-preview"><div class="tile-photo"></div></div><div class="tile-name">White</div><div class="tile-meta">白衬</div></div>
+        <div class="tile" data-frame="gallery-noir"><div class="tile-preview"><div class="tile-photo"></div></div><div class="tile-name">Noir</div><div class="tile-meta">黑衬</div></div>
+      </div>
+    </div>
+
+    <div class="family-section">
+      <div class="family-header">Instant<span class="family-header-count">3</span></div>
+      <div class="tile-grid">
+        <div class="tile" data-frame="polaroid"><div class="tile-preview"><div class="tile-photo"></div></div><div class="tile-name">Polaroid</div><div class="tile-meta">宝丽来</div></div>
+        <div class="tile" data-frame="instax"><div class="tile-preview"><div class="tile-photo"></div></div><div class="tile-name">Instax</div><div class="tile-meta">Instax</div></div>
+        <div class="tile" data-frame="torn"><div class="tile-preview"><div class="tile-photo"></div></div><div class="tile-name">Torn</div><div class="tile-meta">撕纸</div></div>
+      </div>
+    </div>
+
+    <div class="family-section">
+      <div class="family-header">Film<span class="family-header-count">2</span></div>
+      <div class="tile-grid">
+        <div class="tile" data-frame="film-35"><div class="tile-preview"><div class="tile-photo"></div></div><div class="tile-name">35 mm</div><div class="tile-meta">35mm</div></div>
+        <div class="tile" data-frame="film-mf"><div class="tile-preview"><div class="tile-photo"></div></div><div class="tile-name">Medium</div><div class="tile-meta">中画幅</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TEMPLATE picker -->
+  <div class="picker is-mounted" id="picker-template" hidden>
+    <div class="picker-header">
+      <div class="picker-title">Pick a caption template</div>
+      <div class="picker-subtitle">9 layouts · 4 grammars</div>
+    </div>
+
+    <div class="family-section">
+      <div class="family-header">Spec<span class="family-header-count">2</span></div>
+      <div class="template-grid">
+        <div class="template-tile selected" data-template="minimal-text"><div class="template-tile-name">Minimal · text</div><div class="template-tile-preview">FUJIFILM · X-M5  50mm F3.2 1/210s ISO640</div></div>
+        <div class="template-tile" data-template="tech-stack"><div class="template-tile-name">Tech stack</div><div class="template-tile-preview" style="text-align:center; font-size:9px; line-height:1.5">FUJIFILM<br>X-M5<br>50mm · F3.2<br>1/210s · ISO640</div></div>
+      </div>
+    </div>
+
+    <div class="family-section">
+      <div class="family-header">Brand<span class="family-header-count">2</span></div>
+      <div class="template-grid">
+        <div class="template-tile" data-template="brand-logo"><div class="template-tile-name">Brand · logo</div><div class="template-tile-preview" style="text-align:left">▣  FUJIFILM<br>&nbsp;&nbsp;&nbsp;X-M5</div></div>
+        <div class="template-tile" data-template="brand-right"><div class="template-tile-name">Brand · right</div><div class="template-tile-preview" style="text-align:right">FUJIFILM  ▣<br>X-M5</div></div>
+      </div>
+    </div>
+
+    <div class="family-section">
+      <div class="family-header">Editorial<span class="family-header-count">2</span></div>
+      <div class="template-grid">
+        <div class="template-tile" data-template="wordmark"><div class="template-tile-name">Wordmark</div><div class="template-tile-preview" style="font: 500 18px/1 var(--f-display); font-feature-settings: 'ss01'; color: var(--text)">FUJIFILM</div></div>
+        <div class="template-tile" data-template="headline"><div class="template-tile-name">Headline</div><div class="template-tile-preview" style="font: 500 13px/1.2 var(--f-display); color: var(--text); text-align:center">40°N · 116°E<br>2026.03</div></div>
+      </div>
+    </div>
+
+    <div class="family-section">
+      <div class="family-header">Stamp<span class="family-header-count">3</span></div>
+      <div class="template-grid">
+        <div class="template-tile" data-template="date-lens"><div class="template-tile-name">Date · lens</div><div class="template-tile-preview">2026.03.21 · 50mm</div></div>
+        <div class="template-tile" data-template="slate"><div class="template-tile-name">Slate</div><div class="template-tile-preview" style="font-size:9px; line-height:1.5; text-align:left">DATE 2026.03.21<br>CAM&nbsp;&nbsp;X-M5<br>LENS 50mm<br>EXP&nbsp;&nbsp;F3.2 / 1/210s</div></div>
+        <div class="template-tile" data-template="passport"><div class="template-tile-name">Passport</div><div class="template-tile-preview" style="border:1px dashed var(--line-strong); padding:6px; font-size:9px">2026.03.21<br>40°N · 116°E</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ASPECT picker -->
+  <div class="picker is-mounted" id="picker-aspect" hidden>
+    <div class="picker-header">
+      <div class="picker-title">Aspect ratio</div>
+      <div class="picker-subtitle">5 presets + custom</div>
+    </div>
+    <div class="aspect-picker">
+      <div class="aspect-grid">
+        <div class="aspect-chip selected" data-aspect="9:16">9 : 16</div>
+        <div class="aspect-chip" data-aspect="3:4">3 : 4</div>
+        <div class="aspect-chip" data-aspect="1:1">1 : 1</div>
+        <div class="aspect-chip" data-aspect="4:3">4 : 3</div>
+        <div class="aspect-chip" data-aspect="16:9">16 : 9</div>
+        <div class="aspect-chip aspect-chip-custom" data-aspect="custom">Custom W : H ⋯</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- QUALITY picker -->
+  <div class="picker is-mounted" id="picker-quality" hidden>
+    <div class="picker-header">
+      <div class="picker-title">Export quality</div>
+      <div class="picker-subtitle">3 presets</div>
+    </div>
+    <div class="quality-list">
+      <div class="quality-row selected" data-quality="standard">
+        <div class="quality-name">Standard</div>
+        <div class="quality-spec">1× · 1440px</div>
+        <div class="quality-help">Web sharing & messaging. Smallest files, fastest export.</div>
+      </div>
+      <div class="quality-row" data-quality="high">
+        <div class="quality-name">High</div>
+        <div class="quality-spec">2× · 2880px</div>
+        <div class="quality-help">Print, large displays, archival. ~3× file size.</div>
+      </div>
+      <div class="quality-row" data-quality="original">
+        <div class="quality-name">Original</div>
+        <div class="quality-spec">native · ~6000px</div>
+        <div class="quality-help">Source-resolution render. Pixel-perfect, slowest. iOS Safari may cap at 4096px.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============== COMMAND PALETTE ============== -->
+<div class="cmdk-overlay" id="cmdk-overlay" data-open="false">
+  <div class="cmdk">
+    <div class="cmdk-input-row">
+      <span class="glyph">⌘</span>
+      <input class="cmdk-input" id="cmdk-input" placeholder="Search frames, templates, actions…" autocomplete="off" spellcheck="false">
+      <kbd style="font: 500 10px/1 var(--f-mono); color: var(--text-dim); padding: 4px 6px; border: 1px solid var(--line-strong); border-radius: 3px;">esc</kbd>
+    </div>
+    <div class="cmdk-results" id="cmdk-results"></div>
+  </div>
+</div>
+
+<!-- ============== WORKSHOP DRAWER ============== -->
+<div class="workshop-overlay" id="workshop-overlay" data-open="false">
+  <div class="workshop">
+    <div class="workshop-header">
+      <div class="workshop-title">Workshop</div>
+      <button class="icon-btn" id="workshop-close" aria-label="Close">×</button>
+    </div>
+    <div class="workshop-tabs">
+      <div class="workshop-tab active" data-tab="tweak">Tweak</div>
+      <div class="workshop-tab" data-tab="exif">EXIF</div>
+      <div class="workshop-tab" data-tab="sign">Sign</div>
+      <div class="workshop-tab" data-tab="tile">Tile</div>
+      <div class="workshop-tab" data-tab="lib">Library</div>
+    </div>
+    <div class="workshop-body">
+      <div class="tab-content active" data-tab="tweak">
+        <div class="workshop-section">
+          <div class="workshop-section-title">Padding & caption</div>
+          <div class="workshop-row"><span class="workshop-label">Padding</span><div class="workshop-slider"><input type="range" min="0" max="200" value="70"><span class="val">70 px</span></div></div>
+          <div class="workshop-row"><span class="workshop-label">Caption H</span><div class="workshop-slider"><input type="range" min="60" max="360" value="140"><span class="val">auto</span></div></div>
+        </div>
+        <div class="workshop-section">
+          <div class="workshop-section-title">Geometry</div>
+          <div class="workshop-row"><span class="workshop-label">Source</span>
+            <button style="flex:1; padding:8px 10px; background:var(--bg-canvas); border:1px solid var(--line); border-radius:var(--r-sm); color:var(--text-muted); text-align:left; font:400 12px/1 var(--f-ui); cursor:pointer;">Crop & rotate ↗</button>
+          </div>
+        </div>
+        <div class="workshop-section">
+          <div class="workshop-section-title">Show fields</div>
+          <div style="display:flex; flex-wrap:wrap; gap:6px;">
+            <span style="padding:5px 10px; background:var(--accent-soft); border:1px solid var(--accent-line); border-radius:999px; font:500 11px/1 var(--f-ui)">Brand</span>
+            <span style="padding:5px 10px; background:var(--accent-soft); border:1px solid var(--accent-line); border-radius:999px; font:500 11px/1 var(--f-ui)">Model</span>
+            <span style="padding:5px 10px; background:var(--accent-soft); border:1px solid var(--accent-line); border-radius:999px; font:500 11px/1 var(--f-ui)">Focal</span>
+            <span style="padding:5px 10px; background:var(--accent-soft); border:1px solid var(--accent-line); border-radius:999px; font:500 11px/1 var(--f-ui)">Aperture</span>
+            <span style="padding:5px 10px; background:var(--accent-soft); border:1px solid var(--accent-line); border-radius:999px; font:500 11px/1 var(--f-ui)">Shutter</span>
+            <span style="padding:5px 10px; background:var(--accent-soft); border:1px solid var(--accent-line); border-radius:999px; font:500 11px/1 var(--f-ui)">ISO</span>
+            <span style="padding:5px 10px; background:var(--bg-canvas); border:1px solid var(--line); border-radius:999px; font:500 11px/1 var(--f-ui); color:var(--text-muted)">Lens</span>
+            <span style="padding:5px 10px; background:var(--bg-canvas); border:1px solid var(--line); border-radius:999px; font:500 11px/1 var(--f-ui); color:var(--text-muted)">Date</span>
+            <span style="padding:5px 10px; background:var(--accent-soft); border:1px solid var(--accent-line); border-radius:999px; font:500 11px/1 var(--f-ui)">Author</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-content" data-tab="exif">
+        <div class="workshop-section">
+          <div class="workshop-section-title">Override (per photo)</div>
+          <div class="workshop-row"><span class="workshop-label">Make</span><input class="workshop-input" placeholder="FUJIFILM" value="FUJIFILM"></div>
+          <div class="workshop-row"><span class="workshop-label">Model</span><input class="workshop-input" placeholder="X-M5" value="X-M5"></div>
+          <div class="workshop-row"><span class="workshop-label">Focal</span><input class="workshop-input" placeholder="50" value="50"></div>
+          <div class="workshop-row"><span class="workshop-label">f-number</span><input class="workshop-input" placeholder="3.2" value="3.2"></div>
+          <div class="workshop-row"><span class="workshop-label">Shutter</span><input class="workshop-input" placeholder="1/210" value="1/210"></div>
+          <div class="workshop-row"><span class="workshop-label">ISO</span><input class="workshop-input" placeholder="640" value="640"></div>
+          <div class="workshop-row"><span class="workshop-label">Latitude</span><input class="workshop-input" placeholder="—"></div>
+          <div class="workshop-row"><span class="workshop-label">Longitude</span><input class="workshop-input" placeholder="—"></div>
+        </div>
+      </div>
+
+      <div class="tab-content" data-tab="sign">
+        <div class="workshop-section">
+          <div class="workshop-section-title">Custom signature</div>
+          <button style="width:100%; padding:14px; background:var(--bg-canvas); border:1px dashed var(--line-strong); border-radius:var(--r-md); color:var(--text-muted); cursor:pointer; font:400 12px/1.4 var(--f-ui);">
+            Drop SVG / PNG here<br><span style="font-size:10px; color:var(--text-dim);">2MB max · transparent bg recommended</span>
+          </button>
+        </div>
+        <div class="workshop-section">
+          <div class="workshop-section-title">Anchor (3×3 grid)</div>
+          <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:4px; max-width:120px;">
+            <div style="aspect-ratio:1; border:1px solid var(--line); border-radius:3px; cursor:pointer;"></div>
+            <div style="aspect-ratio:1; border:1px solid var(--line); border-radius:3px; cursor:pointer;"></div>
+            <div style="aspect-ratio:1; border:1px solid var(--line); border-radius:3px; cursor:pointer;"></div>
+            <div style="aspect-ratio:1; border:1px solid var(--line); border-radius:3px; cursor:pointer;"></div>
+            <div style="aspect-ratio:1; border:1px solid var(--line); border-radius:3px; cursor:pointer;"></div>
+            <div style="aspect-ratio:1; border:1px solid var(--line); border-radius:3px; cursor:pointer;"></div>
+            <div style="aspect-ratio:1; border:1px solid var(--accent); background:var(--accent-soft); border-radius:3px; position:relative;"><span style="position:absolute; inset:0; display:grid; place-items:center; color:var(--accent); font-size:10px;">●</span></div>
+            <div style="aspect-ratio:1; border:1px solid var(--line); border-radius:3px; cursor:pointer;"></div>
+            <div style="aspect-ratio:1; border:1px solid var(--line); border-radius:3px; cursor:pointer;"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-content" data-tab="tile">
+        <div class="workshop-section">
+          <div class="workshop-section-title">Collage layout</div>
+          <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px;">
+            <div style="aspect-ratio:1; background:var(--accent-soft); border:1px solid var(--accent); border-radius:var(--r-md); display:grid; place-items:center; cursor:pointer;"><span style="font:500 11px/1 var(--f-ui); color:var(--accent);">Off</span></div>
+            <div style="aspect-ratio:1; background:var(--bg-canvas); border:1px solid var(--line); border-radius:var(--r-md); display:flex; gap:3px; padding:8px; cursor:pointer;"><div style="flex:1; background:var(--line);"></div><div style="flex:1; background:var(--line);"></div></div>
+            <div style="aspect-ratio:1; background:var(--bg-canvas); border:1px solid var(--line); border-radius:var(--r-md); display:flex; flex-direction:column; gap:3px; padding:8px; cursor:pointer;"><div style="flex:1; background:var(--line);"></div><div style="flex:1; background:var(--line);"></div></div>
+            <div style="aspect-ratio:1; background:var(--bg-canvas); border:1px solid var(--line); border-radius:var(--r-md); display:flex; gap:2px; padding:8px; cursor:pointer;"><div style="flex:1; background:var(--line);"></div><div style="flex:1; background:var(--line);"></div><div style="flex:1; background:var(--line);"></div></div>
+            <div style="aspect-ratio:1; background:var(--bg-canvas); border:1px solid var(--line); border-radius:var(--r-md); display:grid; grid-template:1fr 1fr / 1fr 1fr; gap:2px; padding:8px; cursor:pointer;"><div style="background:var(--line);"></div><div style="background:var(--line);"></div><div style="background:var(--line);"></div><div style="background:var(--line);"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-content" data-tab="lib">
+        <div class="workshop-section">
+          <div class="workshop-section-title">Saved presets</div>
+          <div style="background:var(--bg-canvas); border:1px solid var(--line); border-radius:var(--r-md); padding:14px; display:flex; align-items:center; gap:10px; margin-bottom:8px;">
+            <div class="chip-icon" data-frame="frosted" style="width:28px; height:18px;"></div>
+            <div style="flex:1;">
+              <div style="font:500 12px/1.2 var(--f-display); font-feature-settings:'ss01';">Cafe · noir</div>
+              <div style="font:400 10px/1 var(--f-mono); color:var(--text-dim); margin-top:3px;">Frosted · noir / Minimal · 9:16</div>
+            </div>
+            <button class="icon-btn" style="font-size:11px;">Apply</button>
+          </div>
+          <div style="background:var(--bg-canvas); border:1px solid var(--line); border-radius:var(--r-md); padding:14px; display:flex; align-items:center; gap:10px;">
+            <div class="chip-icon" data-frame="film-35" style="width:28px; height:18px;"></div>
+            <div style="flex:1;">
+              <div style="font:500 12px/1.2 var(--f-display); font-feature-settings:'ss01';">Travel · film</div>
+              <div style="font:400 10px/1 var(--f-mono); color:var(--text-dim); margin-top:3px;">Film 35 · Date · lens / 3:4</div>
+            </div>
+            <button class="icon-btn" style="font-size:11px;">Apply</button>
+          </div>
+        </div>
+        <div class="workshop-section">
+          <div class="workshop-section-title">Actions</div>
+          <button style="width:100%; padding:10px; background:var(--accent); border:none; border-radius:var(--r-md); color:#fff; font:600 12px/1 var(--f-ui); cursor:pointer; margin-bottom:6px;">Save current as preset</button>
+          <button style="width:100%; padding:10px; background:var(--bg-canvas); border:1px solid var(--line-strong); border-radius:var(--r-md); color:var(--text); font:500 12px/1 var(--f-ui); cursor:pointer;">Copy share link</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// =================================================================
+// State and data
+// =================================================================
+const FRAME_NAMES = {
+  'frosted': 'Frosted',
+  'frosted-noir': 'Noir',
+  'editorial': 'Spread',
+  'editorial-mirror': 'Mirror',
+  'gallery-white': 'White',
+  'gallery-noir': 'Noir',
+  'polaroid': 'Polaroid',
+  'instax': 'Instax',
+  'torn': 'Torn',
+  'film-35': '35 mm',
+  'film-mf': 'Medium'
+};
+const FRAME_FAMILIES = {
+  'frosted': 'Editorial', 'frosted-noir': 'Editorial', 'editorial': 'Editorial', 'editorial-mirror': 'Editorial',
+  'gallery-white': 'Gallery', 'gallery-noir': 'Gallery',
+  'polaroid': 'Instant', 'instax': 'Instant', 'torn': 'Instant',
+  'film-35': 'Film', 'film-mf': 'Film'
+};
+const TEMPLATE_NAMES = {
+  'minimal-text': 'Minimal · text',
+  'tech-stack': 'Tech stack',
+  'brand-logo': 'Brand · logo',
+  'brand-right': 'Brand · right',
+  'wordmark': 'Wordmark',
+  'headline': 'Headline',
+  'date-lens': 'Date · lens',
+  'slate': 'Slate',
+  'passport': 'Passport'
+};
+const ASPECT_NAMES = {
+  '9:16': '9 : 16', '3:4': '3 : 4', '1:1': '1 : 1', '4:3': '4 : 3', '16:9': '16 : 9'
+};
+const QUALITY_NAMES = {
+  'standard': 'Std · 1×', 'high': 'High · 2×', 'original': 'Original'
+};
+
+const state = {
+  frame: 'frosted',
+  template: 'minimal-text',
+  aspect: '9:16',
+  quality: 'standard',
+};
+
+// =================================================================
+// Picker overlay (frame / template / aspect / quality)
+// =================================================================
+const overlay = document.getElementById('picker-overlay');
+let activePicker = null;
+
+function openPicker(name, anchor) {
+  closePicker();
+  const el = document.getElementById('picker-' + name);
+  if (!el) return;
+
+  // Hide all pickers, show the requested one
+  document.querySelectorAll('.picker').forEach(p => p.hidden = true);
+  el.hidden = false;
+
+  // Position relative to the chip
+  positionPicker(el, anchor);
+  overlay.dataset.open = 'true';
+  activePicker = name;
+
+  // Highlight the chip
+  document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+  const trigger = document.querySelector(`[data-picker="${name}"]`);
+  if (trigger) trigger.classList.add('active');
+}
+
+function closePicker() {
+  overlay.dataset.open = 'false';
+  document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+  activePicker = null;
+}
+
+function positionPicker(el, anchorEl) {
+  if (window.innerWidth <= 900) {
+    // Mobile: centered bottom sheet, full-width
+    el.style.left = '0'; el.style.right = '0'; el.style.bottom = '0';
+    el.style.transform = ''; el.style.maxWidth = 'none';
+    return;
+  }
+  const r = anchorEl.getBoundingClientRect();
+  el.style.right = ''; el.style.maxWidth = '';
+  // Try to anchor centered above the chip; clamp to viewport
+  el.style.left = '0';
+  const w = el.offsetWidth || 540;
+  let x = r.left + r.width/2 - w/2;
+  if (x < 12) x = 12;
+  if (x + w > window.innerWidth - 12) x = window.innerWidth - w - 12;
+  el.style.left = x + 'px';
+  el.style.bottom = '';
+}
+
+// Click chip → open picker
+document.querySelectorAll('.chip').forEach(chip => {
+  chip.addEventListener('click', e => {
+    e.stopPropagation();
+    const name = chip.dataset.picker;
+    if (activePicker === name) { closePicker(); return; }
+    openPicker(name, chip);
+  });
+});
+
+// Click on overlay backdrop → close
+overlay.addEventListener('click', e => {
+  if (e.target === overlay) closePicker();
+});
+
+// Click outside picker on document → close
+document.addEventListener('click', e => {
+  if (!activePicker) return;
+  if (e.target.closest('.picker') || e.target.closest('.chip')) return;
+  closePicker();
+});
+
+// Esc closes any open overlay
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    closePicker();
+    closeCmdK();
+    closeWorkshop();
+  }
+});
+
+// =================================================================
+// Tile / row selection inside pickers
+// =================================================================
+document.querySelectorAll('#picker-frame .tile').forEach(t => {
+  t.addEventListener('click', () => {
+    document.querySelectorAll('#picker-frame .tile').forEach(o => o.classList.remove('selected'));
+    t.classList.add('selected');
+    state.frame = t.dataset.frame;
+    syncChips();
+    closePicker();
+  });
+});
+document.querySelectorAll('#picker-template .template-tile').forEach(t => {
+  t.addEventListener('click', () => {
+    document.querySelectorAll('#picker-template .template-tile').forEach(o => o.classList.remove('selected'));
+    t.classList.add('selected');
+    state.template = t.dataset.template;
+    syncChips();
+    closePicker();
+  });
+});
+document.querySelectorAll('#picker-aspect .aspect-chip').forEach(t => {
+  t.addEventListener('click', () => {
+    document.querySelectorAll('#picker-aspect .aspect-chip').forEach(o => o.classList.remove('selected'));
+    t.classList.add('selected');
+    state.aspect = t.dataset.aspect;
+    syncChips();
+    closePicker();
+  });
+});
+document.querySelectorAll('#picker-quality .quality-row').forEach(t => {
+  t.addEventListener('click', () => {
+    document.querySelectorAll('#picker-quality .quality-row').forEach(o => o.classList.remove('selected'));
+    t.classList.add('selected');
+    state.quality = t.dataset.quality;
+    syncChips();
+    closePicker();
+  });
+});
+
+function syncChips() {
+  const chips = document.querySelectorAll('.chip');
+  // frame chip (1st)
+  const frameChip = chips[0];
+  frameChip.querySelector('.chip-icon').setAttribute('data-frame', state.frame);
+  frameChip.querySelector('.chip-value').textContent = FRAME_NAMES[state.frame];
+  // template chip (2nd)
+  chips[1].querySelector('.chip-value').textContent = TEMPLATE_NAMES[state.template];
+  // aspect chip
+  chips[2].querySelector('.chip-value').textContent = ASPECT_NAMES[state.aspect] || state.aspect;
+  // quality chip
+  chips[3].querySelector('.chip-value').textContent = QUALITY_NAMES[state.quality];
+  // stage label
+  document.getElementById('stage-frame-name').textContent = FRAME_NAMES[state.frame];
+  document.getElementById('stage-template-name').textContent = TEMPLATE_NAMES[state.template];
+  document.getElementById('stage-aspect-name').textContent = ASPECT_NAMES[state.aspect] || state.aspect;
+  // photo card aspect
+  const photo = document.querySelector('.photo-card');
+  const ratios = { '9:16': '9/16', '3:4': '3/4', '1:1': '1/1', '4:3': '4/3', '16:9': '16/9' };
+  if (ratios[state.aspect]) photo.style.aspectRatio = ratios[state.aspect];
+}
+
+// =================================================================
+// Command palette (⌘K / Ctrl+K)
+// =================================================================
+const cmdkOverlay = document.getElementById('cmdk-overlay');
+const cmdkInput = document.getElementById('cmdk-input');
+const cmdkResults = document.getElementById('cmdk-results');
+
+const CMDK_ITEMS = [
+  ...Object.entries(FRAME_NAMES).map(([k, v]) => ({ type: 'frame', key: k, label: v, group: 'Frames · ' + FRAME_FAMILIES[k] })),
+  ...Object.entries(TEMPLATE_NAMES).map(([k, v]) => ({ type: 'template', key: k, label: v, group: 'Templates' })),
+  ...Object.keys(ASPECT_NAMES).map(k => ({ type: 'aspect', key: k, label: 'Aspect ' + ASPECT_NAMES[k], group: 'Aspects' })),
+  { type: 'action', key: 'export-current', label: 'Export current photo', group: 'Actions', shortcut: ['⌘', 'E'] },
+  { type: 'action', key: 'export-batch', label: 'Export batch as ZIP', group: 'Actions', shortcut: ['⌘', '⇧', 'E'] },
+  { type: 'action', key: 'crop', label: 'Crop & rotate…', group: 'Actions' },
+  { type: 'action', key: 'edit-exif', label: 'Edit EXIF override', group: 'Actions' },
+  { type: 'action', key: 'upload-signature', label: 'Upload signature', group: 'Actions' },
+  { type: 'action', key: 'save-preset', label: 'Save look as preset', group: 'Actions' },
+  { type: 'action', key: 'copy-share', label: 'Copy share link', group: 'Actions' },
+  { type: 'action', key: 'collage', label: 'Configure collage', group: 'Actions' },
+  { type: 'action', key: 'import', label: 'Import photos', group: 'Actions', shortcut: ['⌘', 'O'] },
+];
+
+function openCmdK() {
+  cmdkOverlay.dataset.open = 'true';
+  cmdkInput.value = '';
+  renderCmdK('');
+  setTimeout(() => cmdkInput.focus(), 80);
+}
+function closeCmdK() {
+  cmdkOverlay.dataset.open = 'false';
+}
+function renderCmdK(query) {
+  const q = query.trim().toLowerCase();
+  const matched = q
+    ? CMDK_ITEMS.filter(it => it.label.toLowerCase().includes(q) || it.key.toLowerCase().includes(q) || (it.group||'').toLowerCase().includes(q))
+    : CMDK_ITEMS;
+
+  if (!matched.length) {
+    cmdkResults.innerHTML = '<div class="cmdk-empty">No results. Try “frosted”, “export”, or “1:1”.</div>';
+    return;
+  }
+  // Group by group field
+  const groups = {};
+  matched.forEach(it => { (groups[it.group] ||= []).push(it); });
+
+  let html = '';
+  let firstActive = true;
+  Object.entries(groups).forEach(([g, items]) => {
+    html += `<div class="cmdk-group-title">${g}</div>`;
+    items.forEach(it => {
+      const ico = it.type === 'frame' ? `<span class="ico chip-icon" data-frame="${it.key}"></span>` : '<span class="ico" style="opacity:0.4">·</span>';
+      const shortcut = it.shortcut ? `<span class="cmdk-row-shortcut">${it.shortcut.map(k => `<kbd>${k}</kbd>`).join('')}</span>` : '';
+      html += `<div class="cmdk-row${firstActive ? ' active' : ''}" data-type="${it.type}" data-key="${it.key}">
+        ${ico}
+        <div>
+          <div class="cmdk-row-name">${it.label}</div>
+        </div>
+        <div class="cmdk-row-meta">${shortcut || it.type}</div>
+      </div>`;
+      firstActive = false;
+    });
+  });
+  cmdkResults.innerHTML = html;
+
+  cmdkResults.querySelectorAll('.cmdk-row').forEach(row => {
+    row.addEventListener('click', () => {
+      runCmdAction(row.dataset.type, row.dataset.key);
+      closeCmdK();
+    });
+  });
+}
+function runCmdAction(type, key) {
+  if (type === 'frame') {
+    state.frame = key;
+    document.querySelectorAll('#picker-frame .tile').forEach(t => t.classList.toggle('selected', t.dataset.frame === key));
+    syncChips();
+  } else if (type === 'template') {
+    state.template = key;
+    document.querySelectorAll('#picker-template .template-tile').forEach(t => t.classList.toggle('selected', t.dataset.template === key));
+    syncChips();
+  } else if (type === 'aspect') {
+    state.aspect = key;
+    document.querySelectorAll('#picker-aspect .aspect-chip').forEach(t => t.classList.toggle('selected', t.dataset.aspect === key));
+    syncChips();
+  }
+  // For action types: in the real app we'd dispatch — here just close.
+}
+
+document.getElementById('cmdk-trigger').addEventListener('click', openCmdK);
+cmdkInput.addEventListener('input', e => renderCmdK(e.target.value));
+document.addEventListener('keydown', e => {
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+    e.preventDefault();
+    if (cmdkOverlay.dataset.open === 'true') closeCmdK(); else openCmdK();
+  }
+  // Up/down nav
+  if (cmdkOverlay.dataset.open === 'true') {
+    const rows = Array.from(cmdkResults.querySelectorAll('.cmdk-row'));
+    if (!rows.length) return;
+    const idx = rows.findIndex(r => r.classList.contains('active'));
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      rows.forEach(r => r.classList.remove('active'));
+      rows[Math.min(idx + 1, rows.length - 1)].classList.add('active');
+      rows[Math.min(idx + 1, rows.length - 1)].scrollIntoView({ block: 'nearest' });
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      rows.forEach(r => r.classList.remove('active'));
+      rows[Math.max(idx - 1, 0)].classList.add('active');
+      rows[Math.max(idx - 1, 0)].scrollIntoView({ block: 'nearest' });
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      const active = rows.find(r => r.classList.contains('active'));
+      if (active) {
+        runCmdAction(active.dataset.type, active.dataset.key);
+        closeCmdK();
+      }
+    }
+  }
+});
+cmdkOverlay.addEventListener('click', e => {
+  if (e.target === cmdkOverlay) closeCmdK();
+});
+
+// =================================================================
+// Workshop drawer
+// =================================================================
+const workshopOverlay = document.getElementById('workshop-overlay');
+function openWorkshop(tab = 'tweak') {
+  workshopOverlay.dataset.open = 'true';
+  setWorkshopTab(tab);
+}
+function closeWorkshop() {
+  workshopOverlay.dataset.open = 'false';
+}
+function setWorkshopTab(tab) {
+  document.querySelectorAll('.workshop-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.dataset.tab === tab));
+}
+
+document.getElementById('workshop-trigger').addEventListener('click', () => openWorkshop());
+document.getElementById('workshop-close').addEventListener('click', closeWorkshop);
+workshopOverlay.addEventListener('click', e => {
+  if (e.target === workshopOverlay) closeWorkshop();
+});
+document.querySelectorAll('.workshop-tab').forEach(t => {
+  t.addEventListener('click', () => setWorkshopTab(t.dataset.tab));
+});
+
+// =================================================================
+// Initial sync
+// =================================================================
+syncChips();
+
+// =================================================================
+// Helpful: lookbar drag handle on mobile snaps the sheet up/down.
+// Light-touch implementation — we toggle "expanded" class on click of
+// the handle area.
+// =================================================================
+const lookbar = document.querySelector('.lookbar');
+if (lookbar && window.matchMedia('(max-width: 900px)').matches) {
+  lookbar.addEventListener('click', e => {
+    if (e.target === lookbar || (e.target.classList.contains('lookbar') && e.offsetY < 14)) {
+      // Future: snap between peek / quick / full
+    }
+  });
+}
+</script>
+</body>
+</html>
