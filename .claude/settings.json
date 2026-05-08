@@ -26,7 +26,10 @@
       "Bash(grep:*)",
       "Bash(rg:*)",
       "Bash(wc:*)",
-      "Bash(curl -s http://localhost:3000/ -o /tmp/got4.html)"
+      "Bash(curl -s http://localhost:3000/ -o /tmp/got4.html)",
+      "Bash(curl -sI http://localhost:3000)",
+      "Read(//Users/anois/.cache/chrome-devtools-mcp/**)",
+      "Bash(gh pr *)"
     ],
     "deny": [
       "Bash(rm -rf:*)",
