@@ -2,7 +2,7 @@
 
 **v0.10 · 2026-05-08**
 
-photo-tools 的相框系统当前共 **10 款相框 × 4 个家族**，每个家族两到三款变体。本文档说明每款相框的设计意图、视觉灵感、技术实现、推荐配对的水印模板、以及已知的不适用场景，作为后续整改的 review 基线。
+photo-tools 的相框系统当前共 **11 款相框 × 4 个家族**，每个家族两到三款变体。本文档说明每款相框的设计意图、视觉灵感、技术实现、推荐配对的水印模板、以及已知的不适用场景，作为后续整改的 review 基线。
 
 ---
 
@@ -182,6 +182,27 @@ photo-tools 的相框系统当前共 **10 款相框 × 4 个家族**，每个家
 
 **`polaroid` vs `instax` 取舍**：两者视觉很接近，但 polaroid 是"美式 / 平面 / 柯达白"、instax 是"日系 / 微浮 / 奶油"。当前两者都保留是因为用户群体里两种审美各有受众；如果未来要削减为一款，`polaroid` 因为更通用值得保留。
 
+### 3.3 `torn` （撕纸）🆕
+
+> 即影家族的第三款，把视觉从"印纸"扩到"老相册撕页"。
+
+- **设计意图**：照片不走传统矩形剪裁，而是一条程序化生成的不规则锯齿边——视觉上像从老相册里撕下一张快照，贴在新一页温暖的奶油纸上。pollaroid / instax 偏"工业制造的小印片"，torn paper 偏"私密手作 / 日记 / scrapbook"，三款一起把"vintage personal" 范围铺满
+- **视觉灵感**：手写日记 / scrapbook / 老式相册插页 / Hipstamatic 的 torn-edge 模式；本质是数字工具复刻"剪贴本"美学
+- **技术实现**：
+  - `bg.type: 'solid', color: '#f4ecd6'`（暖奶油纸色，比 gallery-white 黄、比 instax 更接近"老纸张"）
+  - **新基础设施 · `clipPath` 钩子**：`R.registerFrame` 的 def 现在认识可选 `clipPath(ctx, x, y, w, h, layout, args)`。`compose()`（主线程 + worker 双端镜像）把这条 path 同时用在三个地方——阴影投射、照片剪裁、签名剪裁——三层一致地走撕纸轮廓，避免"照片是撕的、阴影还是矩形"这种穿帮
+  - **撕纸路径生成**（`tornClip`）：沿矩形四边按 7 base-px 步长采样，每点向内位移 [0, 6 base-px] 的随机量。用 mulberry32 PRNG + 由 cell 几何 (x,y,w,h) 派生的种子，**保证同一画幅同一位置每次重渲生成完全一致的 path**——不然滑块拖一下就会"重新撕"，UX 灾难
+  - **decorate hook**：在撕纸 path 上叠一条 `rgba(45,30,15,0.22)` 的细暗线（暖偏红的色调匹配纸张纤维），让撕口有"切口处略暗的物理深度"。没这条线的话，照片只会读成"完美剪裁的多边形"，而不是"被撕开"
+  - shadowDefault: blur 50 / offsetY 16 / opacity 0.20（modest 偏移阴影，让撕下来的小片"贴在新页上微微浮起"）
+- **推荐配对**：
+  - `date-lens`（最贴合 scrapbook 的"手写日期戳"调性）
+  - `passport`（小邮戳，跟相册插页呼应）
+  - `wordmark`（少字字标也行）
+- **不适合**：
+  - 极端长宽比 9:21 / 21:9（撕纸 6 base-px 抖动相对于狭长边不够明显，效果弱化）
+  - 已经有"复古做旧滤镜"的源图——撕边 + 滤镜叠加容易过载
+- **跨画幅适配性**：1:1 / 3:4 / 4:3 / 9:16 / 16:9 全部成立。撕纸纹理在 high-quality 导出（scale ≥ 1）下看得最清楚，预览（scale 0.5）下抖动幅度被缩到 3 px 内，会显得相对克制——这是预期行为
+
 ---
 
 ## 4. 胶片 / Film
@@ -282,7 +303,7 @@ photo-tools 的相框系统当前共 **10 款相框 × 4 个家族**，每个家
 | 风格 | textStyle | 原因 |
 |---|---|---|
 | frosted / frosted-noir / gallery-noir / film-35 / film-mf | `light` | 深底白字 |
-| gallery-white / polaroid / instax / editorial / editorial-mirror | `dark` | 浅底深字 |
+| gallery-white / polaroid / instax / torn / editorial / editorial-mirror | `dark` | 浅底深字 |
 
 ### 推荐 frame × template 默认配对
 
@@ -294,6 +315,7 @@ photo-tools 的相框系统当前共 **10 款相框 × 4 个家族**，每个家
 | gallery-noir | minimal-text | wordmark |
 | polaroid | date-lens | wordmark |
 | instax | date-lens | wordmark |
+| torn | date-lens | passport / wordmark |
 | film-35 | passport | slate / date-lens |
 | film-mf | passport | minimal-text / slate |
 | editorial | headline | wordmark |
@@ -322,7 +344,7 @@ photo-tools 的相框系统当前共 **10 款相框 × 4 个家族**，每个家
 3. ~~**`editorial` 是否需要 left-aligned 镜像变体？**~~ ✅ **已实现**：作为独立 frame `editorial-mirror`（参见 1.4 节），不走 cfg flag——保持 frame 的"一个 key 一种视觉"原则，preset / share-code 也跟其他 frame 一样直接流转。新增 layout 选项 `extraLeftInset` 是 `extraRightInset` 的镜像，两者互斥
 4. **`polaroid` / `instax` 的底部 caption 区是否应该限制只能用某些模板？** 当前如果用户在 polaroid 配 `slate`（场记板），mono 字体 + 4 行数据塞进底部小白条会很挤。要不要在 picker 里隐藏不兼容的组合，或给一个 warning？
 5. ~~**`film-35` 的 leader 印章字符串当前是 `品牌首字母 · ISO · DX`——是否过于工程化？**~~ ✅ **已实现**：升级为 `品牌全称 · ISOT · DX`（参见 4.1 节），且加了底部 frame number `· DDA ·` + 顶部方向箭头 `→`、warm dark 底色、自适应齿孔密度。如果未来想做 `filmStock` 自定义字段（让用户输入 "PORTRA 400" 这种真实胶卷型号），仍是 nice-to-have
-6. **缺位的"杂志手撕"**——是否值得开 Phase X 加？
+6. ~~**缺位的"杂志手撕"**——是否值得开 Phase X 加？~~ ✅ **已实现**：作为 `torn`（参见 3.3 节），归到即影家族第三款而非新开 Phase X。同时落地了 `frame.clipPath` 公共钩子作为基础设施，未来需要"非矩形轮廓"的相框（手写胶带边、椭圆、宝丽来撕扯…）都能复用
 
 ---
 
@@ -336,6 +358,7 @@ photo-tools 的相框系统当前共 **10 款相框 × 4 个家族**，每个家
 | gallery-noir | `public/frames/gallery-noir.js` | `black`（旧 cfg） |
 | polaroid | `public/frames/polaroid.js` | — |
 | instax | `public/frames/instax.js` | — |
+| torn | `public/frames/torn.js` | — |
 | film-35 | `public/frames/film-35.js` | — |
 | film-mf | `public/frames/film-mf.js` | — |
 | editorial | `public/frames/editorial.js` | — |
@@ -345,6 +368,7 @@ photo-tools 的相框系统当前共 **10 款相框 × 4 个家族**，每个家
 - 注册机制：`R.registerFrame(name, def)` in `public/shared/render.js`
 - 渲染管线：`compose()` in `public/clientRender.js` + `public/worker.js`（双线程镜像）
 - 装饰钩子：`def.decorate(ctx, layout, args)` 在 caption 之后 / signature 之前调用
+- 自定义剪裁路径：`def.clipPath(ctx, x, y, w, h, layout, args)` —— compose() 把这条 path 同时用于阴影投射、照片剪裁、签名剪裁，确保三层一致。撕纸边、不规则边、椭圆等非矩形轮廓相框走这条路
 - 输出像素恒定：`layout.outputPx = max(0.5, scale × 0.6)`
 - 非对称布局：`layout.extraRightInset` / `layout.extraLeftInset` / `layout.captionPrefer` / `layout.fgXOffset` / `layout.topPaddingBoost`
 - 路径助手：`R.pathRoundRect(ctx, x, y, w, h, r)`（含老 Safari arcTo 兜底）

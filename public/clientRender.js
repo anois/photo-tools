@@ -271,9 +271,14 @@
   // at the cell center, scaled to cover-fit, then rotate, then drawImage
   // the bitmap centered at the (rotated) origin. This handles 0°, 90°,
   // and any angle in between with a single code path.
-  function drawCellPhoto(ctx, cell, bm, rot, radius, crop) {
+  function drawCellPhoto(ctx, cell, bm, rot, radius, crop, clipFn) {
     ctx.save();
-    clipRoundRect(ctx, cell.x, cell.y, cell.w, cell.h, radius);
+    if (clipFn) {
+      clipFn(ctx, cell.x, cell.y, cell.w, cell.h);
+      ctx.clip();
+    } else {
+      clipRoundRect(ctx, cell.x, cell.y, cell.w, cell.h, radius);
+    }
     drawRotatedCroppedSrc(ctx, bm, cell, rot, crop);
     ctx.restore();
   }
@@ -377,6 +382,17 @@
       } catch { /* createImageBitmap may fail on some Safari versions; skip cache */ }
     }
 
+    // ─── Foreground silhouette path ──────────────────────────────────────
+    // Frames can override the default rounded-rect clip with their own
+    // path generator (`frame.clipPath(ctx, x, y, w, h, layout, args)`).
+    // The override is used for: shadow casting (so the shadow tracks the
+    // actual silhouette), photo clip in `drawCellPhoto`, and signature
+    // clip below — so a torn-paper frame produces a torn shadow + torn
+    // photo edge + torn-clipped signature, all consistent.
+    const clipFn = (args.frame && typeof args.frame.clipPath === 'function')
+      ? (ctx2, x, y, w, h) => args.frame.clipPath(ctx2, x, y, w, h, layout, args)
+      : null;
+
     // ─── Foreground shadow ───────────────────────────────────────────────
     if (params.shadow.opacity > 0) {
       ctx.save();
@@ -384,7 +400,8 @@
       ctx.shadowBlur = params.shadow.blur * layout.scale;
       ctx.shadowOffsetY = params.shadow.offsetY * layout.scale;
       ctx.fillStyle = '#000';
-      pathRoundRect(ctx, layout.fgLeft, layout.fgTop, layout.fgW, layout.fgH, layout.radius);
+      if (clipFn) clipFn(ctx, layout.fgLeft, layout.fgTop, layout.fgW, layout.fgH);
+      else        pathRoundRect(ctx, layout.fgLeft, layout.fgTop, layout.fgW, layout.fgH, layout.radius);
       ctx.fill();
       ctx.restore();
     }
@@ -399,12 +416,12 @@
         // per-cell crop UI and cropping them with the primary's coords would
         // be nonsense.
         const cellCrop = (i === 0) ? args.crop : null;
-        drawCellPhoto(ctx, cells[i], args.bitmaps[i], rot, layout.radius, cellCrop);
+        drawCellPhoto(ctx, cells[i], args.bitmaps[i], rot, layout.radius, cellCrop, clipFn);
       }
     } else {
       drawCellPhoto(ctx, {
         x: layout.fgLeft, y: layout.fgTop, w: layout.fgW, h: layout.fgH
-      }, bitmap, rot, layout.radius, args.crop);
+      }, bitmap, rot, layout.radius, args.crop, clipFn);
     }
 
     // ─── Caption (SVG → Image → drawImage) ───────────────────────────────
@@ -428,7 +445,7 @@
       ctx.restore();
     }
 
-    // ─── Custom signature overlay (drawn last, clipped to fg rect) ───────
+    // ─── Custom signature overlay (drawn last, clipped to fg silhouette) ─
     if (args.customLogo && args.customLogo.data) {
       const bm = await decodeCustomLogo(args.customLogo.data);
       if (bm) {
@@ -437,7 +454,12 @@
         const rect = R.customLogoRect(layout, args.customLogo, bw / bh);
         if (rect) {
           ctx.save();
-          clipRoundRect(ctx, layout.fgLeft, layout.fgTop, layout.fgW, layout.fgH, layout.radius);
+          if (clipFn) {
+            clipFn(ctx, layout.fgLeft, layout.fgTop, layout.fgW, layout.fgH);
+            ctx.clip();
+          } else {
+            clipRoundRect(ctx, layout.fgLeft, layout.fgTop, layout.fgW, layout.fgH, layout.radius);
+          }
           ctx.globalAlpha = rect.opacity;
           ctx.drawImage(bm, rect.x, rect.y, rect.w, rect.h);
           ctx.restore();

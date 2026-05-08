@@ -1,0 +1,138 @@
+/* photo-tools — frame style: torn (torn-paper edge).
+ *
+ * Photo clipped to a procedurally-generated jagged "torn page" outline
+ * instead of the default rounded rectangle. Sits on a warm cream paper
+ * background, casts a soft offset shadow whose silhouette tracks the
+ * torn edge — giving the visual of "a snapshot ripped out of an old
+ * album and glued onto a fresh page".
+ *
+ * Joins the instant family ("复古 / 温度感 / 私密") as a third variant.
+ * Polaroid + Instax both lean printed/manufactured; torn paper leans
+ * hand-made / scrapbook / diary. Together the three cover the
+ * "vintage personal" range.
+ *
+ * Determinism: the torn pattern is seeded from cell geometry (x,y,w,h),
+ * so the same photo at the same dimensions always produces the same
+ * silhouette. Without a stable seed the edge would shimmer on every
+ * render — a slider drag would visibly re-tear the paper, which is a
+ * nightmare UX.
+ *
+ * Renderer integration: relies on the optional `frame.clipPath` hook
+ * shipped alongside this frame. compose() (main thread + worker) routes
+ * the same path through shadow casting, photo clip, and signature clip,
+ * so all three layers stay torn-coherent.
+ */
+(function () {
+  'use strict';
+  const root = (typeof self !== 'undefined' ? self : globalThis);
+  const R = root.PhotoRender;
+
+  // Mulberry32 — small, high-quality, deterministic 32-bit PRNG.
+  // We need determinism (same seed → same sequence) so the torn edge
+  // doesn't shimmer between renders. Math.random() would be a disaster
+  // here — every slider tweak would re-tear the paper differently.
+  function mulberry32(seed) {
+    let a = seed >>> 0;
+    return function () {
+      a = (a + 0x6D2B79F5) >>> 0;
+      let t = a;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  // Three classic large primes — the geometry hash is the same kind
+  // used in spatial-hashing schemes. Different cells in a collage get
+  // different seeds because their (x, y) origins differ; same cell at
+  // same dims always gets the same seed across renders.
+  function hashGeom(x, y, w, h) {
+    return (
+      ((x | 0) * 73856093) ^
+      ((y | 0) * 19349663) ^
+      ((w | 0) * 83492791) ^
+      ((h | 0) * 2654435761)
+    ) >>> 0;
+  }
+
+  function tornClip(ctx, x, y, w, h, layout) {
+    const s = layout.scale || 1;
+    // Sample point spacing along the edge, in canvas px. 7 base-px gives
+    // a believable "torn paper" texture at 1× preview / standard quality
+    // — enough sample points that the edge looks fibrous, not so many
+    // that it becomes visual noise. Floor at 2 so very-low-quality
+    // previews don't degenerate to a single point per side.
+    const step = Math.max(2, 7 * s);
+    // Inward jitter amplitude — how deep the tear can bite into the
+    // photo. ~6 base-px reads as "torn" without eating noticeable
+    // chunks of the image. Larger looks chewed; smaller looks like
+    // cut-with-scissors.
+    const jitter = Math.max(1, 6 * s);
+
+    const rng = mulberry32(hashGeom(x, y, w, h));
+    const j = () => rng() * jitter;
+
+    // Walk the rectangle clockwise: top L→R, right T→B, bottom R→L,
+    // left B→T. Each sample point displaces inward by [0, jitter].
+    // The four corners use single-jitter samples (not corner-of-two-
+    // edges) — keeps the corners from looking suspiciously sharp.
+    ctx.beginPath();
+
+    // Top edge L → R
+    ctx.moveTo(x, y + j());
+    for (let px = x + step; px < x + w; px += step) {
+      ctx.lineTo(px, y + j());
+    }
+    ctx.lineTo(x + w, y + j());
+
+    // Right edge T → B
+    for (let py = y + step; py < y + h; py += step) {
+      ctx.lineTo(x + w - j(), py);
+    }
+    ctx.lineTo(x + w - j(), y + h);
+
+    // Bottom edge R → L
+    for (let px = x + w - step; px > x; px -= step) {
+      ctx.lineTo(px, y + h - j());
+    }
+    ctx.lineTo(x, y + h - j());
+
+    // Left edge B → T
+    for (let py = y + h - step; py > y; py -= step) {
+      ctx.lineTo(x + j(), py);
+    }
+
+    ctx.closePath();
+  }
+
+  // Trace the torn edge with a faint dark hairline — gives the cut a
+  // hint of physical depth (you're looking at the torn fiber from
+  // slightly above, where the inner edge catches a bit of shadow).
+  // Without this the photo can read as "perfectly clipped polygon",
+  // not "ripped out of paper".
+  function decorate(ctx, layout) {
+    const op = layout.outputPx || Math.max(0.5, (layout.scale || 1) * 0.6);
+    ctx.save();
+    tornClip(ctx, layout.fgLeft, layout.fgTop, layout.fgW, layout.fgH, layout);
+    ctx.strokeStyle = 'rgba(45, 30, 15, 0.22)';   // warm dark, paper-fiber tint
+    ctx.lineWidth = Math.max(1, 1.0 * op);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  R.registerFrame('torn', {
+    // Warm cream paper — slightly more yellow than gallery-white's
+    // #f4f3ee. Reads as "old album page" rather than "modern gallery
+    // wall". Matches the family description (复古 / 温度感 / 私密).
+    bg: { type: 'solid', color: '#f4ecd6' },
+    textStyle: 'dark',
+    layout: {},
+    // Modest soft-offset shadow — enough that the torn snippet
+    // appears glued onto the page slightly raised, not cut into it.
+    // Heavy shadow would fight the "casual scrapbook" vibe; zero
+    // shadow flattens the torn into being merely a clipping mask.
+    shadowDefault: { blur: 50, offsetY: 16, opacity: 0.20 },
+    clipPath: tornClip,
+    decorate: decorate
+  });
+})();

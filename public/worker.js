@@ -21,7 +21,8 @@ self.importScripts(
   'frames/film-35.js',
   'frames/film-mf.js',
   'frames/editorial.js',
-  'frames/editorial-mirror.js'
+  'frames/editorial-mirror.js',
+  'frames/torn.js'
 );
 
 const R = self.PhotoRender;
@@ -98,9 +99,14 @@ function drawRotatedCroppedSrc(ctx, bm, dst, rot, crop) {
   ctx.drawImage(bm, -bm.width / 2, -bm.height / 2);
 }
 
-function drawCellPhoto(ctx, cell, bm, rot, radius, crop) {
+function drawCellPhoto(ctx, cell, bm, rot, radius, crop, clipFn) {
   ctx.save();
-  clipRoundRect(ctx, cell.x, cell.y, cell.w, cell.h, radius);
+  if (clipFn) {
+    clipFn(ctx, cell.x, cell.y, cell.w, cell.h);
+    ctx.clip();
+  } else {
+    clipRoundRect(ctx, cell.x, cell.y, cell.w, cell.h, radius);
+  }
   drawRotatedCroppedSrc(ctx, bm, cell, rot, crop);
   ctx.restore();
 }
@@ -148,13 +154,21 @@ async function compose(canvas, args) {
     ctx.fillRect(0, 0, W, H);
   }
 
+  // Frames can override the default rounded-rect silhouette via
+  // `frame.clipPath`. Used for shadow casting + photo clip + signature
+  // clip — see clientRender.js for the full rationale.
+  const clipFn = (args.frame && typeof args.frame.clipPath === 'function')
+    ? (ctx2, x, y, w, h) => args.frame.clipPath(ctx2, x, y, w, h, layout, args)
+    : null;
+
   if (params.shadow.opacity > 0) {
     ctx.save();
     ctx.shadowColor = `rgba(0,0,0,${params.shadow.opacity})`;
     ctx.shadowBlur = params.shadow.blur * layout.scale;
     ctx.shadowOffsetY = params.shadow.offsetY * layout.scale;
     ctx.fillStyle = '#000';
-    pathRoundRect(ctx, layout.fgLeft, layout.fgTop, layout.fgW, layout.fgH, layout.radius);
+    if (clipFn) clipFn(ctx, layout.fgLeft, layout.fgTop, layout.fgW, layout.fgH);
+    else        pathRoundRect(ctx, layout.fgLeft, layout.fgTop, layout.fgW, layout.fgH, layout.radius);
     ctx.fill();
     ctx.restore();
   }
@@ -164,12 +178,12 @@ async function compose(canvas, args) {
     for (let i = 0; i < cells.length; i++) {
       if (!args.bitmaps[i]) continue;
       const cellCrop = (i === 0) ? args.crop : null;
-      drawCellPhoto(ctx, cells[i], args.bitmaps[i], rot, layout.radius, cellCrop);
+      drawCellPhoto(ctx, cells[i], args.bitmaps[i], rot, layout.radius, cellCrop, clipFn);
     }
   } else {
     drawCellPhoto(ctx, {
       x: layout.fgLeft, y: layout.fgTop, w: layout.fgW, h: layout.fgH
-    }, bitmap, rot, layout.radius, args.crop);
+    }, bitmap, rot, layout.radius, args.crop, clipFn);
   }
 
   if (captionSvg) {
@@ -206,7 +220,12 @@ async function compose(canvas, args) {
       const rect = R.customLogoRect(layout, args.customLogo, bm.width / bm.height);
       if (rect) {
         ctx.save();
-        clipRoundRect(ctx, layout.fgLeft, layout.fgTop, layout.fgW, layout.fgH, layout.radius);
+        if (clipFn) {
+          clipFn(ctx, layout.fgLeft, layout.fgTop, layout.fgW, layout.fgH);
+          ctx.clip();
+        } else {
+          clipRoundRect(ctx, layout.fgLeft, layout.fgTop, layout.fgW, layout.fgH, layout.radius);
+        }
         ctx.globalAlpha = rect.opacity;
         ctx.drawImage(bm, rect.x, rect.y, rect.w, rect.h);
         ctx.restore();
