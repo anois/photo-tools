@@ -124,6 +124,20 @@ When iterating on this project:
     - **Modal dismissal**: tap-outside + visible close button on mobile (no Esc key), Esc additionally on desktop.
     - **Safe-area insets** (`env(safe-area-inset-*)`) for any element pinned to viewport edges (notch, home indicator). PWA install to home screen exposes these directly.
 
+14. **遵循语义化版本（SemVer 2.0.0）—— `MAJOR.MINOR.PATCH`，每次面向用户的提交都必须带上对应的版本号 bump，并体现在 `public/CHANGELOG.md` 顶部的 `## ` 块标题里。** 这是项目对外的兼容性契约，也是 in-app ✦ 弹窗判断"有新版本"的依据（它读 CHANGELOG 第一个 `## ` 块的版本号）。版本号怎么涨，按以下规则裁断：
+
+    - **PATCH (`0.10.0` → `0.10.1`)** — 用户可观察的 bug 修复、视觉微调、文案订正、性能优化。不增不删功能，不动 cfg / preset / share-code 的 schema。
+    - **MINOR (`0.10.1` → `0.11.0`)** — 新增 frame / template / 输出格式 / 导出选项 / 显示字段 / 键盘快捷键 / 整块 UI 区域。新增意味着旧 cfg 里没有的字段被引入；老的 preset / share-code 仍能正常解析（向后兼容）。
+    - **MAJOR (`0.x` → `1.0.0`，或将来 `1.x` → `2.0.0`)** — 不向后兼容的破坏性变化：cfg schema 改字段语义且不写迁移、移除 frame / template 没留 alias、preset `v` 字段升级且拒绝旧版本、share-code 解码协议改变、删除已发布的快捷键 / 选项。**0.x 阶段**（当前所处）按 SemVer 惯例：破坏性变化通常 bump MINOR 即可，但**必须**在 CHANGELOG 该块用 `### ⚠️ Breaking` 子标题显式标出来，给用户一个看得见的警告。
+
+    **Why**: 没有版本号约束的 CHANGELOG 会迅速变成"今天加了点啥"的流水账，in-app 弹窗也无法精准告知"你错过的具体变更范围"；尤其本项目的 preset / share-code 是会真实跨版本流转的产物，schema 兼容性必须能被一眼判读。
+
+    **How to apply**:
+    - 提交前先看 `public/CHANGELOG.md` 顶部当前版本号，按本次改动的最高级别决定 bump（一次提交里 feat + fix 同时存在时按 feat 的级别 bump，不要分裂成两次提交）。
+    - 新版本块插在文件最顶部（rule 4 约定），标题格式 `## MAJOR.MINOR.PATCH · YYYY-MM-DD`；同一天多次发版用第三段递增即可。
+    - 仅文档 / 注释 / 内部重构 / 开发工具改动**不**触发版本 bump，也不进 CHANGELOG（rule 4：CHANGELOG 给用户看，不是 commit 考古）。
+    - 破坏性变更必须同时（a）保留迁移代码或 alias（参见 rule 4 提到的 `frosted-dark` → `frosted-noir` 别名做法），或者（b）显式 bump MAJOR 并在 CHANGELOG 的 `### ⚠️ Breaking` 块说明影响 + 用户应对。两者必居其一，不能默默改语义。
+
 ## Quick start
 
 ```bash
@@ -264,16 +278,30 @@ Each frame style is a single self-contained file under `public/frames/`. It runs
 
 The shell loads every frame script after `shared/render.js`: index.html via `<script>` tags, worker.js via `importScripts`, smoke.html with the `public/` prefix, service-worker.js via the precache list. Adding a frame means creating one new file and adding it to those four lists (plus the seg button + i18n label below).
 
-| name | bg | textStyle | layout mods | shadowDefault (blur/offsetY/opacity) |
-|------|-----|-----------|-------------|--------------------------------------|
-| `frosted`      | blurred self-image, light dim | light | — | 80 / 24 / 0.35 |
-| `frosted-dark` | blurred self-image, stronger dim | light | — | 90 / 28 / 0.45 |
-| `white`        | solid `#f5f5f5`       | dark  | — | 80 / 24 / 0.30 |
-| `black`        | solid `#121212`       | light | — | 80 / 24 / 0.50 |
-| `polaroid`     | solid `#fafafa`       | dark  | `extraBottom: 180, fgYBoost: -80, radiusOverride: 8` | 0 / 0 / 0 (flat) |
-| `instax`       | solid `#fffdf6`       | dark  | `extraBottom: 240, fgYBoost: -120, radiusOverride: 4` | 30 / 12 / 0.18 |
+Frames are organized into 4 visual families. The seg buttons in `#frame-seg` carry a `data-family` attribute so future CSS can group them visually.
+
+| family | name | bg | textStyle | layout mods | shadowDefault (blur/offsetY/opacity) | decorate |
+|---|---|---|---|---|---|---|
+| **Editorial** | `frosted`        | blurred self-image, light dim | light | — | 80 / 24 / 0.35 | — |
+| | `frosted-noir` (alias `frosted-dark`) | blurred self-image, stronger dim | light | — | 90 / 28 / 0.45 | — |
+| **Gallery** | `gallery-white` (alias `white`) | solid `#f4f3ee` | dark | — | 60 / 18 / 0.18 | passe-partout double thin lines (1.5px outer, 0.9px inner) |
+| | `gallery-noir` (alias `black`) | solid `#171717` | light | — | 90 / 28 / 0.55 | inner phosphor highlight ring (~0.7px) |
+| **Instant** | `polaroid` | solid `#fafafa` | dark  | `extraBottom: 180, fgYBoost: -80, radiusOverride: 8` | 0 / 0 / 0 (flat) | — |
+| | `instax`   | solid `#fffdf6` | dark  | `extraBottom: 240, fgYBoost: -120, radiusOverride: 4` | 30 / 12 / 0.18 | — |
+| **Film** | `film-35`   | solid `#0c0c0c` | light | `topPaddingBoost: 70, bottomPaddingBoost: 90` | 0 / 0 / 0 | 7 sprocket-hole pairs top+bottom + cream "F · 4000 · DX" leader stamp (brand-letter + ISO from EXIF) |
+| | `editorial` | solid `#f4f0e6` | dark  | `extraRightInset: 350, captionPrefer: 'right'` | 70 / 22 / 0.22 | — |
 
 Each frame carries a `shadowDefault` (drop shadow under the rounded foreground photo). User-tunable via the **D · Shadow** UI (3 sliders) and overrideable in cfg. `opacity = 0` short-circuits the entire shadow render path.
+
+**Frame `decorate` hook**. `R.registerFrame` accepts an optional `decorate(ctx, layout, args)` function. `compose()` runs it AFTER caption rendering and BEFORE the user signature overlay, mirrored across `clientRender.js` and `worker.js`. Use it for frame-specific decorative passes — gallery passe-partout, film sprocket holes, editorial separator lines, slide-mount labels, etc. Must be self-contained: workers have no DOM, so don't call `document.createElement` from inside; use `ctx` primitives + `R.pathRoundRect` (the public rounded-rect path helper, with arcTo fallback for older Safari).
+
+**`layout.outputPx`** is a soft scaling factor for hairlines: `Math.max(1, N * outputPx)` produces stroke widths that stay thin even at `quality: high` (where naive `N * scale` would bloat to 3-4 canvas-px). Defined as `Math.max(0.5, scale * 0.6)`. Use this in decorate hooks for borders, separator lines, fine print stamps — anything that should READ as a hairline regardless of export resolution.
+
+**Asymmetric layout options** (frame `layout` field):
+- `topPaddingBoost` / `bottomPaddingBoost` (base-1440 units): symmetric vertical extension. `film-35` uses both to make room for sprocket rows; instant frames historically used only the bottom variant via `extraBottom` (which boosts the *caption zone*, not the padding).
+- `extraRightInset` (base-1440 units): carves a strip out of the right side of the canvas for asymmetric editorial layouts. When > 0, the foreground anchors to left padding instead of centering, so the right strip becomes a clean vertical zone.
+- `fgXOffset` (base-1440 units): horizontal shift of the centered photo, ignored when `extraRightInset` is in effect.
+- `captionPrefer`: `'right' | 'left'` — overrides the default bottom-priority caption routing. Editorial uses this so caption auto-routes into the wide right strip even though the bottom strip would also fit. Falls back to default priority order when the preferred zone's gap is too small.
 
 ### Render parameter resolution (`resolveRenderParams`)
 
@@ -286,15 +314,21 @@ Each frame carries a `shadowDefault` (drop shadow under the rounded foreground p
 
 ### Templates (in `public/shared/render.js`)
 
-| key              | Layout                                                              |
-|------------------|---------------------------------------------------------------------|
-| `minimal-text`   | Centered single line: brand [· model]  focal aperture shutter ISO  (extras on second line) |
-| `brand-logo`     | Two-column with divider: brand-logo + model on left, params on right |
-| `brand-right`    | Mirror of brand-logo: params on left, brand-logo on right           |
-| `tech-stack`     | Vertical stack: brand / model / params / lens·date  — camera-OSD style |
-| `date-lens`      | Single line: date · lens (with lens brand logo inline when matched) |
+Templates are organized into 4 grammars. Spec / Brand / Editorial / Stamp — pick the family by the role caption metadata plays in the composition.
 
-All five templates support a **flash indicator** (small ⚡ glyph) when `showFields.flash === true` AND `exif.flashFired === true`. Helpers: `flashGlyphSvg(x, baselineY, textSize, fill)` + `flashGlyphWidth(textSize)` in `public/shared/render.js`. Each template handles its own positioning math (centered templates fold the glyph width into their `totalW` calc; column templates append after the relevant params line).
+| family | key | Layout |
+|---|---|---|
+| **Spec** | `minimal-text` | Centered single line: brand [· model]  focal aperture shutter ISO  (extras on second line) |
+| | `tech-stack`   | Vertical stack: brand / model / params / lens·date — camera-OSD style |
+| **Brand** | `brand-logo`   | Two-column with divider: brand-logo + model on left, params on right |
+| | `brand-right`  | Mirror of brand-logo: params on left, brand-logo on right (kept until Phase 3 mirror flag refactor) |
+| **Editorial** | `wordmark`   | Oversized brand mark / text + tiny date subline — luxury-minimalist |
+| | `headline`   | Big "GPS · YYYY.MM" hero line + small spec subline; degrades to date-only when GPS missing |
+| **Stamp** | `date-lens`  | Single line: date · lens (with lens brand logo inline when matched) |
+| | `slate`      | Monospace OSD field grid (DATE / CAM / LENS / EXP) with hairline rules between rows |
+| | `passport`   | Tiny bordered postmark stamp with date + GPS — best in caption zones with breathing room |
+
+All bottom-strip templates support a **flash indicator** (small ⚡ glyph) when `showFields.flash === true` AND `exif.flashFired === true`. Helpers: `flashGlyphSvg(x, baselineY, textSize, fill)` + `flashGlyphWidth(textSize)` in `public/shared/render.js`. Each template handles its own positioning math. The four newer templates (`wordmark` / `headline` / `slate` / `passport`) don't yet wire the flash glyph — flash is a "Spec / Brand" concern; editorial and stamp grammars deliberately stay clean.
 
 **Add a template**:
 1. Write a function inside `public/shared/render.js` and register it in the `TEMPLATES` map.
@@ -590,8 +624,12 @@ If the source has no EXIF (social-platform-stripped images), the function silent
 6. Add a row to the frames table in this file.
 
 **Add a new aspect ratio:**
-1. Extend `BASE_PRESETS` in `public/shared/render.js`.
-2. Add button to `#aspect-seg` in `public/index.html`.
+
+For a one-off / experimental ratio, end users can hit the **Custom** button in `#aspect-seg`, which opens `<dialog id="aspect-modal">` (W/H inputs + presets) and writes the literal `"W:H"` token into `cfg.aspect`. `R.resolveAspectPreset(token)` synthesizes the layout on the fly (short edge fixed at 1440, midpoint defaults for padding / radius / caption). No code change needed.
+
+To promote a ratio into the seg as a first-class preset (gets its own button + tuned layout constants):
+1. Extend `BASE_PRESETS` in `public/shared/render.js` with hand-tuned `bottomCaptionH` / `fgYOffset` / `bottomPaddingBias` for that ratio.
+2. Add a `<button data-val="W:H">` to `#aspect-seg` in `public/index.html`, **before** the trailing `id="aspect-custom-btn"` button — the Custom button is wired to fall through to the dialog and must stay last.
 
 **Add a new brand logo:**
 1. Drop a well-formed SVG into `public/logos/<brand-slug>.svg`. Multi-color Wikimedia-style is preferred; single-color simple-icons-style works.

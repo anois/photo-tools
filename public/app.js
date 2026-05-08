@@ -84,8 +84,20 @@ const els = {
   fileInput: document.getElementById('file-input'),
   thumbRail: document.getElementById('thumb-rail'),
   aspectSeg: document.getElementById('aspect-seg'),
+  aspectCustomBtn: document.getElementById('aspect-custom-btn'),
+  aspectCustomLabel: document.getElementById('aspect-custom-label'),
+  aspectModal: document.getElementById('aspect-modal'),
+  aspectW: document.getElementById('aspect-w'),
+  aspectH: document.getElementById('aspect-h'),
+  aspectApply: document.getElementById('aspect-apply'),
+  aspectCancel: document.getElementById('aspect-cancel'),
+  aspectClose: document.getElementById('aspect-close'),
+  aspectError: document.getElementById('aspect-error'),
+  aspectPresets: document.querySelectorAll('.aspect-preset'),
   frameSeg: document.getElementById('frame-seg'),
-  template: document.getElementById('template'),
+  frameFamilySeg: document.getElementById('frame-family-seg'),
+  templateSeg: document.getElementById('template-seg'),
+  templateFamilySeg: document.getElementById('template-family-seg'),
   format: document.getElementById('format'),
   quality: document.getElementById('quality'),
   padding: document.getElementById('padding'),
@@ -118,7 +130,7 @@ const els = {
   signaturePreview: document.getElementById('signature-preview'),
   signaturePreviewImg: document.getElementById('signature-preview-img'),
   signatureClearBtn: document.getElementById('signature-clear-btn'),
-  signaturePosSeg: document.getElementById('signature-pos-seg'),
+  signaturePosGrid: document.getElementById('signature-pos-grid'),
   signatureScale: document.getElementById('signature-scale'),
   signatureScaleVal: document.getElementById('signature-scale-val'),
   signatureOpacity: document.getElementById('signature-opacity'),
@@ -243,6 +255,9 @@ function refreshLocaleSensitive() {
     if (cfg.bgBrightness == null) els.bgBrightnessVal.textContent = T('frame.defaultReadout');
     if (cfg.bgSaturation == null) els.bgSaturationVal.textContent = T('frame.defaultReadout');
   }
+  // Aspect seg's Custom button label is either i18n'd ("自定义"/"⋯") or the
+  // active custom W:H literal — repaint it through the same sync path.
+  if (cfg.aspect) syncAspectSeg(cfg.aspect);
   // Empty rail and EXIF warning re-render from canonical state too.
   renderRail();
   const active = state.files[state.activeIdx];
@@ -433,9 +448,11 @@ function requestRender() {
 // Reflect a per-photo cfg into all the DOM controls. Called whenever the
 // active photo changes (or apply-to-all rewrites the active photo's EXIF).
 function syncControlsFromCfg(cfg) {
-  setSegActive(els.aspectSeg, cfg.aspect);
+  syncAspectSeg(cfg.aspect);
   setSegActive(els.frameSeg, cfg.frame);
-  els.template.value = cfg.template;
+  syncFamilyFromValue(els.frameFamilySeg, els.frameSeg, cfg.frame);
+  setSegActive(els.templateSeg, cfg.template);
+  syncFamilyFromValue(els.templateFamilySeg, els.templateSeg, cfg.template);
   els.padding.value = cfg.padding;
   setReadoutNum(els.paddingVal, cfg.padding, 'px');
   if (cfg.captionHeight != null) {
@@ -616,21 +633,65 @@ function renderCollageSlots(layout, active) {
   }
 }
 
+// Resolve the active anchor letter ('br' / 'tl' / etc.) regardless of
+// whether cfg.customLogo.position is the legacy string form or the new
+// { anchor, dx, dy } object. Single source of truth so UI sync and
+// migration stay in lockstep.
+function customLogoAnchor(cl) {
+  if (!cl) return 'br';
+  const pos = cl.position;
+  if (typeof pos === 'string') return pos;
+  if (pos && typeof pos === 'object' && pos.anchor) return pos.anchor;
+  return 'br';
+}
+
+function setPosGridActive(grid, anchor) {
+  grid.querySelectorAll('button').forEach((b) => {
+    const on = b.dataset.anchor === anchor;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-checked', on ? 'true' : 'false');
+  });
+}
+
 function syncSignatureFromCfg(cfg) {
   const cl = cfg.customLogo;
   const has = !!(cl && cl.data);
   els.signaturePreview.hidden = !has;
   els.signaturePreviewImg.src = has ? cl.data : '';
-  setSegActive(els.signaturePosSeg, has ? (cl.position || 'br') : 'br');
+  setPosGridActive(els.signaturePosGrid, has ? customLogoAnchor(cl) : 'br');
   const scalePct = Math.round((has ? (cl.scale != null ? cl.scale : 0.06) : 0.06) * 100);
   const opacity = has ? (cl.opacity != null ? cl.opacity : 1) : 1;
   els.signatureScale.value = scalePct;
   setReadoutNum(els.signatureScaleVal, scalePct, '%');
   els.signatureOpacity.value = opacity;
   setReadoutNum(els.signatureOpacityVal, Math.round(opacity * 100), '%');
-  els.signaturePosSeg.querySelectorAll('button').forEach((b) => { b.disabled = !has; });
+  els.signaturePosGrid.querySelectorAll('button').forEach((b) => { b.disabled = !has; });
   els.signatureScale.disabled = !has;
   els.signatureOpacity.disabled = !has;
+}
+
+// Migrate persisted customLogo schemas to the current shape:
+//   v0 (legacy): { data, type, position: 'br'|'bl'|'bc', scale, opacity }
+//   v1 (now):    { data, type, position: { anchor, dx, dy }, scale, opacity }
+// Run at every persistence boundary (localStorage load, preset apply,
+// share-code decode) so future code paths only see the new shape.
+// `customLogoRect` itself still tolerates both for safety, but this
+// function is what gradually upgrades the user's stored data.
+function migrateCustomLogo(cl) {
+  if (!cl || typeof cl !== 'object') return cl;
+  const out = { ...cl };
+  if (typeof out.position === 'string') {
+    out.position = { anchor: out.position, dx: 0, dy: 0 };
+  } else if (!out.position || typeof out.position !== 'object') {
+    out.position = { anchor: 'br', dx: 0, dy: 0 };
+  } else {
+    out.position = {
+      anchor: out.position.anchor || 'br',
+      dx: Number(out.position.dx) || 0,
+      dy: Number(out.position.dy) || 0
+    };
+  }
+  return out;
 }
 
 function setSegActive(seg, val) {
@@ -638,6 +699,56 @@ function setSegActive(seg, val) {
     const on = b.dataset.val === val;
     b.classList.toggle('active', on);
     b.setAttribute('aria-checked', on ? 'true' : 'false');
+  });
+}
+
+// Two-tier seg picker (family tabs + variant chips). Family clicks
+// reveal that family's variants and auto-select the first one if the
+// current value isn't in the new family. Variant clicks call wireSeg's
+// existing behavior + we sync the family tab to match the picked
+// variant's data-family.
+//
+// Used for both the frame picker (B · Frame) and the caption template
+// picker (C · Caption) — the two largest seg controls in the sidebar.
+// Keeps each chip ~3× wider than a flat 9-button seg, recovering full
+// labels on mobile.
+function setFamilyActive(familySeg, family) {
+  familySeg.querySelectorAll('button').forEach((b) => {
+    const on = b.dataset.family === family;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-selected', on ? 'true' : 'false');
+  });
+}
+function showFamilyVariants(variantSeg, family) {
+  variantSeg.querySelectorAll('button').forEach((b) => {
+    b.hidden = b.dataset.family !== family;
+  });
+}
+function syncFamilyFromValue(familySeg, variantSeg, value) {
+  const btn = variantSeg.querySelector('button[data-val="' + value + '"]');
+  const family = btn ? btn.dataset.family : familySeg.querySelector('button')?.dataset.family;
+  if (!family) return;
+  setFamilyActive(familySeg, family);
+  showFamilyVariants(variantSeg, family);
+}
+function wireFamilyTabs(familySeg, variantSeg, onPick) {
+  familySeg.querySelectorAll('button').forEach((tab) => {
+    tab.addEventListener('click', () => {
+      const family = tab.dataset.family;
+      setFamilyActive(familySeg, family);
+      showFamilyVariants(variantSeg, family);
+      // If the currently-active variant is in a different family, jump
+      // to the first variant of the newly-selected family — picking a
+      // family is a real commit, not just a filter.
+      const activeVariant = variantSeg.querySelector('button.active');
+      if (!activeVariant || activeVariant.dataset.family !== family) {
+        const first = variantSeg.querySelector('button[data-family="' + family + '"]');
+        if (first && onPick) {
+          setSegActive(variantSeg, first.dataset.val);
+          onPick(first.dataset.val);
+        }
+      }
+    });
   });
 }
 
@@ -853,8 +964,116 @@ function wireSeg(seg, key, onChange) {
     });
   });
 }
-wireSeg(els.aspectSeg, 'aspect');
-wireSeg(els.frameSeg, 'frame', onFrameChange);
+// Aspect picker — like wireSeg, but the trailing "Custom" button opens a
+// dialog instead of writing its data-val into cfg, and the active-state sync
+// has to fall through to the custom button when cfg.aspect is a free-form
+// W:H token (e.g. "3:2") that none of the preset buttons match.
+const ASPECT_CUSTOM_LS = 'phototools.aspectCustom';
+function syncAspectSeg(aspect) {
+  let matched = false;
+  els.aspectSeg.querySelectorAll('button').forEach((b) => {
+    if (b.dataset.val === 'custom') return;
+    const on = b.dataset.val === aspect;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-checked', on ? 'true' : 'false');
+    if (on) matched = true;
+  });
+  if (els.aspectCustomBtn) {
+    const customActive = !matched;
+    els.aspectCustomBtn.classList.toggle('active', customActive);
+    els.aspectCustomBtn.setAttribute('aria-checked', customActive ? 'true' : 'false');
+    if (els.aspectCustomLabel) {
+      els.aspectCustomLabel.textContent = customActive ? aspect : (T('frame.aspectCustom') || '⋯');
+    }
+  }
+}
+els.aspectSeg.querySelectorAll('button').forEach((btn) => {
+  if (btn.dataset.val === 'custom') {
+    btn.addEventListener('click', () => openAspectModal());
+  } else {
+    btn.addEventListener('click', () => {
+      activeCfg().aspect = btn.dataset.val;
+      syncAspectSeg(btn.dataset.val);
+      requestRender();
+    });
+  }
+});
+
+function openAspectModal() {
+  const dlg = els.aspectModal;
+  if (!dlg) return;
+  // Pre-fill: if current aspect is a custom W:H, reuse it; else fall back to
+  // the last saved custom value, then a hard default of 3:2.
+  const cur = activeCfg().aspect;
+  const curParsed = R.parseAspectRatio(cur);
+  let initW = 3, initH = 2;
+  if (curParsed && !R.BASE_PRESETS[cur]) {
+    initW = curParsed.w; initH = curParsed.h;
+  } else {
+    try {
+      const saved = JSON.parse(localStorage.getItem(ASPECT_CUSTOM_LS) || 'null');
+      if (saved && saved.w > 0 && saved.h > 0) { initW = saved.w; initH = saved.h; }
+    } catch (_) {}
+  }
+  els.aspectW.value = String(initW);
+  els.aspectH.value = String(initH);
+  els.aspectError.hidden = true;
+  if (typeof dlg.showModal === 'function') dlg.showModal();
+  else dlg.setAttribute('open', '');
+  setTimeout(() => els.aspectW && els.aspectW.select(), 30);
+}
+function closeAspectModal() {
+  const dlg = els.aspectModal;
+  if (!dlg) return;
+  if (typeof dlg.close === 'function') dlg.close();
+  else dlg.removeAttribute('open');
+}
+function applyAspectModal() {
+  const w = Number(els.aspectW.value);
+  const h = Number(els.aspectH.value);
+  if (!(w > 0) || !(h > 0)) {
+    els.aspectError.textContent = T('frame.aspectCustomError');
+    els.aspectError.hidden = false;
+    return;
+  }
+  // Round to 2 decimals so "2.353" stops echoing forever and the seg label
+  // stays readable. Anything inside [0.1, 10] passes the resolver's gate.
+  const wR = Math.round(w * 100) / 100;
+  const hR = Math.round(h * 100) / 100;
+  const token = wR + ':' + hR;
+  if (!R.parseAspectRatio(token)) {
+    els.aspectError.textContent = T('frame.aspectCustomError');
+    els.aspectError.hidden = false;
+    return;
+  }
+  activeCfg().aspect = token;
+  try { localStorage.setItem(ASPECT_CUSTOM_LS, JSON.stringify({ w: wR, h: hR })); } catch (_) {}
+  syncAspectSeg(token);
+  closeAspectModal();
+  requestRender();
+}
+if (els.aspectApply) els.aspectApply.addEventListener('click', applyAspectModal);
+if (els.aspectCancel) els.aspectCancel.addEventListener('click', closeAspectModal);
+if (els.aspectClose) els.aspectClose.addEventListener('click', closeAspectModal);
+[els.aspectW, els.aspectH].forEach((inp) => {
+  if (!inp) return;
+  inp.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); applyAspectModal(); }
+  });
+  inp.addEventListener('input', () => { els.aspectError.hidden = true; });
+});
+els.aspectPresets.forEach((btn) => {
+  btn.addEventListener('click', () => {
+    els.aspectW.value = btn.dataset.w;
+    els.aspectH.value = btn.dataset.h;
+    els.aspectError.hidden = true;
+  });
+});
+
+wireSeg(els.frameSeg, 'frame', (val) => { syncFamilyFromValue(els.frameFamilySeg, els.frameSeg, val); onFrameChange(val); });
+wireSeg(els.templateSeg, 'template', (val) => { syncFamilyFromValue(els.templateFamilySeg, els.templateSeg, val); });
+wireFamilyTabs(els.frameFamilySeg, els.frameSeg, (val) => { activeCfg().frame = val; onFrameChange(val); requestRender(); });
+wireFamilyTabs(els.templateFamilySeg, els.templateSeg, (val) => { activeCfg().template = val; requestRender(); });
 
 // ─── bg/shadow sync ──────────────────────────────────────────────────────
 // Frame switch resets bg overrides to "use preset" (null) and shadow sliders
@@ -935,7 +1154,8 @@ els.shadowOpacity.addEventListener('input', () => {
 // Initialize UI to the draft cfg's frame defaults.
 syncControlsFromCfg(state.draftCfg);
 
-els.template.addEventListener('change', () => { activeCfg().template = els.template.value; requestRender(); });
+// Template picker is wired via wireSeg + wireFamilyTabs above (replaced
+// the old <select> with a two-tier seg in C · Caption).
 els.format.addEventListener('change',   () => { state.format = els.format.value; });
 els.quality.addEventListener('change',  () => { state.quality = els.quality.value; });
 
@@ -1044,11 +1264,16 @@ els.signatureInput.addEventListener('change', async () => {
     const type = /^data:image\/svg/i.test(data) ? 'svg' : 'png';
     // Carry over the active photo's position/size/opacity if a signature was
     // already there — re-uploading should swap the image but keep the look.
+    // New uploads always write the v1 schema (object position).
     const prev = activeCfg().customLogo;
+    const prevPos = prev && prev.position;
+    const positionObj = (prevPos && typeof prevPos === 'object' && prevPos.anchor)
+      ? { anchor: prevPos.anchor, dx: Number(prevPos.dx) || 0, dy: Number(prevPos.dy) || 0 }
+      : { anchor: (typeof prevPos === 'string' ? prevPos : 'br'), dx: 0, dy: 0 };
     const payload = {
       data: data,
       type: type,
-      position: prev && prev.position ? prev.position : 'br',
+      position: positionObj,
       scale:    prev && prev.scale != null ? prev.scale : 0.06,
       opacity:  prev && prev.opacity != null ? prev.opacity : 1
     };
@@ -1069,12 +1294,22 @@ els.signatureClearBtn.addEventListener('click', () => {
   requestRender();
 });
 
-els.signaturePosSeg.querySelectorAll('button').forEach((btn) => {
+els.signaturePosGrid.querySelectorAll('button').forEach((btn) => {
   btn.addEventListener('click', () => {
     const cfg = activeCfg();
     if (!cfg.customLogo) return;
-    setSegActive(els.signaturePosSeg, btn.dataset.val);
-    cfg.customLogo = { ...cfg.customLogo, position: btn.dataset.val };
+    const anchor = btn.dataset.anchor;
+    setPosGridActive(els.signaturePosGrid, anchor);
+    // Always write the new schema (object). dx/dy preserved if the user
+    // had custom offsets from a future microadjust UI; defaults to 0/0
+    // for the legacy "just pick a corner" path.
+    const prev = (cfg.customLogo.position && typeof cfg.customLogo.position === 'object')
+      ? cfg.customLogo.position
+      : { dx: 0, dy: 0 };
+    cfg.customLogo = {
+      ...cfg.customLogo,
+      position: { anchor, dx: prev.dx || 0, dy: prev.dy || 0 }
+    };
     requestRender();
   });
 });
@@ -1179,14 +1414,18 @@ const CROP = {
   aspect: 'free'
 };
 const CROP_MIN = 0.05;
-// Frame aspect → numeric width/height ratio. Mirrors BASE_PRESETS in render.
-const FRAME_ASPECT_RATIOS = { '9:16': 9 / 16, '3:4': 3 / 4, '1:1': 1, '4:3': 4 / 3, '16:9': 16 / 9 };
+// Frame aspect → numeric width/height ratio. Falls back to the shared
+// resolver so custom W:H tokens (e.g. "3:2", "2.35:1") agree with what the
+// renderer will actually paint.
+function frameAspectToRatio(aspect) {
+  const preset = R.resolveAspectPreset(aspect);
+  return preset ? preset.W / preset.H : 1;
+}
 
 function parseAspectToken(token) {
   if (token === 'free') return null;
   if (token === 'frame') {
-    const a = activeCfg().aspect || '9:16';
-    return FRAME_ASPECT_RATIOS[a] || 1;
+    return frameAspectToRatio(activeCfg().aspect || '9:16');
   }
   const m = token.match(/^(\d+(?:\.\d+)?):(\d+(?:\.\d+)?)$/);
   if (!m) return null;
@@ -1577,7 +1816,9 @@ els.collageLayout.addEventListener('change', () => {
     if (!raw) return;
     const payload = JSON.parse(raw);
     if (payload && payload.data) {
-      state.draftCfg.customLogo = payload;
+      // Migrate legacy schema (string position) to the current shape so
+      // every downstream consumer sees the same { anchor, dx, dy } object.
+      state.draftCfg.customLogo = migrateCustomLogo(payload);
       syncSignatureFromCfg(state.draftCfg);
     }
   } catch (_) { /* malformed entry — drop silently */ }
@@ -2272,7 +2513,9 @@ function applyPresetToCfg(preset, cfg) {
   if (preset.showFields) cfg.showFields = { ...preset.showFields };
   // customLogo is optional in the preset; only applied when present so a
   // share code without the signature doesn't wipe a local one the user has.
-  if (preset.customLogo) cfg.customLogo = { ...preset.customLogo };
+  // Run through migrateCustomLogo so older presets / share-codes that
+  // serialized the legacy string position upgrade on the way in.
+  if (preset.customLogo) cfg.customLogo = migrateCustomLogo({ ...preset.customLogo });
   return true;
 }
 
@@ -2352,14 +2595,14 @@ els.presetSelect.addEventListener('change', () => {
   if (preset.customLogo) {
     els.signaturePreview.hidden = false;
     els.signaturePreviewImg.src = preset.customLogo.data;
-    setSegActive(els.signaturePosSeg, preset.customLogo.position || 'br');
+    setPosGridActive(els.signaturePosGrid, customLogoAnchor(preset.customLogo));
     const sc = Math.round((preset.customLogo.scale != null ? preset.customLogo.scale : 0.06) * 100);
     const op = preset.customLogo.opacity != null ? preset.customLogo.opacity : 1;
     els.signatureScale.value = sc;
     setReadoutNum(els.signatureScaleVal, sc, '%');
     els.signatureOpacity.value = op;
     setReadoutNum(els.signatureOpacityVal, Math.round(op * 100), '%');
-    els.signaturePosSeg.querySelectorAll('button').forEach((b) => { b.disabled = false; });
+    els.signaturePosGrid.querySelectorAll('button').forEach((b) => { b.disabled = false; });
     els.signatureScale.disabled = false;
     els.signatureOpacity.disabled = false;
   }

@@ -41,8 +41,8 @@ This project is maintained autonomously by [Claude Code](https://claude.com/clau
 
 ## Features
 
-- **6 frame styles** — frosted, frosted-dark, white, black, polaroid, instax
-- **5 caption templates** — minimal-text, brand-logo, brand-right, tech-stack, date-lens
+- **8 frame styles in 4 families** — Editorial (frosted, frosted-noir), Gallery (gallery-white passe-partout, gallery-noir phosphor highlight), Instant (polaroid, instax), Film (film-35 with sprocket holes + leader stamp, editorial magazine spread)
+- **9 caption templates in 4 grammars** — Spec (minimal-text, tech-stack), Brand (brand-logo, brand-right), Editorial (wordmark, headline with GPS+date hero line), Stamp (date-lens, slate OSD field grid, passport postmark)
 - **Real bundled brand logos** — Fujifilm, Sony, Leica, Nikon, Canon, Apple, Xiaomi, OPPO, Vivo, DJI… (Wikimedia Commons + simple-icons)
 - **Auto EXIF parsing** with per-photo manual override and `LensInfo` → lens-model fallback
 - **Custom signature overlay** — upload an SVG/PNG and pin it to a corner of the photo; persisted across sessions in `localStorage`

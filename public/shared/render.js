@@ -200,6 +200,41 @@
     '4:3':  { W: 1920, H: 1440, padding: 70, radius: 36, bottomCaptionH: 110, fgYOffset: -50,  bottomPaddingBias: 60 },
     '16:9': { W: 2560, H: 1440, padding: 70, radius: 36, bottomCaptionH: 100, fgYOffset: -45,  bottomPaddingBias: 60 }
   };
+
+  // Resolve an aspect token to a layout preset. Known tokens hit BASE_PRESETS;
+  // unknown tokens of the form "W:H" (e.g. "3:2", "2.35:1") are parsed and a
+  // preset is synthesized — short edge fixed at 1440, long edge scales with
+  // the ratio, layout constants take the conservative midpoint values. Returns
+  // null on parse failure (caller decides whether to throw or fall back).
+  const ASPECT_MIN = 0.1;
+  const ASPECT_MAX = 10;
+  function parseAspectRatio(token) {
+    if (typeof token !== 'string') return null;
+    const m = token.match(/^(\d+(?:\.\d+)?):(\d+(?:\.\d+)?)$/);
+    if (!m) return null;
+    const w = Number(m[1]);
+    const h = Number(m[2]);
+    if (!(w > 0 && h > 0)) return null;
+    const r = w / h;
+    if (r < ASPECT_MIN || r > ASPECT_MAX) return null;
+    return { w, h, r };
+  }
+  function resolveAspectPreset(aspect) {
+    if (BASE_PRESETS[aspect]) return BASE_PRESETS[aspect];
+    const parsed = parseAspectRatio(aspect);
+    if (!parsed) return null;
+    const SHORT = 1440;
+    const W = parsed.r >= 1 ? Math.round(SHORT * parsed.r) : SHORT;
+    const H = parsed.r >= 1 ? SHORT : Math.round(SHORT / parsed.r);
+    return {
+      W, H,
+      padding: 70,
+      radius: 36,
+      bottomCaptionH: 110,
+      fgYOffset: -60,
+      bottomPaddingBias: 60
+    };
+  }
   const QUALITY_FACTOR = { standard: 1, high: 2 };
 
   function computeCaptionZone(args) {
@@ -218,6 +253,17 @@
     const MIN_SIDE   = Math.round(40 * scale);
     const OVERLAY_H  = Math.round(70 * scale);
 
+    // `prefer` is a frame-level hint that overrides the default priority
+    // (bottom > right > left > overlay) when the preferred zone has
+    // enough space. Editorial layouts use this to route caption into a
+    // wide right-side strip even though the bottom strip would also fit.
+    if (args.prefer === 'right' && rightGap >= MIN_SIDE) {
+      return { x: fgRight, y: fgTop, width: fgH, height: rightGap, rotation: -90, placement: 'right' };
+    }
+    if (args.prefer === 'left' && leftGap >= MIN_SIDE) {
+      return { x: 0, y: fgTop, width: fgH, height: leftGap, rotation: 90, placement: 'left' };
+    }
+
     if (bottomGap >= MIN_BOTTOM) {
       const h = Math.min(bottomGap, Math.max(preferredBottomH, MIN_BOTTOM));
       return { x: 0, y: H - h, width: W, height: h, rotation: 0, placement: 'bottom' };
@@ -234,7 +280,7 @@
   function computeLayout(meta, opts) {
     opts = opts || {};
     const aspect = opts.aspect || '9:16';
-    const base = BASE_PRESETS[aspect];
+    const base = resolveAspectPreset(aspect);
     if (!base) throw new Error('unknown aspect: ' + aspect);
 
     let basePadding = opts.padding != null ? Number(opts.padding) : base.padding;
@@ -272,13 +318,23 @@
     // bottom is pushed in further by `bottomPaddingBias` (+ optional frame
     // boost). This guarantees the caption zone has space even on near-square
     // photos in the 1:1 frame, where symmetric padding used to leave the fg
-    // flush against both top and bottom.
-    const topPadding = padding;
+    // flush against both top and bottom. `topPaddingBoost` is a frame-level
+    // hook for symmetric vertical extension (e.g., film-35 needs room above
+    // the fg for the top sprocket row).
+    const topBoostBase = (opts.topPaddingBoost || 0);
+    const topPadding = padding + Math.round(topBoostBase * scale);
     const bottomBiasBase = (base.bottomPaddingBias || 0) + (opts.bottomPaddingBoost || 0);
     const bottomPadding = padding + Math.round(bottomBiasBase * scale);
 
+    // `extraRightInset` is a frame-level option (base-1440 units) that
+    // carves an additional strip out of the right side of the canvas
+    // for asymmetric editorial layouts. When > 0, fg shrinks AND
+    // anchors to the left padding (instead of centering), so the right
+    // strip becomes a clean vertical zone the caption auto-routes into.
+    const extraRightInset = Math.round((opts.extraRightInset || 0) * scale);
+
     const inputAspect = meta.width / meta.height;
-    let fgW = W - padding * 2;
+    let fgW = W - padding * 2 - extraRightInset;
     let fgH = Math.round(fgW / inputAspect);
     const maxFgH = H - topPadding - bottomPadding;
     if (fgH > maxFgH) {
@@ -286,13 +342,41 @@
       fgW = Math.round(fgH * inputAspect);
     }
 
-    const fgLeft = Math.round((W - fgW) / 2);
+    // Horizontal placement:
+    //   - extraRightInset > 0: anchor fg to the left padding (the inset
+    //     defines the right-side caption strip; centering would break
+    //     that grammar).
+    //   - otherwise: center, with optional `fgXOffset` shift in
+    //     base-1440 units (negative = left, positive = right).
+    let fgLeft;
+    if (extraRightInset > 0) {
+      fgLeft = padding;
+    } else {
+      const fgXShift = Math.round((opts.fgXOffset || 0) * scale);
+      fgLeft = Math.round((W - fgW) / 2) + fgXShift;
+      if (fgLeft < padding) fgLeft = padding;
+      if (fgLeft + fgW > W - padding) fgLeft = Math.max(padding, W - padding - fgW);
+    }
     // Center within the asymmetric vertical box, then apply fgYOffset.
     let fgTop = Math.round(topPadding + (H - topPadding - bottomPadding - fgH) / 2 + fgYOffset);
     if (fgTop < topPadding) fgTop = topPadding;
     if (fgTop + fgH > H - bottomPadding) fgTop = Math.max(topPadding, H - bottomPadding - fgH);
 
-    const caption = computeCaptionZone({ W, H, fgLeft, fgTop, fgW, fgH, scale, preferredBottomH });
+    const caption = computeCaptionZone({
+      W, H, fgLeft, fgTop, fgW, fgH, scale, preferredBottomH,
+      prefer: opts.captionPrefer || null
+    });
+
+    // outputPx is a soft scaling factor for "thin lines / hairlines that
+    // shouldn't bloat at high quality": `Math.max(1, N * outputPx)` gives a
+    // stroke width that stays visually thin across preview / standard /
+    // high quality. At preview customScale=0.5 it floors to 1; at
+    // standard scale=1 it's ~0.6 (also floors to 1); at high scale=2 it
+    // becomes 1.2 — roughly half what plain `N * scale` would give.
+    // Frame `decorate` hooks use this for passe-partout borders, sprocket
+    // holes, and other decorative elements that should read as fine
+    // print regardless of output resolution.
+    const outputPx = Math.max(0.5, scale * 0.6);
 
     return {
       canvas: { W, H },
@@ -304,9 +388,29 @@
         ? Math.round(caption.height - 18 * scale)
         : Math.round(caption.height / 2 + 10 * scale),
       scale,
+      outputPx,
       aspect,
       caption
     };
+  }
+
+  // Stroke / fill a rounded rectangle path. Public helper so frame
+  // `decorate` hooks (gallery passe-partout, film-35 sprocket holes)
+  // don't each need to inline the arcTo fallback for older Safari.
+  function pathRoundRect(ctx, x, y, w, h, r) {
+    if (ctx.roundRect) {
+      ctx.beginPath();
+      ctx.roundRect(x, y, w, h, r);
+      return;
+    }
+    const rr = Math.min(r, w / 2, h / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + rr, y);
+    ctx.arcTo(x + w, y,     x + w, y + h, rr);
+    ctx.arcTo(x + w, y + h, x,     y + h, rr);
+    ctx.arcTo(x,     y + h, x,     y,     rr);
+    ctx.arcTo(x,     y,     x + w, y,     rr);
+    ctx.closePath();
   }
 
   // ======================================================================
@@ -1061,12 +1165,252 @@
     return style + paramsEl + divider + brandEl + modelEl + extraEl;
   }
 
+  // Wordmark: oversized brand mark (logo or wordmark), tiny date subline.
+  // Luxury-minimalist look — works as the centerpiece in editorial /
+  // gallery frames where the photo + brand identity carry the eye and
+  // technical specs aren't the point.
+  function tWordmark(exif, layout, fontFaceCss, opts) {
+    const colors = captionColors(opts.textStyle);
+    const show = opts.showFields;
+    const brandText = on(show, 'brand') ? (exif.make || '').toString().toUpperCase() : '';
+    const brandLogoKey = on(show, 'brand') ? brandToLogoKey(exif.make, opts.logos) : null;
+    const dateText = on(show, 'date') ? (exif.date || '') : '';
+    const author = (on(show, 'author') && exif.author) ? exif.author : '';
+    const s = layout.scale || 1;
+    const cx = layout.W / 2;
+    const y = layout.textBaselineY;
+
+    // Cap brand size against caption height so it never overflows
+    // (overlay placement gives a thin strip; editorial right gives a
+    // fat one — same template, both look right).
+    const brandPxRaw = Math.round(38 * s);
+    const brandPx = Math.min(brandPxRaw, Math.round(layout.H * 0.42));
+    const subPx = Math.max(Math.round(13 * s), Math.round(brandPx * 0.30));
+    const lsBrand = Math.round(brandPx * 0.10);
+    const lsSub = Math.round(2 * s);
+
+    const subParts = [dateText, author ? '© ' + author : ''].filter(Boolean);
+    const subline = subParts.join('   ·   ');
+    const mainY = subline ? y - Math.round(brandPx * 0.32) : y;
+    const subY = mainY + Math.round(brandPx * 0.78);
+
+    const style = '<style>' + fontFaceCss +
+      '.wm-brand{font:600 ' + brandPx + 'px \'Inter\',sans-serif;fill:' + colors.brand + ';letter-spacing:' + lsBrand + 'px;}' +
+      '.wm-sub{font:400 ' + subPx + 'px \'Inter\',sans-serif;fill:' + colors.meta + ';letter-spacing:' + lsSub + 'px;text-transform:uppercase;}' +
+      '</style>';
+
+    let brandBlock = '';
+    if (brandLogoKey) {
+      const entry = opts.logos[brandLogoKey];
+      const fill = resolveLogoFill(entry.brandColor, opts.textStyle);
+      const logoH = brandPx;
+      const logoW = Math.round(logoH * (entry.vw / entry.vh));
+      const logoY = Math.round(mainY - logoH * 0.86);
+      brandBlock = logoInlineSvg(brandLogoKey, opts.logos, {
+        x: Math.round(cx - logoW / 2), y: logoY, height: logoH,
+        fillColor: fill, textStyle: opts.textStyle
+      }).svg;
+    } else if (brandText) {
+      brandBlock = '<text x="' + cx + '" y="' + mainY + '" text-anchor="middle" class="wm-brand">' + escapeXml(brandText) + '</text>';
+    }
+
+    const subEl = subline
+      ? '<text x="' + cx + '" y="' + subY + '" text-anchor="middle" class="wm-sub">' + escapeXml(subline) + '</text>'
+      : '';
+
+    return style + brandBlock + subEl;
+  }
+
+  // Headline: editorial-cover treatment that promotes the geographic +
+  // temporal context to the visual lead. "TOKYO · 2026.03" hero line
+  // (or just "2026.03" when GPS is absent), with a small camera-spec
+  // line below. Designed for the editorial frame's right strip — the
+  // long axis is plenty wide for big type — but works in any frame's
+  // bottom placement too.
+  function tHeadline(exif, layout, fontFaceCss, opts) {
+    const colors = captionColors(opts.textStyle);
+    const show = opts.showFields;
+    const s = layout.scale || 1;
+    const cx = layout.W / 2;
+    const y = layout.textBaselineY;
+
+    // Headline string. GPS drives the lead text; date forms the trailing
+    // half. When GPS is missing we degrade gracefully to date-only so
+    // the user never sees an empty "·" remnant.
+    const dateText = on(show, 'date') ? (exif.date || '') : '';
+    // Reformat YYYY.MM.DD → YYYY.MM (headline doesn't need day precision).
+    const dateHead = dateText
+      ? (dateText.split('.').slice(0, 2).join('.') || dateText)
+      : '';
+    // GPS as headline lead: use the pre-formatted base.gps but trim
+    // each side to "lat°N" / "lng°E" without the four-decimal precision —
+    // headline-style readers don't need centimeter accuracy.
+    let gpsHead = '';
+    if (on(show, 'gps') && exif.gps) {
+      const m = exif.gps.match(/(\d+(?:\.\d+)?)°([NS])\s+·\s+(\d+(?:\.\d+)?)°([EW])/);
+      if (m) {
+        gpsHead = Math.round(parseFloat(m[1])) + '°' + m[2] + ' · ' + Math.round(parseFloat(m[3])) + '°' + m[4];
+      } else {
+        gpsHead = exif.gps;
+      }
+    }
+
+    let headline;
+    if (gpsHead && dateHead) headline = gpsHead + ' · ' + dateHead;
+    else if (gpsHead) headline = gpsHead;
+    else if (dateHead) headline = dateHead;
+    else headline = (exif.make ? formatBrand(exif.make) : 'PHOTOGRAPH');
+
+    const params = [
+      on(show, 'focal')    ? exif.focalLength  : '',
+      on(show, 'aperture') ? exif.fNumber      : '',
+      on(show, 'shutter')  ? exif.exposureTime : '',
+      on(show, 'iso')      ? exif.iso          : ''
+    ].filter(Boolean).join('  ');
+    const author = (on(show, 'author') && exif.author) ? '© ' + exif.author : '';
+    const subline = [params, author].filter(Boolean).join('     ');
+
+    const headPxRaw = Math.round(46 * s);
+    const headPx = Math.min(headPxRaw, Math.round(layout.H * 0.5));
+    const subPx = Math.max(Math.round(14 * s), Math.round(headPx * 0.32));
+    const lsHead = Math.round(headPx * 0.06);
+    const lsSub = Math.round(1.5 * s);
+
+    const mainY = subline ? y - Math.round(headPx * 0.32) : y;
+    const subY = mainY + Math.round(headPx * 0.92);
+
+    const style = '<style>' + fontFaceCss +
+      '.hl-head{font:600 ' + headPx + 'px \'Inter\',sans-serif;fill:' + colors.brand + ';letter-spacing:' + lsHead + 'px;}' +
+      '.hl-sub{font:400 ' + subPx + 'px \'Inter\',sans-serif;fill:' + colors.meta + ';letter-spacing:' + lsSub + 'px;}' +
+      '</style>';
+
+    const headEl = '<text x="' + cx + '" y="' + mainY + '" text-anchor="middle" class="hl-head">' + escapeXml(headline) + '</text>';
+    const subEl = subline
+      ? '<text x="' + cx + '" y="' + subY + '" text-anchor="middle" class="hl-sub">' + escapeXml(subline) + '</text>'
+      : '';
+    return style + headEl + subEl;
+  }
+
+  // Slate: clapper-board / camera-OSD field grid in monospace. Each
+  // metadata field gets its own labeled cell ("DATE / CAM / LENS / EXP")
+  // separated by hairlines, like a film slate or DIT log overlay. Uses
+  // system monospace fallback (`ui-monospace, "SF Mono"…`) so we don't
+  // need to inline a Plex Mono subset just for this template.
+  function tSlate(exif, layout, fontFaceCss, opts) {
+    const colors = captionColors(opts.textStyle);
+    const show = opts.showFields;
+    const s = layout.scale || 1;
+    const cx = layout.W / 2;
+    const cy = layout.textBaselineY;
+
+    const date = on(show, 'date') ? (exif.date || '——') : '——';
+    const cam = (on(show, 'brand') ? (exif.make || '').toString().toUpperCase() : '').trim();
+    const model = (on(show, 'model') ? (exif.model || '') : '').trim();
+    const camLine = [cam, model].filter(Boolean).join(' ') || '——';
+    const lens = (on(show, 'lens') ? (exif.lensModel || '') : '').trim() || '——';
+    const params = [
+      on(show, 'focal')    ? exif.focalLength  : '',
+      on(show, 'aperture') ? exif.fNumber      : '',
+      on(show, 'shutter')  ? exif.exposureTime : '',
+      on(show, 'iso')      ? exif.iso          : ''
+    ].filter(Boolean).join(' · ') || '——';
+
+    const labelPx = Math.max(Math.round(11 * s), Math.round(layout.H * 0.08));
+    const valPx = Math.max(Math.round(15 * s), Math.round(labelPx * 1.35));
+    const lineH = Math.round(valPx * 1.55);
+    const monoStack = '"SFMono-Regular", "SF Mono", Menlo, Monaco, Consolas, monospace';
+
+    const rows = [
+      ['DATE', date],
+      ['CAM',  camLine],
+      ['LENS', lens],
+      ['EXP',  params]
+    ];
+    const totalH = rows.length * lineH;
+    const firstY = Math.round(cy - totalH / 2 + lineH * 0.7);
+
+    // Two-column metric: label cell width fixed (~"LENS" + padding),
+    // value cell takes remainder. Compute label cell from the longest
+    // canonical label so columns align across all rows.
+    const labelW = Math.round(estimateTextWidth('LENS  ', labelPx, 600, Math.round(2 * s)));
+    const colGap = Math.round(20 * s);
+    const totalRowW = Math.min(layout.W * 0.78, labelW + colGap + estimateTextWidth(camLine, valPx, 400, 0));
+    const startX = Math.round(cx - totalRowW / 2);
+    const valStartX = startX + labelW + colGap;
+
+    const style = '<style>' + fontFaceCss +
+      '.sl-label{font:600 ' + labelPx + 'px ' + monoStack + ';fill:' + colors.accent + ';letter-spacing:' + Math.round(2 * s) + 'px;}' +
+      '.sl-val{font:400 ' + valPx + 'px ' + monoStack + ';fill:' + colors.brand + ';letter-spacing:' + Math.round(0.5 * s) + 'px;}' +
+      '</style>';
+
+    let out = style;
+    rows.forEach(function (row, i) {
+      const y = firstY + i * lineH;
+      out += '<text x="' + startX + '" y="' + y + '" text-anchor="start" class="sl-label">' + escapeXml(row[0]) + '</text>';
+      out += '<text x="' + valStartX + '" y="' + y + '" text-anchor="start" class="sl-val">' + escapeXml(row[1]) + '</text>';
+      // Hairline between rows (skip the last row's bottom rule).
+      if (i < rows.length - 1) {
+        const ruleY = y + Math.round(lineH * 0.30);
+        out += '<line x1="' + startX + '" y1="' + ruleY + '" x2="' + (startX + Math.round(totalRowW)) + '" y2="' + ruleY + '" stroke="' + colors.accent + '" stroke-width="' + Math.max(1, Math.round(0.6 * s)) + '" opacity="0.35"/>';
+      }
+    });
+    return out;
+  }
+
+  // Passport: tiny boxed corner stamp with date + GPS (bordered rect,
+  // monospace, faux-print-on-document feel). Render is intentionally
+  // small so it sits like a postmark — never the visual lead of the
+  // composition. Best paired with frames whose caption zone is wide
+  // (frosted, gallery, editorial) so the stamp has breathing room.
+  function tPassport(exif, layout, fontFaceCss, opts) {
+    const colors = captionColors(opts.textStyle);
+    const show = opts.showFields;
+    const s = layout.scale || 1;
+    const cx = layout.W / 2;
+    const cy = layout.textBaselineY;
+
+    const date = on(show, 'date') ? (exif.date || '') : '';
+    const gps = on(show, 'gps') ? (exif.gps || '') : '';
+    const lines = [date, gps].filter(Boolean);
+    if (!lines.length) return '<style>' + fontFaceCss + '</style>';
+
+    const px = Math.max(Math.round(13 * s), Math.round(layout.H * 0.18));
+    const lineH = Math.round(px * 1.6);
+    const padX = Math.round(px * 1.4);
+    const padY = Math.round(px * 0.85);
+    const monoStack = '"SFMono-Regular", "SF Mono", Menlo, Monaco, Consolas, monospace';
+    // Box width: longest line + 2× horizontal padding. Use a generous
+    // estimator with monospace assumptions (each glyph ≈ 0.6em).
+    const longest = lines.reduce(function (a, b) { return b.length > a.length ? b : a; }, '');
+    const textW = Math.round(longest.length * px * 0.6);
+    const boxW = textW + padX * 2;
+    const boxH = lines.length * lineH + padY * 2 - Math.round(lineH * 0.3);
+    const boxX = Math.round(cx - boxW / 2);
+    const boxY = Math.round(cy - boxH / 2);
+
+    const style = '<style>' + fontFaceCss +
+      '.pp-text{font:500 ' + px + 'px ' + monoStack + ';fill:' + colors.brand + ';letter-spacing:' + Math.round(1.5 * s) + 'px;text-transform:uppercase;}' +
+      '</style>';
+
+    let out = style;
+    out += '<rect x="' + boxX + '" y="' + boxY + '" width="' + boxW + '" height="' + boxH + '" fill="none" stroke="' + colors.accent + '" stroke-width="' + Math.max(1, Math.round(1 * s)) + '" rx="' + Math.round(2 * s) + '" opacity="0.7"/>';
+    lines.forEach(function (line, i) {
+      const y = boxY + padY + (i + 1) * lineH - Math.round(lineH * 0.3);
+      out += '<text x="' + cx + '" y="' + y + '" text-anchor="middle" class="pp-text">' + escapeXml(line) + '</text>';
+    });
+    return out;
+  }
+
   const TEMPLATES = {
     'minimal-text': tMinimalText,
     'brand-logo':   tBrandLogo,
     'date-lens':    tDateLens,
     'tech-stack':   tTechStack,
-    'brand-right':  tBrandRight
+    'brand-right':  tBrandRight,
+    wordmark:       tWordmark,
+    headline:       tHeadline,
+    slate:          tSlate,
+    passport:       tPassport
   };
 
   // Build the template's inner SVG content (no outer <svg> wrapper).
@@ -1225,6 +1569,14 @@
   // an invalid scale. The rect is in canvas-px (already scaled), positioned
   // inside the foreground bounds with a small margin so the signature sits
   // visually away from the fg edge.
+  //
+  // Position model — accepts both legacy and new schemas:
+  //   - Legacy: `position: 'br' | 'bl' | 'bc'` (3 corner anchors)
+  //   - New:    `position: { anchor, dx, dy }` where anchor is a 2-letter
+  //             code in the 9-cell grid (tl/tc/tr/cl/cc/cr/bl/bc/br) and
+  //             dx / dy are optional fine offsets in base-1440 px.
+  // Migration in app.js upgrades persisted cfg, but we also tolerate the
+  // legacy form here so worker / SVG round-trips don't have to migrate.
   function customLogoRect(layout, customLogo, imgAspect) {
     if (!customLogo || !customLogo.data || !(customLogo.scale > 0)) return null;
     const ar = (imgAspect && isFinite(imgAspect) && imgAspect > 0) ? imgAspect : 1;
@@ -1233,12 +1585,34 @@
     let dh = Math.max(1, Math.round(dw / ar));
     const maxH = Math.round(layout.fgH * 0.5);
     if (dh > maxH) { dh = maxH; dw = Math.round(dh * ar); }
-    const pos = customLogo.position || 'br';
-    let x;
-    if (pos === 'bl') x = layout.fgLeft + margin;
-    else if (pos === 'bc') x = layout.fgLeft + Math.round((layout.fgW - dw) / 2);
-    else x = layout.fgLeft + layout.fgW - dw - margin;
-    const y = layout.fgTop + layout.fgH - dh - margin;
+
+    // Decode the position into a 2-letter anchor + optional dx/dy. Both
+    // legacy (string) and new (object) schemas land here.
+    let anchor = 'br', dx = 0, dy = 0;
+    const pos = customLogo.position;
+    if (typeof pos === 'string') {
+      anchor = pos;   // legacy 'br' / 'bl' / 'bc'
+    } else if (pos && typeof pos === 'object') {
+      anchor = pos.anchor || 'br';
+      dx = Number(pos.dx) || 0;
+      dy = Number(pos.dy) || 0;
+    }
+    // Each anchor is "<row><col>" — row in {t, c, b}, col in {l, c, r}.
+    const ay = anchor.charAt(0) || 'b';
+    const ax = anchor.charAt(1) || 'r';
+    let x, y;
+    if (ax === 'l')      x = layout.fgLeft + margin;
+    else if (ax === 'c') x = layout.fgLeft + Math.round((layout.fgW - dw) / 2);
+    else                 x = layout.fgLeft + layout.fgW - dw - margin;
+    if (ay === 't')      y = layout.fgTop + margin;
+    else if (ay === 'c') y = layout.fgTop + Math.round((layout.fgH - dh) / 2);
+    else                 y = layout.fgTop + layout.fgH - dh - margin;
+
+    // dx/dy are in base-1440 units; scale into canvas px before applying.
+    const s = layout.scale || 1;
+    if (dx) x += Math.round(dx * s);
+    if (dy) y += Math.round(dy * s);
+
     const opacity = customLogo.opacity != null && isFinite(Number(customLogo.opacity))
       ? Math.max(0, Math.min(1, Number(customLogo.opacity)))
       : 1;
@@ -1273,6 +1647,8 @@
 
     // Layout
     BASE_PRESETS: BASE_PRESETS,
+    resolveAspectPreset: resolveAspectPreset,
+    parseAspectRatio: parseAspectRatio,
     computeLayout: computeLayout,
     computeCaptionZone: computeCaptionZone,
 
@@ -1292,6 +1668,7 @@
     // Helpers
     estimateTextWidth: estimateTextWidth,
     renderLensInline: renderLensInline,
+    pathRoundRect: pathRoundRect,
 
     // Templates
     TEMPLATES: TEMPLATES,

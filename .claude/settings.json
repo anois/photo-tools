@@ -25,7 +25,8 @@
       "Bash(find:*)",
       "Bash(grep:*)",
       "Bash(rg:*)",
-      "Bash(wc:*)"
+      "Bash(wc:*)",
+      "Bash(curl -s http://localhost:3000/ -o /tmp/got4.html)"
     ],
     "deny": [
       "Bash(rm -rf:*)",

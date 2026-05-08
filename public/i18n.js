@@ -44,6 +44,14 @@
       },
       frame: {
         aspect: '画幅',
+        aspectCustom: '自定义',
+        aspectCustomTitle: '自定义画幅比例',
+        aspectCustomWidth: '宽',
+        aspectCustomHeight: '高',
+        aspectCustomApply: '应用',
+        aspectCustomCancel: '取消',
+        aspectCustomPresets: '常用比例',
+        aspectCustomError: '请输入 0.1 ~ 10 之间的有效比例',
         style: '风格',
         padding: '边距',
         captionH: '文字带高度',
@@ -81,21 +89,39 @@
         applyAllTitle: '把当前照片的所有相框设置（画幅 / 风格 / 边距 / 高级参数 / 阴影 / 文字模板 / 字段开关）应用到全部已加载的照片',
         styles: {
           frosted: '毛玻璃',
-          'frosted-dark': '毛玻璃·深',
-          white: '纯白',
-          black: '纯黑',
+          'frosted-noir': '暗调',
+          'gallery-white': '白衬',
+          'gallery-noir': '黑衬',
           polaroid: '宝丽来',
-          instax: 'Instax'
+          instax: 'Instax',
+          'film-35': '35mm',
+          editorial: '杂志'
+        },
+        families: {
+          editorial: '编辑',
+          gallery: '画廊',
+          instant: '即影',
+          film: '胶片'
         }
       },
       caption: {
         template: '模板',
         templates: {
-          'minimal-text': '极简 · 品牌 + 参数',
-          'brand-logo': '品牌 LOGO · 型号 | 参数',
-          'brand-right': '品牌右置 · 参数 | 品牌',
-          'tech-stack': '技术栈 · 竖排',
-          'date-lens': '日期 · 镜头'
+          'minimal-text': '极简',
+          'brand-logo': '品牌左',
+          'brand-right': '品牌右',
+          'tech-stack': '技术栈',
+          'date-lens': '日期·镜头',
+          wordmark: '字标',
+          headline: '标题',
+          slate: '场记板',
+          passport: '护照戳'
+        },
+        families: {
+          spec: '参数',
+          brand: '品牌',
+          editorial: '编辑',
+          stamp: '印戳'
         },
         showFields: '显示字段',
         fields: {
@@ -309,6 +335,14 @@
       },
       frame: {
         aspect: 'Aspect',
+        aspectCustom: 'Custom',
+        aspectCustomTitle: 'Custom aspect ratio',
+        aspectCustomWidth: 'Width',
+        aspectCustomHeight: 'Height',
+        aspectCustomApply: 'Apply',
+        aspectCustomCancel: 'Cancel',
+        aspectCustomPresets: 'Presets',
+        aspectCustomError: 'Enter a valid ratio between 0.1 and 10',
         style: 'Style',
         padding: 'Padding',
         captionH: 'Caption height',
@@ -346,21 +380,39 @@
         applyAllTitle: 'Copy this photo’s frame settings (aspect / style / padding / advanced / shadow / template / fields) to every loaded photo',
         styles: {
           frosted: 'Frosted',
-          'frosted-dark': 'Dark',
-          white: 'White',
-          black: 'Black',
+          'frosted-noir': 'Noir',
+          'gallery-white': 'White',
+          'gallery-noir': 'Noir',
           polaroid: 'Polaroid',
-          instax: 'Instax'
+          instax: 'Instax',
+          'film-35': '35 mm',
+          editorial: 'Spread'
+        },
+        families: {
+          editorial: 'Editorial',
+          gallery: 'Gallery',
+          instant: 'Instant',
+          film: 'Film'
         }
       },
       caption: {
         template: 'Template',
         templates: {
-          'minimal-text': 'Minimal · brand + params',
-          'brand-logo': 'Brand logo · model | params',
-          'brand-right': 'Brand right · params | brand',
-          'tech-stack': 'Tech stack · vertical',
-          'date-lens': 'Date · lens'
+          'minimal-text': 'Minimal',
+          'brand-logo': 'Brand · L',
+          'brand-right': 'Brand · R',
+          'tech-stack': 'Tech stack',
+          'date-lens': 'Date · lens',
+          wordmark: 'Wordmark',
+          headline: 'Headline',
+          slate: 'Slate',
+          passport: 'Passport'
+        },
+        families: {
+          spec: 'Spec',
+          brand: 'Brand',
+          editorial: 'Editorial',
+          stamp: 'Stamp'
         },
         showFields: 'Show fields',
         fields: {

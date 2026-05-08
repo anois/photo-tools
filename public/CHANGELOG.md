@@ -4,7 +4,70 @@
 
 每次有意义的功能 / 修复 / 优化都记到这里 —— 同一份文件既给开发者看，也通过顶栏 ✦ 按钮在应用内展示给用户。
 
-## 0.9 · 2026-05-08
+## 0.11 · 2026-05-08
+
+### 📐 自定义画幅比例
+
+之前画幅 segment 只能从 5 个预设里挑（9:16 / 3:4 / 1:1 / 4:3 / 16:9），都是按抖音 / 小红书 / 朋友圈这些主流社交平台预览裁切对齐的。这版新加 **自定义** 按钮，点开弹窗自己填 W:H，覆盖那些预设没顾及到的画幅诉求。
+
+- **任意 W:H 输入** — 比例范围 0.1 ~ 10，覆盖经典 3:2 / 2:3、anamorphic 2.35:1、超宽 21:9、4×5 大画幅 5:4 等
+- **快捷预设** — 弹窗里内置 5 个常用比例 chip 一键填入
+- **记住上次输入** — 自定义值写到 localStorage，下次打开弹窗自动预填
+- **预设和"应用到全部"已自动适配** — 自定义画幅会随预设保存 / 分享链接 / "Apply frame to all" 流转，跟内置 5 个画幅一样
+- 关联 issue：[#2](https://github.com/anois/photo-tools/issues/2)
+
+## 0.10.1 · 2026-05-08
+
+### 🎞 胶片相框 v2 · 信号更强的 35mm 实物感
+
+`film-35` 第二轮迭代——目标是凑近看每一处都对得上真实 35mm motion-picture stock。
+
+- **暖底替纯黑** — 底色从 `#0c0c0c` → `#100c08` warm dark。真实处理过的胶片永远不会读成 #000；新底色让 cream 色齿孔不再"死白对死黑"
+- **齿孔自适应密度** — 之前固定 7 对齿孔在横画幅会显得太稀。现按照片宽度自适应，9:16 ≈ 12 对、4:3 ≈ 20 对、16:9 ≈ 22 对，clamp 到 8–32。所有画幅节奏一致，**旧版"不适合极端宽画幅"的限制已解除**
+- **齿孔加 1.4×outputPx 内嵌阴影** — 底部一条暗色 stripe 模拟"穿孔"立体感。没这条阴影齿孔会读成"画上去的"
+- **顶部 edge print 升级** — 从「品牌首字母 · ISO · DX」（"F · 4000 · DX"）扩成「品牌全称 · ISO·T · DX」（"FUJIFILM · 640T · DX"）。`T` 后缀致敬 tungsten-balanced 真实胶卷型号（如 Kodak 500T），DX 致敬胶卷罐头码
+- **新增方向箭头 `→`** — 顶部 edge print 同行右端，模仿真胶片 leader 头/尾标记
+- **新增底部 frame number** — `· DDA ·` 从 EXIF 日期末两位派生（"21A"），致敬真实 motion-picture half-frame 编号（24 / 24A / 25 / 25A）。位置自动对齐齿孔行与 caption 之间的 gutter，4:3 / 16:9 等短底带画幅里也不会跟 caption 撞位置
+- **照片边 cream hairline** — 0.10 alpha 的细线锁住照片边缘进 cream 色家族，把照片从黑底分离开
+
+## 0.10 · 2026-05-08
+
+### 🎛 侧栏交互重组 · 两段式 picker + 9 宫格签名定位
+
+把侧栏改造跟签名重设计绑成一波，一次到位：
+
+- **相框 picker 改两段式** — 顶部一行 4 个家族 tab（编辑 / 画廊 / 即影 / 胶片），下面一行该家族下的 2-3 个变体。变体名字第一次完整显示，移动端不再被压成"35m..."的样子。点家族 tab 直接跳到那个家族的第一个变体；点变体 chip 自动同步到对应家族 tab
+- **水印模版 picker 同样改两段式** — 顶部 4 个语法 tab（参数 / 品牌 / 编辑 / 印戳），下面是该语法下的 2-3 个模版。原来的 9 项 `<select>` 下拉换成可视的 chip 选择，看一眼就知道有哪些选项
+- **签名定位升级 9 宫格** — 之前只有 br / bl / bc 三个角，现在是 3×3 完整 anchor grid（tl / tc / tr / cl / cc / cr / bl / bc / br）。点哪格签名贴哪。视觉上是清晰的"这里"指示器（accent 边框 + 中心圆点）
+- **签名 schema 升级 + 平滑迁移** — `cfg.customLogo.position` 从字符串 `'br'` 升级为对象 `{ anchor, dx, dy }`（dx/dy 为后续微调预留）。所有持久化入口（localStorage 启动 hydrate、preset 应用、share-code 解码）都跑迁移函数，老用户的签名设置自动转新结构。`customLogoRect` 自身两种 schema 都吃，worker 端不需要单独迁移
+
+### 🎨 编辑相框 · 杂志非对称 + 大字模版
+
+水印模版第一波扩展，配合新增的 `editorial`（编辑）相框落地。这是把 photo-tools 从"EXIF 摆放器"推向"叙事/编辑画面"工具的第一步。
+
+- **🆕 编辑 · 杂志（`editorial`）相框** — 暖纸色 `#f4f0e6` 背景 + **照片 flush-left 占 ~66% 宽度** + 右侧 ~24% 留白用于排版式 caption。caption 自动垂直竖排（`-90°`），读起来像杂志页脚的版式注脚
+- **🆕 字标 · 大字品牌（`wordmark`）模版** — 极简：仅大号品牌字标 / logo + 一行小字日期 + 作者。配合 editorial 右侧竖排时整行 "FUJIFILM" 立起来；配合任何底部 caption 也能用
+- **🆕 标题 · 地点 + 日期（`headline`）模版** — 大字标题（GPS 经纬度 + 日期年月，例如 "40°N · 116°E · 2026.03"）+ 一行小字相机参数。GPS 缺失时自动降级为只显示日期
+- **支持非对称布局的渲染基础**：`computeLayout` 现在认识 `extraRightInset`（右侧 carve 留白）、`captionPrefer`（强制 caption 走 'right' / 'left' 而不是默认的 bottom 优先）、`fgXOffset`（水平偏移）三个 frame layout 选项。后续家族（场记板、护照戳）共用同一基础设施
+
+### 🎨 相框系统重新策划 · 第一阶段（基础设施 + 4 个家族骨架）
+
+参考 NOMO Pro / 西卡 / Hipstamatic / 画廊馆藏 / 35mm 胶片 等市面常见审美方向，把现有的 6 种相框重新组织为 **4 个家族**（编辑 / 画廊 / 即影 / 胶片），每家族两款，扩到 **8 款**。本次先落地相框层，水印模版 + 签名升级在后续阶段。
+
+- **🆕 35mm 胶片**（`film-35`）— 新增。深黑底 + 上下各 7 个齿孔（仿真 motion-picture perforation 圆角矩形）+ 顶部 cream 色「F · 4000 · DX」边缘印章（按 EXIF 品牌首字母 + ISO 数值动态合成）。带照片的话最远还原"35mm 胶片帧"的实物感
+- **画廊·白**（`gallery-white`，替换原 `white`）— 浅暖灰底 `#f4f3ee` + 围绕照片的 **双层细线 passe-partout 衬纸**（外层 1.5px、内层 0.9px，输出像素恒定不随导出质量放大）。仿馆藏装裱
+- **画廊·黑**（`gallery-noir`，替换原 `black`）— 深中性 `#171717` + 单层 phosphor 暗光高光线，配合加重的阴影，像照片在黑墙上微微悬浮
+- **毛玻璃·暗**（`frosted-noir`，原 `frosted-dark` 重命名）— 视觉与原版完全相同，改名让"frosted / frosted-noir"两兄弟更对称
+- **保留旧 cfg 兼容**：所有重命名 / 替换都注册了旧 key 别名（`frosted-dark` → `frosted-noir`、`white` → `gallery-white`、`black` → `gallery-noir`），既存的 preset / 分享链接 / 已存照片 cfg 全部继续可用
+
+### 🛠 渲染管线 · 装饰钩子 + 输出像素恒定
+
+- **`decorate(ctx, layout, args)` 钩子** — `R.registerFrame` 的 def 现支持可选 `decorate` 字段。compose() 在 caption 之后、签名之前调用；主线程 + worker 双端镜像。passe-partout 双线、胶片齿孔、leader 印章都跑在这层。给后续家族补充新装饰元素（馆藏角标、场记板格栅、邮戳印章…）留好扩展点
+- **`layout.outputPx`** — `computeLayout` 返回值新增字段 `outputPx = max(0.5, scale × 0.6)`。装饰函数用 `Math.max(1, N × outputPx)` 算线宽 / 字号，预览（scale=0.5）和 high quality 导出（scale=2）下衬纸 / 齿孔印记仍保持视觉细线感，不会随 quality 等比放大变粗
+- **`layout.topPaddingBoost`** — 新增对称的顶部 padding 提升（之前只有 bottom），让 film-35 这类需要"上下都留出装饰带"的相框无需 hack 就能合理布局
+- **`R.pathRoundRect`** — 共享圆角矩形路径助手（含老 Safari 的 arcTo 兜底），公开给所有 frame 装饰函数复用
+
+
 
 ### 🗺 GPS · 地图选点 + 手动经纬度
 

@@ -124,19 +124,30 @@
             <button data-val="1:1"  role="radio" aria-checked="false">1<span class="seg-sep">:</span>1</button>
             <button data-val="4:3"  role="radio" aria-checked="false">4<span class="seg-sep">:</span>3</button>
             <button data-val="16:9" role="radio" aria-checked="false">16<span class="seg-sep">:</span>9</button>
+            <button data-val="custom" id="aspect-custom-btn" role="radio" aria-checked="false" data-i18n-title="frame.aspectCustomTitle" title="Custom aspect"><span id="aspect-custom-label">⋯</span></button>
           </div>
         </div>
       </div>
       <div class="row">
         <div class="field">
           <label class="field-label" data-i18n="frame.style">Style</label>
-          <div class="seg seg-frames" id="frame-seg" role="radiogroup">
-            <button data-val="frosted" class="active" role="radio" aria-checked="true" data-i18n="frame.styles.frosted">Frosted</button>
-            <button data-val="frosted-dark" role="radio" aria-checked="false" data-i18n="frame.styles.frosted-dark">Frosted · dark</button>
-            <button data-val="white" role="radio" aria-checked="false" data-i18n="frame.styles.white">White</button>
-            <button data-val="black" role="radio" aria-checked="false" data-i18n="frame.styles.black">Black</button>
-            <button data-val="polaroid" role="radio" aria-checked="false" data-i18n="frame.styles.polaroid">Polaroid</button>
-            <button data-val="instax" role="radio" aria-checked="false" data-i18n="frame.styles.instax">Instax</button>
+          <div class="seg-stack">
+            <div class="seg seg-family" id="frame-family-seg" role="tablist" aria-label="Frame family">
+              <button type="button" data-family="editorial" class="active" role="tab" aria-selected="true" data-i18n="frame.families.editorial">编辑</button>
+              <button type="button" data-family="gallery" role="tab" aria-selected="false" data-i18n="frame.families.gallery">画廊</button>
+              <button type="button" data-family="instant" role="tab" aria-selected="false" data-i18n="frame.families.instant">即影</button>
+              <button type="button" data-family="film" role="tab" aria-selected="false" data-i18n="frame.families.film">胶片</button>
+            </div>
+            <div class="seg seg-variants" id="frame-seg" role="radiogroup">
+              <button data-val="frosted" data-family="editorial" class="active" role="radio" aria-checked="true" data-i18n="frame.styles.frosted">Frosted</button>
+              <button data-val="frosted-noir" data-family="editorial" role="radio" aria-checked="false" data-i18n="frame.styles.frosted-noir">Frosted · noir</button>
+              <button data-val="editorial" data-family="editorial" role="radio" aria-checked="false" data-i18n="frame.styles.editorial">Editorial</button>
+              <button data-val="gallery-white" data-family="gallery" role="radio" aria-checked="false" data-i18n="frame.styles.gallery-white" hidden>Gallery</button>
+              <button data-val="gallery-noir" data-family="gallery" role="radio" aria-checked="false" data-i18n="frame.styles.gallery-noir" hidden>Gallery · noir</button>
+              <button data-val="polaroid" data-family="instant" role="radio" aria-checked="false" data-i18n="frame.styles.polaroid" hidden>Polaroid</button>
+              <button data-val="instax" data-family="instant" role="radio" aria-checked="false" data-i18n="frame.styles.instax" hidden>Instax</button>
+              <button data-val="film-35" data-family="film" role="radio" aria-checked="false" data-i18n="frame.styles.film-35" hidden>Film 35</button>
+            </div>
           </div>
         </div>
       </div>
@@ -231,13 +242,25 @@
       <div class="row">
         <div class="field">
           <label class="field-label" data-i18n="caption.template">Template</label>
-          <select id="template">
-            <option value="minimal-text" data-i18n="caption.templates.minimal-text">Minimal · brand + params</option>
-            <option value="brand-logo" data-i18n="caption.templates.brand-logo">Brand logo · model | params</option>
-            <option value="brand-right" data-i18n="caption.templates.brand-right">Brand right · params | brand</option>
-            <option value="tech-stack" data-i18n="caption.templates.tech-stack">Tech stack · vertical</option>
-            <option value="date-lens" data-i18n="caption.templates.date-lens">Date · lens</option>
-          </select>
+          <div class="seg-stack">
+            <div class="seg seg-family" id="template-family-seg" role="tablist" aria-label="Caption grammar">
+              <button type="button" data-family="spec" class="active" role="tab" aria-selected="true" data-i18n="caption.families.spec">Spec</button>
+              <button type="button" data-family="brand" role="tab" aria-selected="false" data-i18n="caption.families.brand">Brand</button>
+              <button type="button" data-family="editorial" role="tab" aria-selected="false" data-i18n="caption.families.editorial">Editorial</button>
+              <button type="button" data-family="stamp" role="tab" aria-selected="false" data-i18n="caption.families.stamp">Stamp</button>
+            </div>
+            <div class="seg seg-variants" id="template-seg" role="radiogroup">
+              <button data-val="minimal-text" data-family="spec" class="active" role="radio" aria-checked="true" data-i18n="caption.templates.minimal-text">Minimal</button>
+              <button data-val="tech-stack" data-family="spec" role="radio" aria-checked="false" data-i18n="caption.templates.tech-stack">Tech stack</button>
+              <button data-val="brand-logo" data-family="brand" role="radio" aria-checked="false" data-i18n="caption.templates.brand-logo" hidden>Brand logo</button>
+              <button data-val="brand-right" data-family="brand" role="radio" aria-checked="false" data-i18n="caption.templates.brand-right" hidden>Brand right</button>
+              <button data-val="wordmark" data-family="editorial" role="radio" aria-checked="false" data-i18n="caption.templates.wordmark" hidden>Wordmark</button>
+              <button data-val="headline" data-family="editorial" role="radio" aria-checked="false" data-i18n="caption.templates.headline" hidden>Headline</button>
+              <button data-val="date-lens" data-family="stamp" role="radio" aria-checked="false" data-i18n="caption.templates.date-lens" hidden>Date · lens</button>
+              <button data-val="slate" data-family="stamp" role="radio" aria-checked="false" data-i18n="caption.templates.slate" hidden>Slate</button>
+              <button data-val="passport" data-family="stamp" role="radio" aria-checked="false" data-i18n="caption.templates.passport" hidden>Passport</button>
+            </div>
+          </div>
         </div>
       </div>
       <div class="row">
@@ -337,10 +360,16 @@
       <div class="row">
         <div class="field">
           <label class="field-label" data-i18n="signature.position">Position</label>
-          <div class="seg" id="signature-pos-seg" role="radiogroup">
-            <button data-val="bl" role="radio" aria-checked="false" data-i18n="signature.posBL">Bottom-left</button>
-            <button data-val="bc" role="radio" aria-checked="false" data-i18n="signature.posBC">Bottom-center</button>
-            <button data-val="br" class="active" role="radio" aria-checked="true" data-i18n="signature.posBR">Bottom-right</button>
+          <div class="pos-grid" id="signature-pos-grid" role="radiogroup" aria-label="Signature position">
+            <button type="button" data-anchor="tl" role="radio" aria-checked="false" aria-label="Top-left"></button>
+            <button type="button" data-anchor="tc" role="radio" aria-checked="false" aria-label="Top-center"></button>
+            <button type="button" data-anchor="tr" role="radio" aria-checked="false" aria-label="Top-right"></button>
+            <button type="button" data-anchor="cl" role="radio" aria-checked="false" aria-label="Center-left"></button>
+            <button type="button" data-anchor="cc" role="radio" aria-checked="false" aria-label="Center"></button>
+            <button type="button" data-anchor="cr" role="radio" aria-checked="false" aria-label="Center-right"></button>
+            <button type="button" data-anchor="bl" role="radio" aria-checked="false" aria-label="Bottom-left"></button>
+            <button type="button" data-anchor="bc" role="radio" aria-checked="false" aria-label="Bottom-center"></button>
+            <button type="button" data-anchor="br" class="active" role="radio" aria-checked="true" aria-label="Bottom-right"></button>
           </div>
         </div>
       </div>
@@ -549,6 +578,43 @@
   </div>
 </dialog>
 
+<!-- CUSTOM ASPECT RATIO MODAL -->
+<dialog id="aspect-modal" class="aspect-modal" aria-labelledby="aspect-modal-title">
+  <div class="aspect-modal-inner">
+    <div class="aspect-modal-head">
+      <h3 id="aspect-modal-title" data-i18n="frame.aspectCustomTitle">Custom aspect</h3>
+      <button id="aspect-close" type="button" class="modal-x" data-i18n-aria-label="frame.aspectCustomCancel" aria-label="Close">
+        <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="aspect-modal-body">
+      <div class="aspect-input-row">
+        <label class="aspect-input-cell">
+          <span class="aspect-input-label" data-i18n="frame.aspectCustomWidth">Width</span>
+          <input id="aspect-w" type="number" min="1" max="100" step="0.01" inputmode="decimal" value="3">
+        </label>
+        <span class="aspect-input-sep">:</span>
+        <label class="aspect-input-cell">
+          <span class="aspect-input-label" data-i18n="frame.aspectCustomHeight">Height</span>
+          <input id="aspect-h" type="number" min="1" max="100" step="0.01" inputmode="decimal" value="2">
+        </label>
+      </div>
+      <div class="aspect-presets" role="group" data-i18n-aria-label="frame.aspectCustomPresets" aria-label="Quick presets">
+        <button type="button" class="aspect-preset" data-w="3" data-h="2">3<span class="seg-sep">:</span>2</button>
+        <button type="button" class="aspect-preset" data-w="2" data-h="3">2<span class="seg-sep">:</span>3</button>
+        <button type="button" class="aspect-preset" data-w="2.35" data-h="1">2.35<span class="seg-sep">:</span>1</button>
+        <button type="button" class="aspect-preset" data-w="21" data-h="9">21<span class="seg-sep">:</span>9</button>
+        <button type="button" class="aspect-preset" data-w="5" data-h="4">5<span class="seg-sep">:</span>4</button>
+      </div>
+      <div id="aspect-error" class="aspect-error" hidden></div>
+    </div>
+    <div class="aspect-modal-foot">
+      <button id="aspect-cancel" type="button" class="btn btn-secondary" data-i18n="frame.aspectCustomCancel">Cancel</button>
+      <button id="aspect-apply" type="button" class="btn btn-primary" data-i18n="frame.aspectCustomApply">Apply</button>
+    </div>
+  </div>
+</dialog>
+
 <!-- BATCH EXPORT PROGRESS MODAL -->
 <dialog id="export-modal" class="export-modal" aria-labelledby="export-modal-title">
   <div class="export-modal-inner">
@@ -622,11 +688,13 @@
 <script src="i18n.js"></script>
 <script src="shared/render.js"></script>
 <script src="frames/frosted.js"></script>
-<script src="frames/frosted-dark.js"></script>
-<script src="frames/white.js"></script>
-<script src="frames/black.js"></script>
+<script src="frames/frosted-noir.js"></script>
+<script src="frames/gallery-white.js"></script>
+<script src="frames/gallery-noir.js"></script>
 <script src="frames/polaroid.js"></script>
 <script src="frames/instax.js"></script>
+<script src="frames/film-35.js"></script>
+<script src="frames/editorial.js"></script>
 <script src="exifio.js"></script>
 <script src="heic.js"></script>
 <script src="clientRender.js"></script>
