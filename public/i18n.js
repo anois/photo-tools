@@ -86,7 +86,8 @@
           'gallery-noir': '画廊·黑',
           polaroid: '宝丽来',
           instax: 'Instax',
-          'film-35': '35mm 胶片'
+          'film-35': '35mm 胶片',
+          editorial: '编辑 · 杂志'
         }
       },
       caption: {
@@ -96,7 +97,9 @@
           'brand-logo': '品牌 LOGO · 型号 | 参数',
           'brand-right': '品牌右置 · 参数 | 品牌',
           'tech-stack': '技术栈 · 竖排',
-          'date-lens': '日期 · 镜头'
+          'date-lens': '日期 · 镜头',
+          wordmark: '字标 · 大字品牌',
+          headline: '标题 · 地点 + 日期'
         },
         showFields: '显示字段',
         fields: {
@@ -352,7 +355,8 @@
           'gallery-noir': 'Gallery · noir',
           polaroid: 'Polaroid',
           instax: 'Instax',
-          'film-35': 'Film 35'
+          'film-35': 'Film 35',
+          editorial: 'Editorial'
         }
       },
       caption: {
@@ -362,7 +366,9 @@
           'brand-logo': 'Brand logo · model | params',
           'brand-right': 'Brand right · params | brand',
           'tech-stack': 'Tech stack · vertical',
-          'date-lens': 'Date · lens'
+          'date-lens': 'Date · lens',
+          wordmark: 'Wordmark · large brand',
+          headline: 'Headline · place + date'
         },
         showFields: 'Show fields',
         fields: {

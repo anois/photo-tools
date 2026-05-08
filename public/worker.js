@@ -18,7 +18,8 @@ self.importScripts(
   'frames/gallery-noir.js',
   'frames/polaroid.js',
   'frames/instax.js',
-  'frames/film-35.js'
+  'frames/film-35.js',
+  'frames/editorial.js'
 );
 
 const R = self.PhotoRender;

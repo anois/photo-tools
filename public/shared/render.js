@@ -218,6 +218,17 @@
     const MIN_SIDE   = Math.round(40 * scale);
     const OVERLAY_H  = Math.round(70 * scale);
 
+    // `prefer` is a frame-level hint that overrides the default priority
+    // (bottom > right > left > overlay) when the preferred zone has
+    // enough space. Editorial layouts use this to route caption into a
+    // wide right-side strip even though the bottom strip would also fit.
+    if (args.prefer === 'right' && rightGap >= MIN_SIDE) {
+      return { x: fgRight, y: fgTop, width: fgH, height: rightGap, rotation: -90, placement: 'right' };
+    }
+    if (args.prefer === 'left' && leftGap >= MIN_SIDE) {
+      return { x: 0, y: fgTop, width: fgH, height: leftGap, rotation: 90, placement: 'left' };
+    }
+
     if (bottomGap >= MIN_BOTTOM) {
       const h = Math.min(bottomGap, Math.max(preferredBottomH, MIN_BOTTOM));
       return { x: 0, y: H - h, width: W, height: h, rotation: 0, placement: 'bottom' };
@@ -280,8 +291,15 @@
     const bottomBiasBase = (base.bottomPaddingBias || 0) + (opts.bottomPaddingBoost || 0);
     const bottomPadding = padding + Math.round(bottomBiasBase * scale);
 
+    // `extraRightInset` is a frame-level option (base-1440 units) that
+    // carves an additional strip out of the right side of the canvas
+    // for asymmetric editorial layouts. When > 0, fg shrinks AND
+    // anchors to the left padding (instead of centering), so the right
+    // strip becomes a clean vertical zone the caption auto-routes into.
+    const extraRightInset = Math.round((opts.extraRightInset || 0) * scale);
+
     const inputAspect = meta.width / meta.height;
-    let fgW = W - padding * 2;
+    let fgW = W - padding * 2 - extraRightInset;
     let fgH = Math.round(fgW / inputAspect);
     const maxFgH = H - topPadding - bottomPadding;
     if (fgH > maxFgH) {
@@ -289,13 +307,30 @@
       fgW = Math.round(fgH * inputAspect);
     }
 
-    const fgLeft = Math.round((W - fgW) / 2);
+    // Horizontal placement:
+    //   - extraRightInset > 0: anchor fg to the left padding (the inset
+    //     defines the right-side caption strip; centering would break
+    //     that grammar).
+    //   - otherwise: center, with optional `fgXOffset` shift in
+    //     base-1440 units (negative = left, positive = right).
+    let fgLeft;
+    if (extraRightInset > 0) {
+      fgLeft = padding;
+    } else {
+      const fgXShift = Math.round((opts.fgXOffset || 0) * scale);
+      fgLeft = Math.round((W - fgW) / 2) + fgXShift;
+      if (fgLeft < padding) fgLeft = padding;
+      if (fgLeft + fgW > W - padding) fgLeft = Math.max(padding, W - padding - fgW);
+    }
     // Center within the asymmetric vertical box, then apply fgYOffset.
     let fgTop = Math.round(topPadding + (H - topPadding - bottomPadding - fgH) / 2 + fgYOffset);
     if (fgTop < topPadding) fgTop = topPadding;
     if (fgTop + fgH > H - bottomPadding) fgTop = Math.max(topPadding, H - bottomPadding - fgH);
 
-    const caption = computeCaptionZone({ W, H, fgLeft, fgTop, fgW, fgH, scale, preferredBottomH });
+    const caption = computeCaptionZone({
+      W, H, fgLeft, fgTop, fgW, fgH, scale, preferredBottomH,
+      prefer: opts.captionPrefer || null
+    });
 
     // outputPx is a soft scaling factor for "thin lines / hairlines that
     // shouldn't bloat at high quality": `Math.max(1, N * outputPx)` gives a
@@ -1095,12 +1130,140 @@
     return style + paramsEl + divider + brandEl + modelEl + extraEl;
   }
 
+  // Wordmark: oversized brand mark (logo or wordmark), tiny date subline.
+  // Luxury-minimalist look — works as the centerpiece in editorial /
+  // gallery frames where the photo + brand identity carry the eye and
+  // technical specs aren't the point.
+  function tWordmark(exif, layout, fontFaceCss, opts) {
+    const colors = captionColors(opts.textStyle);
+    const show = opts.showFields;
+    const brandText = on(show, 'brand') ? (exif.make || '').toString().toUpperCase() : '';
+    const brandLogoKey = on(show, 'brand') ? brandToLogoKey(exif.make, opts.logos) : null;
+    const dateText = on(show, 'date') ? (exif.date || '') : '';
+    const author = (on(show, 'author') && exif.author) ? exif.author : '';
+    const s = layout.scale || 1;
+    const cx = layout.W / 2;
+    const y = layout.textBaselineY;
+
+    // Cap brand size against caption height so it never overflows
+    // (overlay placement gives a thin strip; editorial right gives a
+    // fat one — same template, both look right).
+    const brandPxRaw = Math.round(38 * s);
+    const brandPx = Math.min(brandPxRaw, Math.round(layout.H * 0.42));
+    const subPx = Math.max(Math.round(13 * s), Math.round(brandPx * 0.30));
+    const lsBrand = Math.round(brandPx * 0.10);
+    const lsSub = Math.round(2 * s);
+
+    const subParts = [dateText, author ? '© ' + author : ''].filter(Boolean);
+    const subline = subParts.join('   ·   ');
+    const mainY = subline ? y - Math.round(brandPx * 0.32) : y;
+    const subY = mainY + Math.round(brandPx * 0.78);
+
+    const style = '<style>' + fontFaceCss +
+      '.wm-brand{font:600 ' + brandPx + 'px \'Inter\',sans-serif;fill:' + colors.brand + ';letter-spacing:' + lsBrand + 'px;}' +
+      '.wm-sub{font:400 ' + subPx + 'px \'Inter\',sans-serif;fill:' + colors.meta + ';letter-spacing:' + lsSub + 'px;text-transform:uppercase;}' +
+      '</style>';
+
+    let brandBlock = '';
+    if (brandLogoKey) {
+      const entry = opts.logos[brandLogoKey];
+      const fill = resolveLogoFill(entry.brandColor, opts.textStyle);
+      const logoH = brandPx;
+      const logoW = Math.round(logoH * (entry.vw / entry.vh));
+      const logoY = Math.round(mainY - logoH * 0.86);
+      brandBlock = logoInlineSvg(brandLogoKey, opts.logos, {
+        x: Math.round(cx - logoW / 2), y: logoY, height: logoH,
+        fillColor: fill, textStyle: opts.textStyle
+      }).svg;
+    } else if (brandText) {
+      brandBlock = '<text x="' + cx + '" y="' + mainY + '" text-anchor="middle" class="wm-brand">' + escapeXml(brandText) + '</text>';
+    }
+
+    const subEl = subline
+      ? '<text x="' + cx + '" y="' + subY + '" text-anchor="middle" class="wm-sub">' + escapeXml(subline) + '</text>'
+      : '';
+
+    return style + brandBlock + subEl;
+  }
+
+  // Headline: editorial-cover treatment that promotes the geographic +
+  // temporal context to the visual lead. "TOKYO · 2026.03" hero line
+  // (or just "2026.03" when GPS is absent), with a small camera-spec
+  // line below. Designed for the editorial frame's right strip — the
+  // long axis is plenty wide for big type — but works in any frame's
+  // bottom placement too.
+  function tHeadline(exif, layout, fontFaceCss, opts) {
+    const colors = captionColors(opts.textStyle);
+    const show = opts.showFields;
+    const s = layout.scale || 1;
+    const cx = layout.W / 2;
+    const y = layout.textBaselineY;
+
+    // Headline string. GPS drives the lead text; date forms the trailing
+    // half. When GPS is missing we degrade gracefully to date-only so
+    // the user never sees an empty "·" remnant.
+    const dateText = on(show, 'date') ? (exif.date || '') : '';
+    // Reformat YYYY.MM.DD → YYYY.MM (headline doesn't need day precision).
+    const dateHead = dateText
+      ? (dateText.split('.').slice(0, 2).join('.') || dateText)
+      : '';
+    // GPS as headline lead: use the pre-formatted base.gps but trim
+    // each side to "lat°N" / "lng°E" without the four-decimal precision —
+    // headline-style readers don't need centimeter accuracy.
+    let gpsHead = '';
+    if (on(show, 'gps') && exif.gps) {
+      const m = exif.gps.match(/(\d+(?:\.\d+)?)°([NS])\s+·\s+(\d+(?:\.\d+)?)°([EW])/);
+      if (m) {
+        gpsHead = Math.round(parseFloat(m[1])) + '°' + m[2] + ' · ' + Math.round(parseFloat(m[3])) + '°' + m[4];
+      } else {
+        gpsHead = exif.gps;
+      }
+    }
+
+    let headline;
+    if (gpsHead && dateHead) headline = gpsHead + ' · ' + dateHead;
+    else if (gpsHead) headline = gpsHead;
+    else if (dateHead) headline = dateHead;
+    else headline = (exif.make ? formatBrand(exif.make) : 'PHOTOGRAPH');
+
+    const params = [
+      on(show, 'focal')    ? exif.focalLength  : '',
+      on(show, 'aperture') ? exif.fNumber      : '',
+      on(show, 'shutter')  ? exif.exposureTime : '',
+      on(show, 'iso')      ? exif.iso          : ''
+    ].filter(Boolean).join('  ');
+    const author = (on(show, 'author') && exif.author) ? '© ' + exif.author : '';
+    const subline = [params, author].filter(Boolean).join('     ');
+
+    const headPxRaw = Math.round(46 * s);
+    const headPx = Math.min(headPxRaw, Math.round(layout.H * 0.5));
+    const subPx = Math.max(Math.round(14 * s), Math.round(headPx * 0.32));
+    const lsHead = Math.round(headPx * 0.06);
+    const lsSub = Math.round(1.5 * s);
+
+    const mainY = subline ? y - Math.round(headPx * 0.32) : y;
+    const subY = mainY + Math.round(headPx * 0.92);
+
+    const style = '<style>' + fontFaceCss +
+      '.hl-head{font:600 ' + headPx + 'px \'Inter\',sans-serif;fill:' + colors.brand + ';letter-spacing:' + lsHead + 'px;}' +
+      '.hl-sub{font:400 ' + subPx + 'px \'Inter\',sans-serif;fill:' + colors.meta + ';letter-spacing:' + lsSub + 'px;}' +
+      '</style>';
+
+    const headEl = '<text x="' + cx + '" y="' + mainY + '" text-anchor="middle" class="hl-head">' + escapeXml(headline) + '</text>';
+    const subEl = subline
+      ? '<text x="' + cx + '" y="' + subY + '" text-anchor="middle" class="hl-sub">' + escapeXml(subline) + '</text>'
+      : '';
+    return style + headEl + subEl;
+  }
+
   const TEMPLATES = {
     'minimal-text': tMinimalText,
     'brand-logo':   tBrandLogo,
     'date-lens':    tDateLens,
     'tech-stack':   tTechStack,
-    'brand-right':  tBrandRight
+    'brand-right':  tBrandRight,
+    wordmark:       tWordmark,
+    headline:       tHeadline
   };
 
   // Build the template's inner SVG content (no outer <svg> wrapper).
