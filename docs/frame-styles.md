@@ -342,7 +342,11 @@ photo-tools 的相框系统当前共 **11 款相框 × 4 个家族**，每个家
 1. ~~**是否再加一款 `film-medium-format`（中画幅胶片）？**~~ ✅ **已实现**：作为 `film-mf`（参见 4.2 节）。设计上偏离了 doc 原始建议的"齿孔更稀疏"——深入实物对比后发现**真实 120 中画幅胶片没有齿孔**（靠 paper backing 推进，不是 sprocket），"无齿孔 + 更厚 rebate + 1/12 frame number + 6×6 标签"才是 medium-format 最强的视觉签名。slug 用 `film-mf` 而非 `film-medium-format`，跟 `film-35` 的简写约定保持一致
 2. ~~**`gallery-noir` 的 phosphor 高光线现在很弱（rgba 0.16）—— 是否需要更明显？**~~ ✅ **已实现**：alpha 0.16 → 0.28（参见 2.2 节）。0.28 是 doc 建议探索区间 0.25–0.35 的下限，凑近看是清晰的细线但不抢戏，结构性边框感没出现。0.35 测过一次太硬了，回退
 3. ~~**`editorial` 是否需要 left-aligned 镜像变体？**~~ ✅ **已实现**：作为独立 frame `editorial-mirror`（参见 1.4 节），不走 cfg flag——保持 frame 的"一个 key 一种视觉"原则，preset / share-code 也跟其他 frame 一样直接流转。新增 layout 选项 `extraLeftInset` 是 `extraRightInset` 的镜像，两者互斥
-4. **`polaroid` / `instax` 的底部 caption 区是否应该限制只能用某些模板？** 当前如果用户在 polaroid 配 `slate`（场记板），mono 字体 + 4 行数据塞进底部小白条会很挤。要不要在 picker 里隐藏不兼容的组合，或给一个 warning？
+4. ~~**`polaroid` / `instax` 的底部 caption 区是否应该限制只能用某些模板？**~~ ✅ **已实现**：作为 picker 下方的**柔提示**（`#template-compat-hint`，accent 色调小 banner），不是硬禁用。两类不兼容组合：
+   - `narrow`：即影家族（polaroid / instax / torn）+ 多行模板（slate / tech-stack）—— 底部窄 caption 区塞不下
+   - `rotated`：编辑家族（editorial / editorial-mirror）+ 横排参数模板（slate / tech-stack）—— 旋转 ±90° 后字符竖排可读性差
+   
+   不硬禁用是因为有些用户可能就要这种"挤"的视觉。i18n 完整覆盖 zh-CN + en，建议替代项明确给出。`TEMPLATE_INCOMPAT` map 在 `public/app.js` 里集中维护
 5. ~~**`film-35` 的 leader 印章字符串当前是 `品牌首字母 · ISO · DX`——是否过于工程化？**~~ ✅ **已实现**：升级为 `品牌全称 · ISOT · DX`（参见 4.1 节），且加了底部 frame number `· DDA ·` + 顶部方向箭头 `→`、warm dark 底色、自适应齿孔密度。如果未来想做 `filmStock` 自定义字段（让用户输入 "PORTRA 400" 这种真实胶卷型号），仍是 nice-to-have
 6. ~~**缺位的"杂志手撕"**——是否值得开 Phase X 加？~~ ✅ **已实现**：作为 `torn`（参见 3.3 节），归到即影家族第三款而非新开 Phase X。同时落地了 `frame.clipPath` 公共钩子作为基础设施，未来需要"非矩形轮廓"的相框（手写胶带边、椭圆、宝丽来撕扯…）都能复用
 

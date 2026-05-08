@@ -534,6 +534,31 @@ kbd {
   text-transform: uppercase;
 }
 
+/* Soft compatibility-warning row, used under the template picker when a
+   frame×template combo is known to render poorly (e.g. polaroid + slate's
+   4-row mono OSD into the narrow bottom strip). Kept as a soft warning,
+   not a hard disable — some users may want the combo anyway. */
+.hint-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin-top: 6px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  font: 400 11px/1.45 var(--f-sans);
+  color: var(--text-dim);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
+}
+.hint-row[hidden] { display: none; }
+.hint-row .hint-icon {
+  flex: 0 0 auto;
+  color: var(--accent);
+  font-weight: 600;
+  line-height: 1.45;
+}
+.hint-row .hint-text { flex: 1 1 auto; }
+
 /* =========================================================
    FORM INPUTS
    ========================================================= */
