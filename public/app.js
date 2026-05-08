@@ -184,6 +184,7 @@ const els = {
   countCurrent: document.getElementById('count-current'),
   countTotal: document.getElementById('count-total'),
   railCount: document.getElementById('rail-count'),
+  railMenu: document.getElementById('rail-context-menu'),
   exif: {
     make: document.getElementById('exif-make'),
     model: document.getElementById('exif-model'),
@@ -660,6 +661,42 @@ async function selectFile(idx) {
   els.exportBtn.disabled = false;
   els.batchBtn.disabled = state.files.length === 0;
   requestRender();
+}
+
+// Reset to the "no photo" state — used when removing the last file.
+// Mirrors the visual state the app boots into before any import.
+function clearActivePreview() {
+  state.activeIdx = -1;
+  els.empty.hidden = false;
+  const ctx = els.canvas.getContext('2d');
+  ctx.clearRect(0, 0, els.canvas.width, els.canvas.height);
+  els.exportBtn.disabled = true;
+  els.batchBtn.disabled = true;
+}
+
+// Remove a single photo from the rail. Adjusts activeIdx to a sensible
+// neighbor when the active photo is removed; revokes the entry's blob
+// URL so the thumbnail bitmap can be GC'd. Used by the rail context
+// menu (right-click on desktop, long-press on mobile).
+function removeFile(idx) {
+  if (idx < 0 || idx >= state.files.length) return;
+  const wasActive = idx === state.activeIdx;
+  const removed = state.files[idx];
+  if (removed && removed.url) URL.revokeObjectURL(removed.url);
+  state.files.splice(idx, 1);
+  if (state.files.length === 0) {
+    clearActivePreview();
+    renderRail();
+    return;
+  }
+  if (wasActive) {
+    selectFile(Math.min(idx, state.files.length - 1));
+  } else if (idx < state.activeIdx) {
+    state.activeIdx -= 1;
+    renderRail();
+  } else {
+    renderRail();
+  }
 }
 
 // Newly imported files inherit the active photo's full cfg (or the draft when
@@ -2032,6 +2069,113 @@ els.batchBtn.addEventListener('click', runBatch);
     new MutationObserver(() => { target.disabled = source.disabled; })
       .observe(source, { attributes: true, attributeFilter: ['disabled'] });
     target.addEventListener('click', () => source.click());
+  });
+})();
+
+// ─── Rail context menu — right-click (desktop) or long-press (mobile) ──
+// One floating menu reused for any thumbnail interaction. Captures the
+// idx of the targeted item on open; the menu's click handler reads that
+// idx and dispatches the action (currently just "remove this photo",
+// future-extensible). Cross-surface idiom (rule 13): right-click on
+// desktop, long-press on mobile — both routes call openMenu().
+//
+// Long-press synthesizes a click on the rail item via touchend's
+// compatibility mouse events; we suppress that one click via a
+// capture-phase document listener so the long-press doesn't ALSO
+// select the photo it was launched from.
+(function wireRailContextMenu() {
+  const menu = els.railMenu;
+  const rail = els.thumbRail;
+  if (!menu || !rail) return;
+  const LONGPRESS_MS = 500;
+  let pendingIdx = -1;
+  let suppressNextClick = false;
+
+  function openMenu(x, y, idx) {
+    pendingIdx = idx;
+    menu.hidden = false;
+    // Measure after un-hiding (display: block needed for getBoundingClientRect).
+    const r = menu.getBoundingClientRect();
+    const px = Math.max(4, Math.min(x, window.innerWidth - r.width - 4));
+    const py = Math.max(4, Math.min(y, window.innerHeight - r.height - 4));
+    menu.style.left = px + 'px';
+    menu.style.top = py + 'px';
+  }
+  function closeMenu() {
+    menu.hidden = true;
+    pendingIdx = -1;
+  }
+
+  // Right-click (desktop)
+  rail.addEventListener('contextmenu', (e) => {
+    const item = e.target.closest('.rail-item');
+    if (!item) return;
+    e.preventDefault();
+    openMenu(e.clientX, e.clientY, parseInt(item.dataset.idx, 10));
+  });
+
+  // Long-press (mobile)
+  let lpTimer = 0;
+  let lpItem = null;
+  let lpStartX = 0, lpStartY = 0;
+  rail.addEventListener('touchstart', (e) => {
+    const item = e.target.closest('.rail-item');
+    if (!item || e.touches.length !== 1) { lpItem = null; return; }
+    lpItem = item;
+    lpStartX = e.touches[0].clientX;
+    lpStartY = e.touches[0].clientY;
+    clearTimeout(lpTimer);
+    lpTimer = setTimeout(() => {
+      if (!lpItem) return;
+      const r = lpItem.getBoundingClientRect();
+      const idx = parseInt(lpItem.dataset.idx, 10);
+      // Anchor the menu just below + centered on the thumbnail
+      openMenu(r.left + r.width / 2 - 80, r.bottom + 6, idx);
+      // Suppress the synthesized click that fires on touchend so the
+      // long-press doesn't also re-select the photo it was launched on.
+      suppressNextClick = true;
+      // Fallback timeout: if no click follows (e.g., user lifted off
+      // before touchend synthesizes), clear the flag so the next real
+      // tap on a different item isn't swallowed.
+      setTimeout(() => { suppressNextClick = false; }, 600);
+    }, LONGPRESS_MS);
+  }, { passive: true });
+  rail.addEventListener('touchmove', (e) => {
+    if (!lpItem || !e.changedTouches.length) return;
+    const t = e.changedTouches[0];
+    if (Math.abs(t.clientX - lpStartX) > 10 || Math.abs(t.clientY - lpStartY) > 10) {
+      clearTimeout(lpTimer);
+      lpItem = null;
+    }
+  }, { passive: true });
+  rail.addEventListener('touchcancel', () => { clearTimeout(lpTimer); lpItem = null; });
+  rail.addEventListener('touchend', () => { clearTimeout(lpTimer); lpItem = null; });
+
+  // Capture-phase click suppressor for the synthesized click after long-press.
+  document.addEventListener('click', (e) => {
+    if (suppressNextClick) {
+      suppressNextClick = false;
+      e.stopImmediatePropagation();
+      e.preventDefault();
+      return;
+    }
+    // Tap-outside dismiss
+    if (!menu.hidden && !menu.contains(e.target)) closeMenu();
+  }, { capture: true });
+
+  // Esc closes
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !menu.hidden) closeMenu();
+  });
+
+  // Menu item dispatch
+  menu.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-action]');
+    if (!btn) return;
+    const action = btn.dataset.action;
+    const idx = pendingIdx;
+    closeMenu();
+    if (action === 'remove') removeFile(idx);
   });
 })();
 

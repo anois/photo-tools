@@ -192,7 +192,8 @@
         empty: '尚无照片',
         navigate: '上下切换',
         ariaList: '已导入照片',
-        ariaPane: '照片胶卷'
+        ariaPane: '照片胶卷',
+        removeOne: '从胶卷中移除'
       },
       status: {
         ready: '就绪',
@@ -441,7 +442,8 @@
         empty: 'No photos yet',
         navigate: 'navigate',
         ariaList: 'Imported photos',
-        ariaPane: 'Photo roll'
+        ariaPane: 'Photo roll',
+        removeOne: 'Remove from roll'
       },
       status: {
         ready: 'ready',

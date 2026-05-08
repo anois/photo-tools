@@ -1179,6 +1179,55 @@ input[type="range"]::-moz-range-thumb {
 .modal-x:active { transform: scale(0.92); }
 .modal-x:focus-visible { outline: 1px solid var(--accent-line); outline-offset: 2px; }
 
+/* =========================================================
+   RAIL CONTEXT MENU — small floating popup for filmstrip actions.
+   Triggered by right-click (desktop) or long-press (mobile) on a
+   thumbnail. Fixed-positioned at click coordinates, dismissed by
+   tap-outside / Esc / clicking a menu item.
+   ========================================================= */
+.rail-context-menu {
+  position: fixed;
+  z-index: 100;
+  min-width: 160px;
+  padding: 4px;
+  background: rgba(20, 22, 25, 0.95);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-md);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.65);
+  animation: rail-menu-in 120ms ease-out;
+}
+@keyframes rail-menu-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to   { opacity: 1; transform: scale(1); }
+}
+.rail-context-item {
+  appearance: none;
+  -webkit-appearance: none;
+  display: block;
+  width: 100%;
+  background: transparent;
+  border: 0;
+  color: var(--text);
+  font: 500 13px/1 var(--f-ui);
+  padding: 11px 12px;
+  text-align: left;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  transition: background 120ms, color 120ms;
+}
+.rail-context-item:hover,
+.rail-context-item:focus-visible {
+  background: var(--accent-wash);
+  color: var(--accent);
+  outline: none;
+}
+@media (max-width: 768px) {
+  /* Bigger touch targets on mobile (48pt floor) */
+  .rail-context-item { padding: 14px 14px; font-size: 14px; }
+}
+
 .crop-aspect-bar {
   display: flex; align-items: center; gap: 14px;
   padding: 10px 18px;

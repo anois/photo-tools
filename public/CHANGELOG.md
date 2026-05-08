@@ -6,6 +6,13 @@
 
 ## 0.8 · 2026-05-08
 
+### 🎞 胶卷右键 · 长按移除单张
+
+- **右键 / 长按缩略图弹出操作菜单**——之前胶卷只能整批清空（重新加载页面）或一直滚屏，单张照片导入错了想删都做不到。现在桌面右键 / 移动端长按 0.5 秒 thumbnail 弹出小菜单，目前一项「从胶卷中移除」。点 Esc / 点菜单外区域 / 选完动作后菜单自动关闭
+- **跨端原生交互**（rule 13）— 桌面端用 `contextmenu` 事件（系统原生右键习惯），移动端用 touchstart + 500ms 延迟 + 移动 ≤ 10px 触发长按。手指移动超过阈值（如想横向滚动 filmstrip）自动取消，不会误弹菜单
+- **`removeFile(idx)` 处理三种边界**：(1) 移除非激活照片只更新数组；(2) 移除当前激活照片，自动选邻位（最后一张被删则选倒数第一张）；(3) 移除最后一张全清空，恢复 canvas 空状态。每个被移除条目的 blob URL 也走 `URL.revokeObjectURL` 释放，不漏内存
+- **长按后的合成 click 被吞掉**——iOS / Android 浏览器在 touchend 后会合成一次 mouse click 事件落到 touchstart 的目标上。如果不拦截，长按菜单弹出的同时 thumbnail 也会触发 selectFile 切换照片。修法：长按触发时 set `suppressNextClick=true`，document 级 capture-phase click 监听器在 flag 命中时 `stopImmediatePropagation`，吞掉合成 click 不影响后续真实点击
+
 ### 🖥 桌面快捷键 · 按住空格看原图
 
 - **桌面端 hold-Space 预览原图** — 移动端有 canvas 长按预览原图，桌面端不能没有对等手势。Photoshop / Lightroom 用 hold-Space 平移视图，本工具借用这个肌肉记忆做"预览原图"——按住空格键即把画面切换为不带相框 / 字带 / 签名的源图（contain-fit 居中），松开恢复带框预览。状态栏底部加了"`空格 看原图`"提示
