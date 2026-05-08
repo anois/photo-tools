@@ -6,6 +6,11 @@
 
 ## 0.8 · 2026-05-08
 
+### 📱 移动端横滑切照片
+
+- **canvas 上左右滑动 = 上一张 / 下一张** — iOS Photos / WhatsApp / 微信图片预览全是这个交互，本项目移动端却只能点 filmstrip 缩略图切换，缺一档纯触屏直觉。新增 touch 事件处理：从 canvas 区域开始的水平滑动，距离 ≥ 50px、|垂直| ≤ |水平|·0.7、≤ 800ms 完成，则触发 `moveSelection(±1)`（与 J/K 键完全一致的循环行为）。垂直滚动、轻触、慢拖都被启发式排除，不会误触。touchend 监听在 document 上，所以手指从 canvas 滑到 filmstrip / 控制面板抬起也照常生效
+- **桌面 / 鼠标零变化** — touch 事件不会被鼠标触发，桌面体验完全不受影响
+
 ### 📱 移动端拇指区导出
 
 - **导出按钮升到屏幕底部拇指区** — 之前移动端要导出一张照片得滚到 7 段控制项的最末（G 段）才能找到"导出当前 / 批量 · ZIP"按钮，对单手操作敌视。现在 ≤768px 视口在视口底部固定一根 dock：左 60% 是 accent 实色填充的"导出当前"主按钮（52pt 高，符合 Apple HIG 触控目标），右 40% 是次级 ghost"批量 · ZIP"。dock 背景半透明 + 10px backdrop-filter blur，像 iOS Music Now Playing 那条 chrome。底部留 `env(safe-area-inset-bottom)` 给 home indicator

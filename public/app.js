@@ -1771,6 +1771,48 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
+// ─── Touch swipe on canvas — prev/next photo (mobile-native gesture) ──
+// iOS Photos / WhatsApp / every native mobile gallery uses horizontal
+// swipe on the image to navigate. Mirror that here. Touch-only listener
+// (mouse never fires touch events) so no MQ filter or pointerType check
+// needed; on touchscreen-equipped desktops it also works, which matches
+// Rule 13's "don't disable mobile gestures because desktop has keys".
+//
+// Heuristics chosen to keep vertical scroll natural and reject taps:
+//  - dx ≥ 50px      → not a tap or jitter
+//  - |dy| ≤ |dx|·0.7 → at least ~55° from vertical, doesn't fight scroll
+//  - dt ≤ 800ms     → fast enough to read as a swipe gesture
+//
+// touchend is bound on document so a finger that started on the canvas
+// pane and lifted elsewhere (e.g., dragged into the controls below) still
+// commits the swipe. touchstart on the canvas pane gates active=true.
+(function wireCanvasSwipe() {
+  const pane = els.canvasPane;
+  if (!pane) return;
+  let startX = 0, startY = 0, startTime = 0, active = false;
+  pane.addEventListener('touchstart', (e) => {
+    if (e.touches.length !== 1) { active = false; return; }
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+    startTime = Date.now();
+    active = true;
+  }, { passive: true });
+  document.addEventListener('touchcancel', () => { active = false; });
+  document.addEventListener('touchend', (e) => {
+    if (!active) return;
+    active = false;
+    if (!e.changedTouches.length) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - startX;
+    const dy = t.clientY - startY;
+    const dt = Date.now() - startTime;
+    if (dt > 800) return;
+    if (Math.abs(dx) < 50) return;
+    if (Math.abs(dy) > Math.abs(dx) * 0.7) return;
+    moveSelection(dx < 0 ? 1 : -1);
+  }, { passive: true });
+})();
+
 // ─── Drag-drop ───────────────────────────────────────────────────────────
 ['dragenter', 'dragover'].forEach((ev) => {
   els.canvasPane.addEventListener(ev, (e) => {
