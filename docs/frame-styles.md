@@ -113,11 +113,11 @@ photo-tools 的相框系统当前共 **8 款相框 × 4 个家族**，每个家�
 
 > 替换原 `black` 相框，加入 phosphor 暗光高光线装饰。
 
-- **设计意图**：照片像挂在黑色展厅墙上；不用双线（黑墙上双线会过于装饰），改用单条极细的"phosphor 内辉"（白色 16% 透明度），让照片边缘有轻微的光晕
+- **设计意图**：照片像挂在黑色展厅墙上；不用双线（黑墙上双线会过于装饰），改用单条极细的"phosphor 内辉"（白色 28% 透明度），让照片边缘有轻微的光晕
 - **视觉灵感**：当代摄影黑墙展（如 Pace Gallery 黑展厅）；MoMA PS1 的 darkroom-style 装裱
 - **技术实现**：
   - `bg.type: 'solid', color: '#171717'`（深中性灰，比纯黑 #000 暖一档；纯黑会让照片看着像被嵌进黑洞）
-  - decorate hook 画一条 inflate=14 的圆角矩形 stroke（rgba(255,255,245, 0.16) / lineWidth 0.9×outputPx）
+  - decorate hook 画一条 inflate=14 的圆角矩形 stroke（rgba(255,255,245, 0.28) / lineWidth 0.9×outputPx）。alpha 从最初的 0.16 提到 0.28——0.16 在 9:16 portrait 上几乎看不出，0.28 是兼顾"柔和反光"和"还能看见"的平衡点；继续往 0.35 推会开始读成结构性边框，破坏"低调画廊墙"的家族调性
   - shadowDefault: blur 90 / offsetY 28 / opacity 0.55（深底配重阴影，前景才能"飘起来"）
   - 旧 key `black` 别名兼容
 - **推荐配对**：
@@ -268,7 +268,7 @@ photo-tools 的相框系统当前共 **8 款相框 × 4 个家族**，每个家�
 ## 后续候选改造方向（求 review 意见）
 
 1. **是否再加一款 `film-medium-format`（中画幅胶片）？** 6×6 / 6×7 画幅；齿孔模式更稀疏；leader 印章更长。能丰富胶片家族但是开发成本中
-2. **`gallery-noir` 的 phosphor 高光线现在很弱（rgba 0.16）—— 是否需要更明显？** 当前在 9:16 portrait 上几乎看不出。可以提到 0.25–0.35 试试，但风险是失去"低调"的家族调性
+2. ~~**`gallery-noir` 的 phosphor 高光线现在很弱（rgba 0.16）—— 是否需要更明显？**~~ ✅ **已实现**：alpha 0.16 → 0.28（参见 2.2 节）。0.28 是 doc 建议探索区间 0.25–0.35 的下限，凑近看是清晰的细线但不抢戏，结构性边框感没出现。0.35 测过一次太硬了，回退
 3. **`editorial` 是否需要 left-aligned 镜像变体？** 当前只有照片左 + caption 右；某些视觉里照片右 + caption 左反而更平衡（看你拍的内容偏向哪一边）。可以加 `editorial-mirror` 或在 cfg 里加 `mirror: true` 标志
 4. **`polaroid` / `instax` 的底部 caption 区是否应该限制只能用某些模板？** 当前如果用户在 polaroid 配 `slate`（场记板），mono 字体 + 4 行数据塞进底部小白条会很挤。要不要在 picker 里隐藏不兼容的组合，或给一个 warning？
 5. ~~**`film-35` 的 leader 印章字符串当前是 `品牌首字母 · ISO · DX`——是否过于工程化？**~~ ✅ **已实现**：升级为 `品牌全称 · ISOT · DX`（参见 4.1 节），且加了底部 frame number `· DDA ·` + 顶部方向箭头 `→`、warm dark 底色、自适应齿孔密度。如果未来想做 `filmStock` 自定义字段（让用户输入 "PORTRA 400" 这种真实胶卷型号），仍是 nice-to-have

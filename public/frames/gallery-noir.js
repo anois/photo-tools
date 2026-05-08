@@ -20,7 +20,12 @@
     const ringR = layout.radius + inflate;
 
     // Single phosphor hairline — soft white, ~0.7px effective in output.
-    ctx.strokeStyle = 'rgba(255, 255, 245, 0.16)';
+    // Alpha 0.28 (was 0.16) — at the original value the highlight nearly
+    // dissolved on 9:16 portrait crops at standard quality. 0.28 is the
+    // lower end of the doc's "0.25–0.35" exploration range; pushing
+    // higher started reading as a structural border instead of a soft
+    // reflection, which broke the "low-key gallery wall" family tone.
+    ctx.strokeStyle = 'rgba(255, 255, 245, 0.28)';
     ctx.lineWidth = Math.max(1, 0.9 * op);
     R.pathRoundRect(
       ctx,
