@@ -6,6 +6,11 @@
 
 ## 0.8 · 2026-05-08
 
+### 🐛 修复
+
+- **聚焦下拉框出现一排红色波浪雪佛龙** — 点击预设 / 模板 / 拼贴布局 / 质量 / 格式等 `<select>` 控件后，控件横向铺满了一排红色 `∨` 形小箭头。根因是 `select:focus` 用了 CSS `background:` **shorthand** 来切背景色，shorthand 会把所有 `background-*` 子属性重置回 initial（包括 `background-repeat: repeat`、`background-position: 0% 0%`、`background-size: auto`）。基础 `select` 规则上的 `no-repeat` + 右侧定位 + 10×6 尺寸全被覆盖；后续 `select:focus { background-image: 红雪佛龙 }` longhand 把图加回来后，红雪佛龙就在左上角原始尺寸开始横向 tile，于是看到一排波浪。改用 `background-color:` longhand 即可保留基础状态的所有几何属性
+- **桌面端 changelog modal 偶尔冒出 OS 原生滚动条** — 用户报告"右侧偶尔出现浏览器原生滚动条"。诊断发现：`<dialog>` UA 默认有 `overflow: auto`，叠加全局 `* { box-sizing: border-box }`，dialog 的 `max-height: 86vh` 包含 1px 上 + 1px 下 border，所以内容区只有 `86vh - 2px`；但 `.changelog-modal-inner` 的 `max-height: 86vh` 占满，正好溢出 2px → UA auto 滚动条触发。验证：`dialog.scrollHeight - dialog.clientHeight === 2`。修复：在 `.changelog-modal` 上显式 `overflow: hidden`——内层 body 有自己的滚动容器，dialog 这一层不需要滚动
+
 ### 📱 移动端横滑切照片 + 长按预览原图
 
 - **canvas 上左右滑动 = 上一张 / 下一张** — iOS Photos / WhatsApp / 微信图片预览全是这个交互，本项目移动端却只能点 filmstrip 缩略图切换，缺一档纯触屏直觉。新增 touch 事件处理：从 canvas 区域开始的水平滑动，距离 ≥ 50px、|垂直| ≤ |水平|·0.7、≤ 800ms 完成，则触发 `moveSelection(±1)`（与 J/K 键完全一致的循环行为）。垂直滚动、轻触、慢拖都被启发式排除，不会误触。touchend 监听在 document 上，所以手指从 canvas 滑到 filmstrip / 控制面板抬起也照常生效

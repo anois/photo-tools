@@ -559,7 +559,13 @@ input[type="text"]:focus,
 input[type="number"]:focus,
 select:focus {
   border-color: var(--accent-line);
-  background: var(--bg-base);
+  /* Use longhand background-color so we don't reset the chevron's
+     background-image / -position / -size / -repeat (set on `select` and
+     `select:focus`). The shorthand `background:` resets all bg-* sub-
+     properties to initial — including `background-repeat: repeat` —
+     which would tile the focused-state red chevron across the whole
+     select width as a wave of Vs. */
+  background-color: var(--bg-base);
 }
 input::placeholder {
   color: var(--text-dim);
@@ -962,6 +968,14 @@ input[type="range"]::-moz-range-thumb {
   padding: 0;
   width: min(640px, 92vw);
   max-height: 86vh;
+  /* Suppress the OS-native scrollbar that <dialog>'s default overflow:auto
+     produces when the inner content overflows by border-box's 2px. With
+     global `* { box-sizing: border-box }` the dialog's max-height: 86vh
+     INCLUDES its 1px top + 1px bottom border, but `.changelog-modal-inner`
+     also sets max-height: 86vh, so inner's box overflows the dialog's
+     content area by 2px and the UA's `dialog { overflow: auto }` shows a
+     scrollbar. Body has its own internal scroll; dialog never needs one. */
+  overflow: hidden;
   box-shadow: 0 20px 60px rgba(0,0,0,0.6);
 }
 .changelog-modal::backdrop { background: rgba(0,0,0,0.55); backdrop-filter: blur(4px); }
