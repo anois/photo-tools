@@ -1771,57 +1771,60 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-// ─── Canvas touch gestures: swipe + long-press peek ────────────────────
-// Two coordinated gestures on the preview canvas (mobile-native idioms):
+// ─── Peek at original — shared between mobile long-press + desktop Space ──
+// Surface-native idioms (rule 13): mobile holds the canvas to peek;
+// desktop holds the spacebar (Photoshop / Lightroom convention). Both
+// drive the same paint-the-source-bitmap-onto-the-canvas routine,
+// hoisted to module scope so the keyboard and touch handlers can both
+// invoke it. Idempotent: re-entering while already peeking is a no-op,
+// re-exiting while not peeking is a no-op.
+let __peekActive = false;
+async function enterPeek() {
+  if (__peekActive) return;
+  if (state.activeIdx < 0) return;
+  const f = state.files[state.activeIdx];
+  if (!f || !f.file) return;
+  __peekActive = true;
+  try {
+    const bm = await CR.loadBitmap(f.file, 1440);
+    if (!__peekActive) return;          // released during decode
+    const c = els.canvas;
+    const ctx = c.getContext('2d');
+    ctx.save();
+    ctx.fillStyle = getComputedStyle(c).backgroundColor || '#101115';
+    ctx.fillRect(0, 0, c.width, c.height);
+    const s = Math.min(c.width / bm.width, c.height / bm.height);
+    const dw = bm.width * s, dh = bm.height * s;
+    ctx.drawImage(bm, (c.width - dw) / 2, (c.height - dh) / 2, dw, dh);
+    ctx.restore();
+  } catch (_) {
+    __peekActive = false;
+  }
+}
+function exitPeek() {
+  if (!__peekActive) return;
+  __peekActive = false;
+  if (state.activeIdx >= 0) requestRender();
+}
+
+// ─── Canvas touch gestures: swipe + long-press peek (mobile) ───────────
+// Two coordinated gestures on the preview canvas:
 //
 //  1. Horizontal swipe (dx ≥ 50px, ≤ 800ms, |dy| ≤ |dx|·0.7) → prev/next
 //     photo. Same wrap-around behavior as J/K keys (moveSelection).
-//  2. Long-press (touch held ≥ 500ms with < 10px movement) → "peek": the
-//     canvas repaints with the source bitmap drawn unframed (centered,
-//     contain-fitted), letting the user compare framed vs. original. On
-//     release, the framed view re-renders.
+//  2. Long-press (touch held ≥ 500ms with < 10px movement) → enterPeek().
 //
-// Both bound on the canvas pane via touchstart; touchmove/touchend live
-// on document so a finger that started on canvas and moves/lifts
-// elsewhere still resolves the gesture cleanly. The two paths are
-// mutually exclusive — once peek triggers, touchend just closes peek
-// (no swipe). Movement >10px before the 500ms threshold cancels the
-// peek timer so a fast horizontal swipe doesn't accidentally start a
-// peek mid-drag.
+// touchmove/touchend live on document so a finger that started on canvas
+// and moves/lifts elsewhere still resolves the gesture cleanly. Once peek
+// triggers, touchend just closes peek (no swipe). Movement >10px before
+// the 500ms threshold cancels the peek timer so a fast horizontal swipe
+// doesn't accidentally start a peek mid-drag.
 (function wireCanvasGestures() {
   const pane = els.canvasPane;
   if (!pane) return;
   const PEEK_DELAY_MS = 500;
   let startX = 0, startY = 0, startTime = 0, active = false;
-  let peekTimer = 0, peeking = false;
-
-  async function enterPeek() {
-    if (!active) return;
-    if (state.activeIdx < 0) return;
-    const f = state.files[state.activeIdx];
-    if (!f || !f.file) return;
-    peeking = true;
-    try {
-      const bm = await CR.loadBitmap(f.file, 1440);
-      if (!peeking) return;            // user released during decode
-      const c = els.canvas;
-      const ctx = c.getContext('2d');
-      ctx.save();
-      ctx.fillStyle = getComputedStyle(c).backgroundColor || '#101115';
-      ctx.fillRect(0, 0, c.width, c.height);
-      const s = Math.min(c.width / bm.width, c.height / bm.height);
-      const dw = bm.width * s, dh = bm.height * s;
-      ctx.drawImage(bm, (c.width - dw) / 2, (c.height - dh) / 2, dw, dh);
-      ctx.restore();
-    } catch (_) {
-      peeking = false;
-    }
-  }
-  function exitPeek() {
-    if (!peeking) return;
-    peeking = false;
-    if (state.activeIdx >= 0) requestRender();
-  }
+  let peekTimer = 0;
 
   pane.addEventListener('touchstart', (e) => {
     if (e.touches.length !== 1) { active = false; return; }
@@ -1830,11 +1833,11 @@ document.addEventListener('keydown', (e) => {
     startTime = Date.now();
     active = true;
     clearTimeout(peekTimer);
-    peekTimer = setTimeout(enterPeek, PEEK_DELAY_MS);
+    peekTimer = setTimeout(() => { if (active) enterPeek(); }, PEEK_DELAY_MS);
   }, { passive: true });
 
   document.addEventListener('touchmove', (e) => {
-    if (!active || peeking) return;
+    if (!active || __peekActive) return;
     if (!e.changedTouches.length) return;
     const t = e.changedTouches[0];
     if (Math.abs(t.clientX - startX) > 10 || Math.abs(t.clientY - startY) > 10) {
@@ -1852,7 +1855,7 @@ document.addEventListener('keydown', (e) => {
     if (!active) return;
     active = false;
     clearTimeout(peekTimer);
-    if (peeking) { exitPeek(); return; }
+    if (__peekActive) { exitPeek(); return; }
     if (!e.changedTouches.length) return;
     const t = e.changedTouches[0];
     const dx = t.clientX - startX;
@@ -1863,6 +1866,39 @@ document.addEventListener('keydown', (e) => {
     if (Math.abs(dy) > Math.abs(dx) * 0.7) return;
     moveSelection(dx < 0 ? 1 : -1);
   }, { passive: true });
+})();
+
+// ─── Hold Space to peek at original (desktop equivalent) ───────────────
+// Photoshop / Lightroom convention. Skipped when an interactive element
+// has focus (typing into an input, Space activating a focused button,
+// etc.) so the gesture doesn't hijack normal form behavior. window.blur
+// releases peek to avoid a stuck state if the user alt-tabs while held.
+(function wireKeyboardPeek() {
+  let spaceHeld = false;
+  function isInteractiveTarget(t) {
+    if (!t || !t.tagName) return false;
+    if (t.isContentEditable) return true;
+    return t.tagName === 'INPUT' || t.tagName === 'TEXTAREA'
+        || t.tagName === 'SELECT' || t.tagName === 'BUTTON';
+  }
+  document.addEventListener('keydown', (e) => {
+    if (e.code !== 'Space') return;
+    if (spaceHeld) return;             // ignore key auto-repeat
+    if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
+    if (isInteractiveTarget(e.target)) return;
+    spaceHeld = true;
+    e.preventDefault();
+    enterPeek();
+  });
+  document.addEventListener('keyup', (e) => {
+    if (e.code !== 'Space') return;
+    if (!spaceHeld) return;
+    spaceHeld = false;
+    exitPeek();
+  });
+  window.addEventListener('blur', () => {
+    if (spaceHeld) { spaceHeld = false; exitPeek(); }
+  });
 })();
 
 // ─── Drag-drop ───────────────────────────────────────────────────────────

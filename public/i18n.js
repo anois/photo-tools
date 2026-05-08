@@ -238,7 +238,7 @@
         batchPrefix: '批量 · {n} 张',
         batchDone: '完成 · {n} 个错误',
         batchFail: '批量失败',
-        hint: 'J/K 切换 · ⌘1-7 跳章节 · [ 折叠侧栏 · ⌘E 导出 · Esc 关闭'
+        hint: 'J/K 切换 · ⌘1-7 跳章节 · [ 折叠 · 空格 看原图 · ⌘E 导出 · Esc 关闭'
       },
       footer: { brandShip: 'frame · caption · ship' },
       update: {
@@ -487,7 +487,7 @@
         batchPrefix: 'batch · {n} files',
         batchDone: 'done · {n} errors',
         batchFail: 'batch failed',
-        hint: 'J/K switch · ⌘1-7 jump · [ collapse · ⌘E export · Esc close'
+        hint: 'J/K switch · ⌘1-7 jump · [ collapse · Space peek · ⌘E export · Esc close'
       },
       footer: { brandShip: 'frame · caption · ship' },
       update: {

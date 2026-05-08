@@ -6,6 +6,12 @@
 
 ## 0.8 · 2026-05-08
 
+### 🖥 桌面快捷键 · 按住空格看原图
+
+- **桌面端 hold-Space 预览原图** — 移动端有 canvas 长按预览原图，桌面端不能没有对等手势。Photoshop / Lightroom 用 hold-Space 平移视图，本工具借用这个肌肉记忆做"预览原图"——按住空格键即把画面切换为不带相框 / 字带 / 签名的源图（contain-fit 居中），松开恢复带框预览。状态栏底部加了"`空格 看原图`"提示
+- **共用一份 peek 引擎** — 触屏长按和键盘按住共享同一对 `enterPeek` / `exitPeek`（提到模块作用域）。任一路径触发时另一路径都能正确收尾，幂等设计避免重复绘制 / 重复 requestRender。两端各自原生（rule 13）
+- **不与正在输入的表单冲突** — 空格键监听只在 body / 非交互元素上生效。焦点在 `<input>` / `<button>` / `<select>` / `contenteditable` 时空格按原样穿透到表单，不会误触发 peek。键盘 auto-repeat 也被 `spaceHeld` flag 抑制，避免连续按下导致多次解码
+
 ### 🐛 修复
 
 - **聚焦下拉框出现一排红色波浪雪佛龙** — 点击预设 / 模板 / 拼贴布局 / 质量 / 格式等 `<select>` 控件后，控件横向铺满了一排红色 `∨` 形小箭头。根因是 `select:focus` 用了 CSS `background:` **shorthand** 来切背景色，shorthand 会把所有 `background-*` 子属性重置回 initial（包括 `background-repeat: repeat`、`background-position: 0% 0%`、`background-size: auto`）。基础 `select` 规则上的 `no-repeat` + 右侧定位 + 10×6 尺寸全被覆盖；后续 `select:focus { background-image: 红雪佛龙 }` longhand 把图加回来后，红雪佛龙就在左上角原始尺寸开始横向 tile，于是看到一排波浪。改用 `background-color:` longhand 即可保留基础状态的所有几何属性
