@@ -1771,36 +1771,88 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-// ─── Touch swipe on canvas — prev/next photo (mobile-native gesture) ──
-// iOS Photos / WhatsApp / every native mobile gallery uses horizontal
-// swipe on the image to navigate. Mirror that here. Touch-only listener
-// (mouse never fires touch events) so no MQ filter or pointerType check
-// needed; on touchscreen-equipped desktops it also works, which matches
-// Rule 13's "don't disable mobile gestures because desktop has keys".
+// ─── Canvas touch gestures: swipe + long-press peek ────────────────────
+// Two coordinated gestures on the preview canvas (mobile-native idioms):
 //
-// Heuristics chosen to keep vertical scroll natural and reject taps:
-//  - dx ≥ 50px      → not a tap or jitter
-//  - |dy| ≤ |dx|·0.7 → at least ~55° from vertical, doesn't fight scroll
-//  - dt ≤ 800ms     → fast enough to read as a swipe gesture
+//  1. Horizontal swipe (dx ≥ 50px, ≤ 800ms, |dy| ≤ |dx|·0.7) → prev/next
+//     photo. Same wrap-around behavior as J/K keys (moveSelection).
+//  2. Long-press (touch held ≥ 500ms with < 10px movement) → "peek": the
+//     canvas repaints with the source bitmap drawn unframed (centered,
+//     contain-fitted), letting the user compare framed vs. original. On
+//     release, the framed view re-renders.
 //
-// touchend is bound on document so a finger that started on the canvas
-// pane and lifted elsewhere (e.g., dragged into the controls below) still
-// commits the swipe. touchstart on the canvas pane gates active=true.
-(function wireCanvasSwipe() {
+// Both bound on the canvas pane via touchstart; touchmove/touchend live
+// on document so a finger that started on canvas and moves/lifts
+// elsewhere still resolves the gesture cleanly. The two paths are
+// mutually exclusive — once peek triggers, touchend just closes peek
+// (no swipe). Movement >10px before the 500ms threshold cancels the
+// peek timer so a fast horizontal swipe doesn't accidentally start a
+// peek mid-drag.
+(function wireCanvasGestures() {
   const pane = els.canvasPane;
   if (!pane) return;
+  const PEEK_DELAY_MS = 500;
   let startX = 0, startY = 0, startTime = 0, active = false;
+  let peekTimer = 0, peeking = false;
+
+  async function enterPeek() {
+    if (!active) return;
+    if (state.activeIdx < 0) return;
+    const f = state.files[state.activeIdx];
+    if (!f || !f.file) return;
+    peeking = true;
+    try {
+      const bm = await CR.loadBitmap(f.file, 1440);
+      if (!peeking) return;            // user released during decode
+      const c = els.canvas;
+      const ctx = c.getContext('2d');
+      ctx.save();
+      ctx.fillStyle = getComputedStyle(c).backgroundColor || '#101115';
+      ctx.fillRect(0, 0, c.width, c.height);
+      const s = Math.min(c.width / bm.width, c.height / bm.height);
+      const dw = bm.width * s, dh = bm.height * s;
+      ctx.drawImage(bm, (c.width - dw) / 2, (c.height - dh) / 2, dw, dh);
+      ctx.restore();
+    } catch (_) {
+      peeking = false;
+    }
+  }
+  function exitPeek() {
+    if (!peeking) return;
+    peeking = false;
+    if (state.activeIdx >= 0) requestRender();
+  }
+
   pane.addEventListener('touchstart', (e) => {
     if (e.touches.length !== 1) { active = false; return; }
     startX = e.touches[0].clientX;
     startY = e.touches[0].clientY;
     startTime = Date.now();
     active = true;
+    clearTimeout(peekTimer);
+    peekTimer = setTimeout(enterPeek, PEEK_DELAY_MS);
   }, { passive: true });
-  document.addEventListener('touchcancel', () => { active = false; });
+
+  document.addEventListener('touchmove', (e) => {
+    if (!active || peeking) return;
+    if (!e.changedTouches.length) return;
+    const t = e.changedTouches[0];
+    if (Math.abs(t.clientX - startX) > 10 || Math.abs(t.clientY - startY) > 10) {
+      clearTimeout(peekTimer);
+    }
+  }, { passive: true });
+
+  document.addEventListener('touchcancel', () => {
+    active = false;
+    clearTimeout(peekTimer);
+    exitPeek();
+  });
+
   document.addEventListener('touchend', (e) => {
     if (!active) return;
     active = false;
+    clearTimeout(peekTimer);
+    if (peeking) { exitPeek(); return; }
     if (!e.changedTouches.length) return;
     const t = e.changedTouches[0];
     const dx = t.clientX - startX;
