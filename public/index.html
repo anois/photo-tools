@@ -124,6 +124,7 @@
             <button data-val="1:1"  role="radio" aria-checked="false">1<span class="seg-sep">:</span>1</button>
             <button data-val="4:3"  role="radio" aria-checked="false">4<span class="seg-sep">:</span>3</button>
             <button data-val="16:9" role="radio" aria-checked="false">16<span class="seg-sep">:</span>9</button>
+            <button data-val="custom" id="aspect-custom-btn" role="radio" aria-checked="false" data-i18n-title="frame.aspectCustomTitle" title="Custom aspect"><span id="aspect-custom-label">⋯</span></button>
           </div>
         </div>
       </div>
@@ -573,6 +574,43 @@
       <span id="geo-readout" class="geo-readout">—</span>
       <button id="geo-cancel" type="button" class="btn btn-secondary" data-i18n="geo.cancel">Cancel</button>
       <button id="geo-confirm" type="button" class="btn btn-primary" data-i18n="geo.confirm">Use this location</button>
+    </div>
+  </div>
+</dialog>
+
+<!-- CUSTOM ASPECT RATIO MODAL -->
+<dialog id="aspect-modal" class="aspect-modal" aria-labelledby="aspect-modal-title">
+  <div class="aspect-modal-inner">
+    <div class="aspect-modal-head">
+      <h3 id="aspect-modal-title" data-i18n="frame.aspectCustomTitle">Custom aspect</h3>
+      <button id="aspect-close" type="button" class="modal-x" data-i18n-aria-label="frame.aspectCustomCancel" aria-label="Close">
+        <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="aspect-modal-body">
+      <div class="aspect-input-row">
+        <label class="aspect-input-cell">
+          <span class="aspect-input-label" data-i18n="frame.aspectCustomWidth">Width</span>
+          <input id="aspect-w" type="number" min="1" max="100" step="0.01" inputmode="decimal" value="3">
+        </label>
+        <span class="aspect-input-sep">:</span>
+        <label class="aspect-input-cell">
+          <span class="aspect-input-label" data-i18n="frame.aspectCustomHeight">Height</span>
+          <input id="aspect-h" type="number" min="1" max="100" step="0.01" inputmode="decimal" value="2">
+        </label>
+      </div>
+      <div class="aspect-presets" role="group" data-i18n-aria-label="frame.aspectCustomPresets" aria-label="Quick presets">
+        <button type="button" class="aspect-preset" data-w="3" data-h="2">3<span class="seg-sep">:</span>2</button>
+        <button type="button" class="aspect-preset" data-w="2" data-h="3">2<span class="seg-sep">:</span>3</button>
+        <button type="button" class="aspect-preset" data-w="2.35" data-h="1">2.35<span class="seg-sep">:</span>1</button>
+        <button type="button" class="aspect-preset" data-w="21" data-h="9">21<span class="seg-sep">:</span>9</button>
+        <button type="button" class="aspect-preset" data-w="5" data-h="4">5<span class="seg-sep">:</span>4</button>
+      </div>
+      <div id="aspect-error" class="aspect-error" hidden></div>
+    </div>
+    <div class="aspect-modal-foot">
+      <button id="aspect-cancel" type="button" class="btn btn-secondary" data-i18n="frame.aspectCustomCancel">Cancel</button>
+      <button id="aspect-apply" type="button" class="btn btn-primary" data-i18n="frame.aspectCustomApply">Apply</button>
     </div>
   </div>
 </dialog>

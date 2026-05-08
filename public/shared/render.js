@@ -200,6 +200,41 @@
     '4:3':  { W: 1920, H: 1440, padding: 70, radius: 36, bottomCaptionH: 110, fgYOffset: -50,  bottomPaddingBias: 60 },
     '16:9': { W: 2560, H: 1440, padding: 70, radius: 36, bottomCaptionH: 100, fgYOffset: -45,  bottomPaddingBias: 60 }
   };
+
+  // Resolve an aspect token to a layout preset. Known tokens hit BASE_PRESETS;
+  // unknown tokens of the form "W:H" (e.g. "3:2", "2.35:1") are parsed and a
+  // preset is synthesized — short edge fixed at 1440, long edge scales with
+  // the ratio, layout constants take the conservative midpoint values. Returns
+  // null on parse failure (caller decides whether to throw or fall back).
+  const ASPECT_MIN = 0.1;
+  const ASPECT_MAX = 10;
+  function parseAspectRatio(token) {
+    if (typeof token !== 'string') return null;
+    const m = token.match(/^(\d+(?:\.\d+)?):(\d+(?:\.\d+)?)$/);
+    if (!m) return null;
+    const w = Number(m[1]);
+    const h = Number(m[2]);
+    if (!(w > 0 && h > 0)) return null;
+    const r = w / h;
+    if (r < ASPECT_MIN || r > ASPECT_MAX) return null;
+    return { w, h, r };
+  }
+  function resolveAspectPreset(aspect) {
+    if (BASE_PRESETS[aspect]) return BASE_PRESETS[aspect];
+    const parsed = parseAspectRatio(aspect);
+    if (!parsed) return null;
+    const SHORT = 1440;
+    const W = parsed.r >= 1 ? Math.round(SHORT * parsed.r) : SHORT;
+    const H = parsed.r >= 1 ? SHORT : Math.round(SHORT / parsed.r);
+    return {
+      W, H,
+      padding: 70,
+      radius: 36,
+      bottomCaptionH: 110,
+      fgYOffset: -60,
+      bottomPaddingBias: 60
+    };
+  }
   const QUALITY_FACTOR = { standard: 1, high: 2 };
 
   function computeCaptionZone(args) {
@@ -245,7 +280,7 @@
   function computeLayout(meta, opts) {
     opts = opts || {};
     const aspect = opts.aspect || '9:16';
-    const base = BASE_PRESETS[aspect];
+    const base = resolveAspectPreset(aspect);
     if (!base) throw new Error('unknown aspect: ' + aspect);
 
     let basePadding = opts.padding != null ? Number(opts.padding) : base.padding;
@@ -1612,6 +1647,8 @@
 
     // Layout
     BASE_PRESETS: BASE_PRESETS,
+    resolveAspectPreset: resolveAspectPreset,
+    parseAspectRatio: parseAspectRatio,
     computeLayout: computeLayout,
     computeCaptionZone: computeCaptionZone,
 

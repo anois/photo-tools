@@ -84,6 +84,16 @@ const els = {
   fileInput: document.getElementById('file-input'),
   thumbRail: document.getElementById('thumb-rail'),
   aspectSeg: document.getElementById('aspect-seg'),
+  aspectCustomBtn: document.getElementById('aspect-custom-btn'),
+  aspectCustomLabel: document.getElementById('aspect-custom-label'),
+  aspectModal: document.getElementById('aspect-modal'),
+  aspectW: document.getElementById('aspect-w'),
+  aspectH: document.getElementById('aspect-h'),
+  aspectApply: document.getElementById('aspect-apply'),
+  aspectCancel: document.getElementById('aspect-cancel'),
+  aspectClose: document.getElementById('aspect-close'),
+  aspectError: document.getElementById('aspect-error'),
+  aspectPresets: document.querySelectorAll('.aspect-preset'),
   frameSeg: document.getElementById('frame-seg'),
   frameFamilySeg: document.getElementById('frame-family-seg'),
   templateSeg: document.getElementById('template-seg'),
@@ -245,6 +255,9 @@ function refreshLocaleSensitive() {
     if (cfg.bgBrightness == null) els.bgBrightnessVal.textContent = T('frame.defaultReadout');
     if (cfg.bgSaturation == null) els.bgSaturationVal.textContent = T('frame.defaultReadout');
   }
+  // Aspect seg's Custom button label is either i18n'd ("自定义"/"⋯") or the
+  // active custom W:H literal — repaint it through the same sync path.
+  if (cfg.aspect) syncAspectSeg(cfg.aspect);
   // Empty rail and EXIF warning re-render from canonical state too.
   renderRail();
   const active = state.files[state.activeIdx];
@@ -435,7 +448,7 @@ function requestRender() {
 // Reflect a per-photo cfg into all the DOM controls. Called whenever the
 // active photo changes (or apply-to-all rewrites the active photo's EXIF).
 function syncControlsFromCfg(cfg) {
-  setSegActive(els.aspectSeg, cfg.aspect);
+  syncAspectSeg(cfg.aspect);
   setSegActive(els.frameSeg, cfg.frame);
   syncFamilyFromValue(els.frameFamilySeg, els.frameSeg, cfg.frame);
   setSegActive(els.templateSeg, cfg.template);
@@ -951,7 +964,112 @@ function wireSeg(seg, key, onChange) {
     });
   });
 }
-wireSeg(els.aspectSeg, 'aspect');
+// Aspect picker — like wireSeg, but the trailing "Custom" button opens a
+// dialog instead of writing its data-val into cfg, and the active-state sync
+// has to fall through to the custom button when cfg.aspect is a free-form
+// W:H token (e.g. "3:2") that none of the preset buttons match.
+const ASPECT_CUSTOM_LS = 'phototools.aspectCustom';
+function syncAspectSeg(aspect) {
+  let matched = false;
+  els.aspectSeg.querySelectorAll('button').forEach((b) => {
+    if (b.dataset.val === 'custom') return;
+    const on = b.dataset.val === aspect;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-checked', on ? 'true' : 'false');
+    if (on) matched = true;
+  });
+  if (els.aspectCustomBtn) {
+    const customActive = !matched;
+    els.aspectCustomBtn.classList.toggle('active', customActive);
+    els.aspectCustomBtn.setAttribute('aria-checked', customActive ? 'true' : 'false');
+    if (els.aspectCustomLabel) {
+      els.aspectCustomLabel.textContent = customActive ? aspect : (T('frame.aspectCustom') || '⋯');
+    }
+  }
+}
+els.aspectSeg.querySelectorAll('button').forEach((btn) => {
+  if (btn.dataset.val === 'custom') {
+    btn.addEventListener('click', () => openAspectModal());
+  } else {
+    btn.addEventListener('click', () => {
+      activeCfg().aspect = btn.dataset.val;
+      syncAspectSeg(btn.dataset.val);
+      requestRender();
+    });
+  }
+});
+
+function openAspectModal() {
+  const dlg = els.aspectModal;
+  if (!dlg) return;
+  // Pre-fill: if current aspect is a custom W:H, reuse it; else fall back to
+  // the last saved custom value, then a hard default of 3:2.
+  const cur = activeCfg().aspect;
+  const curParsed = R.parseAspectRatio(cur);
+  let initW = 3, initH = 2;
+  if (curParsed && !R.BASE_PRESETS[cur]) {
+    initW = curParsed.w; initH = curParsed.h;
+  } else {
+    try {
+      const saved = JSON.parse(localStorage.getItem(ASPECT_CUSTOM_LS) || 'null');
+      if (saved && saved.w > 0 && saved.h > 0) { initW = saved.w; initH = saved.h; }
+    } catch (_) {}
+  }
+  els.aspectW.value = String(initW);
+  els.aspectH.value = String(initH);
+  els.aspectError.hidden = true;
+  if (typeof dlg.showModal === 'function') dlg.showModal();
+  else dlg.setAttribute('open', '');
+  setTimeout(() => els.aspectW && els.aspectW.select(), 30);
+}
+function closeAspectModal() {
+  const dlg = els.aspectModal;
+  if (!dlg) return;
+  if (typeof dlg.close === 'function') dlg.close();
+  else dlg.removeAttribute('open');
+}
+function applyAspectModal() {
+  const w = Number(els.aspectW.value);
+  const h = Number(els.aspectH.value);
+  if (!(w > 0) || !(h > 0)) {
+    els.aspectError.textContent = T('frame.aspectCustomError');
+    els.aspectError.hidden = false;
+    return;
+  }
+  // Round to 2 decimals so "2.353" stops echoing forever and the seg label
+  // stays readable. Anything inside [0.1, 10] passes the resolver's gate.
+  const wR = Math.round(w * 100) / 100;
+  const hR = Math.round(h * 100) / 100;
+  const token = wR + ':' + hR;
+  if (!R.parseAspectRatio(token)) {
+    els.aspectError.textContent = T('frame.aspectCustomError');
+    els.aspectError.hidden = false;
+    return;
+  }
+  activeCfg().aspect = token;
+  try { localStorage.setItem(ASPECT_CUSTOM_LS, JSON.stringify({ w: wR, h: hR })); } catch (_) {}
+  syncAspectSeg(token);
+  closeAspectModal();
+  requestRender();
+}
+if (els.aspectApply) els.aspectApply.addEventListener('click', applyAspectModal);
+if (els.aspectCancel) els.aspectCancel.addEventListener('click', closeAspectModal);
+if (els.aspectClose) els.aspectClose.addEventListener('click', closeAspectModal);
+[els.aspectW, els.aspectH].forEach((inp) => {
+  if (!inp) return;
+  inp.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); applyAspectModal(); }
+  });
+  inp.addEventListener('input', () => { els.aspectError.hidden = true; });
+});
+els.aspectPresets.forEach((btn) => {
+  btn.addEventListener('click', () => {
+    els.aspectW.value = btn.dataset.w;
+    els.aspectH.value = btn.dataset.h;
+    els.aspectError.hidden = true;
+  });
+});
+
 wireSeg(els.frameSeg, 'frame', (val) => { syncFamilyFromValue(els.frameFamilySeg, els.frameSeg, val); onFrameChange(val); });
 wireSeg(els.templateSeg, 'template', (val) => { syncFamilyFromValue(els.templateFamilySeg, els.templateSeg, val); });
 wireFamilyTabs(els.frameFamilySeg, els.frameSeg, (val) => { activeCfg().frame = val; onFrameChange(val); requestRender(); });
@@ -1296,14 +1414,18 @@ const CROP = {
   aspect: 'free'
 };
 const CROP_MIN = 0.05;
-// Frame aspect → numeric width/height ratio. Mirrors BASE_PRESETS in render.
-const FRAME_ASPECT_RATIOS = { '9:16': 9 / 16, '3:4': 3 / 4, '1:1': 1, '4:3': 4 / 3, '16:9': 16 / 9 };
+// Frame aspect → numeric width/height ratio. Falls back to the shared
+// resolver so custom W:H tokens (e.g. "3:2", "2.35:1") agree with what the
+// renderer will actually paint.
+function frameAspectToRatio(aspect) {
+  const preset = R.resolveAspectPreset(aspect);
+  return preset ? preset.W / preset.H : 1;
+}
 
 function parseAspectToken(token) {
   if (token === 'free') return null;
   if (token === 'frame') {
-    const a = activeCfg().aspect || '9:16';
-    return FRAME_ASPECT_RATIOS[a] || 1;
+    return frameAspectToRatio(activeCfg().aspect || '9:16');
   }
   const m = token.match(/^(\d+(?:\.\d+)?):(\d+(?:\.\d+)?)$/);
   if (!m) return null;

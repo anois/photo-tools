@@ -624,8 +624,12 @@ If the source has no EXIF (social-platform-stripped images), the function silent
 6. Add a row to the frames table in this file.
 
 **Add a new aspect ratio:**
-1. Extend `BASE_PRESETS` in `public/shared/render.js`.
-2. Add button to `#aspect-seg` in `public/index.html`.
+
+For a one-off / experimental ratio, end users can hit the **Custom** button in `#aspect-seg`, which opens `<dialog id="aspect-modal">` (W/H inputs + presets) and writes the literal `"W:H"` token into `cfg.aspect`. `R.resolveAspectPreset(token)` synthesizes the layout on the fly (short edge fixed at 1440, midpoint defaults for padding / radius / caption). No code change needed.
+
+To promote a ratio into the seg as a first-class preset (gets its own button + tuned layout constants):
+1. Extend `BASE_PRESETS` in `public/shared/render.js` with hand-tuned `bottomCaptionH` / `fgYOffset` / `bottomPaddingBias` for that ratio.
+2. Add a `<button data-val="W:H">` to `#aspect-seg` in `public/index.html`, **before** the trailing `id="aspect-custom-btn"` button — the Custom button is wired to fall through to the dialog and must stay last.
 
 **Add a new brand logo:**
 1. Drop a well-formed SVG into `public/logos/<brand-slug>.svg`. Multi-color Wikimedia-style is preferred; single-color simple-icons-style works.
