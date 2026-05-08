@@ -326,15 +326,21 @@
     const bottomBiasBase = (base.bottomPaddingBias || 0) + (opts.bottomPaddingBoost || 0);
     const bottomPadding = padding + Math.round(bottomBiasBase * scale);
 
-    // `extraRightInset` is a frame-level option (base-1440 units) that
-    // carves an additional strip out of the right side of the canvas
-    // for asymmetric editorial layouts. When > 0, fg shrinks AND
-    // anchors to the left padding (instead of centering), so the right
-    // strip becomes a clean vertical zone the caption auto-routes into.
+    // `extraRightInset` / `extraLeftInset` are frame-level options
+    // (base-1440 units) that carve an additional strip out of one side
+    // of the canvas for asymmetric editorial layouts. When > 0, fg
+    // shrinks AND anchors to the OPPOSITE side's padding (instead of
+    // centering), so the inset becomes a clean vertical zone the
+    // caption auto-routes into. The two are mutually exclusive — if
+    // both happen to be set, right wins. This pair is what makes
+    // `editorial` (caption right) and `editorial-mirror` (caption
+    // left) look like proper magazine spreads instead of just shifted
+    // photos.
     const extraRightInset = Math.round((opts.extraRightInset || 0) * scale);
+    const extraLeftInset  = extraRightInset > 0 ? 0 : Math.round((opts.extraLeftInset || 0) * scale);
 
     const inputAspect = meta.width / meta.height;
-    let fgW = W - padding * 2 - extraRightInset;
+    let fgW = W - padding * 2 - extraRightInset - extraLeftInset;
     let fgH = Math.round(fgW / inputAspect);
     const maxFgH = H - topPadding - bottomPadding;
     if (fgH > maxFgH) {
@@ -344,13 +350,15 @@
 
     // Horizontal placement:
     //   - extraRightInset > 0: anchor fg to the left padding (the inset
-    //     defines the right-side caption strip; centering would break
-    //     that grammar).
+    //     defines the right-side caption strip).
+    //   - extraLeftInset  > 0: anchor fg to the right padding (mirror).
     //   - otherwise: center, with optional `fgXOffset` shift in
     //     base-1440 units (negative = left, positive = right).
     let fgLeft;
     if (extraRightInset > 0) {
       fgLeft = padding;
+    } else if (extraLeftInset > 0) {
+      fgLeft = W - padding - fgW;
     } else {
       const fgXShift = Math.round((opts.fgXOffset || 0) * scale);
       fgLeft = Math.round((W - fgW) / 2) + fgXShift;

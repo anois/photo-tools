@@ -19,7 +19,8 @@ self.importScripts(
   'frames/polaroid.js',
   'frames/instax.js',
   'frames/film-35.js',
-  'frames/editorial.js'
+  'frames/editorial.js',
+  'frames/editorial-mirror.js'
 );
 
 const R = self.PhotoRender;
