@@ -95,6 +95,7 @@
           polaroid: '宝丽来',
           instax: 'Instax',
           'film-35': '35mm',
+          'film-mf': '中画幅',
           editorial: '杂志',
           'editorial-mirror': '杂志·镜像'
         },
@@ -387,6 +388,7 @@
           polaroid: 'Polaroid',
           instax: 'Instax',
           'film-35': '35 mm',
+          'film-mf': 'Medium',
           editorial: 'Spread',
           'editorial-mirror': 'Mirror'
         },

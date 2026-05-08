@@ -19,6 +19,7 @@ self.importScripts(
   'frames/polaroid.js',
   'frames/instax.js',
   'frames/film-35.js',
+  'frames/film-mf.js',
   'frames/editorial.js',
   'frames/editorial-mirror.js'
 );
