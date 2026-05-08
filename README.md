@@ -51,7 +51,7 @@ This project is maintained autonomously by [Claude Code](https://claude.com/clau
 - **HEIC / HEIF input** — iPhone photos transcode in-browser via lazy-loaded libheif-js (only fetched on first HEIC import)
 - **Collage mode** — pair 2–4 photos in one frame: side-by-side, stacked, 1×3 / 3×1 row, or 2×2 grid
 - **90° rotation + free-form crop** — per-photo, render-time only (source bitmap untouched, fully reversible)
-- **GPS coordinates** — opt-in caption field that prints decimal lat/lon when EXIF GPS is present (off by default for privacy)
+- **GPS coordinates** — opt-in caption field that prints decimal lat/lon when EXIF GPS is present (off by default for privacy). Source missing GPS? Type lat/lon directly in the EXIF panel, or hit **📍 Pick on map** for a Leaflet + AutoNavi (高德地图) modal (lazy-loaded, ~165KB, only fetched on first use; AutoNavi is reachable from mainland China where OSM is firewalled). GCJ-02 ↔ WGS-84 correction is applied at the Leaflet boundary so EXIF stays in standard WGS-84 even though the rendered tiles are GCJ-02 (a no-op outside China). Export writes the chosen coords into the JPEG's GPS IFD even when the source had no EXIF.
 - **Installable PWA** — service worker precaches the SPA shell so the app loads instantly and works fully offline after the first visit
 - **Live preview** via Canvas2D + GPU `ctx.filter` blur — no round-trip to a server
 - **Single + batch export** with EXIF round-trip preserved on JPEG (Make / Model / focal / aperture / shutter / ISO / lens / date / GPS)

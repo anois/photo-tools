@@ -90,32 +90,64 @@
     return new Blob([buf], { type: mime });
   }
 
+  // Build a piexif GPS IFD from decimal-degree coordinates. Lat ref is N for
+  // non-negative, S otherwise; same for E/W on longitude. piexif's helper
+  // converts the absolute decimal value to the [[d,1],[m,1],[s,100]] DMS
+  // rational tuple required by the EXIF spec.
+  function buildGpsIfd(lat, lng) {
+    const piexif = window.piexif || (typeof self !== 'undefined' ? self.piexif : null);
+    if (!piexif) return null;
+    if (!isFinite(lat) || !isFinite(lng)) return null;
+    const G = piexif.GPSIFD;
+    const ifd = {};
+    ifd[G.GPSLatitudeRef] = lat >= 0 ? 'N' : 'S';
+    ifd[G.GPSLatitude] = piexif.GPSHelper.degToDmsRational(lat);
+    ifd[G.GPSLongitudeRef] = lng >= 0 ? 'E' : 'W';
+    ifd[G.GPSLongitude] = piexif.GPSHelper.degToDmsRational(lng);
+    return ifd;
+  }
+
   // Pull EXIF from the original File and inject it into an already-encoded
   // JPEG blob (the GPU-rendered export). PNG output skips this — browsers
   // don't write EXIF chunks for PNG and piexifjs is JPEG-only.
-  async function reattachExif(sourceFile, outputBlob) {
+  //
+  // gpsOverride (optional): { lat, lng } decimal degrees. When present, the
+  // GPS IFD is replaced with these coords — including for sources that had
+  // no EXIF at all (we synthesize a fresh segment so the user-provided GPS
+  // still makes it into the export).
+  async function reattachExif(sourceFile, outputBlob, gpsOverride) {
     if (outputBlob.type !== 'image/jpeg') return outputBlob;
-    let exifBin;
+    let exifObj = null;
     try {
       const srcBin = await fileToBinaryString(sourceFile);
-      const exifObj = window.piexif.load(srcBin);
-      // Drop the thumbnail to keep output JPEG slim — original thumb refers
-      // to the un-framed image and is now misleading.
-      delete exifObj['1st'];
-      delete exifObj.thumbnail;
-      // Force Orientation = 1 (Top-left, no rotation). createImageBitmap with
-      // imageOrientation: 'from-image' has already baked the source rotation
-      // into the rendered pixels, so re-injecting the source's Orientation
-      // tag would tell viewers to rotate the already-rotated pixels — a
-      // double rotation that surfaces as portraits coming out landscape.
-      // 274 is piexif.ImageIFD.Orientation; using the literal avoids a
-      // window.piexif lookup on every export.
-      if (!exifObj['0th']) exifObj['0th'] = {};
-      exifObj['0th'][274] = 1;
+      exifObj = window.piexif.load(srcBin);
+    } catch {
+      // Source had no parseable EXIF; fall through and synthesize an empty
+      // shell only if there's an override worth writing.
+    }
+    if (!exifObj && !gpsOverride) return outputBlob;
+    if (!exifObj) exifObj = { '0th': {}, 'Exif': {}, 'GPS': {} };
+    // Drop the thumbnail to keep output JPEG slim — original thumb refers
+    // to the un-framed image and is now misleading.
+    delete exifObj['1st'];
+    delete exifObj.thumbnail;
+    // Force Orientation = 1 (Top-left, no rotation). createImageBitmap with
+    // imageOrientation: 'from-image' has already baked the source rotation
+    // into the rendered pixels, so re-injecting the source's Orientation
+    // tag would tell viewers to rotate the already-rotated pixels — a
+    // double rotation that surfaces as portraits coming out landscape.
+    // 274 is piexif.ImageIFD.Orientation; using the literal avoids a
+    // window.piexif lookup on every export.
+    if (!exifObj['0th']) exifObj['0th'] = {};
+    exifObj['0th'][274] = 1;
+    if (gpsOverride) {
+      const gpsIfd = buildGpsIfd(Number(gpsOverride.lat), Number(gpsOverride.lng));
+      if (gpsIfd) exifObj.GPS = gpsIfd;
+    }
+    let exifBin;
+    try {
       exifBin = window.piexif.dump(exifObj);
     } catch {
-      // Source had no EXIF (e.g. social-platform-stripped images) — fine,
-      // just return the output unchanged.
       return outputBlob;
     }
     try {

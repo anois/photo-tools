@@ -98,6 +98,9 @@
   // negative). We render absolute degrees + N/S + E/W with 4-decimal
   // precision (~11 m) — DMS is too verbose for a caption line.
   function formatGps(lat, lng) {
+    // null/undefined explicitly mean "missing" — don't let Number(null)==0
+    // synthesize a fake "0°N · 0°E" line when the user has cleared GPS.
+    if (lat == null || lng == null) return '';
     const a = typeof lat === 'number' ? lat : Number(lat);
     const b = typeof lng === 'number' ? lng : Number(lng);
     if (!isFinite(a) || !isFinite(b)) return '';
@@ -190,7 +193,12 @@
   const BASE_PRESETS = {
     '9:16': { W: 1440, H: 2560, padding: 70, radius: 36, bottomCaptionH: 140, fgYOffset: -100, bottomPaddingBias: 60 },
     '3:4':  { W: 1440, H: 1920, padding: 70, radius: 36, bottomCaptionH: 120, fgYOffset: -70,  bottomPaddingBias: 60 },
-    '1:1':  { W: 1440, H: 1440, padding: 70, radius: 36, bottomCaptionH: 110, fgYOffset: -60,  bottomPaddingBias: 80 }
+    '1:1':  { W: 1440, H: 1440, padding: 70, radius: 36, bottomCaptionH: 110, fgYOffset: -60,  bottomPaddingBias: 80 },
+    // Landscape canvases — same long-edge dimensions as their portrait
+    // siblings, just rotated. Caption defaults shrink slightly because the
+    // bottom strip eats vertical space that's already in shorter supply.
+    '4:3':  { W: 1920, H: 1440, padding: 70, radius: 36, bottomCaptionH: 110, fgYOffset: -50,  bottomPaddingBias: 60 },
+    '16:9': { W: 2560, H: 1440, padding: 70, radius: 36, bottomCaptionH: 100, fgYOffset: -45,  bottomPaddingBias: 60 }
   };
   const QUALITY_FACTOR = { standard: 1, high: 2 };
 

@@ -195,7 +195,9 @@ const els = {
     lensModel: document.getElementById('exif-lensModel'),
     dateTimeOriginal: document.getElementById('exif-dateTimeOriginal'),
     author: document.getElementById('exif-author'),
-    flash: document.getElementById('exif-flash')
+    flash: document.getElementById('exif-flash'),
+    latitude: document.getElementById('exif-latitude'),
+    longitude: document.getElementById('exif-longitude')
   }
 };
 
@@ -290,6 +292,8 @@ function populateExifInputs(normalized) {
   setIf(els.exif.lensModel, normalized.lensModel);
   setIf(els.exif.dateTimeOriginal, normalized.date);
   setIf(els.exif.author, normalized.author);
+  setIf(els.exif.latitude, typeof normalized.latitude === 'number' ? normalized.latitude.toFixed(6) : '');
+  setIf(els.exif.longitude, typeof normalized.longitude === 'number' ? normalized.longitude.toFixed(6) : '');
   // Flash select reflects the auto-parsed boolean so the user can see what
   // exifr detected; an empty string preserves "auto" semantics on save.
   els.exif.flash.value = normalized.flashFired ? 'fired' : (normalized.flash ? 'off' : '');
@@ -306,10 +310,12 @@ function applyOverrideToInputs(override) {
 function buildExifForFile(f) {
   const base = f && f.normalized ? { ...f.normalized } : {};
   const override = f && f.cfg ? f.cfg.exifOverride : {};
+  let gpsTouched = false;
   for (const [key, raw] of Object.entries(override || {})) {
     const v = String(raw).trim();
     if (v === '') {
       if (key === 'dateTimeOriginal') base.date = '';
+      else if (key === 'latitude' || key === 'longitude') { base[key] = null; gpsTouched = true; }
       else base[key] = '';
       continue;
     }
@@ -320,8 +326,14 @@ function buildExifForFile(f) {
     else if (key === 'dateTimeOriginal') base.date = R.formatDate(v);
     else if (key === 'make')             base.make = R.formatBrand(v);
     else if (key === 'flash')            base.flashFired = (v === 'fired');
+    else if (key === 'latitude' || key === 'longitude') {
+      const n = Number(v);
+      base[key] = isFinite(n) ? n : null;
+      gpsTouched = true;
+    }
     else                                  base[key] = v;
   }
+  if (gpsTouched) base.gps = R.formatGps(base.latitude, base.longitude);
   return base;
 }
 
@@ -1168,7 +1180,7 @@ const CROP = {
 };
 const CROP_MIN = 0.05;
 // Frame aspect → numeric width/height ratio. Mirrors BASE_PRESETS in render.
-const FRAME_ASPECT_RATIOS = { '9:16': 9 / 16, '3:4': 3 / 4, '1:1': 1 };
+const FRAME_ASPECT_RATIOS = { '9:16': 9 / 16, '3:4': 3 / 4, '1:1': 1, '4:3': 4 / 3, '16:9': 16 / 9 };
 
 function parseAspectToken(token) {
   if (token === 'free') return null;
@@ -1686,6 +1698,38 @@ for (const [key, el] of Object.entries(els.exif)) {
     requestRender();
   });
 }
+
+// ─── Pick on map ───────────────────────────────────────────────────────
+// Opens the GeoPicker modal pre-positioned at whatever lat/lon the user
+// already has (override → normalized → unset world view), and writes
+// 6-decimal-place strings back into the lat/lon inputs + override on
+// confirm. Triggers requestRender so the gps caption row updates live.
+const pickOnMapBtn = document.getElementById('pick-on-map-btn');
+if (pickOnMapBtn) pickOnMapBtn.addEventListener('click', async () => {
+  if (!window.GeoPicker) return;
+  const f = state.files[state.activeIdx];
+  const ovr = activeCfg().exifOverride;
+  const norm = f && f.normalized ? f.normalized : {};
+  const readSeed = (key) => {
+    if (ovr && ovr[key] != null && ovr[key] !== '') {
+      const n = Number(ovr[key]);
+      return isFinite(n) ? n : null;
+    }
+    return typeof norm[key] === 'number' ? norm[key] : null;
+  };
+  const result = await window.GeoPicker.open({
+    initialLat: readSeed('latitude'),
+    initialLng: readSeed('longitude')
+  });
+  if (!result) return;
+  const lat = result.lat.toFixed(6);
+  const lng = result.lng.toFixed(6);
+  els.exif.latitude.value = lat;
+  els.exif.longitude.value = lng;
+  ovr.latitude = lat;
+  ovr.longitude = lng;
+  requestRender();
+});
 
 // Diagnostic helper — copies the raw exifr output for the active photo to
 // the clipboard as pretty JSON. Use this when EXIF fields look unexpectedly

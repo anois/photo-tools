@@ -214,23 +214,46 @@ async function blobToBinaryString(blob) {
   return s;
 }
 
-async function reattachExif(sourceBlob, outputBlob) {
+function buildGpsIfd(lat, lng) {
+  if (!isFinite(lat) || !isFinite(lng)) return null;
+  const G = self.piexif.GPSIFD;
+  const ifd = {};
+  ifd[G.GPSLatitudeRef] = lat >= 0 ? 'N' : 'S';
+  ifd[G.GPSLatitude] = self.piexif.GPSHelper.degToDmsRational(lat);
+  ifd[G.GPSLongitudeRef] = lng >= 0 ? 'E' : 'W';
+  ifd[G.GPSLongitude] = self.piexif.GPSHelper.degToDmsRational(lng);
+  return ifd;
+}
+
+async function reattachExif(sourceBlob, outputBlob, gpsOverride) {
   if (outputBlob.type !== 'image/jpeg') return outputBlob;
-  let exifBin;
+  let exifObj = null;
   try {
     const srcBin = await blobToBinaryString(sourceBlob);
-    const exifObj = self.piexif.load(srcBin);
-    delete exifObj['1st'];
-    delete exifObj.thumbnail;
-    // Match the main-thread reattach: createImageBitmap already baked the
-    // source's Orientation into the rendered pixels, so the output JPEG must
-    // declare Orientation=1 (no rotation) — otherwise a second rotation gets
-    // applied at view time. 274 is piexif.ImageIFD.Orientation.
-    if (!exifObj['0th']) exifObj['0th'] = {};
-    exifObj['0th'][274] = 1;
+    exifObj = self.piexif.load(srcBin);
+  } catch {
+    // source had no parseable EXIF — fine; only synthesize a shell if we
+    // need to write a user-provided GPS override.
+  }
+  if (!exifObj && !gpsOverride) return outputBlob;
+  if (!exifObj) exifObj = { '0th': {}, 'Exif': {}, 'GPS': {} };
+  delete exifObj['1st'];
+  delete exifObj.thumbnail;
+  // Match the main-thread reattach: createImageBitmap already baked the
+  // source's Orientation into the rendered pixels, so the output JPEG must
+  // declare Orientation=1 (no rotation) — otherwise a second rotation gets
+  // applied at view time. 274 is piexif.ImageIFD.Orientation.
+  if (!exifObj['0th']) exifObj['0th'] = {};
+  exifObj['0th'][274] = 1;
+  if (gpsOverride) {
+    const gpsIfd = buildGpsIfd(Number(gpsOverride.lat), Number(gpsOverride.lng));
+    if (gpsIfd) exifObj.GPS = gpsIfd;
+  }
+  let exifBin;
+  try {
     exifBin = self.piexif.dump(exifObj);
   } catch {
-    return outputBlob;     // source had no EXIF — fine
+    return outputBlob;
   }
   try {
     const outBin = await blobToBinaryString(outputBlob);
@@ -241,6 +264,16 @@ async function reattachExif(sourceBlob, outputBlob) {
   } catch {
     return outputBlob;
   }
+}
+
+function readGpsOverride(cfg) {
+  const ovr = cfg && cfg.exif;
+  if (!ovr) return null;
+  if (ovr.latitude == null || ovr.longitude == null) return null;
+  const lat = Number(ovr.latitude);
+  const lng = Number(ovr.longitude);
+  if (!isFinite(lat) || !isFinite(lng)) return null;
+  return { lat, lng };
 }
 
 // ─── Job dispatch ────────────────────────────────────────────────────────
@@ -295,7 +328,7 @@ async function renderJob(msg) {
     const mime = format === 'png' ? 'image/png' : 'image/jpeg';
     const q = quality === 'original' ? 0.98 : quality === 'high' ? 0.95 : 0.92;
     let outBlob = await canvas.convertToBlob({ type: mime, quality: q });
-    outBlob = await reattachExif(file, outBlob);
+    outBlob = await reattachExif(file, outBlob, readGpsOverride(cfg));
     return outBlob;
   } finally {
     bitmap.close();

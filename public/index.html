@@ -122,6 +122,8 @@
             <button data-val="9:16" class="active" role="radio" aria-checked="true">9<span class="seg-sep">:</span>16</button>
             <button data-val="3:4"  role="radio" aria-checked="false">3<span class="seg-sep">:</span>4</button>
             <button data-val="1:1"  role="radio" aria-checked="false">1<span class="seg-sep">:</span>1</button>
+            <button data-val="4:3"  role="radio" aria-checked="false">4<span class="seg-sep">:</span>3</button>
+            <button data-val="16:9" role="radio" aria-checked="false">16<span class="seg-sep">:</span>9</button>
           </div>
         </div>
       </div>
@@ -280,6 +282,11 @@
               <option value="off" data-i18n="exif.flashOff">Off</option>
             </select>
           </label>
+          <label><span data-i18n="exif.labels.latitude">Latitude</span><input id="exif-latitude" type="number" step="0.0001" placeholder="39.9042" /></label>
+          <label><span data-i18n="exif.labels.longitude">Longitude</span><input id="exif-longitude" type="number" step="0.0001" placeholder="116.4074" /></label>
+          <div class="span-2 exif-gps-actions">
+            <button id="pick-on-map-btn" type="button" class="btn-ghost" data-i18n="exif.pickOnMap" data-i18n-title="exif.pickOnMapTitle">📍 Pick on map</button>
+          </div>
         </div>
         <div class="exif-actions">
           <button id="clear-exif-btn" type="button" class="btn-ghost" data-i18n="exif.resetAuto">Reset to auto-read</button>
@@ -475,6 +482,7 @@
         <button data-val="frame" role="radio" aria-checked="false" data-i18n="crop.aspectFrame">Frame</button>
         <button data-val="1:1" role="radio" aria-checked="false">1<span class="crop-aspect-sep">:</span>1</button>
         <button data-val="3:4" role="radio" aria-checked="false">3<span class="crop-aspect-sep">:</span>4</button>
+        <button data-val="4:3" role="radio" aria-checked="false">4<span class="crop-aspect-sep">:</span>3</button>
         <button data-val="9:16" role="radio" aria-checked="false">9<span class="crop-aspect-sep">:</span>16</button>
         <button data-val="16:9" role="radio" aria-checked="false">16<span class="crop-aspect-sep">:</span>9</button>
       </div>
@@ -514,6 +522,29 @@
       <button id="crop-reset" type="button" class="btn btn-secondary" data-i18n="crop.reset">Reset</button>
       <button id="crop-cancel" type="button" class="btn btn-secondary" data-i18n="crop.cancel">Cancel</button>
       <button id="crop-apply" type="button" class="btn btn-primary" data-i18n="crop.apply">Apply</button>
+    </div>
+  </div>
+</dialog>
+
+<!-- GPS LOCATION PICKER MODAL -->
+<dialog id="geo-modal" class="geo-modal" aria-labelledby="geo-modal-title">
+  <div class="geo-modal-inner">
+    <div class="geo-modal-head">
+      <h3 id="geo-modal-title" data-i18n="geo.title">Pick location</h3>
+      <button id="geo-close" type="button" class="modal-x" data-i18n-aria-label="geo.close" aria-label="Close">
+        <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="geo-stage">
+      <div id="geo-map" class="geo-map"></div>
+      <div id="geo-loading" class="geo-loading" hidden data-i18n="geo.loading">Loading map…</div>
+      <div id="geo-error" class="geo-error" hidden></div>
+    </div>
+    <div class="geo-modal-foot">
+      <button id="geo-locate" type="button" class="btn btn-secondary" data-i18n="geo.locateMe">Use my location</button>
+      <span id="geo-readout" class="geo-readout">—</span>
+      <button id="geo-cancel" type="button" class="btn btn-secondary" data-i18n="geo.cancel">Cancel</button>
+      <button id="geo-confirm" type="button" class="btn btn-primary" data-i18n="geo.confirm">Use this location</button>
     </div>
   </div>
 </dialog>
@@ -601,6 +632,7 @@
 <script src="clientRender.js"></script>
 <script src="exporter.js"></script>
 <script src="progressModal.js"></script>
+<script src="geopicker.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

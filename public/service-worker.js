@@ -12,12 +12,15 @@
  *     stale bytes. The SW is the single authority for what's cached.
  *   - libheif-js wasm bundle (~1.2MB) is excluded from precache (most
  *     users never touch HEIC) and lazy-cached on first use.
+ *   - leaflet.js + leaflet.css (~165KB) are likewise excluded — only users
+ *     who open the GPS map picker pull them, and once cached the SW serves
+ *     them stale-while-revalidate like any other asset.
  *
  * Bump CACHE_VERSION on any change to the precache list or shell behavior;
  * the activate handler purges any cache whose name doesn't match.
  */
 
-const CACHE_VERSION = 'v19';
+const CACHE_VERSION = 'v21';
 const CACHE_NAME = 'phototools-shell-' + CACHE_VERSION;
 
 // Files that make up the offline-capable SPA shell. Paths are relative to
@@ -32,6 +35,7 @@ const PRECACHE = [
   './exporter.js',
   './exifio.js',
   './heic.js',
+  './geopicker.js',
   './progressModal.js',
   './worker.js',
   './shared/render.js',

@@ -1527,6 +1527,162 @@ input[type="range"]::-moz-range-thumb {
   .crop-stage { padding: 16px; }
 }
 
+/* ── EXIF GPS row (lat/lon + pick-on-map) ─────────────────────────────── */
+.exif-gps-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: -4px;
+}
+.exif-gps-actions .btn-ghost {
+  font-size: 12px;
+}
+
+/* ── GPS picker modal ─────────────────────────────────────────────────── */
+.geo-modal {
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-lg);
+  background: var(--bg-elev);
+  color: var(--text);
+  padding: 0;
+  width: min(720px, 94vw);
+  height: min(640px, 92vh);
+  max-height: 92vh;
+  overflow: hidden;
+  box-shadow:
+    0 24px 80px rgba(0, 0, 0, 0.7),
+    0 0 0 1px var(--accent-wash);
+}
+.geo-modal::backdrop {
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(8px) saturate(0.9);
+}
+.geo-modal-inner {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+.geo-modal-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--line);
+  background: linear-gradient(180deg, rgba(255,255,255,0.02), transparent);
+}
+.geo-modal-head h3 {
+  margin: 0;
+  font: 400 18px/1 var(--f-display);
+  font-variation-settings: "opsz" 144, "SOFT" 100;
+  color: var(--text);
+}
+.geo-stage {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  background: #0e1014;
+}
+.geo-map {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+/* Gaode tiles are light-themed. We let them ship as-is — the bright map
+   reads as a clear "interactive island" inside the dark dialog (the same
+   pattern Apple Maps and Google Maps use when embedded in dark UIs).
+   Earlier we tried `filter: invert(1) hue-rotate(180deg)` to dark-theme
+   the map, but Gaode's pastel land-cover plus that filter washed everything
+   into a near-uniform dark grey — labels became unreadable. Trust the
+   tile's native palette. */
+.geo-map.leaflet-container { background: #f1ece2; font-family: var(--f-sans); }
+/* Leaflet ships `mix-blend-mode: plus-lighter` on tile imgs as a workaround
+   for a Chromium-2016 subpixel-seam bug (crbug 600120). The bug is long-
+   gone but the workaround still ships — and on any non-white backdrop it
+   makes dark ink (road labels, place names) blend INTO the surrounding
+   land color, rendering the map as a uniform wash. We use `normal` so
+   tiles paint as opaque PNGs the way they look in any standalone viewer. */
+/* Match Leaflet's selector specificity (`.leaflet-container img.leaflet-tile`)
+   so this override wins the cascade. */
+.geo-map.leaflet-container img.leaflet-tile { mix-blend-mode: normal; }
+.geo-map .leaflet-control-attribution {
+  background: rgba(255, 255, 255, 0.9) !important;
+  color: #555 !important;
+  font-size: 10px;
+}
+.geo-map .leaflet-control-attribution a { color: #1565c0 !important; }
+
+.geo-pin {
+  background: transparent;
+  border: 0;
+}
+.geo-pin .geo-pin-dot {
+  display: block;
+  width: 18px;
+  height: 18px;
+  margin: 6px 3px;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  background: var(--accent);
+  border: 2px solid #fff;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(0,0,0,0.3);
+}
+
+.geo-loading,
+.geo-error {
+  position: absolute;
+  inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+  text-align: center;
+  font: 500 13px/1.5 var(--f-mono);
+  color: var(--text-dim);
+  background: rgba(14, 16, 20, 0.92);
+  backdrop-filter: blur(6px);
+  z-index: 500;     /* above leaflet panes (≤ 400) */
+}
+/* Honor the `hidden` HTML attribute. CSS `display: flex` above wins the
+   cascade against UA `[hidden] { display: none }` without this — which
+   meant the empty error overlay quietly painted on top of the entire map,
+   blocking tiles even when the picker was working perfectly. */
+.geo-loading[hidden],
+.geo-error[hidden] { display: none; }
+.geo-error { color: #ff8a7a; }
+
+.geo-modal-foot {
+  display: flex; align-items: center; gap: 10px;
+  padding: 14px 18px;
+  border-top: 1px solid var(--line);
+  background: linear-gradient(0deg, rgba(255,255,255,0.02), transparent);
+}
+.geo-readout {
+  flex: 1 1 auto;
+  font: 500 12px/1 var(--f-mono);
+  color: var(--text-dim);
+  letter-spacing: 0.02em;
+  text-align: center;
+}
+.geo-modal-foot .btn { padding: 9px 16px; font-size: 12px; min-width: 76px; }
+.geo-modal-foot .btn-primary {
+  padding: 9px 22px;
+  font-weight: 600;
+  box-shadow: 0 6px 16px var(--accent-glow);
+}
+
+@media (max-width: 600px) {
+  /* The <dialog> UA stylesheet applies `max-width: calc(100% - 6px - 2em)` and
+     a similar max-height clamp; without overriding both, `width:100vw` still
+     leaves a ~30px gap on each side. Force the dialog to fill the viewport
+     edge-to-edge for mobile. */
+  .geo-modal {
+    width: 100vw; max-width: 100vw;
+    height: 100vh; max-height: 100vh;
+    border-radius: 0;
+    inset: 0;
+    margin: 0;
+  }
+  .geo-modal-foot { flex-wrap: wrap; gap: 8px; }
+  .geo-readout { order: 5; flex-basis: 100%; text-align: left; }
+}
+
 /* ── Service-worker update banner ─────────────────────────────────────── */
 .update-banner {
   position: fixed;

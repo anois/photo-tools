@@ -29,6 +29,19 @@
     return `${base}_framed.${ext}`;
   }
 
+  // Pull a numeric { lat, lng } from cfg.exif when both fields are populated;
+  // null otherwise. Forwarded to reattachExif so user-provided GPS lands in
+  // the output JPEG's GPS IFD even when the source had no EXIF at all.
+  function readGpsOverride(cfg) {
+    const ovr = cfg && cfg.exif;
+    if (!ovr) return null;
+    if (ovr.latitude == null || ovr.longitude == null) return null;
+    const lat = Number(ovr.latitude);
+    const lng = Number(ovr.longitude);
+    if (!isFinite(lat) || !isFinite(lng)) return null;
+    return { lat, lng };
+  }
+
   // Single-photo export, main thread (renderFinal already uses GPU canvas).
   async function exportSingle(entry, cfg, assets) {
     const blob = await CR.renderFinal({
@@ -37,7 +50,7 @@
       format: cfg.format, quality: cfg.quality,
       partnerFiles: entry.partnerFiles || []
     });
-    const out = await ExifIO.reattachExif(entry.file, blob);
+    const out = await ExifIO.reattachExif(entry.file, blob, readGpsOverride(cfg));
     triggerDownload(out, outName(entry.file, cfg.format));
   }
 
@@ -138,7 +151,7 @@
           format: e.cfg.format, quality: e.cfg.quality,
           partnerFiles: e.partnerFiles || []
         });
-        const out = await ExifIO.reattachExif(e.file, blob);
+        const out = await ExifIO.reattachExif(e.file, blob, readGpsOverride(e.cfg));
         results[i] = { ok: true, blob: out };
       } catch (err) {
         results[i] = { ok: false, error: err && err.message || String(err) };

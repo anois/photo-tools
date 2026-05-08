@@ -126,7 +126,9 @@
           lensModel: '镜头',
           date: '日期',
           author: '作者',
-          flash: '闪光灯'
+          flash: '闪光灯',
+          latitude: '纬度',
+          longitude: '经度'
         },
         flashAuto: '自动',
         flashFired: '触发',
@@ -135,7 +137,18 @@
         applyAll: '将 EXIF 应用到全部',
         applyAllTitle: '把当前照片的 EXIF 编辑应用到所有已加载的照片',
         copyRaw: '复制原始 EXIF',
-        copyRawTitle: '把这张照片解析出来的原始 EXIF JSON 复制到剪贴板（debug 用）'
+        copyRawTitle: '把这张照片解析出来的原始 EXIF JSON 复制到剪贴板（debug 用）',
+        pickOnMap: '📍 在地图上选',
+        pickOnMapTitle: '打开地图选择拍摄位置（首次使用需联网加载地图）'
+      },
+      geo: {
+        title: '选择位置',
+        close: '关闭',
+        loading: '正在加载地图…',
+        offline: '无法加载地图（可能是离线状态）。可在上方手动填写经纬度。',
+        locateMe: '使用当前位置',
+        cancel: '取消',
+        confirm: '使用此位置'
       },
       signature: {
         uploadTitle: '上传签名',
@@ -378,7 +391,9 @@
           lensModel: 'Lens',
           date: 'Date',
           author: 'Author',
-          flash: 'Flash'
+          flash: 'Flash',
+          latitude: 'Latitude',
+          longitude: 'Longitude'
         },
         flashAuto: 'auto',
         flashFired: 'Fired',
@@ -387,7 +402,18 @@
         applyAll: 'Apply EXIF to all',
         applyAllTitle: 'Copy this photo’s EXIF edits to every loaded photo',
         copyRaw: 'Copy raw EXIF',
-        copyRawTitle: 'Copy this photo’s raw EXIF JSON to clipboard (debug)'
+        copyRawTitle: 'Copy this photo’s raw EXIF JSON to clipboard (debug)',
+        pickOnMap: '📍 Pick on map',
+        pickOnMapTitle: 'Open a map to pick the location (first use needs network to load the map library)'
+      },
+      geo: {
+        title: 'Pick location',
+        close: 'Close',
+        loading: 'Loading map…',
+        offline: 'Could not load map (offline?). Type latitude / longitude above instead.',
+        locateMe: 'Use my location',
+        cancel: 'Cancel',
+        confirm: 'Use this location'
       },
       signature: {
         uploadTitle: 'Upload signature',
