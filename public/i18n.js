@@ -81,11 +81,12 @@
         applyAllTitle: '把当前照片的所有相框设置（画幅 / 风格 / 边距 / 高级参数 / 阴影 / 文字模板 / 字段开关）应用到全部已加载的照片',
         styles: {
           frosted: '毛玻璃',
-          'frosted-dark': '毛玻璃·深',
-          white: '纯白',
-          black: '纯黑',
+          'frosted-noir': '毛玻璃·暗',
+          'gallery-white': '画廊·白',
+          'gallery-noir': '画廊·黑',
           polaroid: '宝丽来',
-          instax: 'Instax'
+          instax: 'Instax',
+          'film-35': '35mm 胶片'
         }
       },
       caption: {
@@ -346,11 +347,12 @@
         applyAllTitle: 'Copy this photo’s frame settings (aspect / style / padding / advanced / shadow / template / fields) to every loaded photo',
         styles: {
           frosted: 'Frosted',
-          'frosted-dark': 'Dark',
-          white: 'White',
-          black: 'Black',
+          'frosted-noir': 'Frosted · noir',
+          'gallery-white': 'Gallery',
+          'gallery-noir': 'Gallery · noir',
           polaroid: 'Polaroid',
-          instax: 'Instax'
+          instax: 'Instax',
+          'film-35': 'Film 35'
         }
       },
       caption: {

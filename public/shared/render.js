@@ -272,8 +272,11 @@
     // bottom is pushed in further by `bottomPaddingBias` (+ optional frame
     // boost). This guarantees the caption zone has space even on near-square
     // photos in the 1:1 frame, where symmetric padding used to leave the fg
-    // flush against both top and bottom.
-    const topPadding = padding;
+    // flush against both top and bottom. `topPaddingBoost` is a frame-level
+    // hook for symmetric vertical extension (e.g., film-35 needs room above
+    // the fg for the top sprocket row).
+    const topBoostBase = (opts.topPaddingBoost || 0);
+    const topPadding = padding + Math.round(topBoostBase * scale);
     const bottomBiasBase = (base.bottomPaddingBias || 0) + (opts.bottomPaddingBoost || 0);
     const bottomPadding = padding + Math.round(bottomBiasBase * scale);
 
@@ -294,6 +297,17 @@
 
     const caption = computeCaptionZone({ W, H, fgLeft, fgTop, fgW, fgH, scale, preferredBottomH });
 
+    // outputPx is a soft scaling factor for "thin lines / hairlines that
+    // shouldn't bloat at high quality": `Math.max(1, N * outputPx)` gives a
+    // stroke width that stays visually thin across preview / standard /
+    // high quality. At preview customScale=0.5 it floors to 1; at
+    // standard scale=1 it's ~0.6 (also floors to 1); at high scale=2 it
+    // becomes 1.2 — roughly half what plain `N * scale` would give.
+    // Frame `decorate` hooks use this for passe-partout borders, sprocket
+    // holes, and other decorative elements that should read as fine
+    // print regardless of output resolution.
+    const outputPx = Math.max(0.5, scale * 0.6);
+
     return {
       canvas: { W, H },
       W: caption.width,
@@ -304,9 +318,29 @@
         ? Math.round(caption.height - 18 * scale)
         : Math.round(caption.height / 2 + 10 * scale),
       scale,
+      outputPx,
       aspect,
       caption
     };
+  }
+
+  // Stroke / fill a rounded rectangle path. Public helper so frame
+  // `decorate` hooks (gallery passe-partout, film-35 sprocket holes)
+  // don't each need to inline the arcTo fallback for older Safari.
+  function pathRoundRect(ctx, x, y, w, h, r) {
+    if (ctx.roundRect) {
+      ctx.beginPath();
+      ctx.roundRect(x, y, w, h, r);
+      return;
+    }
+    const rr = Math.min(r, w / 2, h / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + rr, y);
+    ctx.arcTo(x + w, y,     x + w, y + h, rr);
+    ctx.arcTo(x + w, y + h, x,     y + h, rr);
+    ctx.arcTo(x,     y + h, x,     y,     rr);
+    ctx.arcTo(x,     y,     x + w, y,     rr);
+    ctx.closePath();
   }
 
   // ======================================================================
@@ -1292,6 +1326,7 @@
     // Helpers
     estimateTextWidth: estimateTextWidth,
     renderLensInline: renderLensInline,
+    pathRoundRect: pathRoundRect,
 
     // Templates
     TEMPLATES: TEMPLATES,

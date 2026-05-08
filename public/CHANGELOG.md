@@ -4,7 +4,26 @@
 
 每次有意义的功能 / 修复 / 优化都记到这里 —— 同一份文件既给开发者看，也通过顶栏 ✦ 按钮在应用内展示给用户。
 
-## 0.9 · 2026-05-08
+## 0.10 · 2026-05-08
+
+### 🎨 相框系统重新策划 · 第一阶段（基础设施 + 4 个家族骨架）
+
+参考 NOMO Pro / 西卡 / Hipstamatic / 画廊馆藏 / 35mm 胶片 等市面常见审美方向，把现有的 6 种相框重新组织为 **4 个家族**（编辑 / 画廊 / 即影 / 胶片），每家族两款，扩到 **8 款**。本次先落地相框层，水印模版 + 签名升级在后续阶段。
+
+- **🆕 35mm 胶片**（`film-35`）— 新增。深黑底 + 上下各 7 个齿孔（仿真 motion-picture perforation 圆角矩形）+ 顶部 cream 色「F · 4000 · DX」边缘印章（按 EXIF 品牌首字母 + ISO 数值动态合成）。带照片的话最远还原"35mm 胶片帧"的实物感
+- **画廊·白**（`gallery-white`，替换原 `white`）— 浅暖灰底 `#f4f3ee` + 围绕照片的 **双层细线 passe-partout 衬纸**（外层 1.5px、内层 0.9px，输出像素恒定不随导出质量放大）。仿馆藏装裱
+- **画廊·黑**（`gallery-noir`，替换原 `black`）— 深中性 `#171717` + 单层 phosphor 暗光高光线，配合加重的阴影，像照片在黑墙上微微悬浮
+- **毛玻璃·暗**（`frosted-noir`，原 `frosted-dark` 重命名）— 视觉与原版完全相同，改名让"frosted / frosted-noir"两兄弟更对称
+- **保留旧 cfg 兼容**：所有重命名 / 替换都注册了旧 key 别名（`frosted-dark` → `frosted-noir`、`white` → `gallery-white`、`black` → `gallery-noir`），既存的 preset / 分享链接 / 已存照片 cfg 全部继续可用
+
+### 🛠 渲染管线 · 装饰钩子 + 输出像素恒定
+
+- **`decorate(ctx, layout, args)` 钩子** — `R.registerFrame` 的 def 现支持可选 `decorate` 字段。compose() 在 caption 之后、签名之前调用；主线程 + worker 双端镜像。passe-partout 双线、胶片齿孔、leader 印章都跑在这层。给后续家族补充新装饰元素（馆藏角标、场记板格栅、邮戳印章…）留好扩展点
+- **`layout.outputPx`** — `computeLayout` 返回值新增字段 `outputPx = max(0.5, scale × 0.6)`。装饰函数用 `Math.max(1, N × outputPx)` 算线宽 / 字号，预览（scale=0.5）和 high quality 导出（scale=2）下衬纸 / 齿孔印记仍保持视觉细线感，不会随 quality 等比放大变粗
+- **`layout.topPaddingBoost`** — 新增对称的顶部 padding 提升（之前只有 bottom），让 film-35 这类需要"上下都留出装饰带"的相框无需 hack 就能合理布局
+- **`R.pathRoundRect`** — 共享圆角矩形路径助手（含老 Safari 的 arcTo 兜底），公开给所有 frame 装饰函数复用
+
+
 
 ### 🗺 GPS · 地图选点 + 手动经纬度
 

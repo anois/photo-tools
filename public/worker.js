@@ -13,11 +13,12 @@ self.importScripts(
   'vendor/piexif.js',
   'shared/render.js',
   'frames/frosted.js',
-  'frames/frosted-dark.js',
-  'frames/white.js',
-  'frames/black.js',
+  'frames/frosted-noir.js',
+  'frames/gallery-white.js',
+  'frames/gallery-noir.js',
   'frames/polaroid.js',
-  'frames/instax.js'
+  'frames/instax.js',
+  'frames/film-35.js'
 );
 
 const R = self.PhotoRender;
@@ -177,6 +178,16 @@ async function compose(canvas, args) {
     cap.close();
   }
 
+  // Mirrors clientRender.js: frame.decorate runs after caption, before
+  // signature. decorate runs in worker context (no DOM) — frames must use
+  // ctx primitives + R.pathRoundRect, not document.createElement.
+  if (args.frame && typeof args.frame.decorate === 'function') {
+    ctx.save();
+    try { args.frame.decorate(ctx, layout, args); }
+    catch (err) { console.warn('[worker] frame.decorate failed:', err); }
+    ctx.restore();
+  }
+
   if (customBgBm) customBgBm.close();
 
   if (args.customLogo && args.customLogo.data) {
@@ -318,7 +329,7 @@ async function renderJob(msg) {
     const collage = wantsCollage && partnerBms.some(Boolean) ? { layout: cfg.collage.layout } : null;
     const bitmaps = collage ? [bitmap, ...partnerBms] : null;
     await compose(canvas, {
-      bitmap, bitmaps, layout, params, captionSvg,
+      bitmap, bitmaps, layout, params, captionSvg, frame, normExif,
       customLogo: cfg.customLogo || null,
       customBg: cfg.customBg || null,
       collage,

@@ -131,12 +131,13 @@
         <div class="field">
           <label class="field-label" data-i18n="frame.style">Style</label>
           <div class="seg seg-frames" id="frame-seg" role="radiogroup">
-            <button data-val="frosted" class="active" role="radio" aria-checked="true" data-i18n="frame.styles.frosted">Frosted</button>
-            <button data-val="frosted-dark" role="radio" aria-checked="false" data-i18n="frame.styles.frosted-dark">Frosted · dark</button>
-            <button data-val="white" role="radio" aria-checked="false" data-i18n="frame.styles.white">White</button>
-            <button data-val="black" role="radio" aria-checked="false" data-i18n="frame.styles.black">Black</button>
-            <button data-val="polaroid" role="radio" aria-checked="false" data-i18n="frame.styles.polaroid">Polaroid</button>
-            <button data-val="instax" role="radio" aria-checked="false" data-i18n="frame.styles.instax">Instax</button>
+            <button data-val="frosted" data-family="editorial" class="active" role="radio" aria-checked="true" data-i18n="frame.styles.frosted">Frosted</button>
+            <button data-val="frosted-noir" data-family="editorial" role="radio" aria-checked="false" data-i18n="frame.styles.frosted-noir">Frosted · noir</button>
+            <button data-val="gallery-white" data-family="gallery" role="radio" aria-checked="false" data-i18n="frame.styles.gallery-white">Gallery</button>
+            <button data-val="gallery-noir" data-family="gallery" role="radio" aria-checked="false" data-i18n="frame.styles.gallery-noir">Gallery · noir</button>
+            <button data-val="polaroid" data-family="instant" role="radio" aria-checked="false" data-i18n="frame.styles.polaroid">Polaroid</button>
+            <button data-val="instax" data-family="instant" role="radio" aria-checked="false" data-i18n="frame.styles.instax">Instax</button>
+            <button data-val="film-35" data-family="film" role="radio" aria-checked="false" data-i18n="frame.styles.film-35">Film 35</button>
           </div>
         </div>
       </div>
@@ -622,11 +623,12 @@
 <script src="i18n.js"></script>
 <script src="shared/render.js"></script>
 <script src="frames/frosted.js"></script>
-<script src="frames/frosted-dark.js"></script>
-<script src="frames/white.js"></script>
-<script src="frames/black.js"></script>
+<script src="frames/frosted-noir.js"></script>
+<script src="frames/gallery-white.js"></script>
+<script src="frames/gallery-noir.js"></script>
 <script src="frames/polaroid.js"></script>
 <script src="frames/instax.js"></script>
+<script src="frames/film-35.js"></script>
 <script src="exifio.js"></script>
 <script src="heic.js"></script>
 <script src="clientRender.js"></script>

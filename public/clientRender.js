@@ -417,6 +417,17 @@
       }
     }
 
+    // ─── Frame decorate hook (passe-partout, sprocket holes, etc.) ───────
+    // Runs after caption so decorative elements draw on top of captions in
+    // the rare overlap case (film-35 stamps cover caption corners), and
+    // before signature so user signatures still sit at the very top.
+    if (args.frame && typeof args.frame.decorate === 'function') {
+      ctx.save();
+      try { args.frame.decorate(ctx, layout, args); }
+      catch (err) { console.warn('[render] frame.decorate failed:', err); }
+      ctx.restore();
+    }
+
     // ─── Custom signature overlay (drawn last, clipped to fg rect) ───────
     if (args.customLogo && args.customLogo.data) {
       const bm = await decodeCustomLogo(args.customLogo.data);
@@ -476,7 +487,7 @@
       ? { layout: cfg.collage.layout }
       : null;
     return {
-      layout, params, captionSvg, captionKey,
+      layout, params, captionSvg, captionKey, frame, normExif,
       customLogo: cfg.customLogo || null,
       customBg: cfg.customBg || null,
       collage: collage,
