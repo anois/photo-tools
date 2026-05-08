@@ -1534,6 +1534,14 @@
   // an invalid scale. The rect is in canvas-px (already scaled), positioned
   // inside the foreground bounds with a small margin so the signature sits
   // visually away from the fg edge.
+  //
+  // Position model — accepts both legacy and new schemas:
+  //   - Legacy: `position: 'br' | 'bl' | 'bc'` (3 corner anchors)
+  //   - New:    `position: { anchor, dx, dy }` where anchor is a 2-letter
+  //             code in the 9-cell grid (tl/tc/tr/cl/cc/cr/bl/bc/br) and
+  //             dx / dy are optional fine offsets in base-1440 px.
+  // Migration in app.js upgrades persisted cfg, but we also tolerate the
+  // legacy form here so worker / SVG round-trips don't have to migrate.
   function customLogoRect(layout, customLogo, imgAspect) {
     if (!customLogo || !customLogo.data || !(customLogo.scale > 0)) return null;
     const ar = (imgAspect && isFinite(imgAspect) && imgAspect > 0) ? imgAspect : 1;
@@ -1542,12 +1550,34 @@
     let dh = Math.max(1, Math.round(dw / ar));
     const maxH = Math.round(layout.fgH * 0.5);
     if (dh > maxH) { dh = maxH; dw = Math.round(dh * ar); }
-    const pos = customLogo.position || 'br';
-    let x;
-    if (pos === 'bl') x = layout.fgLeft + margin;
-    else if (pos === 'bc') x = layout.fgLeft + Math.round((layout.fgW - dw) / 2);
-    else x = layout.fgLeft + layout.fgW - dw - margin;
-    const y = layout.fgTop + layout.fgH - dh - margin;
+
+    // Decode the position into a 2-letter anchor + optional dx/dy. Both
+    // legacy (string) and new (object) schemas land here.
+    let anchor = 'br', dx = 0, dy = 0;
+    const pos = customLogo.position;
+    if (typeof pos === 'string') {
+      anchor = pos;   // legacy 'br' / 'bl' / 'bc'
+    } else if (pos && typeof pos === 'object') {
+      anchor = pos.anchor || 'br';
+      dx = Number(pos.dx) || 0;
+      dy = Number(pos.dy) || 0;
+    }
+    // Each anchor is "<row><col>" — row in {t, c, b}, col in {l, c, r}.
+    const ay = anchor.charAt(0) || 'b';
+    const ax = anchor.charAt(1) || 'r';
+    let x, y;
+    if (ax === 'l')      x = layout.fgLeft + margin;
+    else if (ax === 'c') x = layout.fgLeft + Math.round((layout.fgW - dw) / 2);
+    else                 x = layout.fgLeft + layout.fgW - dw - margin;
+    if (ay === 't')      y = layout.fgTop + margin;
+    else if (ay === 'c') y = layout.fgTop + Math.round((layout.fgH - dh) / 2);
+    else                 y = layout.fgTop + layout.fgH - dh - margin;
+
+    // dx/dy are in base-1440 units; scale into canvas px before applying.
+    const s = layout.scale || 1;
+    if (dx) x += Math.round(dx * s);
+    if (dy) y += Math.round(dy * s);
+
     const opacity = customLogo.opacity != null && isFinite(Number(customLogo.opacity))
       ? Math.max(0, Math.min(1, Number(customLogo.opacity)))
       : 1;

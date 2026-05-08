@@ -130,15 +130,23 @@
       <div class="row">
         <div class="field">
           <label class="field-label" data-i18n="frame.style">Style</label>
-          <div class="seg seg-frames" id="frame-seg" role="radiogroup">
-            <button data-val="frosted" data-family="editorial" class="active" role="radio" aria-checked="true" data-i18n="frame.styles.frosted">Frosted</button>
-            <button data-val="frosted-noir" data-family="editorial" role="radio" aria-checked="false" data-i18n="frame.styles.frosted-noir">Frosted · noir</button>
-            <button data-val="gallery-white" data-family="gallery" role="radio" aria-checked="false" data-i18n="frame.styles.gallery-white">Gallery</button>
-            <button data-val="gallery-noir" data-family="gallery" role="radio" aria-checked="false" data-i18n="frame.styles.gallery-noir">Gallery · noir</button>
-            <button data-val="polaroid" data-family="instant" role="radio" aria-checked="false" data-i18n="frame.styles.polaroid">Polaroid</button>
-            <button data-val="instax" data-family="instant" role="radio" aria-checked="false" data-i18n="frame.styles.instax">Instax</button>
-            <button data-val="film-35" data-family="film" role="radio" aria-checked="false" data-i18n="frame.styles.film-35">Film 35</button>
-            <button data-val="editorial" data-family="editorial" role="radio" aria-checked="false" data-i18n="frame.styles.editorial">Editorial</button>
+          <div class="seg-stack">
+            <div class="seg seg-family" id="frame-family-seg" role="tablist" aria-label="Frame family">
+              <button type="button" data-family="editorial" class="active" role="tab" aria-selected="true" data-i18n="frame.families.editorial">编辑</button>
+              <button type="button" data-family="gallery" role="tab" aria-selected="false" data-i18n="frame.families.gallery">画廊</button>
+              <button type="button" data-family="instant" role="tab" aria-selected="false" data-i18n="frame.families.instant">即影</button>
+              <button type="button" data-family="film" role="tab" aria-selected="false" data-i18n="frame.families.film">胶片</button>
+            </div>
+            <div class="seg seg-variants" id="frame-seg" role="radiogroup">
+              <button data-val="frosted" data-family="editorial" class="active" role="radio" aria-checked="true" data-i18n="frame.styles.frosted">Frosted</button>
+              <button data-val="frosted-noir" data-family="editorial" role="radio" aria-checked="false" data-i18n="frame.styles.frosted-noir">Frosted · noir</button>
+              <button data-val="editorial" data-family="editorial" role="radio" aria-checked="false" data-i18n="frame.styles.editorial">Editorial</button>
+              <button data-val="gallery-white" data-family="gallery" role="radio" aria-checked="false" data-i18n="frame.styles.gallery-white" hidden>Gallery</button>
+              <button data-val="gallery-noir" data-family="gallery" role="radio" aria-checked="false" data-i18n="frame.styles.gallery-noir" hidden>Gallery · noir</button>
+              <button data-val="polaroid" data-family="instant" role="radio" aria-checked="false" data-i18n="frame.styles.polaroid" hidden>Polaroid</button>
+              <button data-val="instax" data-family="instant" role="radio" aria-checked="false" data-i18n="frame.styles.instax" hidden>Instax</button>
+              <button data-val="film-35" data-family="film" role="radio" aria-checked="false" data-i18n="frame.styles.film-35" hidden>Film 35</button>
+            </div>
           </div>
         </div>
       </div>
@@ -233,17 +241,25 @@
       <div class="row">
         <div class="field">
           <label class="field-label" data-i18n="caption.template">Template</label>
-          <select id="template">
-            <option value="minimal-text" data-i18n="caption.templates.minimal-text">Minimal · brand + params</option>
-            <option value="brand-logo" data-i18n="caption.templates.brand-logo">Brand logo · model | params</option>
-            <option value="brand-right" data-i18n="caption.templates.brand-right">Brand right · params | brand</option>
-            <option value="tech-stack" data-i18n="caption.templates.tech-stack">Tech stack · vertical</option>
-            <option value="date-lens" data-i18n="caption.templates.date-lens">Date · lens</option>
-            <option value="wordmark" data-i18n="caption.templates.wordmark">Wordmark · large brand</option>
-            <option value="headline" data-i18n="caption.templates.headline">Headline · place + date</option>
-            <option value="slate" data-i18n="caption.templates.slate">Slate · OSD field grid</option>
-            <option value="passport" data-i18n="caption.templates.passport">Passport · stamp</option>
-          </select>
+          <div class="seg-stack">
+            <div class="seg seg-family" id="template-family-seg" role="tablist" aria-label="Caption grammar">
+              <button type="button" data-family="spec" class="active" role="tab" aria-selected="true" data-i18n="caption.families.spec">Spec</button>
+              <button type="button" data-family="brand" role="tab" aria-selected="false" data-i18n="caption.families.brand">Brand</button>
+              <button type="button" data-family="editorial" role="tab" aria-selected="false" data-i18n="caption.families.editorial">Editorial</button>
+              <button type="button" data-family="stamp" role="tab" aria-selected="false" data-i18n="caption.families.stamp">Stamp</button>
+            </div>
+            <div class="seg seg-variants" id="template-seg" role="radiogroup">
+              <button data-val="minimal-text" data-family="spec" class="active" role="radio" aria-checked="true" data-i18n="caption.templates.minimal-text">Minimal</button>
+              <button data-val="tech-stack" data-family="spec" role="radio" aria-checked="false" data-i18n="caption.templates.tech-stack">Tech stack</button>
+              <button data-val="brand-logo" data-family="brand" role="radio" aria-checked="false" data-i18n="caption.templates.brand-logo" hidden>Brand logo</button>
+              <button data-val="brand-right" data-family="brand" role="radio" aria-checked="false" data-i18n="caption.templates.brand-right" hidden>Brand right</button>
+              <button data-val="wordmark" data-family="editorial" role="radio" aria-checked="false" data-i18n="caption.templates.wordmark" hidden>Wordmark</button>
+              <button data-val="headline" data-family="editorial" role="radio" aria-checked="false" data-i18n="caption.templates.headline" hidden>Headline</button>
+              <button data-val="date-lens" data-family="stamp" role="radio" aria-checked="false" data-i18n="caption.templates.date-lens" hidden>Date · lens</button>
+              <button data-val="slate" data-family="stamp" role="radio" aria-checked="false" data-i18n="caption.templates.slate" hidden>Slate</button>
+              <button data-val="passport" data-family="stamp" role="radio" aria-checked="false" data-i18n="caption.templates.passport" hidden>Passport</button>
+            </div>
+          </div>
         </div>
       </div>
       <div class="row">
@@ -343,10 +359,16 @@
       <div class="row">
         <div class="field">
           <label class="field-label" data-i18n="signature.position">Position</label>
-          <div class="seg" id="signature-pos-seg" role="radiogroup">
-            <button data-val="bl" role="radio" aria-checked="false" data-i18n="signature.posBL">Bottom-left</button>
-            <button data-val="bc" role="radio" aria-checked="false" data-i18n="signature.posBC">Bottom-center</button>
-            <button data-val="br" class="active" role="radio" aria-checked="true" data-i18n="signature.posBR">Bottom-right</button>
+          <div class="pos-grid" id="signature-pos-grid" role="radiogroup" aria-label="Signature position">
+            <button type="button" data-anchor="tl" role="radio" aria-checked="false" aria-label="Top-left"></button>
+            <button type="button" data-anchor="tc" role="radio" aria-checked="false" aria-label="Top-center"></button>
+            <button type="button" data-anchor="tr" role="radio" aria-checked="false" aria-label="Top-right"></button>
+            <button type="button" data-anchor="cl" role="radio" aria-checked="false" aria-label="Center-left"></button>
+            <button type="button" data-anchor="cc" role="radio" aria-checked="false" aria-label="Center"></button>
+            <button type="button" data-anchor="cr" role="radio" aria-checked="false" aria-label="Center-right"></button>
+            <button type="button" data-anchor="bl" role="radio" aria-checked="false" aria-label="Bottom-left"></button>
+            <button type="button" data-anchor="bc" role="radio" aria-checked="false" aria-label="Bottom-center"></button>
+            <button type="button" data-anchor="br" class="active" role="radio" aria-checked="true" aria-label="Bottom-right"></button>
           </div>
         </div>
       </div>

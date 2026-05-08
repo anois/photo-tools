@@ -81,27 +81,39 @@
         applyAllTitle: '把当前照片的所有相框设置（画幅 / 风格 / 边距 / 高级参数 / 阴影 / 文字模板 / 字段开关）应用到全部已加载的照片',
         styles: {
           frosted: '毛玻璃',
-          'frosted-noir': '毛玻璃·暗',
-          'gallery-white': '画廊·白',
-          'gallery-noir': '画廊·黑',
+          'frosted-noir': '暗调',
+          'gallery-white': '白衬',
+          'gallery-noir': '黑衬',
           polaroid: '宝丽来',
           instax: 'Instax',
-          'film-35': '35mm 胶片',
-          editorial: '编辑 · 杂志'
+          'film-35': '35mm',
+          editorial: '杂志'
+        },
+        families: {
+          editorial: '编辑',
+          gallery: '画廊',
+          instant: '即影',
+          film: '胶片'
         }
       },
       caption: {
         template: '模板',
         templates: {
-          'minimal-text': '极简 · 品牌 + 参数',
-          'brand-logo': '品牌 LOGO · 型号 | 参数',
-          'brand-right': '品牌右置 · 参数 | 品牌',
-          'tech-stack': '技术栈 · 竖排',
-          'date-lens': '日期 · 镜头',
-          wordmark: '字标 · 大字品牌',
-          headline: '标题 · 地点 + 日期',
-          slate: '场记板 · OSD 字段格',
-          passport: '护照戳 · 邮印'
+          'minimal-text': '极简',
+          'brand-logo': '品牌左',
+          'brand-right': '品牌右',
+          'tech-stack': '技术栈',
+          'date-lens': '日期·镜头',
+          wordmark: '字标',
+          headline: '标题',
+          slate: '场记板',
+          passport: '护照戳'
+        },
+        families: {
+          spec: '参数',
+          brand: '品牌',
+          editorial: '编辑',
+          stamp: '印戳'
         },
         showFields: '显示字段',
         fields: {
@@ -352,27 +364,39 @@
         applyAllTitle: 'Copy this photo’s frame settings (aspect / style / padding / advanced / shadow / template / fields) to every loaded photo',
         styles: {
           frosted: 'Frosted',
-          'frosted-noir': 'Frosted · noir',
-          'gallery-white': 'Gallery',
-          'gallery-noir': 'Gallery · noir',
+          'frosted-noir': 'Noir',
+          'gallery-white': 'White',
+          'gallery-noir': 'Noir',
           polaroid: 'Polaroid',
           instax: 'Instax',
-          'film-35': 'Film 35',
-          editorial: 'Editorial'
+          'film-35': '35 mm',
+          editorial: 'Spread'
+        },
+        families: {
+          editorial: 'Editorial',
+          gallery: 'Gallery',
+          instant: 'Instant',
+          film: 'Film'
         }
       },
       caption: {
         template: 'Template',
         templates: {
-          'minimal-text': 'Minimal · brand + params',
-          'brand-logo': 'Brand logo · model | params',
-          'brand-right': 'Brand right · params | brand',
-          'tech-stack': 'Tech stack · vertical',
+          'minimal-text': 'Minimal',
+          'brand-logo': 'Brand · L',
+          'brand-right': 'Brand · R',
+          'tech-stack': 'Tech stack',
           'date-lens': 'Date · lens',
-          wordmark: 'Wordmark · large brand',
-          headline: 'Headline · place + date',
-          slate: 'Slate · OSD field grid',
-          passport: 'Passport · postmark'
+          wordmark: 'Wordmark',
+          headline: 'Headline',
+          slate: 'Slate',
+          passport: 'Passport'
+        },
+        families: {
+          spec: 'Spec',
+          brand: 'Brand',
+          editorial: 'Editorial',
+          stamp: 'Stamp'
         },
         showFields: 'Show fields',
         fields: {
