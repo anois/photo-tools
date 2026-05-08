@@ -2904,8 +2904,10 @@ checkChangelogBadge();
     tile.style.setProperty('--i', String(idx));
     tile.innerHTML = `
       <span class="frame-tile-preview"><span class="frame-tile-photo"></span></span>
-      <span class="frame-tile-name"></span>
-      <span class="frame-tile-meta"></span>`;
+      <span class="frame-tile-name" data-i18n="frame.styles.${val}"></span>`;
+    // i18n.applyDom() will populate the localized name; we set an
+    // initial textContent so it's not empty for the brief moment
+    // before applyDom runs (and as a fallback if i18n's not ready).
     tile.querySelector('.frame-tile-name').textContent = segBtn.textContent.trim();
     tile.dataset.frame = val;
     tile.querySelector('.frame-tile-preview').setAttribute('data-frame', val);
@@ -2937,7 +2939,7 @@ checkChangelogBadge();
     const preview = (TEMPLATE_PREVIEWS[val] || (() => ''))();
     const previewHtml = preview.split('\n').map((l) => l.replace(/&/g, '&amp;').replace(/</g, '&lt;')).join('<br>');
     tile.innerHTML = `
-      <span class="tmpl-tile-name"></span>
+      <span class="tmpl-tile-name" data-i18n="caption.templates.${val}"></span>
       <span class="tmpl-tile-preview">${previewHtml}</span>`;
     tile.querySelector('.tmpl-tile-name').textContent = segBtn.textContent.trim();
     tile.addEventListener('click', () => { segBtn.click(); closePicker(); });
@@ -3312,7 +3314,12 @@ checkChangelogBadge();
   // function definition above. That keeps chip text + active-tile state in
   // sync with the active per-photo cfg without any monkey-patching here.
 
-  // Initial paint
+  // Initial paint — re-walk i18n on the freshly generated tile DOM so
+  // tile-name spans pick up their data-i18n="frame.styles.<key>" /
+  // "caption.templates.<key>" entries. Without this they keep whatever
+  // textContent the seg button had at tile creation time, which goes
+  // stale on locale switch.
+  if (window.I18N && window.I18N.applyDom) window.I18N.applyDom();
   if (window.I18N && window.I18N.onChange) {
     window.I18N.onChange(() => syncLookchips());
   }
