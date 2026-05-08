@@ -2,7 +2,7 @@
 
 **v0.10 · 2026-05-08**
 
-photo-tools 的相框系统当前共 **8 款相框 × 4 个家族**，每个家族两到三款变体。本文档说明每款相框的设计意图、视觉灵感、技术实现、推荐配对的水印模板、以及已知的不适用场景，作为后续整改的 review 基线。
+photo-tools 的相框系统当前共 **9 款相框 × 4 个家族**，每个家族两到三款变体。本文档说明每款相框的设计意图、视觉灵感、技术实现、推荐配对的水印模板、以及已知的不适用场景，作为后续整改的 review 基线。
 
 ---
 
@@ -77,6 +77,19 @@ photo-tools 的相框系统当前共 **8 款相框 × 4 个家族**，每个家�
 - **不适合**：
   - 1:1 / 16:9 等宽幅画幅（纸条 strip 占比变大，照片被挤窄太多）—— 当前这一款最适合 9:16 / 3:4 portrait
   - 没有 GPS + 没有 date 的照片（`headline` 模板会降级为只显示品牌大字，弱化了"地点+日期"的核心叙事）
+
+### 1.4 `editorial-mirror` （杂志·镜像）🆕
+
+> `editorial` 的左右镜像版。
+
+- **设计意图**：跟 `editorial` 同一套美学，唯一区别是照片靠**右**、caption 留白条在**左**。给左→右视觉流（人物面朝右、运动方向向右、路径通向右）的照片留个"caption 不挡视觉出口"的选项，不必为了排版被迫翻转或重裁
+- **视觉灵感**：杂志跨页排版里"图右文左"的对开页（左页文字 + 右页满版图）
+- **技术实现**：
+  - 完全复用 `editorial` 的 `bg / textStyle / shadowDefault`，只换 layout 锚点
+  - 新增 layout 选项 `extraLeftInset`（base-1440 单位，与 `extraRightInset` 互斥，二者同时设置时 right 优先），照片自动 anchor 到右侧 padding
+  - `captionPrefer: 'left'` 强制 caption 路由到左侧 strip（旋转 +90°，文字读取方向 top→bottom）
+- **推荐配对**：与 `editorial` 一致（`headline` / `wordmark`）
+- **不适合**：与 `editorial` 一致
 
 ---
 
@@ -269,7 +282,7 @@ photo-tools 的相框系统当前共 **8 款相框 × 4 个家族**，每个家�
 
 1. **是否再加一款 `film-medium-format`（中画幅胶片）？** 6×6 / 6×7 画幅；齿孔模式更稀疏；leader 印章更长。能丰富胶片家族但是开发成本中
 2. ~~**`gallery-noir` 的 phosphor 高光线现在很弱（rgba 0.16）—— 是否需要更明显？**~~ ✅ **已实现**：alpha 0.16 → 0.28（参见 2.2 节）。0.28 是 doc 建议探索区间 0.25–0.35 的下限，凑近看是清晰的细线但不抢戏，结构性边框感没出现。0.35 测过一次太硬了，回退
-3. **`editorial` 是否需要 left-aligned 镜像变体？** 当前只有照片左 + caption 右；某些视觉里照片右 + caption 左反而更平衡（看你拍的内容偏向哪一边）。可以加 `editorial-mirror` 或在 cfg 里加 `mirror: true` 标志
+3. ~~**`editorial` 是否需要 left-aligned 镜像变体？**~~ ✅ **已实现**：作为独立 frame `editorial-mirror`（参见 1.4 节），不走 cfg flag——保持 frame 的"一个 key 一种视觉"原则，preset / share-code 也跟其他 frame 一样直接流转。新增 layout 选项 `extraLeftInset` 是 `extraRightInset` 的镜像，两者互斥
 4. **`polaroid` / `instax` 的底部 caption 区是否应该限制只能用某些模板？** 当前如果用户在 polaroid 配 `slate`（场记板），mono 字体 + 4 行数据塞进底部小白条会很挤。要不要在 picker 里隐藏不兼容的组合，或给一个 warning？
 5. ~~**`film-35` 的 leader 印章字符串当前是 `品牌首字母 · ISO · DX`——是否过于工程化？**~~ ✅ **已实现**：升级为 `品牌全称 · ISOT · DX`（参见 4.1 节），且加了底部 frame number `· DDA ·` + 顶部方向箭头 `→`、warm dark 底色、自适应齿孔密度。如果未来想做 `filmStock` 自定义字段（让用户输入 "PORTRA 400" 这种真实胶卷型号），仍是 nice-to-have
 6. **缺位的"杂志手撕"**——是否值得开 Phase X 加？
@@ -288,13 +301,14 @@ photo-tools 的相框系统当前共 **8 款相框 × 4 个家族**，每个家�
 | instax | `public/frames/instax.js` | — |
 | film-35 | `public/frames/film-35.js` | — |
 | editorial | `public/frames/editorial.js` | — |
+| editorial-mirror | `public/frames/editorial-mirror.js` | — |
 
 共享基础设施：
 - 注册机制：`R.registerFrame(name, def)` in `public/shared/render.js`
 - 渲染管线：`compose()` in `public/clientRender.js` + `public/worker.js`（双线程镜像）
 - 装饰钩子：`def.decorate(ctx, layout, args)` 在 caption 之后 / signature 之前调用
 - 输出像素恒定：`layout.outputPx = max(0.5, scale × 0.6)`
-- 非对称布局：`layout.extraRightInset` / `layout.captionPrefer` / `layout.fgXOffset` / `layout.topPaddingBoost`
+- 非对称布局：`layout.extraRightInset` / `layout.extraLeftInset` / `layout.captionPrefer` / `layout.fgXOffset` / `layout.topPaddingBoost`
 - 路径助手：`R.pathRoundRect(ctx, x, y, w, h, r)`（含老 Safari arcTo 兜底）
 
 ---

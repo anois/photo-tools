@@ -95,7 +95,8 @@
           polaroid: '宝丽来',
           instax: 'Instax',
           'film-35': '35mm',
-          editorial: '杂志'
+          editorial: '杂志',
+          'editorial-mirror': '杂志·镜像'
         },
         families: {
           editorial: '编辑',
@@ -386,7 +387,8 @@
           polaroid: 'Polaroid',
           instax: 'Instax',
           'film-35': '35 mm',
-          editorial: 'Spread'
+          editorial: 'Spread',
+          'editorial-mirror': 'Mirror'
         },
         families: {
           editorial: 'Editorial',
