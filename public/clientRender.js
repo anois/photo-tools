@@ -477,6 +477,11 @@
       captionHeight: cfg.captionHeight,
       ...frame.layout
     };
+    // cfg-level overrides win over frame.layout — these are user/preset
+    // knobs (radius slider, "caption inside photo" toggle, factory preset
+    // application) that intentionally override frame defaults.
+    if (cfg.radiusOverride != null)   layoutOpts.radiusOverride     = cfg.radiusOverride;
+    if (cfg.captionForceOverlay)      layoutOpts.captionForceOverlay = true;
     if (opts.customScale != null) layoutOpts.customScale = opts.customScale;
     if (opts.quality)             layoutOpts.quality     = opts.quality;
     // Rotation + crop pre-image: cfg.crop is normalized in the rotation-

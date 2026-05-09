@@ -21,6 +21,14 @@ function defaultCfg() {
     captionHeight: null,
     bgBlur: null, bgBrightness: null, bgSaturation: null,   // null → use frame preset
     shadowBlur: sd.blur, shadowOffsetY: sd.offsetY, shadowOpacity: sd.opacity,
+    // null = use frame.layout.radiusOverride or aspect base.radius (default 36).
+    // Exposed in B · Frame so any user can dial it down to 0 (35mm authentic
+    // look) or up beyond defaults — not just factory presets that flip it.
+    radiusOverride: null,
+    // false = caption auto-routes via computeCaptionZone priority.
+    // true = force overlay placement regardless of available padding,
+    // for "watermark stamped inside the photo" looks (e.g. authentic film).
+    captionForceOverlay: false,
     showFields: { brand: true, model: true, focal: true, aperture: true, shutter: true, iso: true, lens: false, date: false, author: true, flash: false, gps: false },
     // Rotation applied at render time, in degrees clockwise. 0 / 90 / 180 / 270.
     // Per-photo correction — not propagated by "Apply frame to all" or by
@@ -104,6 +112,9 @@ const els = {
   paddingVal: document.getElementById('padding-val'),
   captionH: document.getElementById('caption-h'),
   captionHVal: document.getElementById('caption-h-val'),
+  radius: document.getElementById('radius'),
+  radiusVal: document.getElementById('radius-val'),
+  captionOverlayToggle: document.getElementById('caption-overlay-toggle'),
   frostedAdvanced: document.getElementById('frosted-advanced'),
   bgBlur: document.getElementById('bg-blur'),
   bgBlurVal: document.getElementById('bg-blur-val'),
@@ -113,6 +124,7 @@ const els = {
   bgSaturationVal: document.getElementById('bg-saturation-val'),
   resetBgBtn: document.getElementById('reset-bg-btn'),
   applyFrameAllBtn: document.getElementById('apply-frame-all-btn'),
+  factoryPresetStrip: document.getElementById('factory-preset-strip'),
   presetPanel: document.getElementById('preset-panel'),
   presetSelect: document.getElementById('preset-select'),
   presetSaveBtn: document.getElementById('preset-save-btn'),
@@ -415,6 +427,8 @@ async function doRender() {
         shadowBlur: c.shadowBlur,
         shadowOffsetY: c.shadowOffsetY,
         shadowOpacity: c.shadowOpacity,
+        radiusOverride: c.radiusOverride,
+        captionForceOverlay: c.captionForceOverlay,
         showFields: c.showFields,
         customLogo: c.customLogo,
         customBg: c.customBg,
@@ -463,6 +477,16 @@ function syncControlsFromCfg(cfg) {
   } else {
     els.captionHVal.textContent = T('frame.captionAuto');
   }
+  // Radius slider mirrors current effective value but readout flags
+  // "preset" when cfg.radiusOverride is null (frame default). Slider's
+  // displayed position uses frame override OR aspect base radius (36).
+  const frameDef = R.FRAMES[cfg.frame];
+  const baseRadius = (frameDef.layout && frameDef.layout.radiusOverride != null)
+    ? frameDef.layout.radiusOverride : 36;
+  els.radius.value = cfg.radiusOverride != null ? cfg.radiusOverride : baseRadius;
+  if (cfg.radiusOverride != null) setReadoutNum(els.radiusVal, cfg.radiusOverride, 'px');
+  else els.radiusVal.textContent = T('frame.defaultReadout');
+  els.captionOverlayToggle.checked = !!cfg.captionForceOverlay;
   const frame = R.FRAMES[cfg.frame];
   if (frame.bg.type === 'frosted') {
     els.bgBlur.value = cfg.bgBlur != null ? cfg.bgBlur : frame.bg.blurSigma;
@@ -1147,6 +1171,15 @@ function onFrameChange(frameName) {
   setReadoutNum(els.shadowBlurVal, sd.blur, 'px');
   setReadoutNum(els.shadowOffsetVal, sd.offsetY, 'px');
   els.shadowOpacityVal.textContent = sd.opacity.toFixed(2);
+  // Radius + overlay toggle: same "reset to frame default" rule as the
+  // shadow / bg knobs. Frame switch is the natural moment to start fresh —
+  // a 35mm-authentic radius=0 shouldn't bleed into the next frame.
+  cfg.radiusOverride = null;
+  cfg.captionForceOverlay = false;
+  const baseRadius = (frame.layout && frame.layout.radiusOverride != null) ? frame.layout.radiusOverride : 36;
+  els.radius.value = baseRadius;
+  els.radiusVal.textContent = T('frame.defaultReadout');
+  els.captionOverlayToggle.checked = false;
   refreshTemplateCompatHint();
 }
 
@@ -1219,6 +1252,30 @@ els.captionH.addEventListener('input', () => {
 els.captionHVal.addEventListener('dblclick', () => {
   activeCfg().captionHeight = null;
   els.captionHVal.textContent = T('frame.captionAuto');
+  requestRender();
+});
+
+// Corner radius — DIY override of frame default. Drag = explicit value;
+// double-click readout to clear back to "preset" (uses frame's
+// radiusOverride or aspect base).
+els.radius.addEventListener('input', () => {
+  const v = Number(els.radius.value);
+  activeCfg().radiusOverride = v;
+  setReadoutNum(els.radiusVal, v, 'px');
+  requestRender();
+});
+els.radiusVal.addEventListener('dblclick', () => {
+  activeCfg().radiusOverride = null;
+  els.radiusVal.textContent = T('frame.defaultReadout');
+  // Snap slider position to frame default for consistent visual feedback.
+  const fd = R.FRAMES[activeCfg().frame];
+  const base = (fd.layout && fd.layout.radiusOverride != null) ? fd.layout.radiusOverride : 36;
+  els.radius.value = base;
+  requestRender();
+});
+
+els.captionOverlayToggle.addEventListener('change', () => {
+  activeCfg().captionForceOverlay = els.captionOverlayToggle.checked;
   requestRender();
 });
 
@@ -2074,7 +2131,8 @@ function applyFrameToAll(src) {
   const FRAME_KEYS = [
     'aspect', 'frame', 'template', 'padding', 'captionHeight',
     'bgBlur', 'bgBrightness', 'bgSaturation',
-    'shadowBlur', 'shadowOffsetY', 'shadowOpacity'
+    'shadowBlur', 'shadowOffsetY', 'shadowOpacity',
+    'radiusOverride', 'captionForceOverlay'
   ];
   for (const f of state.files) {
     if (f === src) continue;
@@ -2466,6 +2524,8 @@ function buildConfigForFile(f) {
   if (c.bgBlur != null)        cfg.bgBlur = c.bgBlur;
   if (c.bgBrightness != null)  cfg.bgBrightness = c.bgBrightness;
   if (c.bgSaturation != null)  cfg.bgSaturation = c.bgSaturation;
+  if (c.radiusOverride != null) cfg.radiusOverride = c.radiusOverride;
+  if (c.captionForceOverlay)   cfg.captionForceOverlay = true;
   if (c.customLogo)            cfg.customLogo = { ...c.customLogo };
   if (c.customBg)              cfg.customBg = { ...c.customBg };
   if (c.collage)               cfg.collage = { ...c.collage };
@@ -2644,7 +2704,86 @@ const PRESET_SCHEMA_VERSION = 1;
 const LOOK_KEYS = [
   'aspect', 'frame', 'template', 'padding', 'captionHeight',
   'bgBlur', 'bgBrightness', 'bgSaturation',
-  'shadowBlur', 'shadowOffsetY', 'shadowOpacity'
+  'shadowBlur', 'shadowOffsetY', 'shadowOpacity',
+  // Additive in v:1 — old presets / share-codes that don't carry these
+  // simply default to null / false on apply, so backwards compat holds.
+  'radiusOverride', 'captionForceOverlay'
+];
+
+// Factory ("seed") presets — curated combos shipped with the app to
+// showcase what the DIY engine can do. Read-only, never written to
+// localStorage. The product position is "starting points the user
+// then twists into their own look", not "ready-made skins" — every
+// field a factory preset sets is also reachable via UI controls so
+// the user can override and save back into "我的预设".
+const FACTORY_PRESETS = [
+  // 35mm authentic film — the showcase example for the cfg-level
+  // radiusOverride + captionForceOverlay schema unlocks. Hard 0
+  // corners + caption stamped on photo bottom + zero shadow give
+  // the negative-strip feel; perforations / edge print stay because
+  // they're frame-level identity.
+  { id: 'film-35-authentic',  nameKey: 'preset.factory.film35',     iconEmoji: '🎞',
+    preset: { v: 1, frame: 'film-35', template: 'minimal-text',
+              aspect: '3:2', padding: 70, captionHeight: null,
+              bgBlur: null, bgBrightness: null, bgSaturation: null,
+              shadowBlur: 0, shadowOffsetY: 0, shadowOpacity: 0,
+              radiusOverride: 0, captionForceOverlay: true,
+              showFields: { brand: true, model: false, focal: true, aperture: true, shutter: true, iso: true, lens: false, date: true, gps: false, author: false, flash: false } } },
+  // Magazine editorial — Editorial frame's right strip + spec-rail
+  // capsule template. The pairing the spec-rail template was
+  // designed for. Brand on, model off (rail's brand cluster carries it).
+  { id: 'magazine-editorial', nameKey: 'preset.factory.magazine',   iconEmoji: '📖',
+    preset: { v: 1, frame: 'editorial', template: 'spec-rail',
+              aspect: '3:4', padding: 70, captionHeight: null,
+              bgBlur: null, bgBrightness: null, bgSaturation: null,
+              shadowBlur: 70, shadowOffsetY: 22, shadowOpacity: 0.22,
+              radiusOverride: null, captionForceOverlay: false,
+              showFields: { brand: true, model: true, focal: true, aperture: true, shutter: true, iso: true, lens: false, date: false, gps: false, author: true, flash: false } } },
+  // Hasselblad tribute — gallery-white + spec-grid (horizontal bottom
+  // strip with capsules). Wide square-ish aspect for the X2D vibe.
+  { id: 'hasselblad-tribute', nameKey: 'preset.factory.hasselblad', iconEmoji: '⬛',
+    preset: { v: 1, frame: 'gallery-white', template: 'spec-grid',
+              aspect: '4:3', padding: 80, captionHeight: 160,
+              bgBlur: null, bgBrightness: null, bgSaturation: null,
+              shadowBlur: 60, shadowOffsetY: 18, shadowOpacity: 0.18,
+              radiusOverride: 4, captionForceOverlay: false,
+              showFields: { brand: true, model: true, focal: true, aperture: true, shutter: true, iso: true, lens: false, date: false, gps: false, author: false, flash: false } } },
+  // Leica side rail — same rail template but on the editorial-mirror
+  // frame so the photo sits on the right and rail goes left.
+  { id: 'leica-side-rail',    nameKey: 'preset.factory.leica',      iconEmoji: '🔴',
+    preset: { v: 1, frame: 'editorial-mirror', template: 'spec-rail',
+              aspect: '3:4', padding: 70, captionHeight: null,
+              bgBlur: null, bgBrightness: null, bgSaturation: null,
+              shadowBlur: 70, shadowOffsetY: 22, shadowOpacity: 0.22,
+              radiusOverride: null, captionForceOverlay: false,
+              showFields: { brand: true, model: true, focal: true, aperture: true, shutter: true, iso: true, lens: false, date: false, gps: false, author: false, flash: false } } },
+  // Kodak Professional — kodak-pro frame (red+black header) + brand-logo
+  // template (carries Make/Model/lens cleanly in the bottom strip).
+  { id: 'kodak-professional', nameKey: 'preset.factory.kodak',      iconEmoji: '🟡',
+    preset: { v: 1, frame: 'kodak-pro', template: 'brand-logo',
+              aspect: '3:4', padding: 70, captionHeight: null,
+              bgBlur: null, bgBrightness: null, bgSaturation: null,
+              shadowBlur: 50, shadowOffsetY: 16, shadowOpacity: 0.18,
+              radiusOverride: null, captionForceOverlay: false,
+              showFields: { brand: true, model: true, focal: true, aperture: true, shutter: true, iso: true, lens: true, date: true, gps: false, author: false, flash: false } } },
+  // Polaroid classic — polaroid frame + wordmark for that BIG brand
+  // mark on the white bottom slab vibe.
+  { id: 'polaroid-classic',   nameKey: 'preset.factory.polaroid',   iconEmoji: '📷',
+    preset: { v: 1, frame: 'polaroid', template: 'wordmark',
+              aspect: '1:1', padding: 60, captionHeight: null,
+              bgBlur: null, bgBrightness: null, bgSaturation: null,
+              shadowBlur: 0, shadowOffsetY: 0, shadowOpacity: 0,
+              radiusOverride: null, captionForceOverlay: false,
+              showFields: { brand: true, model: false, focal: false, aperture: false, shutter: false, iso: false, lens: false, date: true, gps: false, author: true, flash: false } } },
+  // Frosted classic — the original "frosted glass + minimal text"
+  // look as a one-tap reset / starting point.
+  { id: 'frosted-classic',    nameKey: 'preset.factory.frosted',    iconEmoji: '✨',
+    preset: { v: 1, frame: 'frosted', template: 'minimal-text',
+              aspect: '9:16', padding: 70, captionHeight: null,
+              bgBlur: null, bgBrightness: null, bgSaturation: null,
+              shadowBlur: 80, shadowOffsetY: 24, shadowOpacity: 0.35,
+              radiusOverride: null, captionForceOverlay: false,
+              showFields: { brand: true, model: true, focal: true, aperture: true, shutter: true, iso: true, lens: false, date: false, gps: false, author: true, flash: false } } }
 ];
 
 function presetFromCfg(cfg, opts) {
@@ -2725,14 +2864,14 @@ function populatePresetSelect(selectedName) {
   els.presetSelect.value = (selectedName && map[selectedName]) ? selectedName : '';
 }
 
-els.presetSelect.addEventListener('change', () => {
-  const name = els.presetSelect.value;
-  if (!name) return;
-  const map = loadPresets();
-  const preset = map[name];
-  if (!preset) return;
+// Shared apply path used by both user-preset select and factory-preset
+// chip. `label` is the display name used in the status toast; pass the
+// localized factory name for chip clicks, the user's saved name for
+// select changes.
+function applyPresetByName(preset, label) {
+  if (!preset) return false;
   const target = activeCfg();
-  if (!applyPresetToCfg(preset, target)) return;
+  if (!applyPresetToCfg(preset, target)) return false;
   // draftCfg always tracks the latest applied look so future imports inherit.
   if (target !== state.draftCfg) applyPresetToCfg(preset, state.draftCfg);
   syncControlsFromCfg(target);
@@ -2757,9 +2896,45 @@ els.presetSelect.addEventListener('change', () => {
     els.signatureOpacity.disabled = false;
   }
   requestRender();
-  setStatus('status.presetApplied', null, { name });
+  setStatus('status.presetApplied', null, { name: label });
   setTimeout(() => setStatus('status.ready'), 1500);
+  return true;
+}
+
+els.presetSelect.addEventListener('change', () => {
+  const name = els.presetSelect.value;
+  if (!name) return;
+  const map = loadPresets();
+  applyPresetByName(map[name], name);
 });
+
+// Factory preset chip strip — rendered once on boot, clicks dispatch
+// to applyPresetByName with the localized name.
+function renderFactoryPresetStrip() {
+  const root = els.factoryPresetStrip;
+  if (!root) return;
+  root.innerHTML = '';
+  for (const f of FACTORY_PRESETS) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'factory-chip';
+    btn.dataset.id = f.id;
+    btn.setAttribute('role', 'listitem');
+    const emoji = document.createElement('span');
+    emoji.className = 'factory-chip-emoji';
+    emoji.textContent = f.iconEmoji;
+    emoji.setAttribute('aria-hidden', 'true');
+    const label = document.createElement('span');
+    label.className = 'factory-chip-label';
+    label.dataset.i18n = f.nameKey;
+    label.textContent = T(f.nameKey);
+    btn.appendChild(emoji);
+    btn.appendChild(label);
+    btn.addEventListener('click', () => applyPresetByName(f.preset, T(f.nameKey)));
+    root.appendChild(btn);
+  }
+}
+renderFactoryPresetStrip();
 
 els.presetSaveBtn.addEventListener('click', () => {
   const def = nowDefaultPresetName();

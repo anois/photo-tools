@@ -335,6 +335,8 @@ async function renderJob(msg) {
       quality: quality || 'standard',
       ...frame.layout
     };
+    if (cfg.radiusOverride != null)   layoutOpts.radiusOverride     = cfg.radiusOverride;
+    if (cfg.captionForceOverlay)      layoutOpts.captionForceOverlay = true;
     const rot = ((Number(cfg.rotation) || 0) % 360 + 360) % 360;
     const safe = R.inscribedSafeArea(bitmap, rot);
     const cropW = cfg.crop && cfg.crop.w > 0 ? cfg.crop.w : 1;

@@ -418,6 +418,19 @@
               <input id="caption-h" type="range" min="60" max="360" value="140" step="4" />
             </div>
           </div>
+          <div class="row">
+            <div class="field">
+              <label class="field-label"><span data-i18n="frame.radius">Corner radius</span> <span class="field-readout" id="radius-val" data-i18n="frame.defaultReadout">preset</span></label>
+              <input id="radius" type="range" min="0" max="72" value="36" step="1" />
+            </div>
+          </div>
+          <div class="row">
+            <label class="chip-label">
+              <input id="caption-overlay-toggle" type="checkbox" />
+              <span data-i18n="frame.captionOverlay">Caption inside photo</span>
+              <span class="chip-hint" data-i18n="frame.captionOverlayHint">stamp on photo bottom (35mm authentic look)</span>
+            </label>
+          </div>
         </div>
 
         <div class="ws-section">
@@ -614,7 +627,12 @@
       <!-- TAB · Library (presets) -->
       <section class="ws-tab" data-tab="lib">
         <div class="ws-section">
-          <div class="ws-section-head" data-i18n="frame.presets">Presets</div>
+          <div class="ws-section-head" data-i18n="preset.factoryTitle">✦ Curated presets</div>
+          <p class="factory-preset-hint" data-i18n="preset.factoryHint">Tap a seed look as a starting point — twist any control, save into "My presets" as your own.</p>
+          <div class="factory-preset-strip" id="factory-preset-strip" role="list"></div>
+        </div>
+        <div class="ws-section">
+          <div class="ws-section-head" data-i18n="preset.userTitle">My presets</div>
           <details class="preset-panel" id="preset-panel" open>
             <summary><span data-i18n="frame.presets">Presets</span> <span class="summary-hint" data-i18n="frame.presetsHint">save · apply · share</span></summary>
             <div class="row">
