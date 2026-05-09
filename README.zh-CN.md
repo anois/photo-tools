@@ -41,8 +41,8 @@
 
 ## 特性
 
-- **4 个家族 · 8 种相框风格** — 编辑（frosted、frosted-noir）/ 画廊（gallery-white 双层细线衬纸、gallery-noir phosphor 高光）/ 即影（polaroid、instax）/ 胶片（film-35 齿孔 + leader 印章、editorial 杂志非对称版式）
-- **4 个语法 · 9 种字幕模板** — Spec（minimal-text、tech-stack）/ Brand（brand-logo、brand-right）/ Editorial（wordmark 大字字标、headline GPS+日期标题）/ Stamp（date-lens、slate OSD 字段格、passport 邮印戳）
+- **4 个家族 · 12 种相框风格** — 编辑（frosted / frosted-noir / editorial 杂志非对称 / editorial 镜像）/ 画廊（gallery-white 双层细线衬纸 / gallery-noir phosphor 高光）/ 即影（polaroid / instax / torn 撕纸）/ 胶片（film-35 齿孔+leader / film-mf 中画幅 / **kodak-pro** 红黑品牌横条）
+- **4 个语法 · 11 种字幕模板** — Spec（minimal-text、tech-stack、**spec-grid** Hasselblad 描边胶囊、**spec-rail** Leica 侧栏胶囊）/ Brand（brand-logo、brand-right）/ Editorial（wordmark 大字字标、headline GPS+日期标题）/ Stamp（date-lens、slate OSD 字段格、passport 邮印戳）
 - **真实品牌 logo 内嵌** — Fujifilm、Sony、Leica、Nikon、Canon、Apple、Xiaomi、OPPO、Vivo、DJI…（来自 Wikimedia Commons + simple-icons）
 - **EXIF 自动解析**，每张照片可独立手动覆盖；当 `LensModel` 缺失时用 `LensInfo` 数组反推镜头型号
 - **自定义签名水印** — 上传 SVG/PNG 钉在前景照片的某个角落；通过 `localStorage` 跨会话保留

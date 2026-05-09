@@ -257,6 +257,13 @@
     // (bottom > right > left > overlay) when the preferred zone has
     // enough space. Editorial layouts use this to route caption into a
     // wide right-side strip even though the bottom strip would also fit.
+    // `top` is opt-in only — never auto-routes — because frames like
+    // film/instant reserve top padding for sprockets/edge-print and the
+    // caption shouldn't squat on it without explicit consent.
+    if (args.prefer === 'top' && fgTop >= MIN_BOTTOM) {
+      const h = Math.min(fgTop, Math.max(preferredBottomH, MIN_BOTTOM));
+      return { x: 0, y: 0, width: W, height: h, rotation: 0, placement: 'top' };
+    }
     if (args.prefer === 'right' && rightGap >= MIN_SIDE) {
       return { x: fgRight, y: fgTop, width: fgH, height: rightGap, rotation: -90, placement: 'right' };
     }
@@ -601,6 +608,69 @@
     return '<svg x="' + x + '" y="' + top + '" width="' + w + '" height="' + h +
       '" viewBox="0 0 10 16" overflow="visible">' +
       '<path d="M7 0 L0 9 L4 9 L3 16 L10 7 L6 7 Z" fill="' + fill + '"/></svg>';
+  }
+
+  // Boxed spec: rounded-rect outlined value with a tiny uppercase label
+  // hanging below it. The visual primitive behind the magazine-style
+  // spec-rail / spec-grid templates (Hasselblad / Leica reference) and
+  // available to any future template / decorate hook that wants the
+  // same look without re-implementing the geometry.
+  //
+  // Returns { svg, width, height, boxH }:
+  //   width  — outer width of the rect (max of value text + 2·padX, or min)
+  //   height — total height including the label row (when label present)
+  //   boxH   — rect height alone (without the label gap + label row)
+  //
+  // The rect is centered on x; the label (when given) sits centered below
+  // the rect with `labelGap` of breathing room. Caller passes the absolute
+  // (x, cy_of_rect) anchor — matches the convention of renderLensInline /
+  // flashGlyphSvg so templates can mix-and-match these primitives.
+  function boxedSpec(x, cy, value, label, opts) {
+    opts = opts || {};
+    const valuePx = opts.valuePx || 22;
+    const labelPx = opts.labelPx || 11;
+    const padX    = opts.padX != null ? opts.padX : 14;
+    const padY    = opts.padY != null ? opts.padY : 8;
+    const radius  = opts.radius != null ? opts.radius : 8;
+    const stroke  = opts.stroke != null ? opts.stroke : 1.2;
+    const labelGap = opts.labelGap != null ? opts.labelGap : 8;
+    const minBoxW  = opts.minBoxW  != null ? opts.minBoxW  : Math.round(valuePx * 2.4);
+    const valueColor  = opts.valueColor  || '#1a1a1a';
+    const labelColor  = opts.labelColor  || 'rgba(0,0,0,0.55)';
+    const strokeColor = opts.strokeColor || 'rgba(0,0,0,0.35)';
+    const fontFamily  = opts.fontFamily  || "'Inter',sans-serif";
+    const valueWeight = opts.valueWeight || 500;
+    const labelWeight = opts.labelWeight || 500;
+    const labelLetterSpacing = opts.labelLetterSpacing != null ? opts.labelLetterSpacing : 1;
+
+    const valueText = String(value == null ? '' : value);
+    const valueW = estimateTextWidth(valueText, valuePx, valueWeight, 0);
+    const boxW = Math.max(Math.round(valueW + padX * 2), minBoxW);
+    const boxH = Math.round(valuePx + padY * 2);
+    const boxX = Math.round(x - boxW / 2);
+    const boxY = Math.round(cy - boxH / 2);
+    // Value baseline approximates Inter cap-baseline at ~0.78 of em-box
+    // — mirrors the math used in tWordmark / tHeadline.
+    const valueY = boxY + padY + Math.round(valuePx * 0.78);
+
+    let svg = '<rect x="' + boxX + '" y="' + boxY + '" width="' + boxW + '" height="' + boxH +
+      '" rx="' + radius + '" fill="none" stroke="' + strokeColor +
+      '" stroke-width="' + stroke + '"/>' +
+      '<text x="' + x + '" y="' + valueY + '" text-anchor="middle" ' +
+      'style="font:' + valueWeight + ' ' + valuePx + 'px ' + fontFamily +
+      ';fill:' + valueColor + ';">' + escapeXml(valueText) + '</text>';
+
+    let totalH = boxH;
+    if (label) {
+      const labelText = String(label);
+      const labelY = boxY + boxH + labelGap + labelPx;
+      svg += '<text x="' + x + '" y="' + labelY + '" text-anchor="middle" ' +
+        'style="font:' + labelWeight + ' ' + labelPx + 'px ' + fontFamily +
+        ';fill:' + labelColor + ';letter-spacing:' + labelLetterSpacing +
+        'px;text-transform:uppercase;">' + escapeXml(labelText) + '</text>';
+      totalH = (labelY - boxY) + Math.round(labelPx * 0.25);
+    }
+    return { svg: svg, width: boxW, height: totalH, boxH: boxH };
   }
 
   function renderLensInline(args) {
@@ -1409,6 +1479,208 @@
     return out;
   }
 
+  // Spec-rail: vertical stack of outlined spec capsules + brand cluster.
+  // Built for the editorial frame's right strip (Leica M10 reference): in
+  // the rotated local frame, layout.W runs along the photo's vertical axis
+  // and layout.H is the strip's narrow dimension. We lay capsules out
+  // along layout.W with the brand row anchored at one end.
+  function tSpecRail(exif, layout, fontFaceCss, opts) {
+    const colors = captionColors(opts.textStyle);
+    const show = opts.showFields;
+    const s = layout.scale || 1;
+    const W = layout.W, H = layout.H;
+
+    const cells = [
+      { value: on(show, 'shutter')  ? exif.exposureTime : '', label: 'S' },
+      { value: on(show, 'iso')      ? exif.iso          : '', label: 'ISO' },
+      { value: on(show, 'focal')    ? exif.focalLength  : '', label: 'MM' },
+      { value: on(show, 'aperture') ? exif.fNumber      : '', label: 'F' }
+    ].filter(function (c) { return c.value; });
+    const brandText = on(show, 'brand') ? (exif.make || '').toString().toUpperCase() : '';
+    const modelText = on(show, 'model') ? (exif.model || '') : '';
+    const brandLogoKey = brandText ? brandToLogoKey(exif.make, opts.logos || {}) : null;
+    const author = (on(show, 'author') && exif.author) ? exif.author : '';
+
+    const valuePx = Math.max(Math.round(20 * s), Math.round(H * 0.16));
+    const labelPx = Math.max(Math.round(10 * s), Math.round(valuePx * 0.52));
+    const radius  = Math.round(7 * s);
+    const padX    = Math.round(13 * s);
+    const padY    = Math.round(7 * s);
+    const labelGap = Math.round(7 * s);
+    const stroke  = Math.max(1, 1.1 * (layout.outputPx || s));
+    const minBoxW = Math.round(valuePx * 3.0);
+    const boxOpts = {
+      valuePx: valuePx, labelPx: labelPx, padX: padX, padY: padY, radius: radius,
+      labelGap: labelGap, stroke: stroke, minBoxW: minBoxW,
+      valueColor: colors.brand, labelColor: colors.meta, strokeColor: colors.accent,
+      labelLetterSpacing: Math.max(1, Math.round(labelPx * 0.08))
+    };
+
+    // Capsules occupy the upper portion of the strip; brand sits below.
+    // 0.40 / 0.78 of layout.H is a nice 60/40 split that mirrors the
+    // Leica reference's "spec stack on top, brand at bottom" rhythm.
+    const capsulesCY = Math.round(H * 0.40);
+    const brandY     = Math.round(H * 0.78);
+
+    // Distribute capsules along layout.W with breathing margins.
+    let out = '<style>' + fontFaceCss + '</style>';
+    if (cells.length) {
+      const margin = Math.round(W * 0.10);
+      const usable = W - margin * 2;
+      const slot = usable / cells.length;
+      cells.forEach(function (cell, i) {
+        const cx = Math.round(margin + slot * (i + 0.5));
+        const b = boxedSpec(cx, capsulesCY, cell.value, cell.label, boxOpts);
+        out += b.svg;
+      });
+    }
+
+    // Brand row: optional logo + brand wordmark, model below in tiny meta.
+    const brandPx  = Math.max(Math.round(20 * s), Math.round(H * 0.18));
+    const modelPx  = Math.max(Math.round(11 * s), Math.round(brandPx * 0.55));
+    const brandLs  = Math.round(brandPx * 0.06);
+    const modelLs  = Math.round(modelPx * 0.10);
+    const cx = Math.round(W / 2);
+
+    let brandBlock = '';
+    if (brandLogoKey) {
+      const entry = opts.logos[brandLogoKey];
+      const logoH = brandPx;
+      const logoW = Math.round(logoH * (entry.vw / entry.vh));
+      const fill = resolveLogoFill(entry.brandColor, opts.textStyle);
+      brandBlock = logoInlineSvg(brandLogoKey, opts.logos, {
+        x: Math.round(cx - logoW / 2), y: Math.round(brandY - logoH * 0.78), height: logoH,
+        fillColor: fill, textStyle: opts.textStyle
+      }).svg;
+    } else if (brandText) {
+      brandBlock = '<text x="' + cx + '" y="' + brandY + '" text-anchor="middle" ' +
+        'style="font:600 ' + brandPx + 'px \'Inter\',sans-serif;fill:' + colors.brand +
+        ';letter-spacing:' + brandLs + 'px;">' + escapeXml(brandText) + '</text>';
+    }
+
+    let metaLine = '';
+    if (modelText) metaLine = modelText;
+    if (author) metaLine = metaLine ? metaLine + '   ·   © ' + author : '© ' + author;
+    if (metaLine) {
+      const metaY = brandY + Math.round(brandPx * 0.65);
+      brandBlock += '<text x="' + cx + '" y="' + metaY + '" text-anchor="middle" ' +
+        'style="font:400 ' + modelPx + 'px \'Inter\',sans-serif;fill:' + colors.meta +
+        ';letter-spacing:' + modelLs + 'px;text-transform:uppercase;">' +
+        escapeXml(metaLine) + '</text>';
+    }
+    return out + brandBlock;
+  }
+
+  // Spec-grid: horizontal layout for bottom strips (Hasselblad X2D reference).
+  // Top row: brand wordmark/logo + thin divider + model; bottom row: 4 spec
+  // capsules spread evenly. Designed for `placement: 'bottom'`.
+  function tSpecGrid(exif, layout, fontFaceCss, opts) {
+    const colors = captionColors(opts.textStyle);
+    const show = opts.showFields;
+    const s = layout.scale || 1;
+    const W = layout.W, H = layout.H;
+
+    const cells = [
+      { value: on(show, 'shutter')  ? exif.exposureTime : '', label: 'S' },
+      { value: on(show, 'iso')      ? exif.iso          : '', label: 'ISO' },
+      { value: on(show, 'focal')    ? exif.focalLength  : '', label: 'MM' },
+      { value: on(show, 'aperture') ? exif.fNumber      : '', label: 'F' }
+    ].filter(function (c) { return c.value; });
+    const brandText = on(show, 'brand') ? (exif.make || '').toString().toUpperCase() : '';
+    const modelText = on(show, 'model') ? (exif.model || '') : '';
+    const brandLogoKey = brandText ? brandToLogoKey(exif.make, opts.logos || {}) : null;
+
+    // Two-row split: brand on top 35%, capsules on bottom 60%.
+    const brandRowCY    = Math.round(H * 0.32);
+    const capsulesRowCY = Math.round(H * 0.72);
+
+    const brandPx = Math.max(Math.round(18 * s), Math.round(H * 0.20));
+    const modelPx = Math.max(Math.round(11 * s), Math.round(brandPx * 0.62));
+    const cx = Math.round(W / 2);
+
+    // Brand row: [logo|wordmark]   |   [model]
+    let brandRow = '';
+    let brandWidth = 0;
+    let brandRender = '';
+    if (brandLogoKey) {
+      const entry = opts.logos[brandLogoKey];
+      const logoH = brandPx;
+      const logoW = Math.round(logoH * (entry.vw / entry.vh));
+      brandWidth = logoW;
+      const fill = resolveLogoFill(entry.brandColor, opts.textStyle);
+      brandRender = logoInlineSvg(brandLogoKey, opts.logos, {
+        x: 0, y: Math.round(brandRowCY - logoH * 0.78), height: logoH,
+        fillColor: fill, textStyle: opts.textStyle
+      });
+    } else if (brandText) {
+      brandWidth = Math.round(estimateTextWidth(brandText, brandPx, 600, Math.round(brandPx * 0.06)));
+    }
+    const modelW = modelText
+      ? Math.round(estimateTextWidth(modelText, modelPx, 400, Math.round(modelPx * 0.10)))
+      : 0;
+    const dividerW = (brandWidth && modelW) ? Math.round(20 * s) : 0;
+    const totalW = brandWidth + (dividerW ? dividerW * 2 + Math.max(1, Math.round(1 * s)) : 0) + modelW;
+    let xCursor = Math.round(cx - totalW / 2);
+
+    if (brandLogoKey && brandRender) {
+      // Re-emit with corrected x.
+      const entry = opts.logos[brandLogoKey];
+      const logoH = brandPx;
+      const logoW = Math.round(logoH * (entry.vw / entry.vh));
+      const fill = resolveLogoFill(entry.brandColor, opts.textStyle);
+      brandRow = logoInlineSvg(brandLogoKey, opts.logos, {
+        x: xCursor, y: Math.round(brandRowCY - logoH * 0.78), height: logoH,
+        fillColor: fill, textStyle: opts.textStyle
+      }).svg;
+      xCursor += logoW;
+    } else if (brandText) {
+      brandRow = '<text x="' + xCursor + '" y="' + brandRowCY + '" text-anchor="start" ' +
+        'style="font:600 ' + brandPx + 'px \'Inter\',sans-serif;fill:' + colors.brand +
+        ';letter-spacing:' + Math.round(brandPx * 0.06) + 'px;">' +
+        escapeXml(brandText) + '</text>';
+      xCursor += brandWidth;
+    }
+    if (dividerW) {
+      const dx = xCursor + dividerW;
+      const dyTop = Math.round(brandRowCY - brandPx * 0.45);
+      const dyBot = Math.round(brandRowCY + brandPx * 0.10);
+      brandRow += '<line x1="' + dx + '" y1="' + dyTop + '" x2="' + dx + '" y2="' + dyBot +
+        '" stroke="' + colors.accent + '" stroke-width="' + Math.max(1, Math.round(1 * s)) + '"/>';
+      xCursor += dividerW * 2 + Math.max(1, Math.round(1 * s));
+    }
+    if (modelText) {
+      brandRow += '<text x="' + xCursor + '" y="' + brandRowCY + '" text-anchor="start" ' +
+        'style="font:400 ' + modelPx + 'px \'Inter\',sans-serif;fill:' + colors.meta +
+        ';letter-spacing:' + Math.round(modelPx * 0.10) + 'px;">' +
+        escapeXml(modelText) + '</text>';
+    }
+
+    // Capsules row.
+    const valuePx = Math.max(Math.round(18 * s), Math.round(H * 0.22));
+    const labelPx = Math.max(Math.round(10 * s), Math.round(valuePx * 0.52));
+    const boxOpts = {
+      valuePx: valuePx, labelPx: labelPx,
+      padX: Math.round(12 * s), padY: Math.round(6 * s),
+      radius: Math.round(6 * s), labelGap: Math.round(6 * s),
+      stroke: Math.max(1, 1.1 * (layout.outputPx || s)),
+      minBoxW: Math.round(valuePx * 2.6),
+      valueColor: colors.brand, labelColor: colors.meta, strokeColor: colors.accent,
+      labelLetterSpacing: Math.max(1, Math.round(labelPx * 0.08))
+    };
+    let capsulesRow = '';
+    if (cells.length) {
+      const margin = Math.round(W * 0.16);
+      const usable = W - margin * 2;
+      const slot = usable / cells.length;
+      cells.forEach(function (cell, i) {
+        const cellCX = Math.round(margin + slot * (i + 0.5));
+        capsulesRow += boxedSpec(cellCX, capsulesRowCY, cell.value, cell.label, boxOpts).svg;
+      });
+    }
+
+    return '<style>' + fontFaceCss + '</style>' + brandRow + capsulesRow;
+  }
+
   const TEMPLATES = {
     'minimal-text': tMinimalText,
     'brand-logo':   tBrandLogo,
@@ -1418,7 +1690,9 @@
     wordmark:       tWordmark,
     headline:       tHeadline,
     slate:          tSlate,
-    passport:       tPassport
+    passport:       tPassport,
+    'spec-rail':    tSpecRail,
+    'spec-grid':    tSpecGrid
   };
 
   // Build the template's inner SVG content (no outer <svg> wrapper).
@@ -1435,7 +1709,7 @@
 
     // Anchor rules, picked so the zone's local (width×height) rect lines up
     // with the canvas gap that the zone was computed to occupy:
-    //   bottom / overlay : plain translate, no rotation
+    //   bottom / top / overlay : plain translate, no rotation
     //   right  (−90° CCW): anchor at (cap.x, cap.y + cap.width) — bottom-left
     //                      of the right gap; text then reads bottom→top
     //   left   (+90° CW) : anchor at (cap.x + cap.height, cap.y) — top-right
@@ -1676,6 +1950,7 @@
     // Helpers
     estimateTextWidth: estimateTextWidth,
     renderLensInline: renderLensInline,
+    boxedSpec: boxedSpec,
     pathRoundRect: pathRoundRect,
 
     // Templates

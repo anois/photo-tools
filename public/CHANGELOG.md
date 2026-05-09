@@ -4,6 +4,20 @@
 
 每次有意义的功能 / 修复 / 优化都记到这里 —— 同一份文件既给开发者看，也通过顶栏 ✦ 按钮在应用内展示给用户。
 
+## 0.18.0 · 2026-05-09
+
+### 🎨 新增杂志级设计语言
+
+参考 Hasselblad / Leica / Kodak 的相机品牌相册排版，把"描边规格胶囊 + 品牌横条"这套设计语言落到工程里。这一版只交付**渲染原语 + 模板 + 相框**三层基础能力；下一版（0.19）会把它们打包成「精选预设」一键可用。
+
+- **Spec grid 模板（参数胶囊·横排）** —— 顶行是品牌 wordmark / logo + 分隔线 + 型号，底行是 4 个圆角描边胶囊（快门 / ISO / 焦距 / 光圈），每个胶囊下方挂一个全大写小标签。底栏 caption 的杂志级排版，参考 Hasselblad X2D 系列相册排版
+- **Spec rail 模板（参数胶囊·侧栏）** —— 同样的胶囊结构但垂直堆叠，配合 Editorial · 杂志/镜像 相框的右侧（或左侧）窄栏使用，参考 Leica M10 系列相册排版。底部带品牌名 + logo cluster
+- **Kodak Professional 相框** —— 暖白纸基（#fafaf7）+ 顶部"**Kodak** Professional"红黑双色品牌横条 + 中等柔和阴影。和 brand-logo / spec-grid 模板搭配能渲出胶片冲洗厂相册的范儿
+- **顶栏 caption placement 引擎能力** —— `computeCaptionZone` 现在认 `captionPrefer: 'top'`，让任何相框都可以把 caption 路由到照片上方的 padding 区。本版没有现成的相框启用它（Kodak Pro 走的是装饰 hook，不是 caption），但底层为后续"双栏式"模板打底
+- **`R.boxedSpec` 公开原语** —— 写自定义模板的人可以直接调用拿到一致的描边胶囊几何，无需重新实现
+
+无 cfg / preset / share-code schema 变化；老 share-code 在新引擎下渲染如旧。
+
 ## 0.17.0 · 2026-05-09
 
 ### 📱 移动端 + 触屏完整适配

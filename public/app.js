@@ -1098,8 +1098,8 @@ const TEMPLATE_INCOMPAT = {
   polaroid:           { slate: 'narrow',  'tech-stack': 'narrow'  },
   instax:             { slate: 'narrow',  'tech-stack': 'narrow'  },
   torn:               { slate: 'narrow',  'tech-stack': 'narrow'  },
-  editorial:          { slate: 'rotated', 'tech-stack': 'rotated' },
-  'editorial-mirror': { slate: 'rotated', 'tech-stack': 'rotated' }
+  editorial:          { slate: 'rotated', 'tech-stack': 'rotated', 'spec-grid': 'rotated' },
+  'editorial-mirror': { slate: 'rotated', 'tech-stack': 'rotated', 'spec-grid': 'rotated' }
 };
 
 function refreshTemplateCompatHint() {
