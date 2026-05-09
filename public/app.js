@@ -766,6 +766,7 @@ function wireFamilyTabs(familySeg, variantSeg, onPick) {
 async function selectFile(idx) {
   state.activeIdx = idx;
   renderRail();
+  document.dispatchEvent(new CustomEvent('phototools:photo-switched'));
   const f = state.files[idx];
   if (!f) return;
   syncControlsFromCfg(f.cfg);
@@ -2187,27 +2188,105 @@ function exitPeek() {
   if (state.activeIdx >= 0) requestRender();
 }
 
-// ─── Canvas touch gestures: swipe + long-press peek (mobile) ───────────
-// Two coordinated gestures on the preview canvas:
+// ─── Canvas touch gestures: pinch-zoom + swipe + long-press peek ────────
+// Three coordinated gestures on the preview canvas, multiplexed by touch
+// count + zoom state:
 //
-//  1. Horizontal swipe (dx ≥ 50px, ≤ 800ms, |dy| ≤ |dx|·0.7) → prev/next
-//     photo. Same wrap-around behavior as J/K keys (moveSelection).
-//  2. Long-press (touch held ≥ 500ms with < 10px movement) → enterPeek().
+//  1. Two-finger pinch → zoom canvas (1x–4x) around the centroid; centroid
+//     drift pans simultaneously. Double-tap snaps back to 1x.
+//  2. One-finger horizontal swipe (dx ≥ 50px, ≤ 800ms, |dy| ≤ |dx|·0.7)
+//     → prev/next photo. SUPPRESSED while zoomed (would conflict with pan).
+//  3. One-finger drag while zoomed → pan the zoomed canvas.
+//  4. One-finger long-press (≥ 500ms, < 10px movement) → enterPeek().
 //
 // touchmove/touchend live on document so a finger that started on canvas
-// and moves/lifts elsewhere still resolves the gesture cleanly. Once peek
-// triggers, touchend just closes peek (no swipe). Movement >10px before
-// the 500ms threshold cancels the peek timer so a fast horizontal swipe
-// doesn't accidentally start a peek mid-drag.
+// and moves/lifts elsewhere still resolves the gesture cleanly.
+
+const __zoom = { scale: 1, tx: 0, ty: 0 };
+function __isZoomed() { return __zoom.scale > 1.02; }
+function __applyZoomTransform() {
+  const c = els.canvas;
+  if (!c) return;
+  if (!__isZoomed() && Math.abs(__zoom.tx) < 0.5 && Math.abs(__zoom.ty) < 0.5) {
+    c.style.transform = '';
+    if (els.canvasPane) els.canvasPane.dataset.zoomed = 'false';
+  } else {
+    c.style.transform = `translate(${__zoom.tx.toFixed(1)}px, ${__zoom.ty.toFixed(1)}px) scale(${__zoom.scale.toFixed(3)})`;
+    if (els.canvasPane) els.canvasPane.dataset.zoomed = 'true';
+  }
+}
+function __resetZoom(animated) {
+  const c = els.canvas;
+  if (!c) return;
+  if (animated) {
+    c.style.transition = 'transform 260ms cubic-bezier(0.32,0.72,0,1)';
+    setTimeout(() => { c.style.transition = ''; }, 280);
+  }
+  __zoom.scale = 1; __zoom.tx = 0; __zoom.ty = 0;
+  __applyZoomTransform();
+}
+
 (function wireCanvasGestures() {
   const pane = els.canvasPane;
   if (!pane) return;
   const PEEK_DELAY_MS = 500;
   let startX = 0, startY = 0, startTime = 0, active = false;
   let peekTimer = 0;
+  let pinch = null;     // { startDist, startCenter, startScale, startTx, startTy }
+  let pan = null;       // { startX, startY, startTx, startTy }
+  let lastTapTime = 0;
+
+  function dist(t1, t2) {
+    const dx = t1.clientX - t2.clientX, dy = t1.clientY - t2.clientY;
+    return Math.hypot(dx, dy);
+  }
+  function center(t1, t2) {
+    return { x: (t1.clientX + t2.clientX) / 2, y: (t1.clientY + t2.clientY) / 2 };
+  }
+  function clampPan() {
+    // Clamp translation so the zoomed canvas can't be dragged off-screen
+    // by more than ~half its scaled size in either direction.
+    const c = els.canvas;
+    if (!c) return;
+    const r = c.getBoundingClientRect();
+    if (!r.width || !r.height) return;
+    // r.width is already post-scale; back-compute pre-scale dims
+    const preW = r.width / __zoom.scale;
+    const preH = r.height / __zoom.scale;
+    const overflowX = (preW * (__zoom.scale - 1)) / 2;
+    const overflowY = (preH * (__zoom.scale - 1)) / 2;
+    __zoom.tx = Math.max(-overflowX, Math.min(overflowX, __zoom.tx));
+    __zoom.ty = Math.max(-overflowY, Math.min(overflowY, __zoom.ty));
+  }
 
   pane.addEventListener('touchstart', (e) => {
+    if (e.touches.length === 2) {
+      // Begin pinch — cancel any in-progress single-finger gesture.
+      active = false;
+      pan = null;
+      clearTimeout(peekTimer);
+      pinch = {
+        startDist: dist(e.touches[0], e.touches[1]),
+        startCenter: center(e.touches[0], e.touches[1]),
+        startScale: __zoom.scale,
+        startTx: __zoom.tx,
+        startTy: __zoom.ty,
+      };
+      els.canvas.style.transition = 'none';
+      return;
+    }
     if (e.touches.length !== 1) { active = false; return; }
+    if (__isZoomed()) {
+      // One finger on a zoomed canvas → pan, not swipe/peek.
+      pan = {
+        startX: e.touches[0].clientX,
+        startY: e.touches[0].clientY,
+        startTx: __zoom.tx,
+        startTy: __zoom.ty,
+      };
+      els.canvas.style.transition = 'none';
+      return;
+    }
     startX = e.touches[0].clientX;
     startY = e.touches[0].clientY;
     startTime = Date.now();
@@ -2215,6 +2294,29 @@ function exitPeek() {
     clearTimeout(peekTimer);
     peekTimer = setTimeout(() => { if (active) enterPeek(); }, PEEK_DELAY_MS);
   }, { passive: true });
+
+  pane.addEventListener('touchmove', (e) => {
+    if (pinch && e.touches.length >= 2) {
+      const d = dist(e.touches[0], e.touches[1]);
+      const c = center(e.touches[0], e.touches[1]);
+      const factor = d / pinch.startDist;
+      __zoom.scale = Math.max(1, Math.min(4, pinch.startScale * factor));
+      __zoom.tx = pinch.startTx + (c.x - pinch.startCenter.x);
+      __zoom.ty = pinch.startTy + (c.y - pinch.startCenter.y);
+      clampPan();
+      __applyZoomTransform();
+      e.preventDefault();
+      return;
+    }
+    if (pan && e.touches.length === 1) {
+      __zoom.tx = pan.startTx + (e.touches[0].clientX - pan.startX);
+      __zoom.ty = pan.startTy + (e.touches[0].clientY - pan.startY);
+      clampPan();
+      __applyZoomTransform();
+      e.preventDefault();
+      return;
+    }
+  }, { passive: false });
 
   document.addEventListener('touchmove', (e) => {
     if (!active || __peekActive) return;
@@ -2227,12 +2329,39 @@ function exitPeek() {
 
   document.addEventListener('touchcancel', () => {
     active = false;
+    pinch = null;
+    pan = null;
     clearTimeout(peekTimer);
     exitPeek();
   });
 
   document.addEventListener('touchend', (e) => {
-    if (!active) return;
+    // Settle pinch — snap back to 1x if close, otherwise let zoom persist.
+    if (pinch && e.touches.length < 2) {
+      pinch = null;
+      els.canvas.style.transition = '';
+      if (__zoom.scale < 1.05) {
+        __resetZoom(true);
+      } else {
+        clampPan();
+        __applyZoomTransform();
+      }
+      return;
+    }
+    if (pan && e.touches.length === 0) {
+      pan = null;
+      els.canvas.style.transition = '';
+      return;
+    }
+    if (!active) {
+      // Detect double-tap to reset zoom (only when zoomed, fingers all up).
+      if (e.touches.length === 0 && __isZoomed() && e.changedTouches.length === 1) {
+        const now = Date.now();
+        if (now - lastTapTime < 300) __resetZoom(true);
+        lastTapTime = now;
+      }
+      return;
+    }
     active = false;
     clearTimeout(peekTimer);
     if (__peekActive) { exitPeek(); return; }
@@ -2246,6 +2375,9 @@ function exitPeek() {
     if (Math.abs(dy) > Math.abs(dx) * 0.7) return;
     moveSelection(dx < 0 ? 1 : -1);
   }, { passive: true });
+
+  // Reset zoom when switching photos — keeps the new photo unzoomed.
+  document.addEventListener('phototools:photo-switched', () => __resetZoom(false));
 })();
 
 // ─── Hold Space to peek at original (desktop equivalent) ───────────────
@@ -3129,6 +3261,11 @@ checkChangelogBadge();
     });
   }
   if (wsTrigger) wsTrigger.addEventListener('click', () => openWorkshop());
+  // Mobile-only mirror entry — the lookbar's workshop button is hidden
+  // on phones to save vertical space, so a topbar pill takes its place.
+  // Both buttons funnel into the same openWorkshop() handler.
+  const wsPillMobile = document.getElementById('workshop-pill-mobile');
+  if (wsPillMobile) wsPillMobile.addEventListener('click', () => openWorkshop());
   if (wsClose) wsClose.addEventListener('click', closeWorkshop);
   wsOverlay.addEventListener('click', (e) => {
     if (e.target === wsOverlay) closeWorkshop();
@@ -3136,6 +3273,73 @@ checkChangelogBadge();
   document.querySelectorAll('.workshop-tab').forEach((t) => {
     t.addEventListener('click', () => setWorkshopTab(t.dataset.tab));
   });
+
+  // ── Bottom-sheet swipe-dismiss (mobile only).
+  // Drag from the top 36px of any sheet — workshop, picker, changelog —
+  // to dismiss it. Threshold: dragged > 28% of sheet height OR release
+  // velocity > 0.55 px/ms. Only active when the layout is in bottom-sheet
+  // mode (matches the CSS breakpoint), so iPad-class tablets (which keep
+  // the desktop drawer/picker) ignore the gesture.
+  const SHEET_MQ_QUERY = '(max-width: 700px), (max-height: 500px) and (orientation: landscape)';
+  const sheetMQ = window.matchMedia(SHEET_MQ_QUERY);
+  function inSheetMode() { return sheetMQ.matches; }
+  function wireSheetSwipeDismiss(sheetEl, closeFn) {
+    if (!sheetEl) return;
+    const HANDLE_AREA_PX = 36;
+    const DISMISS_PCT = 0.28;
+    const VELOCITY_THRESHOLD = 0.55;
+    let startY = 0, startTime = 0, dy = 0, dragging = false;
+    let savedTransition = '';
+    sheetEl.addEventListener('touchstart', (e) => {
+      if (!inSheetMode()) return;
+      if (e.touches.length !== 1) { dragging = false; return; }
+      // Only initiate drag if the touch starts within the top "handle"
+      // strip — content scrolling below should still work normally.
+      const r = sheetEl.getBoundingClientRect();
+      const localY = e.touches[0].clientY - r.top;
+      if (localY < 0 || localY > HANDLE_AREA_PX) return;
+      startY = e.touches[0].clientY;
+      startTime = Date.now();
+      dy = 0;
+      dragging = true;
+      savedTransition = sheetEl.style.transition;
+      sheetEl.style.transition = 'none';
+    }, { passive: true });
+    sheetEl.addEventListener('touchmove', (e) => {
+      if (!dragging) return;
+      const dyRaw = e.touches[0].clientY - startY;
+      // Resist upward drag — sqrt-style rubber-band so the sheet feels
+      // anchored rather than locked.
+      dy = dyRaw < 0 ? -Math.sqrt(-dyRaw * 6) : dyRaw;
+      sheetEl.style.transform = `translateY(${dy.toFixed(1)}px)`;
+    }, { passive: true });
+    function settle() {
+      if (!dragging) return;
+      dragging = false;
+      sheetEl.style.transition = savedTransition;
+      const dt = Math.max(1, Date.now() - startTime);
+      const r = sheetEl.getBoundingClientRect();
+      const velocity = dy / dt;
+      const dismiss = dy > r.height * DISMISS_PCT || velocity > VELOCITY_THRESHOLD;
+      sheetEl.style.transform = '';
+      if (dismiss) closeFn();
+      dy = 0;
+    }
+    sheetEl.addEventListener('touchend', settle, { passive: true });
+    sheetEl.addEventListener('touchcancel', settle, { passive: true });
+  }
+  // Wire each sheet up. Picker has multiple instances (frame / template /
+  // aspect / quality) — each gets its own listener.
+  wireSheetSwipeDismiss(document.getElementById('workshop'), closeWorkshop);
+  document.querySelectorAll('.picker').forEach((p) => {
+    wireSheetSwipeDismiss(p, () => closePicker());
+  });
+  const changelogModal = document.getElementById('changelog-modal');
+  if (changelogModal) {
+    wireSheetSwipeDismiss(changelogModal, () => {
+      if (typeof changelogModal.close === 'function') changelogModal.close();
+    });
+  }
 
   // ── Import button shortcut.
   const importBtn = document.getElementById('import-btn');

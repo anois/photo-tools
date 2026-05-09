@@ -4,6 +4,26 @@
 
 每次有意义的功能 / 修复 / 优化都记到这里 —— 同一份文件既给开发者看，也通过顶栏 ✦ 按钮在应用内展示给用户。
 
+## 0.17.0 · 2026-05-09
+
+### 📱 移动端 + 触屏完整适配
+
+继 0.16 lookbar / canvas-first 重构后，把所有"暗示了但没真正打磨"的移动端细节系统性补齐。手机、平板、触屏笔电都各自得到了对的姿态。
+
+- **手机断点 768→700px** —— 把 iPad-class 平板（最小的 iPad mini 是 744）还给桌面布局，不再被错误归为"手机"塞进底部 sheet 模式。手机仍走底部 sheet（≤700px portrait OR landscape ≤500px tall — 后者覆盖 iPhone 14 横屏的 844×390）
+- **平板触控友好尺寸** —— 新增 `@media (min-width: 701px) and (pointer: coarse)` 块，iPad / 触屏 Windows 平板**保留桌面布局**但叠加 16px 字号防 iOS 缩放、44px 触摸目标、22px slider thumb，picker tile 在平板宽度下展开为 4 列方便横向比较
+- **iOS 粘床 hover 修复** —— iOS Safari 在 tap 后会让 `:hover` 状态保留几百 ms，让"按下抬起"的按钮看起来卡在了 mid-press。新增 `@media (hover: none)` 块，在触屏设备上中和所有 hover transform/border-style 跳变，`:active` 仍保留作 tap 反馈
+- **触摸目标合规** —— lookchip 从 38px 拉高到 44px（11px 上下 padding）；radio/checkbox 从 12px 放大到 18px + 整行 44px 命中区；rail-context-item 在 mobile 已经 14px+14px 不变
+- **底部 sheet swipe-dismiss** —— workshop / picker / changelog 三个 sheet 从顶部 36px 抓握区下拉关闭；超过 28% 高度或速度 >0.55 px/ms 触发；上拉有 sqrt 阻尼。每个 sheet 顶部加了 36×4px 拖动条视觉提示
+- **canvas pinch-zoom 预览** —— 双指捏合在画布上 1×–4× 缩放，centroid 漂移同时驱动平移；单指在 zoom 状态下变成 pan；双击吻合 300ms 内重置回 1x；切换照片自动归位。zoom 状态下水平 swipe 翻页被禁用以避免冲突
+- **横屏手机宽度限制移除** —— 之前 `(max-width: 768px)` 让 iPhone 14 横屏（844 宽）拿不到 lookbar 84px 矮版，现在去掉宽度门槛，iPad 因为横屏高度仍 ≥768 自动不匹配
+- **480px 小屏专属断点** —— iPhone SE / Pixel 7a 等 ≤480px 设备进一步收紧 lookbar padding、缩小 swatch 与字号，frame-tile 在小屏退到 2 列保证每张缩略图肉眼可分辨
+- **🐛 mobile lookbar 重叠 fix（v0.16.1 引入）** —— v0.16.1 把工作台入口提升到 lookbar，但没为 mobile 重排：4 个控件 row（import / chips / workshop / export）总高 ~165px，但 lookbar 只有 116px，flex 把 chip-group 压到 2px，所有 chip 实际不可点。修复：mobile 下隐藏 lookbar-workshop，把工作台入口挪到 topbar 一个新的 ⚙️ pill（紧挨语言 / changelog）；iPad portrait 仍走桌面布局（左轨 168px），workshop 留在原位
+- **mobile lookbar 收紧到 2 行 grid 布局** —— `import + chips` 同行（import 缩成 44×44 accent 红方贴在 chip-group 左边，accent 红方块 + 上传箭头 glyph 不带文字标签，符合 mobile 摄影 app 通用范式），`Export + ZIP` 一行。lookbar 高度从首版 v0.17 的 152px 进一步降到 calc(104px + safe-area-inset)，画布拿回 ~40px 高度
+- **Export / ZIP 按钮比例从 5:1 调整到 2:1** —— 之前 ZIP 缩成右侧小贴片，视觉比重头重脚轻。新比例下 Export 仍是主按钮但 ZIP 拿回足够的存在感，作为"次要但明确可点"的 batch 入口
+
+无 cfg / preset / share-code schema 变化；smoke 持平 baseline。
+
 ## 0.16.1 · 2026-05-09
 
 ### 🛠 工作台入口提升 + picker tile i18n 修复
