@@ -399,9 +399,26 @@ Decoding:
 
 Storage: 2MB upload cap (pre-encoding); SVG dataURLs are usually <50KB, PNG can reach the cap. Larger files surface `status.signatureTooBig` and are rejected. The clear button (`#signature-clear-btn`) wipes the signature from every loaded photo + draftCfg + localStorage in one shot — there is no per-photo remove.
 
-### Presets (save / share)
+### LOOK system — preset library as first-class entry (0.20+)
 
-The preset panel at the top of B · Frame snapshots the "look" half of cfg (everything except per-photo `exifOverride` and global `format`/`quality`) into a named slot. Implementation lives entirely in `public/app.js` — no separate module. Two storage paths:
+**Looks** are first-class meta-primitives, not a workshop sub-tab. The lookbar's LOOK chip (the dashed-border block above the four fine-tune chips) is the single one-tap entry to the entire preset library; clicking it opens the **Looks picker** (`#picker-look`) which contains the factory grid + user-saved list + save / share / paste-share-code actions in one cohesive panel. The workshop drawer no longer has a Library tab — workshop is for "deep adjust", LOOK is for "swap the whole vibe".
+
+**The chip's modified state** drives "you've forked this look" awareness. After `applyPresetByName(preset, label, opts)` runs, the cfg snapshot at that moment lives in `lookState.baseline` (LOOK_KEYS + showFields only — orthogonal asset choices like customLogo / customBg / collage are deliberately excluded from divergence detection so swapping a signature doesn't lie about the look having changed). `requestRender()` then calls `syncLookValueDisplay()` on every cfg-mutating event; `cfgDivergesFromBaseline(cfg, lookState.baseline)` is a shallow `LOOK_KEYS.every(k => cfg[k] == baseline[k])` (loose `==` so legacy share-codes' missing-additive-field landings don't read as drift). When divergence is detected, the chip surfaces a 1.6s breathing accent dot — the user can keep tweaking, save as a new preset, or apply another Look to reset.
+
+**Why LOOK is its own row, not a 5th lookchip**: the four fine-tune chips (Frame / Template / Aspect / Quality) are individual primitives in a stacked group with shared border + flush separators. LOOK is a meta-decision that *composes* those primitives, so giving it visual weight (Fraunces italic + ✦ glyph + dashed-then-solid border + accent backdrop) communicates the hierarchy: "this is the lead choice, the four below are how you twist it". Putting it as a 5th chip in the same group would flatten that hierarchy.
+
+**Picker delegation gotcha** (added 2026-05-09 from a wiring miss). The picker open/close click handler in `app.js` historically targeted `.lookchip[data-picker]` only. When LOOK shipped as `.lookbar-look[data-picker="look"]` (a different class on purpose — different visual rules), clicks on the LOOK chip were no-ops until the selector was extended to `.lookchip[data-picker], .lookbar-look[data-picker]`. **Rule for adding a new picker-triggering element**: grep `'\.lookchip'` across `app.js`, find every selector that filters chips, and explicitly add the new class. Three places need it today: the click-binder, the close-state cleanup (clearing `data-open`), and the resize-time anchor lookup. If any of those is missed the chip silently misbehaves (no open / stale open state / mis-positioned popover). The same trap shape is documented for cfg fields in the cfg-field checklist below — both cases are "old surfaces hardcoded a class/list and didn't notice when a sibling joined".
+
+**Mobile** (≤700px): the lookbar grid grows from 2 rows to 3 (`44px 44px 44px`) — LOOK strip across the top-full-width row, then [import + chips], then [export + ZIP]. The +44px height (lookbar grew from 104px to 148px, viewport content area lost 44px) is the agreed cost for the entry-depth reduction.
+
+**Save / share / paste flow** (single panel, no dialogs):
+- ✚ Save — prompt for name, snapshot cfg via `presetFromCfg(activeCfg(), { includeCustomLogo: true })`, write to `localStorage['phototools.presets']`, then `setLookActive` adopts the just-saved preset as the current applied look (so the modified-pulse clears immediately).
+- ↗ Share — `presetFromCfg` with `includeCustomLogo: false`, base64url-encode, copy `#p=<code>` URL to clipboard. Also available per-row in the user list.
+- ⎘ Paste — `navigator.clipboard.readText()` (with `prompt()` fallback for browsers that gate readText), accept either a full URL with `#p=...` or a bare base64url code, decode, apply.
+
+### Presets (data model — schema + storage)
+
+The preset data model is the persistence layer behind the LOOK system. It captures the "look" half of cfg (everything except per-photo `exifOverride` and global `format`/`quality`) into a named slot. Implementation lives entirely in `public/app.js` — no separate module. Two storage paths:
 
 | Storage | Where | Includes `customLogo`? | Use |
 |---|---|---|---|
@@ -434,7 +451,7 @@ Schema:
 
 **Versioning**: `v: 1` field. Old code refuses unknown versions and surfaces `presetHashBad`. Additive field changes (see above) stay on v:1.
 
-**Factory presets** (`FACTORY_PRESETS` const in `public/app.js`). Curated seed looks shipped with the app — read-only, never written to localStorage, surfaced as the chip strip at the top of the preset panel. Each entry is `{ id, nameKey, iconEmoji, preset }`, where `preset` is the same v:1 schema as user presets so `applyPresetToCfg` is the single apply path. Both the chip click handler and `els.presetSelect.change` go through `applyPresetByName(preset, label)` (shared helper that owns customLogo sync + status toast).
+**Factory presets** (`FACTORY_PRESETS` const in `public/app.js`). Curated seed looks shipped with the app — read-only, never written to localStorage, surfaced as the 4-column tile grid at the top of the Looks picker (`#look-factory-grid`). Each entry is `{ id, nameKey, iconEmoji, preset }`, where `preset` is the same v:1 schema as user presets so `applyPresetToCfg` is the single apply path. Both factory-tile clicks and user-row clicks go through `applyPresetByName(preset, label, opts)` (shared helper that owns customLogo sync + lookState baseline capture + modified-state reset + status toast).
 
 Adding / editing a factory preset:
 1. Edit the `FACTORY_PRESETS` array in `public/app.js`. Pick a `frame` + `template` combo that the design language actually supports (run dev and check); set every LOOK_KEYS field explicitly so future schema additions don't silently default.

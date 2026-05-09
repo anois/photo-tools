@@ -766,101 +766,413 @@ input[type="range"]::-moz-range-thumb {
 .frame-advanced > .row:first-of-type { margin-top: 10px; }
 .frame-advanced #reset-bg-btn { margin-top: 8px; }
 
-/* Preset panel — reuses the .exif / .frame-advanced collapsible look */
-.preset-panel { margin: 0 0 14px; }
-.preset-panel summary {
-  list-style: none;
-  cursor: pointer;
-  padding: 8px 12px;
-  border: 1px solid var(--line);
-  border-radius: var(--r-md);
-  background: var(--bg-sunken);
-  font: 500 11px/1 var(--f-mono);
-  text-transform: uppercase;
-  letter-spacing: 0.14em;
-  color: var(--text-muted);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-.preset-panel summary::marker, .preset-panel summary::-webkit-details-marker { display: none; }
-.preset-panel summary::after {
-  content: '+';
-  font-family: var(--f-mono);
-  color: var(--text-dim);
-}
-.preset-panel[open] summary::after { content: '−'; }
-.preset-panel summary:hover { color: var(--text); border-color: var(--line-strong); }
-.preset-panel .summary-hint { color: var(--text-dim); font-weight: 400; text-transform: none; letter-spacing: 0.04em; }
-.preset-panel > .row:first-of-type { margin-top: 10px; }
-.preset-actions { display: flex; gap: 8px; flex-wrap: wrap; }
-.preset-actions .btn-ghost { flex: 1 1 auto; min-width: 0; }
+/* ──────────────────────────────────────────────────────────────────────────
+   LOOK system — meta-primitive + library picker.
 
-/* ── Factory presets (curated seed looks) ─────────────────────────────── */
-.factory-preset-hint {
-  margin: 0 0 10px;
-  font-size: 11px;
-  line-height: 1.55;
-  color: var(--text-dim);
-  letter-spacing: 0.01em;
+   Look is the "answer to: what overall vibe am I going for?". It sits ABOVE
+   the four fine-tune lookchips (frame / template / aspect / quality) in the
+   lookbar, both spatially and conceptually: pick a Look first, then twist.
+   Visually it's larger than a lookchip, dashed-border (signaling "a slot you
+   fill"), and carries a Fraunces italic name + ✦ accent mark. When the user
+   diverges from the applied preset, a 4px accent dot pulses in the corner.
+   ────────────────────────────────────────────────────────────────────────── */
+
+.lookbar-look {
+  appearance: none;
+  -webkit-appearance: none;
+  display: grid;
+  grid-template-columns: 22px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 13px 13px 12px;
+  background: linear-gradient(135deg, rgba(229,73,58,0.06) 0%, rgba(229,73,58,0.02) 60%, transparent 100%);
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--r-md);
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+  position: relative;
+  transition: border-color 220ms ease, background 220ms ease, transform 160ms ease;
+  flex-shrink: 0;
+  /* Sits its own row in the lookbar — no chip-group enclosure, the dashed
+     border is the visual container. Reads as a separate decision unit. */
+  margin-top: 2px;
 }
-.factory-preset-strip {
+.lookbar-look:hover {
+  border-style: solid;
+  border-color: var(--accent-line);
+  background: linear-gradient(135deg, rgba(229,73,58,0.10) 0%, rgba(229,73,58,0.03) 60%, transparent 100%);
+}
+.lookbar-look:active { transform: translateY(0.5px); }
+.lookbar-look[data-open="true"] {
+  border-style: solid;
+  border-color: var(--accent);
+  background: linear-gradient(135deg, rgba(229,73,58,0.14) 0%, rgba(229,73,58,0.04) 60%, transparent 100%);
+  box-shadow: 0 0 0 1px var(--accent-line) inset, 0 4px 18px -8px var(--accent-glow);
+}
+
+.lookbar-look-mark {
+  font-family: var(--f-display);
+  font-size: 16px;
+  line-height: 1;
+  color: var(--accent);
+  text-shadow: 0 0 8px var(--accent-glow);
+  text-align: center;
+  user-select: none;
+}
+.lookbar-look-text {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
 }
-.factory-chip {
+.lookbar-look-key {
+  font: 500 9.5px/1 var(--f-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--text-dim);
+}
+.lookbar-look-value {
+  font: italic 500 14.5px/1.15 var(--f-display);
+  color: var(--text);
+  letter-spacing: 0.005em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lookbar-look[data-empty="true"] .lookbar-look-value {
+  color: var(--text-dim);
+  font-style: italic;
+  font-weight: 400;
+}
+.lookbar-look-caret {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 12px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  color: var(--text-dim);
+  transition: transform 180ms ease, color 160ms ease;
+}
+.lookbar-look[data-open="true"] .lookbar-look-caret {
+  transform: rotate(-90deg);
+  color: var(--accent);
+}
+
+/* Modified-state pulse — appears when cfg has drifted from the last-applied
+   preset's snapshot. A 4px accent dot pinned to the chip's top-right corner,
+   1.6s ease-in-out breath. The actual "modified" word lives in the value
+   line as a faded suffix injected by JS. */
+.lookbar-look-status {
+  position: absolute;
+  top: 9px;
+  right: 9px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 6px var(--accent-glow);
+  animation: look-modified-pulse 1.6s ease-in-out infinite;
+}
+@keyframes look-modified-pulse {
+  0%, 100% { opacity: 0.55; transform: scale(1); }
+  50%      { opacity: 1;    transform: scale(1.18); }
+}
+
+/* ── LOOK picker ─────────────────────────────────────────────────────────
+   Wider than the narrow pickers (factory tile grid + user list both need
+   room). Body has its own scroll; the footer pin stays at the bottom so
+   "save / paste" never scrolls out of reach. */
+.picker-look {
+  width: min(440px, calc(100vw - var(--lookbar-w) - var(--rail-w) - 40px));
+  max-height: min(640px, calc(100vh - var(--topbar-h) - var(--statusbar-h) - 32px));
+  /* The footer needs to span edge-to-edge (with its own top border) and not
+     be wrapped by the base .picker's 18px padding. So we zero that and put
+     the padding back on header / body explicitly. */
+  padding: 0;
+}
+.picker-look .picker-header {
+  padding: 18px 18px 12px;
+  flex: 0 0 auto;
+}
+.picker-look .picker-body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 0 18px 14px;
+}
+
+.picker-section-count {
+  font: italic 400 13px/1 var(--f-display);
+  color: var(--text-dim);
+  margin-left: 6px;
+  font-feature-settings: 'tnum';
+}
+
+/* ── Factory grid (curated seeds) ──────────────────────────────────────── */
+.look-factory-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  padding: 6px 0 4px;
+}
+.look-tile {
+  appearance: none;
+  -webkit-appearance: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  padding: 14px 8px 12px;
   background: rgba(255,255,255,0.02);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
   color: var(--text);
-  font-size: 12px;
-  letter-spacing: 0.02em;
   cursor: pointer;
-  transition: background 120ms ease, border-color 120ms ease, transform 120ms ease;
-  min-height: 36px;
+  transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
+  min-height: 96px;
+  position: relative;
+  text-align: center;
 }
 @media (hover: hover) and (pointer: fine) {
-  .factory-chip:hover {
-    background: rgba(255,255,255,0.05);
+  .look-tile:hover {
     border-color: var(--line-strong);
+    background: rgba(255,255,255,0.05);
     transform: translateY(-1px);
   }
 }
-.factory-chip:active {
-  background: rgba(255,255,255,0.08);
-  transform: translateY(0);
+.look-tile:active { transform: translateY(0.5px); }
+.look-tile.active {
+  border-color: var(--accent);
+  background: linear-gradient(180deg, rgba(229,73,58,0.10) 0%, rgba(229,73,58,0.02) 100%);
+  box-shadow: 0 0 0 1px var(--accent-line) inset;
 }
-.factory-chip-emoji {
-  font-size: 14px;
+.look-tile.active::before {
+  /* Tiny corner mark on the active tile — a small triangle in the top-right
+     that visually echoes the lookchip[data-open]::after vertical accent rule
+     so "currently applied" reads as a deliberate signature element across
+     the whole UI rather than just a border-color change. */
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 10px 10px 0 0;
+  border-color: var(--accent) transparent transparent transparent;
+}
+.look-tile-emoji {
+  font-size: 28px;
   line-height: 1;
   filter: saturate(1.05);
+  margin-top: 2px;
 }
-.factory-chip-label {
-  font-weight: 500;
+.look-tile-label {
+  font: italic 500 12.5px/1.25 var(--f-display);
+  color: var(--text);
+  letter-spacing: 0.005em;
+  /* Allow wrap for two-line names, capped at 2 lines so tiles stay uniform. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
+}
+.look-tile.active .look-tile-label { color: var(--accent); }
+
+/* ── User preset list ────────────────────────────────────────────────── */
+.look-user-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 4px 0 2px;
+}
+.look-user-list:empty { display: none; }
+.look-user-empty {
+  margin: 8px 0 4px;
+  padding: 14px 12px;
+  border: 1px dashed var(--line);
+  border-radius: var(--r-md);
+  font: italic 400 12px/1.5 var(--f-display);
+  color: var(--text-dim);
+  text-align: center;
+  letter-spacing: 0.005em;
+}
+.look-user-empty[hidden] { display: none; }
+
+.look-user-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 11px 10px 12px;
+  background: rgba(255,255,255,0.02);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  cursor: pointer;
+  transition: border-color 160ms ease, background 160ms ease;
+  text-align: left;
+  color: var(--text);
+  appearance: none;
+  -webkit-appearance: none;
+  width: 100%;
+  position: relative;
+}
+@media (hover: hover) and (pointer: fine) {
+  .look-user-row:hover {
+    border-color: var(--line-strong);
+    background: rgba(255,255,255,0.04);
+  }
+}
+.look-user-row.active {
+  border-color: var(--accent);
+  background: linear-gradient(90deg, rgba(229,73,58,0.10), rgba(229,73,58,0.02) 80%);
+}
+.look-user-row.active::before {
+  content: '';
+  position: absolute;
+  left: -1px;
+  top: 8px;
+  bottom: 8px;
+  width: 2px;
+  background: var(--accent);
+  border-radius: 1px;
+}
+.look-user-row-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.look-user-row-name {
+  font: italic 500 13.5px/1.2 var(--f-display);
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: 0.005em;
+}
+.look-user-row-meta {
+  font: 400 10.5px/1.2 var(--f-mono);
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.look-user-row-action {
+  appearance: none;
+  -webkit-appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-dim);
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  transition: all 140ms ease;
+  flex: 0 0 auto;
+  font-size: 14px;
+  line-height: 1;
+}
+@media (hover: hover) and (pointer: fine) {
+  .look-user-row:hover .look-user-row-action {
+    border-color: var(--line);
+    background: rgba(255,255,255,0.04);
+  }
+  .look-user-row-action:hover {
+    color: var(--text);
+    border-color: var(--line-strong);
+    background: rgba(255,255,255,0.08);
+  }
+  .look-user-row-action.is-danger:hover {
+    color: var(--accent);
+    border-color: var(--accent-line);
+    background: rgba(229,73,58,0.10);
+  }
 }
 
-/* Mobile / small viewports — let the strip scroll horizontally with snap
-   so the chips don't wrap into a tall stack that pushes preset-panel down.
-   Same horizontal-scroll convention we use for lookbar chips. */
+/* ── Picker footer (looks-specific actions) ───────────────────────────── */
+.picker-footer {
+  flex: 0 0 auto;
+  padding: 12px 16px 14px;
+  border-top: 1px solid var(--line);
+  background: linear-gradient(180deg, rgba(0,0,0,0.20), rgba(0,0,0,0.32));
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.look-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 14px;
+  font: 500 12px/1 var(--f-ui);
+  letter-spacing: 0.02em;
+  border-radius: var(--r-md);
+  min-height: 38px;
+}
+.look-action span[aria-hidden] {
+  font-size: 14px;
+  line-height: 1;
+  opacity: 0.85;
+}
+.look-action-primary {
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-line);
+  color: var(--text);
+}
+@media (hover: hover) and (pointer: fine) {
+  .look-action-primary:hover {
+    background: rgba(229, 73, 58, 0.20);
+    color: var(--text);
+  }
+}
+.look-action-primary:active { transform: translateY(0.5px); }
+.look-footer-secondary {
+  display: flex;
+  gap: 8px;
+}
+.look-footer-secondary .look-action { flex: 1 1 0; min-width: 0; }
+.look-action[disabled] {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* ── Mobile adaptations ──────────────────────────────────────────────── */
 @media (max-width: 700px), (max-height: 500px) and (orientation: landscape) {
-  .factory-preset-strip {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    scroll-snap-type: x mandatory;
-    -webkit-overflow-scrolling: touch;
-    padding-bottom: 4px;
+  .lookbar-look {
+    /* Lives at the top of the mobile lookbar's first row. The mobile
+       layout makes it horizontal alongside import + chips — see the
+       mobile-specific rules in the lookbar mobile block below. */
+    grid-template-columns: 18px 1fr auto;
+    padding: 10px 11px;
   }
-  .factory-preset-strip::-webkit-scrollbar { display: none; }
-  .factory-chip {
-    flex: 0 0 auto;
-    scroll-snap-align: start;
-    min-height: 44px;
+  .lookbar-look-value { font-size: 13.5px; }
+  .picker-look {
+    width: 100%;
+    max-height: 80vh;
   }
+  .look-factory-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+  }
+  .look-tile {
+    padding: 12px 6px 10px;
+    min-height: 92px;
+  }
+  .look-tile-emoji { font-size: 26px; }
+  .look-tile-label { font-size: 12px; }
+  /* Footer always visible at the bottom of the bottom-sheet; primary CTA
+     sized for thumb (44px). */
+  .look-action { min-height: 44px; }
 }
 
 /* ── DIY caption-overlay toggle ───────────────────────────────────────── */
@@ -3664,7 +3976,14 @@ body {
        104px (8 padding + 44 row + 8 gap + 44 row + 0) plus safe-area-inset
        for home-indicator devices. ~40px shorter than the v0.17 first-cut
        3-row design — the canvas gets that height back. */
-    --lookbar-h: calc(104px + max(8px, env(safe-area-inset-bottom)));
+    /* 3-row lookbar (was 2 in 0.17): [LOOK strip] above [import + chips]
+       above [export + ZIP]. LOOK strip is the first-class entry to the
+       presets library — 44px tall same as the other rows. Total content
+       148px (8 padding + 44 + 8 gap + 44 + 8 gap + 44 + 0) plus safe-area-
+       inset for home-indicator devices. The +44px cost over 0.17 is the
+       price for putting Looks one tap from the photo (vs three taps via
+       the workshop · lib tab), which is the whole point of this change. */
+    --lookbar-h: calc(148px + max(8px, env(safe-area-inset-bottom)));
   }
   body {
     /* On phones, the lookbar reverts to a bottom sheet so the workspace
@@ -3714,7 +4033,8 @@ body {
     height: var(--lookbar-h);
     display: grid;
     grid-template-columns: 44px 1fr;
-    grid-template-rows: 44px 44px;
+    /* Row 1: LOOK strip (full width) · Row 2: import + chips · Row 3: export */
+    grid-template-rows: 44px 44px 44px;
     gap: 8px;
     padding: 8px 14px;
     padding-bottom: max(8px, env(safe-area-inset-bottom));
@@ -3724,6 +4044,19 @@ body {
     background: linear-gradient(to bottom, rgba(20,22,25,0.95), rgba(15,17,20,0.99));
     z-index: 8;
   }
+  /* LOOK strip on mobile: full-width row 1, sits visually like a "header"
+     above the 4-chip row. Reads as a separate decision unit — same role
+     as the desktop dashed-border block but compressed horizontally. */
+  .lookbar-look {
+    grid-row: 1; grid-column: 1 / -1;
+    margin-top: 0;
+    align-self: stretch;
+    height: 44px;
+    padding: 0 14px;
+    grid-template-columns: 18px 1fr auto;
+  }
+  .lookbar-look-text { flex-direction: row; align-items: baseline; gap: 8px; }
+  .lookbar-look-key { font-size: 9px; }
   .lookbar::before {
     /* Drag-handle pill at top of sheet — desktop accent rail rule
        gets re-purposed visually. */
@@ -3742,7 +4075,7 @@ body {
      in an accent-red square reads as "add photo" without text on every
      mobile photo app pattern. */
   .lookbar-import {
-    grid-row: 1; grid-column: 1;
+    grid-row: 2; grid-column: 1;
     align-self: stretch;
     width: 44px; height: 44px;
     padding: 0;
@@ -3758,7 +4091,7 @@ body {
      tile / lib) is global discovery, lives next to changelog/lang. */
   .lookbar-workshop { display: none; }
   .chip-group {
-    grid-row: 1; grid-column: 2;
+    grid-row: 2; grid-column: 2;
     flex-direction: row;
     width: 100%;
     flex-shrink: 0;
@@ -3782,7 +4115,7 @@ body {
 
   .lookbar-spacer { display: none; }
   .export-group {
-    grid-row: 2; grid-column: 1 / -1;
+    grid-row: 3; grid-column: 1 / -1;
     flex-direction: row;
     gap: 6px;
     flex-shrink: 0;
