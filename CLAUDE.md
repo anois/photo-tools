@@ -260,10 +260,13 @@ The GPS line is opt-in via the `gps` show-field chip — defaults to off so user
 
 | placement | when | rotation | visual |
 |-----------|------|----------|--------|
+| `top`     | only when `captionPrefer:'top'` is set on the frame AND `topGap ≥ ~70·scale` | 0°   | caption sits in the top padding above the photo |
 | `bottom`  | `bottomGap ≥ ~70·scale`        | 0°   | traditional below-photo caption |
 | `right`   | `rightGap  ≥ ~80·scale`        | −90° | vertical caption reading bottom→top on the right edge |
 | `left`    | `leftGap   ≥ ~80·scale`        | +90° | vertical caption on the left edge |
 | `overlay` | otherwise (tight padding)      | 0°   | semi-transparent gradient strip overlaid on bottom of photo; text forced to white |
+
+`top` is **opt-in only** — it never auto-routes. Frames like `film-35` / `polaroid` / `instax` reserve their top padding for sprockets / edge prints / brand stamps via the `decorate` hook, and the auto-router would happily squat captions on top of those decorations. To use `top`, a frame explicitly sets `captionPrefer: 'top'`.
 
 Templates draw into a local coordinate system where `layout.W × layout.H` is the zone; the outer wrapper handles translate/rotate. When adding a new template, don't hardcode canvas dimensions; use `layout.W` for centering and `layout.textBaselineY` for vertical position.
 
@@ -316,6 +319,7 @@ Frames are organized into 4 visual families. The seg buttons in `#frame-seg` car
 | **Instant** | `polaroid` | solid `#fafafa` | dark  | `extraBottom: 180, fgYBoost: -80, radiusOverride: 8` | 0 / 0 / 0 (flat) | — |
 | | `instax`   | solid `#fffdf6` | dark  | `extraBottom: 240, fgYBoost: -120, radiusOverride: 4` | 30 / 12 / 0.18 | — |
 | **Film** | `film-35`   | solid `#0c0c0c` | light | `topPaddingBoost: 70, bottomPaddingBoost: 90` | 0 / 0 / 0 | 7 sprocket-hole pairs top+bottom + cream "F · 4000 · DX" leader stamp (brand-letter + ISO from EXIF) |
+| | `kodak-pro` | solid `#fafaf7` | dark  | `topPaddingBoost: 90, bottomPaddingBoost: 30` | 50 / 16 / 0.18 | "**Kodak** Professional" red+black wordmark in top padding, left-aligned with photo edge |
 | | `editorial` | solid `#f4f0e6` | dark  | `extraRightInset: 350, captionPrefer: 'right'` | 70 / 22 / 0.22 | — |
 
 Each frame carries a `shadowDefault` (drop shadow under the rounded foreground photo). User-tunable via the **D · Shadow** UI (3 sliders) and overrideable in cfg. `opacity = 0` short-circuits the entire shadow render path.
@@ -328,7 +332,7 @@ Each frame carries a `shadowDefault` (drop shadow under the rounded foreground p
 - `topPaddingBoost` / `bottomPaddingBoost` (base-1440 units): symmetric vertical extension. `film-35` uses both to make room for sprocket rows; instant frames historically used only the bottom variant via `extraBottom` (which boosts the *caption zone*, not the padding).
 - `extraRightInset` (base-1440 units): carves a strip out of the right side of the canvas for asymmetric editorial layouts. When > 0, the foreground anchors to left padding instead of centering, so the right strip becomes a clean vertical zone.
 - `fgXOffset` (base-1440 units): horizontal shift of the centered photo, ignored when `extraRightInset` is in effect.
-- `captionPrefer`: `'right' | 'left'` — overrides the default bottom-priority caption routing. Editorial uses this so caption auto-routes into the wide right strip even though the bottom strip would also fit. Falls back to default priority order when the preferred zone's gap is too small.
+- `captionPrefer`: `'right' | 'left' | 'top'` — overrides the default bottom-priority caption routing. Editorial uses `'right'` so caption auto-routes into the wide right strip even though the bottom strip would also fit. `'top'` is opt-in (never the auto fallback) — needed when a frame has top padding free and wants caption above the photo. Falls back to default priority order when the preferred zone's gap is too small.
 
 ### Render parameter resolution (`resolveRenderParams`)
 
@@ -347,6 +351,8 @@ Templates are organized into 4 grammars. Spec / Brand / Editorial / Stamp — pi
 |---|---|---|
 | **Spec** | `minimal-text` | Centered single line: brand [· model]  focal aperture shutter ISO  (extras on second line) |
 | | `tech-stack`   | Vertical stack: brand / model / params / lens·date — camera-OSD style |
+| | `spec-grid`    | Horizontal magazine-grid (Hasselblad X2D reference): brand wordmark/logo + divider + model on top row, 4 outlined `boxedSpec` capsules (S / ISO / mm / F) below — for `bottom` placement |
+| | `spec-rail`    | Vertical magazine-rail (Leica M10 reference): 4 `boxedSpec` capsules stacked along the long axis + brand cluster at the end — designed for `right`/`left` rotated zones |
 | **Brand** | `brand-logo`   | Two-column with divider: brand-logo + model on left, params on right |
 | | `brand-right`  | Mirror of brand-logo: params on left, brand-logo on right (kept until Phase 3 mirror flag refactor) |
 | **Editorial** | `wordmark`   | Oversized brand mark / text + tiny date subline — luxury-minimalist |
@@ -355,7 +361,9 @@ Templates are organized into 4 grammars. Spec / Brand / Editorial / Stamp — pi
 | | `slate`      | Monospace OSD field grid (DATE / CAM / LENS / EXP) with hairline rules between rows |
 | | `passport`   | Tiny bordered postmark stamp with date + GPS — best in caption zones with breathing room |
 
-All bottom-strip templates support a **flash indicator** (small ⚡ glyph) when `showFields.flash === true` AND `exif.flashFired === true`. Helpers: `flashGlyphSvg(x, baselineY, textSize, fill)` + `flashGlyphWidth(textSize)` in `public/shared/render.js`. Each template handles its own positioning math. The four newer templates (`wordmark` / `headline` / `slate` / `passport`) don't yet wire the flash glyph — flash is a "Spec / Brand" concern; editorial and stamp grammars deliberately stay clean.
+All bottom-strip templates support a **flash indicator** (small ⚡ glyph) when `showFields.flash === true` AND `exif.flashFired === true`. Helpers: `flashGlyphSvg(x, baselineY, textSize, fill)` + `flashGlyphWidth(textSize)` in `public/shared/render.js`. Each template handles its own positioning math. The newer templates (`wordmark` / `headline` / `slate` / `passport` / `spec-grid` / `spec-rail`) don't yet wire the flash glyph — flash is a "Spec / Brand" concern; editorial and stamp grammars deliberately stay clean, and the magazine-grid spec templates already telegraph "specs" via the capsule grammar without an extra glyph.
+
+**`R.boxedSpec(x, cy, value, label, opts)`** is the public SVG primitive behind the spec-grid / spec-rail capsules: rounded-rect outlined value text + tiny uppercase label hanging below. Returns `{ svg, width, height, boxH }`. Available to any future template / decorate hook so the magazine-style capsule rhythm doesn't get re-implemented per template.
 
 **Add a template**:
 1. Write a function inside `public/shared/render.js` and register it in the `TEMPLATES` map.

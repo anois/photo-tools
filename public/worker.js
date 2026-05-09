@@ -22,7 +22,8 @@ self.importScripts(
   'frames/film-mf.js',
   'frames/editorial.js',
   'frames/editorial-mirror.js',
-  'frames/torn.js'
+  'frames/torn.js',
+  'frames/kodak-pro.js'
 );
 
 const R = self.PhotoRender;

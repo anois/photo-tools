@@ -197,7 +197,7 @@
   <div class="picker" id="picker-frame" role="dialog" data-i18n-aria-label="picker.frame" hidden>
     <div class="picker-header">
       <h3 class="picker-title" data-i18n="picker.frame">Frame</h3>
-      <span class="picker-subtitle"><em>11</em><span data-i18n="picker.frameSub"> styles · 4 families</span></span>
+      <span class="picker-subtitle"><em>12</em><span data-i18n="picker.frameSub"> styles · 4 families</span></span>
     </div>
 
     <div class="picker-body">
@@ -234,6 +234,7 @@
       <button data-val="torn" data-family="instant" role="radio" aria-checked="false" data-i18n="frame.styles.torn">Torn</button>
       <button data-val="film-35" data-family="film" role="radio" aria-checked="false" data-i18n="frame.styles.film-35">Film 35</button>
       <button data-val="film-mf" data-family="film" role="radio" aria-checked="false" data-i18n="frame.styles.film-mf">Film MF</button>
+      <button data-val="kodak-pro" data-family="film" role="radio" aria-checked="false" data-i18n="frame.styles.kodak-pro">Kodak Professional</button>
     </div>
     <div class="seg" id="frame-family-seg" hidden>
       <button data-family="editorial" class="active"></button>
@@ -247,7 +248,7 @@
   <div class="picker" id="picker-template" role="dialog" data-i18n-aria-label="picker.template" hidden>
     <div class="picker-header">
       <h3 class="picker-title" data-i18n="picker.template">Caption template</h3>
-      <span class="picker-subtitle"><em>9</em><span data-i18n="picker.templateSub"> layouts · 4 grammars</span></span>
+      <span class="picker-subtitle"><em>11</em><span data-i18n="picker.templateSub"> layouts · 4 grammars</span></span>
     </div>
     <div class="picker-body">
       <div class="tmpl-family-group" data-family="spec">
@@ -294,6 +295,8 @@
     <div class="seg" id="template-seg" role="radiogroup" hidden>
       <button data-val="minimal-text" data-family="spec" class="active" role="radio" aria-checked="true" data-i18n="caption.templates.minimal-text">Minimal</button>
       <button data-val="tech-stack" data-family="spec" role="radio" aria-checked="false" data-i18n="caption.templates.tech-stack">Tech stack</button>
+      <button data-val="spec-grid" data-family="spec" role="radio" aria-checked="false" data-i18n="caption.templates.spec-grid">Spec grid</button>
+      <button data-val="spec-rail" data-family="spec" role="radio" aria-checked="false" data-i18n="caption.templates.spec-rail">Spec rail</button>
       <button data-val="brand-logo" data-family="brand" role="radio" aria-checked="false" data-i18n="caption.templates.brand-logo">Brand logo</button>
       <button data-val="brand-right" data-family="brand" role="radio" aria-checked="false" data-i18n="caption.templates.brand-right">Brand right</button>
       <button data-val="wordmark" data-family="editorial" role="radio" aria-checked="false" data-i18n="caption.templates.wordmark">Wordmark</button>
@@ -856,6 +859,7 @@
 <script src="frames/editorial.js"></script>
 <script src="frames/editorial-mirror.js"></script>
 <script src="frames/torn.js"></script>
+<script src="frames/kodak-pro.js"></script>
 <script src="exifio.js"></script>
 <script src="heic.js"></script>
 <script src="geopicker.js"></script>

@@ -20,7 +20,7 @@
  * the activate handler purges any cache whose name doesn't match.
  */
 
-const CACHE_VERSION = 'v33';
+const CACHE_VERSION = 'v34';
 const CACHE_NAME = 'phototools-shell-' + CACHE_VERSION;
 
 // Files that make up the offline-capable SPA shell. Paths are relative to
@@ -50,6 +50,7 @@ const PRECACHE = [
   './frames/editorial.js',
   './frames/editorial-mirror.js',
   './frames/torn.js',
+  './frames/kodak-pro.js',
   './vendor/exifr.umd.js',
   './vendor/piexif.js',
   './vendor/jszip.min.js',

@@ -156,7 +156,8 @@
           'film-35': '35mm',
           'film-mf': '中画幅',
           editorial: '杂志',
-          'editorial-mirror': '杂志·镜像'
+          'editorial-mirror': '杂志·镜像',
+          'kodak-pro': 'Kodak Professional'
         },
         families: {
           editorial: '编辑',
@@ -172,6 +173,8 @@
           'brand-logo': '品牌·logo',
           'brand-right': '品牌·右',
           'tech-stack': '技术栈',
+          'spec-grid': '参数胶囊·横排',
+          'spec-rail': '参数胶囊·侧栏',
           'date-lens': '日期·镜头',
           wordmark: '字标',
           headline: '标题',
@@ -521,7 +524,8 @@
           'film-35': '35 mm',
           'film-mf': 'Medium',
           editorial: 'Spread',
-          'editorial-mirror': 'Mirror'
+          'editorial-mirror': 'Mirror',
+          'kodak-pro': 'Kodak Pro'
         },
         families: {
           editorial: 'Editorial',
@@ -537,6 +541,8 @@
           'brand-logo': 'Brand · logo',
           'brand-right': 'Brand · right',
           'tech-stack': 'Tech stack',
+          'spec-grid': 'Spec grid',
+          'spec-rail': 'Spec rail',
           'date-lens': 'Date · lens',
           wordmark: 'Wordmark',
           headline: 'Headline',
