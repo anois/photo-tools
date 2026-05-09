@@ -29,6 +29,13 @@ function defaultCfg() {
     // true = force overlay placement regardless of available padding,
     // for "watermark stamped inside the photo" looks (e.g. authentic film).
     captionForceOverlay: false,
+    // Torn-paper knobs (only meaningful when frame === 'torn'). null = use
+    // frame.torn defaults (jitter 6 / step 7 / edgeOpacity 0.22). The
+    // "Advanced · torn paper" panel in B · Frame exposes them as 3 sliders,
+    // mirroring the frosted bg's blur/brightness/saturation triplet.
+    tornJitter: null,
+    tornStep: null,
+    tornEdgeOpacity: null,
     showFields: { brand: true, model: true, focal: true, aperture: true, shutter: true, iso: true, lens: false, date: false, author: true, flash: false, gps: false },
     // Rotation applied at render time, in degrees clockwise. 0 / 90 / 180 / 270.
     // Per-photo correction — not propagated by "Apply frame to all" or by
@@ -135,6 +142,15 @@ const els = {
   bgSaturation: document.getElementById('bg-saturation'),
   bgSaturationVal: document.getElementById('bg-saturation-val'),
   resetBgBtn: document.getElementById('reset-bg-btn'),
+  // Torn-paper advanced — same details-panel pattern, gated on frame === 'torn'
+  tornAdvanced: document.getElementById('torn-advanced'),
+  tornJitter: document.getElementById('torn-jitter'),
+  tornJitterVal: document.getElementById('torn-jitter-val'),
+  tornStep: document.getElementById('torn-step'),
+  tornStepVal: document.getElementById('torn-step-val'),
+  tornEdgeOpacity: document.getElementById('torn-edge-opacity'),
+  tornEdgeOpacityVal: document.getElementById('torn-edge-opacity-val'),
+  resetTornBtn: document.getElementById('reset-torn-btn'),
   applyFrameAllBtn: document.getElementById('apply-frame-all-btn'),
   // ── LOOK system (presets library — promoted to lookbar first-class) ──
   lookbarLook: document.querySelector('.lookbar-look'),
@@ -450,6 +466,9 @@ async function doRender() {
         shadowOpacity: c.shadowOpacity,
         radiusOverride: c.radiusOverride,
         captionForceOverlay: c.captionForceOverlay,
+        tornJitter: c.tornJitter,
+        tornStep: c.tornStep,
+        tornEdgeOpacity: c.tornEdgeOpacity,
         showFields: c.showFields,
         customLogo: c.customLogo,
         customBg: c.customBg,
@@ -527,6 +546,22 @@ function syncControlsFromCfg(cfg) {
   }
   els.frostedAdvanced.hidden = frame.bg.type !== 'frosted';
   if (els.frostedAdvanced.open && frame.bg.type !== 'frosted') els.frostedAdvanced.open = false;
+  // Torn-paper advanced — only relevant for the `torn` frame. Slider
+  // positions reflect cfg overrides when set, otherwise the frame default;
+  // readout shows "preset" until the user explicitly drags.
+  if (cfg.frame === 'torn' && els.tornAdvanced) {
+    const td = (frame.torn) || { jitter: 6, step: 7, edgeOpacity: 0.22 };
+    els.tornJitter.value = cfg.tornJitter != null ? cfg.tornJitter : td.jitter;
+    els.tornStep.value = cfg.tornStep != null ? cfg.tornStep : td.step;
+    els.tornEdgeOpacity.value = cfg.tornEdgeOpacity != null ? cfg.tornEdgeOpacity : td.edgeOpacity;
+    els.tornJitterVal.textContent = cfg.tornJitter != null ? Number(cfg.tornJitter).toFixed(1) + 'px' : T('frame.defaultReadout');
+    els.tornStepVal.textContent = cfg.tornStep != null ? Number(cfg.tornStep).toFixed(1) + 'px' : T('frame.defaultReadout');
+    els.tornEdgeOpacityVal.textContent = cfg.tornEdgeOpacity != null ? Number(cfg.tornEdgeOpacity).toFixed(2) : T('frame.defaultReadout');
+  }
+  if (els.tornAdvanced) {
+    els.tornAdvanced.hidden = cfg.frame !== 'torn';
+    if (els.tornAdvanced.open && cfg.frame !== 'torn') els.tornAdvanced.open = false;
+  }
   els.shadowBlur.value = cfg.shadowBlur;
   els.shadowOffset.value = cfg.shadowOffsetY;
   els.shadowOpacity.value = cfg.shadowOpacity;
@@ -1188,6 +1223,24 @@ function onFrameChange(frameName) {
   }
   els.frostedAdvanced.hidden = frame.bg.type !== 'frosted';
   if (els.frostedAdvanced.open && frame.bg.type !== 'frosted') els.frostedAdvanced.open = false;
+  // Reset torn knobs to the frame default whenever the frame switches —
+  // matches the bg/shadow/radius reset semantic. When switching INTO torn
+  // for the first time, the slider positions snap to the frame's defaults
+  // (no user override yet); when switching AWAY from torn the panel hides.
+  cfg.tornJitter = null;
+  cfg.tornStep = null;
+  cfg.tornEdgeOpacity = null;
+  if (els.tornAdvanced) {
+    const td = frame.torn || { jitter: 6, step: 7, edgeOpacity: 0.22 };
+    els.tornJitter.value = td.jitter;
+    els.tornStep.value = td.step;
+    els.tornEdgeOpacity.value = td.edgeOpacity;
+    els.tornJitterVal.textContent = T('frame.defaultReadout');
+    els.tornStepVal.textContent = T('frame.defaultReadout');
+    els.tornEdgeOpacityVal.textContent = T('frame.defaultReadout');
+    els.tornAdvanced.hidden = frameName !== 'torn';
+    if (els.tornAdvanced.open && frameName !== 'torn') els.tornAdvanced.open = false;
+  }
 
   const sd = frame.shadowDefault;
   cfg.shadowBlur = sd.blur;
@@ -1231,6 +1284,47 @@ els.bgSaturation.addEventListener('input', () => {
 });
 els.resetBgBtn.addEventListener('click', () => {
   // Replays frame-switch logic on the active cfg without changing frame.
+  onFrameChange(activeCfg().frame);
+  requestRender();
+});
+
+// Torn-paper sliders — drag captures cfg override; double-click readout
+// reverts that one slider back to the frame default ("preset"). Reset
+// button blanks all three.
+if (els.tornJitter) els.tornJitter.addEventListener('input', () => {
+  const v = Number(els.tornJitter.value);
+  activeCfg().tornJitter = v;
+  els.tornJitterVal.textContent = v.toFixed(1) + 'px';
+  requestRender();
+});
+if (els.tornStep) els.tornStep.addEventListener('input', () => {
+  const v = Number(els.tornStep.value);
+  activeCfg().tornStep = v;
+  els.tornStepVal.textContent = v.toFixed(1) + 'px';
+  requestRender();
+});
+if (els.tornEdgeOpacity) els.tornEdgeOpacity.addEventListener('input', () => {
+  const v = Number(els.tornEdgeOpacity.value);
+  activeCfg().tornEdgeOpacity = v;
+  els.tornEdgeOpacityVal.textContent = v.toFixed(2);
+  requestRender();
+});
+function makeTornReadoutResetter(valueEl, sliderEl, fieldKey, frameDefaultGetter) {
+  if (!valueEl) return;
+  valueEl.addEventListener('dblclick', () => {
+    activeCfg()[fieldKey] = null;
+    valueEl.textContent = T('frame.defaultReadout');
+    const frame = R.FRAMES[activeCfg().frame];
+    sliderEl.value = frameDefaultGetter(frame);
+    requestRender();
+  });
+}
+makeTornReadoutResetter(els.tornJitterVal, els.tornJitter, 'tornJitter', (f) => (f.torn || {}).jitter || 6);
+makeTornReadoutResetter(els.tornStepVal, els.tornStep, 'tornStep', (f) => (f.torn || {}).step || 7);
+makeTornReadoutResetter(els.tornEdgeOpacityVal, els.tornEdgeOpacity, 'tornEdgeOpacity', (f) => (f.torn || {}).edgeOpacity != null ? (f.torn || {}).edgeOpacity : 0.22);
+if (els.resetTornBtn) els.resetTornBtn.addEventListener('click', () => {
+  // Replays frame-switch logic on the active cfg without actually changing
+  // frame — onFrameChange already handles the torn reset path.
   onFrameChange(activeCfg().frame);
   requestRender();
 });
@@ -2160,7 +2254,8 @@ function applyFrameToAll(src) {
     'aspect', 'frame', 'template', 'padding', 'captionHeight',
     'bgBlur', 'bgBrightness', 'bgSaturation',
     'shadowBlur', 'shadowOffsetY', 'shadowOpacity',
-    'radiusOverride', 'captionForceOverlay'
+    'radiusOverride', 'captionForceOverlay',
+    'tornJitter', 'tornStep', 'tornEdgeOpacity'
   ];
   for (const f of state.files) {
     if (f === src) continue;
@@ -2554,6 +2649,9 @@ function buildConfigForFile(f) {
   if (c.bgSaturation != null)  cfg.bgSaturation = c.bgSaturation;
   if (c.radiusOverride != null) cfg.radiusOverride = c.radiusOverride;
   if (c.captionForceOverlay)   cfg.captionForceOverlay = true;
+  if (c.tornJitter != null)    cfg.tornJitter = c.tornJitter;
+  if (c.tornStep != null)      cfg.tornStep = c.tornStep;
+  if (c.tornEdgeOpacity != null) cfg.tornEdgeOpacity = c.tornEdgeOpacity;
   if (c.customLogo)            cfg.customLogo = { ...c.customLogo };
   if (c.customBg)              cfg.customBg = { ...c.customBg };
   if (c.collage)               cfg.collage = { ...c.collage };
@@ -2735,7 +2833,10 @@ const LOOK_KEYS = [
   'shadowBlur', 'shadowOffsetY', 'shadowOpacity',
   // Additive in v:1 — old presets / share-codes that don't carry these
   // simply default to null / false on apply, so backwards compat holds.
-  'radiusOverride', 'captionForceOverlay'
+  'radiusOverride', 'captionForceOverlay',
+  // Torn-paper knobs (0.21+) — null on non-torn frames, only kicked in
+  // when the active frame is torn. Same additive-default invariant.
+  'tornJitter', 'tornStep', 'tornEdgeOpacity'
 ];
 
 // Factory ("seed") presets — curated combos shipped with the app to

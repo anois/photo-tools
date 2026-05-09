@@ -326,6 +326,7 @@ Frames are organized into 4 visual families. The seg buttons in `#frame-seg` car
 | | `gallery-noir` (alias `black`) | solid `#171717` | light | — | 90 / 28 / 0.55 | inner phosphor highlight ring (~0.7px) |
 | **Instant** | `polaroid` | solid `#fafafa` | dark  | `extraBottom: 180, fgYBoost: -80, radiusOverride: 8` | 0 / 0 / 0 (flat) | — |
 | | `instax`   | solid `#fffdf6` | dark  | `extraBottom: 240, fgYBoost: -120, radiusOverride: 4` | 30 / 12 / 0.18 | — |
+| | `torn`     | solid `#f4ecd6` | dark  | — | 50 / 16 / 0.20 | procedural jagged silhouette via `clipPath: tornClip` + dark hairline along the tear via `decorate`. **Tunable via cfg**: `tornJitter` (depth 0–14), `tornStep` (sample density 3–14), `tornEdgeOpacity` (0–0.5). Frame defaults `torn: { jitter: 6, step: 7, edgeOpacity: 0.22 }` |
 | **Film** | `film-35`   | solid `#0c0c0c` | light | `topPaddingBoost: 70, bottomPaddingBoost: 90` | 0 / 0 / 0 | 7 sprocket-hole pairs top+bottom + cream "F · 4000 · DX" leader stamp (brand-letter + ISO from EXIF) |
 | | `kodak-pro` | solid `#fafaf7` | dark  | `topPaddingBoost: 90, bottomPaddingBoost: 30` | 50 / 16 / 0.18 | "**Kodak** Professional" red+black wordmark in top padding, left-aligned with photo edge |
 | | `editorial` | solid `#f4f0e6` | dark  | `extraRightInset: 350, captionPrefer: 'right'` | 70 / 22 / 0.22 | — |
@@ -532,6 +533,8 @@ Limitations:
 Each `state.files[i]` carries its own complete `cfg` (frame / aspect / template / padding / captionHeight / bg* / shadow* / radiusOverride / captionForceOverlay / showFields / customLogo / collage / exifOverride). Only `format` and `quality` stay global because they apply to a batch uniformly. The collage `partnerFiles` array lives on the rail entry itself (not in cfg) because `File` is not JSON-serializable.
 
 **`radiusOverride` / `captionForceOverlay`** were added 2026-05-09 (0.19.0) as the first cfg-level unlocks of frame-internal knobs. `radiusOverride: null` means "fall through to frame.layout.radiusOverride or aspect base"; any number 0–72 wins. `captionForceOverlay: true` short-circuits `computeCaptionZone` straight to overlay regardless of `prefer` / available padding. Both are reset to default on frame switch (consistent with bg* / shadow*) and propagated by "Apply frame to all" + presets.
+
+**`tornJitter` / `tornStep` / `tornEdgeOpacity`** (0.21+) — torn-paper frame's procedural-tear knobs, exposed under "Advanced · torn paper" in B · Frame, mirroring frosted-advanced's blur/brightness/saturation triplet. `null` = use frame default (jitter 6 / step 7 / edgeOpacity 0.22). Plumbed via `R.resolveRenderParams` into `params.torn`, which `tornClip` + `decorate` consume from `args.params.torn`. Same reset / preset / share-code semantics as the radius/overlay pair.
 
 **Adding a new cfg field — full checklist (DO NOT SKIP).** A cfg field that's read in render code (clientRender / worker / shared/render.js) is *not* automatically reachable from the UI just because it exists on the cfg object. There are TWO whitelist projections that strip unknown fields, and forgetting either silently makes the feature look "completely broken" while the schema looks correct:
 
