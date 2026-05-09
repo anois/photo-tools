@@ -4,6 +4,25 @@
 
 每次有意义的功能 / 修复 / 优化都记到这里 —— 同一份文件既给开发者看，也通过顶栏 ✦ 按钮在应用内展示给用户。
 
+## 0.20.0 · 2026-05-09
+
+### ✨ 风格库提升为一级入口
+
+把预设从「工作台 → 预设库 tab」三步操作的二级抽屉，提升为左轨 LOOK 区块的**一击可达**的一级入口。视觉上 LOOK 比 4 个调节型 chip 更大、走 Fraunces italic 名字 + ✦ accent mark + dashed-then-solid 边框，明确传达"这是元原语，先选 Look 再用下面 4 项微调"的层级。
+
+- **LOOK 区块进左轨** —— Import 之下、Frame/Template/Aspect/Quality 之上，新增一行高 ~64px 的 LOOK 元原语 chip。Fraunces italic 字号 14.5px 显示当前应用的预设名（factory 带 emoji 前缀，如 🎞 35mm 胶片真），未应用任何预设时显示 `(尚未选择)` 灰斜体
+- **风格库 picker** —— 单击 LOOK 弹出右滑 popover：上半 4 列网格的 ✦ 精选预设（7 款 emoji + Fraunces 名字 tile）、下半 list 形态的「我的预设」（Fraunces italic 名字 + mono caps frame·template 副标题 + hover 出现 ↗/× 操作）、底部固定 ✚ 保存当前为新预设 / ↗ 复制分享链接 / ⎘ 粘贴分享码 三个操作
+- **修改痕迹追踪** —— 当应用某个预设之后，调任何一个 cfg 字段（圆角、padding、frame、模板等）都会让 LOOK chip 右上角出现 4px accent 红呼吸点，提示"已偏离这个 look，可以保存为新预设"。再次应用任何预设或保存为新预设后呼吸点消失
+- **粘贴分享码新增直接入口** —— 之前只能通过 `#p=…` URL 在浏览器地址栏访问，现在 picker 底部一个按钮，从剪贴板（或粘贴对话框）读取分享链接 / 分享码直接应用
+- **删除 workshop · 预设库 tab** —— workshop 抽屉从 5 个 tab 减到 4 个（微调 / EXIF / 签名 / 拼贴），workshop 语义聚焦在"deep adjust"，预设流转独立进 LOOK picker
+- **桌面 / 平板 / 手机三端适配**：
+  - 桌面 1440：左轨 +56px 总高，仍占 viewport 90% 以内安全
+  - iPad portrait：跟随桌面布局，picker 4 列网格在 768 宽展开
+  - 手机 ≤700px：mobile lookbar 从 2 行扩到 3 行（LOOK strip + import+chips + export+ZIP），总高 +44px → 148px。代价是画布让 44px，这是把"3 步入口 → 1 步入口"的合理换价
+- **设计语言细节**：dashed→solid 边框模仿真实卷宗夹"待填入"的视觉、accent glow 跟随 picker 打开状态、tile active 状态加 10×10px 红角标 + 实色边框、用户预设 row hover 出现操作 chip 而非常驻不喧宾
+
+向后兼容：所有 preset / share-code schema 字段不变，老分享码贴入正常工作。`localStorage['phototools.presets']` 数据结构不变。
+
 ## 0.19.0 · 2026-05-09
 
 ### ✦ 精选预设 + DIY 渲染开关解锁

@@ -83,6 +83,18 @@ const state = {
   pendingRender: false
 };
 
+// LOOK system state — declared early so syncControlsFromCfg() (which boots
+// at module load, before the LOOK section runs) can safely reach for it.
+// Mutated by setLookActive() / applyPresetByName() further down. See the
+// "LOOK system" comment block for what each field means.
+const lookState = {
+  baseline: null,
+  label: null,
+  iconEmoji: null,
+  isFactory: false,
+  id: null
+};
+
 function activeCfg() {
   const f = state.files[state.activeIdx];
   return f ? f.cfg : state.draftCfg;
@@ -124,12 +136,18 @@ const els = {
   bgSaturationVal: document.getElementById('bg-saturation-val'),
   resetBgBtn: document.getElementById('reset-bg-btn'),
   applyFrameAllBtn: document.getElementById('apply-frame-all-btn'),
-  factoryPresetStrip: document.getElementById('factory-preset-strip'),
-  presetPanel: document.getElementById('preset-panel'),
-  presetSelect: document.getElementById('preset-select'),
-  presetSaveBtn: document.getElementById('preset-save-btn'),
-  presetDeleteBtn: document.getElementById('preset-delete-btn'),
-  presetShareBtn: document.getElementById('preset-share-btn'),
+  // ── LOOK system (presets library — promoted to lookbar first-class) ──
+  lookbarLook: document.querySelector('.lookbar-look'),
+  lookbarLookValue: document.getElementById('lookbar-look-value'),
+  lookbarLookStatus: document.getElementById('lookbar-look-status'),
+  lookFactoryGrid: document.getElementById('look-factory-grid'),
+  lookFactoryCount: document.getElementById('look-factory-count'),
+  lookUserList: document.getElementById('look-user-list'),
+  lookUserCount: document.getElementById('look-user-count'),
+  lookUserEmpty: document.getElementById('look-user-empty'),
+  lookSaveBtn: document.getElementById('look-save-btn'),
+  lookShareBtn: document.getElementById('look-share-btn'),
+  lookPasteBtn: document.getElementById('look-paste-btn'),
   shadowBlur: document.getElementById('shadow-blur'),
   shadowBlurVal: document.getElementById('shadow-blur-val'),
   shadowOffset: document.getElementById('shadow-offset'),
@@ -272,9 +290,12 @@ function refreshLocaleSensitive() {
   renderRail();
   const active = state.files[state.activeIdx];
   updateExifWarn(active ? active.normalized : null);
-  // Preset select's "(Choose a preset)" placeholder needs re-localizing too,
-  // since it was rendered as plain <option> text rather than via data-i18n.
-  if (els.presetSelect) populatePresetSelect(els.presetSelect.value);
+  // Re-render the LOOK picker on locale flip so the user-preset list's
+  // relative-time labels ("3 days ago") + section headers / counts stay in
+  // sync with the active locale. Factory tile labels carry data-i18n already
+  // so applyDom() handles those in place.
+  if (typeof renderLookUserList === 'function') renderLookUserList();
+  if (typeof syncLookValueDisplay === 'function') syncLookValueDisplay();
   // Template-compat hint copy comes from the i18n dictionary, so flip
   // languages while the hint is visible needs a repaint.
   refreshTemplateCompatHint();
@@ -455,6 +476,13 @@ async function doRender() {
 }
 
 function requestRender() {
+  // LOOK chip's "modified" pulse is driven by diffing cfg against the last-
+  // applied preset's baseline. Every render request implies a cfg mutation
+  // (slider, frame switch, preset apply, photo switch); refresh the chip
+  // here so the pulse keeps step with each user action — even when no photo
+  // is loaded yet (then the early-return below skips the actual render but
+  // we still want the chip's draft-cfg state to update).
+  if (typeof syncLookValueDisplay === 'function') syncLookValueDisplay();
   if (state.activeIdx < 0 || !state.logos) return;
   if (renderRAF) return;
   renderRAF = requestAnimationFrame(() => { renderRAF = 0; doRender(); });
@@ -2847,40 +2875,114 @@ function nowDefaultPresetName() {
   return T('frame.presetDefaultName', { ts });
 }
 
-function populatePresetSelect(selectedName) {
-  const map = loadPresets();
-  const names = Object.keys(map);
-  els.presetSelect.innerHTML = '';
-  const placeholder = document.createElement('option');
-  placeholder.value = '';
-  placeholder.textContent = T('frame.presetChoose');
-  els.presetSelect.appendChild(placeholder);
-  for (const name of names) {
-    const opt = document.createElement('option');
-    opt.value = name;
-    opt.textContent = name;
-    els.presetSelect.appendChild(opt);
-  }
-  els.presetSelect.value = (selectedName && map[selectedName]) ? selectedName : '';
+// ─── LOOK system ──────────────────────────────────────────────────────────
+// Promoted to the lookbar's first-class meta-primitive (0.20). Replaces the
+// workshop · Library tab. The library now lives behind a single tap on the
+// LOOK chip; the chip itself shows the currently-applied preset's name and
+// pulses an accent dot when the user has dialed away from that baseline.
+
+// ── Applied-preset state (lookState declared at top of module so
+// syncControlsFromCfg can safely touch it during boot) ──────────────────
+//
+// The "baseline" stored on lookState is a snapshot of look-relevant cfg
+// fields captured at the moment a preset was applied. cfgDivergesFromBaseline
+// then asks "does the active cfg still match what was applied?". When it
+// doesn't, the LOOK chip surfaces a status pulse — the user has forked the
+// look in their head; we just reflect that.
+
+function captureLookBaseline(preset) {
+  // showFields is included because divergence in field toggles also reads as
+  // "I tweaked this look". customLogo / customBg / collage / exifOverride are
+  // intentionally excluded — they're orthogonal asset choices, not aesthetic.
+  const snap = { v: PRESET_SCHEMA_VERSION };
+  for (const k of LOOK_KEYS) snap[k] = preset[k];
+  snap.showFields = preset.showFields ? { ...preset.showFields } : null;
+  return snap;
 }
 
-// Shared apply path used by both user-preset select and factory-preset
-// chip. `label` is the display name used in the status toast; pass the
-// localized factory name for chip clicks, the user's saved name for
-// select changes.
-function applyPresetByName(preset, label) {
+function cfgDivergesFromBaseline(cfg, baseline) {
+  if (!baseline) return false;
+  for (const k of LOOK_KEYS) {
+    // Use loose comparison (==) so null vs undefined doesn't count as drift —
+    // legacy share-codes that omit additive fields land as undefined, the
+    // baseline carries them as null, and they should agree.
+    if (cfg[k] != baseline[k]) return true;
+  }
+  if (baseline.showFields) {
+    for (const k of Object.keys(baseline.showFields)) {
+      if (!!(cfg.showFields || {})[k] !== !!baseline.showFields[k]) return true;
+    }
+  }
+  return false;
+}
+
+function setLookActive(opts) {
+  // Centralised setter so save / paste / apply / clear paths all funnel
+  // through one place. Pass null to clear.
+  if (!opts) {
+    lookState.baseline = null;
+    lookState.label = null;
+    lookState.iconEmoji = null;
+    lookState.isFactory = false;
+    lookState.id = null;
+  } else {
+    lookState.baseline = opts.baseline;
+    lookState.label = opts.label || null;
+    lookState.iconEmoji = opts.iconEmoji || null;
+    lookState.isFactory = !!opts.isFactory;
+    lookState.id = opts.id || null;
+  }
+  syncLookValueDisplay();
+}
+
+function syncLookValueDisplay() {
+  const lookEl = els.lookbarLook;
+  const valueEl = els.lookbarLookValue;
+  const statusEl = els.lookbarLookStatus;
+  if (!lookEl || !valueEl) return;
+  const cfg = activeCfg();
+  if (lookState.label) {
+    valueEl.textContent = (lookState.iconEmoji ? lookState.iconEmoji + '  ' : '') + lookState.label;
+    lookEl.removeAttribute('data-empty');
+    const modified = cfgDivergesFromBaseline(cfg, lookState.baseline);
+    if (statusEl) statusEl.hidden = !modified;
+    lookEl.dataset.modified = modified ? 'true' : 'false';
+  } else {
+    valueEl.textContent = T('look.empty');
+    lookEl.setAttribute('data-empty', 'true');
+    if (statusEl) statusEl.hidden = true;
+    lookEl.dataset.modified = 'false';
+  }
+  highlightActiveLookInPicker();
+}
+
+function highlightActiveLookInPicker() {
+  if (els.lookFactoryGrid) {
+    els.lookFactoryGrid.querySelectorAll('.look-tile').forEach((t) => {
+      t.classList.toggle('active', !!lookState.label && lookState.isFactory && t.dataset.id === lookState.id);
+    });
+  }
+  if (els.lookUserList) {
+    els.lookUserList.querySelectorAll('.look-user-row').forEach((r) => {
+      r.classList.toggle('active', !!lookState.label && !lookState.isFactory && r.dataset.name === lookState.label);
+    });
+  }
+}
+
+// Shared apply path. Used by factory-tile click, user-row click, hash-preset
+// boot, and paste-share-code action. `opts.isFactory` + `opts.iconEmoji` +
+// `opts.id` drive the LOOK chip's display + active-tile highlight.
+function applyPresetByName(preset, label, opts) {
   if (!preset) return false;
   const target = activeCfg();
   if (!applyPresetToCfg(preset, target)) return false;
   // draftCfg always tracks the latest applied look so future imports inherit.
   if (target !== state.draftCfg) applyPresetToCfg(preset, state.draftCfg);
   syncControlsFromCfg(target);
-  // customLogo lives outside syncControlsFromCfg's bg/shadow/showFields scope —
-  // mergeFiles already deep-clones it on import, but the visible preview img
-  // (`#signature-preview-img`) is owned by the signature handler block, which
-  // re-renders when applyCustomLogoEverywhere is called. Skip the cascade
-  // here so applying a preset only changes the active photo's signature; the
-  // user can hit "Apply frame to all" if they want it propagated.
+  // customLogo lives outside syncControlsFromCfg's bg/shadow/showFields scope.
+  // Sync the visible preview here when present (mirrors prior select-change
+  // logic); this is per-active-photo, not cascaded — user hits "Apply frame
+  // to all" to propagate.
   if (preset.customLogo) {
     els.signaturePreview.hidden = false;
     els.signaturePreviewImg.src = preset.customLogo.data;
@@ -2895,84 +2997,127 @@ function applyPresetByName(preset, label) {
     els.signatureScale.disabled = false;
     els.signatureOpacity.disabled = false;
   }
+  setLookActive({
+    baseline: captureLookBaseline(preset),
+    label: label,
+    iconEmoji: (opts && opts.iconEmoji) || null,
+    isFactory: !!(opts && opts.isFactory),
+    id: (opts && opts.id) || null
+  });
   requestRender();
   setStatus('status.presetApplied', null, { name: label });
   setTimeout(() => setStatus('status.ready'), 1500);
   return true;
 }
 
-els.presetSelect.addEventListener('change', () => {
-  const name = els.presetSelect.value;
-  if (!name) return;
-  const map = loadPresets();
-  applyPresetByName(map[name], name);
-});
-
-// Factory preset chip strip — rendered once on boot, clicks dispatch
-// to applyPresetByName with the localized name.
-function renderFactoryPresetStrip() {
-  const root = els.factoryPresetStrip;
+// ── Render: factory grid (curated seeds) ──────────────────────────────
+function renderLookFactoryGrid() {
+  const root = els.lookFactoryGrid;
   if (!root) return;
   root.innerHTML = '';
   for (const f of FACTORY_PRESETS) {
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = 'factory-chip';
+    btn.className = 'look-tile';
     btn.dataset.id = f.id;
     btn.setAttribute('role', 'listitem');
     const emoji = document.createElement('span');
-    emoji.className = 'factory-chip-emoji';
+    emoji.className = 'look-tile-emoji';
     emoji.textContent = f.iconEmoji;
     emoji.setAttribute('aria-hidden', 'true');
     const label = document.createElement('span');
-    label.className = 'factory-chip-label';
+    label.className = 'look-tile-label';
     label.dataset.i18n = f.nameKey;
     label.textContent = T(f.nameKey);
     btn.appendChild(emoji);
     btn.appendChild(label);
-    btn.addEventListener('click', () => applyPresetByName(f.preset, T(f.nameKey)));
+    btn.addEventListener('click', () => {
+      applyPresetByName(f.preset, T(f.nameKey), { isFactory: true, iconEmoji: f.iconEmoji, id: f.id });
+    });
     root.appendChild(btn);
   }
+  if (els.lookFactoryCount) els.lookFactoryCount.textContent = FACTORY_PRESETS.length;
 }
-renderFactoryPresetStrip();
 
-els.presetSaveBtn.addEventListener('click', () => {
-  const def = nowDefaultPresetName();
-  const raw = window.prompt(T('frame.presetSavePrompt'), def);
-  if (raw == null) return;   // cancel
-  const name = raw.trim().slice(0, 60);
-  if (!name) {
-    setStatus('status.presetEmptyName', 'err');
-    setTimeout(() => setStatus('status.ready'), 1500);
-    return;
-  }
+// ── Render: user-saved presets list ──────────────────────────────────
+function renderLookUserList() {
+  const root = els.lookUserList;
+  const empty = els.lookUserEmpty;
+  if (!root) return;
+  root.innerHTML = '';
   const map = loadPresets();
-  map[name] = presetFromCfg(activeCfg(), { includeCustomLogo: true });
-  savePresets(map);
-  populatePresetSelect(name);
-  setStatus('status.presetSaved', null, { name });
-  setTimeout(() => setStatus('status.ready'), 1500);
-});
+  const names = Object.keys(map);
+  if (els.lookUserCount) els.lookUserCount.textContent = names.length;
+  if (empty) empty.hidden = names.length > 0;
+  for (const name of names) {
+    const preset = map[name];
+    const row = document.createElement('button');
+    row.type = 'button';
+    row.className = 'look-user-row';
+    row.dataset.name = name;
+    row.setAttribute('role', 'listitem');
 
-els.presetDeleteBtn.addEventListener('click', () => {
-  const name = els.presetSelect.value;
-  if (!name) {
-    setStatus('status.presetNonePicked', 'err');
-    setTimeout(() => setStatus('status.ready'), 1500);
-    return;
+    const text = document.createElement('span');
+    text.className = 'look-user-row-text';
+    const nameEl = document.createElement('span');
+    nameEl.className = 'look-user-row-name';
+    nameEl.textContent = name;
+    const metaEl = document.createElement('span');
+    metaEl.className = 'look-user-row-meta';
+    const frameLabel = preset.frame ? T('frame.styles.' + preset.frame) : '—';
+    const tmplLabel = preset.template ? T('caption.templates.' + preset.template) : '—';
+    metaEl.textContent = frameLabel + ' · ' + tmplLabel;
+    text.appendChild(nameEl);
+    text.appendChild(metaEl);
+
+    const shareAction = document.createElement('span');
+    shareAction.className = 'look-user-row-action';
+    shareAction.setAttribute('role', 'button');
+    shareAction.setAttribute('tabindex', '0');
+    shareAction.title = T('look.shareTitle');
+    shareAction.textContent = '↗';
+    shareAction.addEventListener('click', (e) => {
+      e.stopPropagation();
+      shareCfgAsLink(preset);
+    });
+
+    const delAction = document.createElement('span');
+    delAction.className = 'look-user-row-action is-danger';
+    delAction.setAttribute('role', 'button');
+    delAction.setAttribute('tabindex', '0');
+    delAction.title = T('look.delete');
+    delAction.textContent = '×';
+    delAction.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const m = loadPresets();
+      delete m[name];
+      savePresets(m);
+      // If we just deleted the currently-applied preset, clear the chip too.
+      if (lookState.label === name && !lookState.isFactory) setLookActive(null);
+      renderLookUserList();
+      setStatus('status.presetDeleted', null, { name });
+      setTimeout(() => setStatus('status.ready'), 1500);
+    });
+
+    row.appendChild(text);
+    row.appendChild(shareAction);
+    row.appendChild(delAction);
+    row.addEventListener('click', () => applyPresetByName(preset, name, { isFactory: false }));
+    root.appendChild(row);
   }
-  const map = loadPresets();
-  delete map[name];
-  savePresets(map);
-  populatePresetSelect();
-  setStatus('status.presetDeleted', null, { name });
-  setTimeout(() => setStatus('status.ready'), 1500);
-});
+  highlightActiveLookInPicker();
+}
 
-els.presetShareBtn.addEventListener('click', async () => {
-  // Share code intentionally drops customLogo to keep URL short.
-  const preset = presetFromCfg(activeCfg(), { includeCustomLogo: false });
-  const code = b64urlEncode(JSON.stringify(preset));
+renderLookFactoryGrid();
+renderLookUserList();
+
+// ── Footer actions: save / share-current / paste-share-code ──────────
+
+async function shareCfgAsLink(preset) {
+  // preset === null → share current cfg; preset === {…} → share that specific
+  // saved preset (used by the per-row share action).
+  const p = preset || presetFromCfg(activeCfg(), { includeCustomLogo: false });
+  const code = b64urlEncode(JSON.stringify(p));
   const url = location.origin + location.pathname + '#p=' + code;
   try {
     await navigator.clipboard.writeText(url);
@@ -2989,6 +3134,53 @@ els.presetShareBtn.addEventListener('click', async () => {
     document.body.removeChild(ta);
   }
   setTimeout(() => setStatus('status.ready'), 2000);
+}
+
+if (els.lookSaveBtn) els.lookSaveBtn.addEventListener('click', () => {
+  const def = nowDefaultPresetName();
+  const raw = window.prompt(T('frame.presetSavePrompt'), def);
+  if (raw == null) return;
+  const name = raw.trim().slice(0, 60);
+  if (!name) {
+    setStatus('status.presetEmptyName', 'err');
+    setTimeout(() => setStatus('status.ready'), 1500);
+    return;
+  }
+  const map = loadPresets();
+  map[name] = presetFromCfg(activeCfg(), { includeCustomLogo: true });
+  savePresets(map);
+  // Adopt the just-saved preset as the current applied look so the chip
+  // shows the new name and modified-state clears.
+  setLookActive({ baseline: captureLookBaseline(map[name]), label: name, isFactory: false });
+  renderLookUserList();
+  setStatus('status.presetSaved', null, { name });
+  setTimeout(() => setStatus('status.ready'), 1500);
+});
+
+if (els.lookShareBtn) els.lookShareBtn.addEventListener('click', () => shareCfgAsLink(null));
+
+if (els.lookPasteBtn) els.lookPasteBtn.addEventListener('click', async () => {
+  // Try clipboard read first; fall back to a prompt() when the browser
+  // refuses (Safari requires a permission grant for readText).
+  let raw = '';
+  try { raw = await navigator.clipboard.readText(); }
+  catch (_) { raw = window.prompt(T('look.pastePrompt')) || ''; }
+  raw = raw.trim();
+  if (!raw) return;
+  // Accept a full URL with #p=... or a bare base64url code.
+  const m = raw.match(/#p=([A-Za-z0-9_-]+)/);
+  const code = m ? m[1] : raw;
+  let preset;
+  try { preset = JSON.parse(b64urlDecode(code)); }
+  catch (_) {
+    setStatus('status.presetHashBad', 'err');
+    setTimeout(() => setStatus('status.ready'), 2500);
+    return;
+  }
+  if (!applyPresetByName(preset, T('look.pastedLabel'), { isFactory: false })) {
+    setStatus('status.presetHashBad', 'err');
+    setTimeout(() => setStatus('status.ready'), 2500);
+  }
 });
 
 // Decode and apply a #p=<code> hash on boot. Caller invokes this after
@@ -3009,6 +3201,10 @@ function applyHashPresetIfPresent() {
     return;
   }
   syncControlsFromCfg(state.draftCfg);
+  // Adopt the hash-supplied preset as the current look so the chip reflects
+  // it (and modifies-from-baseline detection works correctly when the user
+  // starts dialing things).
+  setLookActive({ baseline: captureLookBaseline(preset), label: T('look.pastedLabel'), isFactory: false });
   // Strip the hash so a refresh doesn't reapply (and so the user doesn't
   // accidentally copy the preset URL into their next share).
   history.replaceState(null, '', location.pathname + location.search);
@@ -3024,7 +3220,6 @@ function applyHashPresetIfPresent() {
 // photo (if any) so the user doesn't see an empty canvas after they import.
 setStatus('status.loadingAssets', 'busy');
 const bundlePromise = loadBundle();
-populatePresetSelect();
 applyHashPresetIfPresent();
 renderRail();
 bundlePromise.then(() => {
@@ -3337,7 +3532,7 @@ checkChangelogBadge();
     overlay.dataset.open = 'true';
     overlay.setAttribute('aria-hidden', 'false');
     activePicker = name;
-    document.querySelectorAll('.lookchip').forEach((c) => c.removeAttribute('data-open'));
+    document.querySelectorAll('.lookchip, .lookbar-look').forEach((c) => c.removeAttribute('data-open'));
     if (anchor) anchor.setAttribute('data-open', 'true');
     setActiveChipGlow(anchor);
     positionPicker(el, anchor);
@@ -3345,7 +3540,7 @@ checkChangelogBadge();
   function closePicker(silent) {
     overlay.dataset.open = 'false';
     overlay.setAttribute('aria-hidden', 'true');
-    document.querySelectorAll('.lookchip').forEach((c) => c.removeAttribute('data-open'));
+    document.querySelectorAll('.lookchip, .lookbar-look').forEach((c) => c.removeAttribute('data-open'));
     activePicker = null;
     setActiveChipGlow(null);
     if (silent) {
@@ -3376,7 +3571,11 @@ checkChangelogBadge();
     if (y > maxTop) y = maxTop;
     el.style.setProperty('--picker-top', y + 'px');
   }
-  document.querySelectorAll('.lookchip[data-picker]').forEach((chip) => {
+  // Picker click delegation — covers both the four `.lookchip[data-picker]`
+  // fine-tune chips AND the `.lookbar-look[data-picker="look"]` meta-primitive.
+  // They live in different DOM containers and have different shapes/sizes,
+  // but go through the same picker-open pipeline.
+  document.querySelectorAll('.lookchip[data-picker], .lookbar-look[data-picker]').forEach((chip) => {
     chip.addEventListener('click', (e) => {
       e.stopPropagation();
       const name = chip.dataset.picker;
@@ -3391,7 +3590,7 @@ checkChangelogBadge();
   window.addEventListener('resize', () => {
     if (!activePicker) return;
     const el = document.getElementById('picker-' + activePicker);
-    const anchor = document.querySelector(`.lookchip[data-picker="${activePicker}"]`);
+    const anchor = document.querySelector(`.lookchip[data-picker="${activePicker}"], .lookbar-look[data-picker="${activePicker}"]`);
     if (el && anchor) positionPicker(el, anchor);
   });
 
@@ -3536,8 +3735,8 @@ checkChangelogBadge();
     { type: 'action', key: 'edit-exif', i18n: 'cmdk.actions.editExif', fn: () => openWorkshop('exif') },
     { type: 'action', key: 'upload-signature', i18n: 'cmdk.actions.uploadSignature', fn: () => openWorkshop('sign') },
     { type: 'action', key: 'collage', i18n: 'cmdk.actions.collage', fn: () => openWorkshop('tile') },
-    { type: 'action', key: 'save-preset', i18n: 'cmdk.actions.savePreset', fn: () => { openWorkshop('lib'); setTimeout(() => document.getElementById('preset-save-btn').click(), 320); } },
-    { type: 'action', key: 'copy-share', i18n: 'cmdk.actions.copyShare', fn: () => { openWorkshop('lib'); setTimeout(() => document.getElementById('preset-share-btn').click(), 320); } },
+    { type: 'action', key: 'save-preset', i18n: 'cmdk.actions.savePreset', fn: () => { const b = document.getElementById('look-save-btn'); if (b) b.click(); } },
+    { type: 'action', key: 'copy-share', i18n: 'cmdk.actions.copyShare', fn: () => { const b = document.getElementById('look-share-btn'); if (b) b.click(); } },
     { type: 'action', key: 'apply-frame-all', i18n: 'cmdk.actions.applyFrameAll', fn: () => document.getElementById('apply-frame-all-btn').click() },
     { type: 'action', key: 'changelog', i18n: 'cmdk.actions.changelog', fn: () => document.getElementById('changelog-btn').click() },
     { type: 'action', key: 'import', i18n: 'cmdk.actions.import', shortcut: ['⌘', 'O'], fn: () => fileInput.click() },

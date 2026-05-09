@@ -29,10 +29,29 @@
       },
       lang: { zh: '中', en: 'EN', label: '语言' },
       lookbar: {
+        look: '风格',
         frame: '相框',
         template: '模板',
         aspect: '画幅',
         quality: '质量'
+      },
+      look: {
+        title: '风格库',
+        subtitle: '点一个起点 · 微调 · 存为自己的 look',
+        picker: '风格库',
+        empty: '尚未选择',
+        modified: '已微调',
+        factoryHead: '✦ 精选',
+        userHead: '我的预设',
+        userEmpty: '还没有保存预设 · 把当前调好的 look 存下来 ↓',
+        save: '保存当前为新预设',
+        share: '复制分享链接',
+        shareTitle: '把当前 look 编码成一条 #p=… 链接，发给朋友',
+        paste: '粘贴分享码',
+        pasteTitle: '从剪贴板贴入分享链接或分享码',
+        pastePrompt: '把分享链接 / 分享码粘进来',
+        pastedLabel: '来自分享码',
+        delete: '删除'
       },
       picker: {
         frame: '选择相框',
@@ -48,7 +67,7 @@
         title: '工作台',
         open: '打开工作台',
         close: '关闭工作台',
-        hint: '裁剪 · EXIF · 签名 · 拼贴 · 预设',
+        hint: '裁剪 · EXIF · 签名 · 拼贴',
         padding: '边距 + 文字带',
         exifOverride: '按图覆盖',
         signature: '签名',
@@ -56,8 +75,7 @@
           tweak: '微调',
           exif: 'EXIF',
           sign: '签名',
-          tile: '拼贴',
-          lib: '预设库'
+          tile: '拼贴'
         }
       },
       cmdk: {
@@ -125,12 +143,6 @@
         customBg: '自定义背景图',
         customBgHint: 'JPEG / PNG · 替换默认的自我磨砂背景源',
         customBgClear: '移除',
-        presets: '预设',
-        presetsHint: '保存 · 应用 · 分享',
-        presetChoose: '（选择预设）',
-        presetSave: '保存当前为…',
-        presetDelete: '删除',
-        presetShare: '复制分享链接',
         presetSavePrompt: '为这个预设起个名字',
         presetDefaultName: '预设 {ts}',
         advancedFrosted: '高级 · 毛玻璃参数',
@@ -170,9 +182,6 @@
         }
       },
       preset: {
-        factoryTitle: '✦ 精选预设',
-        userTitle: '我的预设',
-        factoryHint: '轻点种子预设当起点 → 用控件二次创作 → 在「我的预设」里存为自己的 look',
         factory: {
           film35:     '35mm 胶片真',
           magazine:   '杂志编辑',
@@ -414,10 +423,29 @@
       },
       lang: { zh: '中', en: 'EN', label: 'Language' },
       lookbar: {
+        look: 'Look',
         frame: 'Frame',
         template: 'Template',
         aspect: 'Aspect',
         quality: 'Quality'
+      },
+      look: {
+        title: 'Looks',
+        subtitle: 'apply a starting point · twist · save your own',
+        picker: 'Looks',
+        empty: '(none)',
+        modified: 'modified',
+        factoryHead: '✦ Curated',
+        userHead: 'My presets',
+        userEmpty: 'No saved presets yet · save the current look below ↓',
+        save: 'Save current as new preset',
+        share: 'Copy share link',
+        shareTitle: 'Encode the current look as a #p=… link to send a friend',
+        paste: 'Paste share code',
+        pasteTitle: 'Paste a share link or code from the clipboard',
+        pastePrompt: 'Paste the share link or code',
+        pastedLabel: 'From share code',
+        delete: 'Delete'
       },
       picker: {
         frame: 'Pick a frame',
@@ -433,7 +461,7 @@
         title: 'Workshop',
         open: 'Open workshop',
         close: 'Close workshop',
-        hint: 'crop · exif · sign · tile · lib',
+        hint: 'crop · exif · sign · tile',
         padding: 'Padding & caption',
         exifOverride: 'Override (per photo)',
         signature: 'Signature',
@@ -441,8 +469,7 @@
           tweak: 'Tweak',
           exif: 'EXIF',
           sign: 'Sign',
-          tile: 'Tile',
-          lib: 'Library'
+          tile: 'Tile'
         }
       },
       cmdk: {
@@ -510,12 +537,6 @@
         customBg: 'Custom bg image',
         customBgHint: 'JPEG / PNG · replaces the self-bg blur source',
         customBgClear: 'Remove',
-        presets: 'Presets',
-        presetsHint: 'save · apply · share',
-        presetChoose: '(Choose a preset)',
-        presetSave: 'Save current as…',
-        presetDelete: 'Delete',
-        presetShare: 'Copy share link',
         presetSavePrompt: 'Name this preset',
         presetDefaultName: 'Preset {ts}',
         advancedFrosted: 'Advanced · frosted bg',
@@ -555,9 +576,6 @@
         }
       },
       preset: {
-        factoryTitle: '✦ Curated presets',
-        userTitle: 'My presets',
-        factoryHint: 'Tap a seed look as a starting point — twist any control, then save into "My presets" as your own.',
         factory: {
           film35:     '35mm authentic',
           magazine:   'Magazine editorial',

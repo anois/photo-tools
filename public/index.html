@@ -69,6 +69,19 @@
       <span class="lookbar-import-label" data-i18n="topbar.import">Import</span>
     </button>
 
+    <!-- LOOK section — first-class meta-primitive, sits above the 4 fine-tune
+         lookchips. Reads as the "answer" to "what overall look am I going for?";
+         the chips below are then the fine-tune knobs against that look. -->
+    <button class="lookbar-look" data-picker="look" type="button" aria-haspopup="dialog">
+      <span class="lookbar-look-mark" aria-hidden="true">✦</span>
+      <span class="lookbar-look-text">
+        <span class="lookbar-look-key" data-i18n="lookbar.look">Look</span>
+        <span class="lookbar-look-value" id="lookbar-look-value" data-i18n="look.empty">(none)</span>
+      </span>
+      <span class="lookbar-look-status" id="lookbar-look-status" hidden aria-hidden="true"></span>
+      <span class="lookbar-look-caret" aria-hidden="true"><svg viewBox="0 0 12 12" width="9" height="9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M3 4.5l3 3 3-3"/></svg></span>
+    </button>
+
     <div class="chip-group">
       <button class="lookchip" data-picker="frame" type="button" aria-haspopup="dialog">
         <span class="lookchip-icon" id="lookchip-frame-swatch" data-frame="frosted"></span>
@@ -379,10 +392,50 @@
     </select>
   </div>
 
+  <!-- LOOK picker — Looks library: factory seeds + user presets + actions.
+       Replaces the workshop · Library tab to put presets at one click instead
+       of three (lookbar → workshop → lib tab). The DIY engine direction
+       (CLAUDE.md Project declaration) wants Looks at first-class depth. -->
+  <div class="picker picker-look" id="picker-look" role="dialog" data-i18n-aria-label="look.picker" hidden>
+    <div class="picker-header">
+      <h3 class="picker-title" data-i18n="look.title">Looks</h3>
+      <span class="picker-subtitle" data-i18n="look.subtitle">apply a starting point · twist · save your own</span>
+    </div>
+    <div class="picker-body">
+      <div class="picker-section">
+        <div class="picker-section-head"><span data-i18n="look.factoryHead">✦ Curated</span> <span class="picker-section-count" id="look-factory-count">7</span></div>
+        <div class="look-factory-grid" id="look-factory-grid" role="list"></div>
+      </div>
+
+      <div class="picker-section">
+        <div class="picker-section-head"><span data-i18n="look.userHead">My presets</span> <span class="picker-section-count" id="look-user-count">0</span></div>
+        <div class="look-user-list" id="look-user-list" role="list"></div>
+        <p class="look-user-empty" id="look-user-empty" data-i18n="look.userEmpty">No saved presets yet · save the current look below.</p>
+      </div>
+    </div>
+
+    <div class="picker-footer look-footer">
+      <button id="look-save-btn" type="button" class="btn-ghost look-action look-action-primary">
+        <span aria-hidden="true">✚</span>
+        <span data-i18n="look.save">Save current as new preset</span>
+      </button>
+      <div class="look-footer-secondary">
+        <button id="look-share-btn" type="button" class="btn-ghost look-action" data-i18n-title="look.shareTitle">
+          <span aria-hidden="true">↗</span>
+          <span data-i18n="look.share">Copy share link</span>
+        </button>
+        <button id="look-paste-btn" type="button" class="btn-ghost look-action" data-i18n-title="look.pasteTitle">
+          <span aria-hidden="true">⎘</span>
+          <span data-i18n="look.paste">Paste share code</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
 </div><!-- /.picker-overlay -->
 
 <!-- ============================================================ -->
-<!-- WORKSHOP DRAWER · 5 互斥 tabs for everything off the hot path. -->
+<!-- WORKSHOP DRAWER · 4 互斥 tabs for everything off the hot path. -->
 <!-- ============================================================ -->
 <div class="workshop-overlay" id="workshop-overlay" data-open="false" aria-hidden="true">
   <aside class="workshop" id="workshop" role="dialog" data-i18n-aria-label="workshop.title" aria-modal="true">
@@ -397,7 +450,6 @@
       <button type="button" class="workshop-tab" data-tab="exif" role="tab" aria-selected="false" data-i18n="workshop.tabs.exif">EXIF</button>
       <button type="button" class="workshop-tab" data-tab="sign" role="tab" aria-selected="false" data-i18n="workshop.tabs.sign">Sign</button>
       <button type="button" class="workshop-tab" data-tab="tile" role="tab" aria-selected="false" data-i18n="workshop.tabs.tile">Tile</button>
-      <button type="button" class="workshop-tab" data-tab="lib" role="tab" aria-selected="false" data-i18n="workshop.tabs.lib">Library</button>
     </nav>
 
     <div class="workshop-body">
@@ -625,31 +677,6 @@
       </section>
 
       <!-- TAB · Library (presets) -->
-      <section class="ws-tab" data-tab="lib">
-        <div class="ws-section">
-          <div class="ws-section-head" data-i18n="preset.factoryTitle">✦ Curated presets</div>
-          <p class="factory-preset-hint" data-i18n="preset.factoryHint">Tap a seed look as a starting point — twist any control, save into "My presets" as your own.</p>
-          <div class="factory-preset-strip" id="factory-preset-strip" role="list"></div>
-        </div>
-        <div class="ws-section">
-          <div class="ws-section-head" data-i18n="preset.userTitle">My presets</div>
-          <details class="preset-panel" id="preset-panel" open>
-            <summary><span data-i18n="frame.presets">Presets</span> <span class="summary-hint" data-i18n="frame.presetsHint">save · apply · share</span></summary>
-            <div class="row">
-              <div class="field">
-                <select id="preset-select">
-                  <option value="" data-i18n="frame.presetChoose">(Choose a preset)</option>
-                </select>
-              </div>
-            </div>
-            <div class="preset-actions">
-              <button id="preset-save-btn" type="button" class="btn-ghost" data-i18n="frame.presetSave">Save current as…</button>
-              <button id="preset-delete-btn" type="button" class="btn-ghost" data-i18n="frame.presetDelete">Delete</button>
-              <button id="preset-share-btn" type="button" class="btn-ghost" data-i18n="frame.presetShare">Copy share link</button>
-            </div>
-          </details>
-        </div>
-      </section>
 
     </div><!-- /.workshop-body -->
   </aside>
