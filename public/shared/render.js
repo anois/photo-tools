@@ -253,6 +253,14 @@
     const MIN_SIDE   = Math.round(40 * scale);
     const OVERLAY_H  = Math.round(70 * scale);
 
+    // `forceOverlay` is a cfg-level escape hatch (set by the user via the
+    // "caption inside photo" toggle, or by factory presets like "35mm
+    // authentic") that drops the priority chain entirely and stamps the
+    // caption inside the photo with a gradient backdrop.
+    if (args.forceOverlay) {
+      return { x: fgLeft, y: fgBottom - OVERLAY_H, width: fgW, height: OVERLAY_H, rotation: 0, placement: 'overlay' };
+    }
+
     // `prefer` is a frame-level hint that overrides the default priority
     // (bottom > right > left > overlay) when the preferred zone has
     // enough space. Editorial layouts use this to route caption into a
@@ -379,7 +387,8 @@
 
     const caption = computeCaptionZone({
       W, H, fgLeft, fgTop, fgW, fgH, scale, preferredBottomH,
-      prefer: opts.captionPrefer || null
+      prefer: opts.captionPrefer || null,
+      forceOverlay: opts.captionForceOverlay === true
     });
 
     // outputPx is a soft scaling factor for "thin lines / hairlines that

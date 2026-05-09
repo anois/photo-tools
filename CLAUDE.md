@@ -17,6 +17,8 @@ The `_framed.jpg` outputs are real renders from the current pipeline — keep th
 - When the user asks to bundle a brand asset or scrape a source, do it. Don't hedge with "consider commercial implications".
 - Bug reports here take precedence over theoretical legal purity.
 
+**Product model = DIY render engine + user / community look library.** The end-game isn't "a fixed set of frames + a few sliders" — it's an engine where every render parameter (frame × template × bg × shadow × radius × caption placement × signature) is reachable from cfg / UI / preset, so users can compose looks we never anticipated and share them via share-codes (and eventually a community gallery). The 7 factory presets are **seeds / showcases**, not ready-made skins. Whenever a render parameter is added, ask "can a user reach this on the UI and capture it in a preset?" — if yes, it lives on cfg + LOOK_KEYS; if no, it stays a frame default. Drift toward more knobs being user-controllable, not fewer.
+
 ## Claude Code rules
 
 When iterating on this project:
@@ -79,7 +81,13 @@ When iterating on this project:
    - GPS map picker: `public/geopicker.js` (lazy-loads `vendor/leaflet.{js,css}`, drives `<dialog id="geo-modal">` and resolves with `{lat, lng}` decimals).
    - Per-photo cfg model + UI wiring: `public/app.js`.
    - UI strings + locale switching: `public/i18n.js` (zh-CN + en dictionaries; nothing else owns user-visible copy).
-   - Presets (save / load / share): a self-contained block in `public/app.js`, keyed off `LOOK_KEYS` and `localStorage['phototools.presets']`.
+   - Presets (save / load / share): a self-contained block in `public/app.js`, keyed off `LOOK_KEYS` and `localStorage['phototools.presets']`. Factory ("seed") presets live in `FACTORY_PRESETS` const in the same file — same v:1 schema as user presets so `applyPresetToCfg` / `applyPresetByName` is the single apply path.
+
+   **cfg vs frame as the line of authority.** Per-render parameters can live in two places:
+   - **`frame.layout` / `frame.shadowDefault` / `frame.bg`** — defaults + identity. Applied unless cfg explicitly overrides.
+   - **`cfg.<field>`** (and listed in `LOOK_KEYS`) — what the user has dialed for *this photo*. Wins over frame defaults; gets snapshotted into presets / share-codes.
+
+   When introducing a new render parameter ask: *can a user reach it via UI and capture it in a preset?* If yes → cfg + LOOK_KEYS + UI control + plumb through `clientRender.js` / `worker.js` / `computeLayout` (frame default still readable as fallback). If no (it's pure frame identity, e.g. `decorate` hook or fixed brand color) → keep on the frame. The product direction is "more knobs become user-controllable over time" (see Project declaration), so default to cfg unless there's a real reason to lock something to a frame.
 
 8. **Delete aggressively.** Don't leave commented-out alternatives or "in case we need it" stubs. Prefer lean code over optionality.
 
@@ -407,6 +415,8 @@ Schema:
   aspect, frame, template, padding, captionHeight,
   bgBlur, bgBrightness, bgSaturation,
   shadowBlur, shadowOffsetY, shadowOpacity,
+  radiusOverride,        // null = use frame.layout.radiusOverride or aspect base.radius
+  captionForceOverlay,   // true = bypass auto-routing, stamp caption on photo bottom
   showFields,
   customLogo?  // local presets only; share codes strip this
 }
@@ -414,13 +424,26 @@ Schema:
 
 **Encode/decode**: plain JSON → UTF-8 → base64url (no compression). A typical preset is ~500 bytes JSON → ~700 bytes URL — well under any browser limit. `LOOK_KEYS` in `app.js` is the source of truth for which fields make the trip.
 
+**Schema v:1 stays additive.** New fields like `radiusOverride` / `captionForceOverlay` are introduced without bumping `v` — old presets / share-codes that don't carry them simply default to null / false on apply, so backwards compat holds. Bump to `v: 2` only when changing the *meaning* of an existing field or when removing a field whose absence used to imply something different.
+
 **Apply scope**: applying a preset writes to `activeCfg()` + `state.draftCfg` so future imports inherit, but **does not** mutate other already-loaded photos. Users propagate via "Apply frame to all" if needed (matches the existing one-look-many-photos flow).
 
 **Hash boot**: `applyHashPresetIfPresent()` runs once after `loadBundle()` — decodes `#p=…`, applies to draftCfg, `history.replaceState`'s the hash away (so refresh doesn't reapply, and the URL doesn't leak into the user's next share). Auto-apply, no confirmation dialog. Decode failure surfaces `status.presetHashBad`.
 
 **Naming**: `prompt()` with default `Preset YYYY-MM-DD HH:MM`. Same-name save overwrites silently. 60-char cap.
 
-**Versioning**: `v: 1` field. Future schema changes bump to 2; old code refuses unknown versions and surfaces `presetHashBad`.
+**Versioning**: `v: 1` field. Old code refuses unknown versions and surfaces `presetHashBad`. Additive field changes (see above) stay on v:1.
+
+**Factory presets** (`FACTORY_PRESETS` const in `public/app.js`). Curated seed looks shipped with the app — read-only, never written to localStorage, surfaced as the chip strip at the top of the preset panel. Each entry is `{ id, nameKey, iconEmoji, preset }`, where `preset` is the same v:1 schema as user presets so `applyPresetToCfg` is the single apply path. Both the chip click handler and `els.presetSelect.change` go through `applyPresetByName(preset, label)` (shared helper that owns customLogo sync + status toast).
+
+Adding / editing a factory preset:
+1. Edit the `FACTORY_PRESETS` array in `public/app.js`. Pick a `frame` + `template` combo that the design language actually supports (run dev and check); set every LOOK_KEYS field explicitly so future schema additions don't silently default.
+2. Add a `preset.factory.<id>` key to **both** locales in `public/i18n.js`.
+3. (Optional) Update the README feature list if the new seed showcases an architectural unlock.
+
+**Design rule for factory presets**: every parameter a seed sets must also be **reachable from the UI**. If a seed needs a knob the user can't dial themselves, expose the knob first (slider / toggle / picker), then add the seed. Otherwise the user can't fork the preset, and we've shipped a "skin" instead of an engine showcase. Past examples:
+- `radiusOverride` was unlocked from frame-only to cfg+UI specifically so "35mm authentic" could set it AND users could keep dialing it.
+- `captionForceOverlay` likewise.
 
 ### Custom background image (`cfg.customBg`)
 
@@ -489,7 +512,25 @@ Limitations:
 
 ## Per-photo cfg model
 
-Each `state.files[i]` carries its own complete `cfg` (frame / aspect / template / padding / captionHeight / bg* / shadow* / showFields / customLogo / collage / exifOverride). Only `format` and `quality` stay global because they apply to a batch uniformly. The collage `partnerFiles` array lives on the rail entry itself (not in cfg) because `File` is not JSON-serializable.
+Each `state.files[i]` carries its own complete `cfg` (frame / aspect / template / padding / captionHeight / bg* / shadow* / radiusOverride / captionForceOverlay / showFields / customLogo / collage / exifOverride). Only `format` and `quality` stay global because they apply to a batch uniformly. The collage `partnerFiles` array lives on the rail entry itself (not in cfg) because `File` is not JSON-serializable.
+
+**`radiusOverride` / `captionForceOverlay`** were added 2026-05-09 (0.19.0) as the first cfg-level unlocks of frame-internal knobs. `radiusOverride: null` means "fall through to frame.layout.radiusOverride or aspect base"; any number 0–72 wins. `captionForceOverlay: true` short-circuits `computeCaptionZone` straight to overlay regardless of `prefer` / available padding. Both are reset to default on frame switch (consistent with bg* / shadow*) and propagated by "Apply frame to all" + presets.
+
+**Adding a new cfg field — full checklist (DO NOT SKIP).** A cfg field that's read in render code (clientRender / worker / shared/render.js) is *not* automatically reachable from the UI just because it exists on the cfg object. There are TWO whitelist projections that strip unknown fields, and forgetting either silently makes the feature look "completely broken" while the schema looks correct:
+
+1. **`defaultCfg()`** in `public/app.js` — the field's initial value + presence on every fresh cfg.
+2. **`LOOK_KEYS`** array — what gets snapshotted into presets / share-codes / "Apply frame to all".
+3. **`doRender()` cfg projection** in `public/app.js` (~line 415) — the preview path manually projects fields when calling `CR.renderPreview`. Fields missing here are dropped from preview rendering. **This is the easiest one to forget; symptom = slider/toggle has no effect on the on-screen preview.**
+4. **`buildConfigForFile()`** in `public/app.js` — the export path's cfg projection. Fields missing here are dropped from JPEG/PNG export. **Symptom = preview shows the change but exported file doesn't.**
+5. **`clientRender.js → buildLayoutAndCaption`** — passes cfg field through to `layoutOpts` for `R.computeLayout` / `computeCaptionZone`.
+6. **`worker.js`** mirrors #5 for batch export.
+7. **`R.computeLayout`** / **`computeCaptionZone`** in `shared/render.js` — actually consume the field.
+8. **UI control** in `public/index.html` + event listener in `app.js` — slider / toggle / picker that writes `activeCfg().<field> = ...` and calls `requestRender()`.
+9. **`syncControlsFromCfg()`** — pulls the field's value into the UI control on photo switch / preset apply.
+10. **`onFrameChange()`** — reset the field on frame switch if it's a "look" parameter (consistent with bg* / shadow*).
+11. **i18n keys** for any user-visible label / hint.
+
+When debugging "the new cfg field doesn't seem to do anything," check #3 first (preview) and #4 second (export). The 0.19 round shipped with both projections missing radiusOverride / captionForceOverlay, so the slider + toggle looked dead until the user reported it. The lesson: cfg whitelist projections are silent footguns — adding a cfg field is at minimum an 11-touch change, and #3/#4 are the ones the schema doesn't enforce.
 
 - Switching the active photo via the rail or arrow keys re-syncs **all** controls to that photo's cfg via `syncControlsFromCfg(cfg)`.
 - Changing any control writes through to `activeCfg()` only — other photos are unaffected.

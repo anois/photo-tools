@@ -140,6 +140,9 @@
         saturation: '饱和度',
         defaultReadout: '默认',
         resetDefault: '恢复默认',
+        radius: '圆角',
+        captionOverlay: '水印嵌入图片',
+        captionOverlayHint: '盖在照片底部渐变条上（35mm 真实底片观感）',
         shadowBlur: '模糊半径',
         shadowOffset: '纵向偏移',
         shadowOpacity: '不透明度',
@@ -164,6 +167,20 @@
           gallery: '画廊',
           instant: '即影',
           film: '胶片'
+        }
+      },
+      preset: {
+        factoryTitle: '✦ 精选预设',
+        userTitle: '我的预设',
+        factoryHint: '轻点种子预设当起点 → 用控件二次创作 → 在「我的预设」里存为自己的 look',
+        factory: {
+          film35:     '35mm 胶片真',
+          magazine:   '杂志编辑',
+          hasselblad: '哈苏致敬',
+          leica:      'Leica 侧栏',
+          kodak:      'Kodak 专业',
+          polaroid:   '宝丽来经典',
+          frosted:    'Frosted 经典'
         }
       },
       caption: {
@@ -508,6 +525,9 @@
         saturation: 'Saturation',
         defaultReadout: 'preset',
         resetDefault: 'Reset to default',
+        radius: 'Corner radius',
+        captionOverlay: 'Caption inside photo',
+        captionOverlayHint: 'stamp on photo bottom (35mm authentic look)',
         shadowBlur: 'Blur radius',
         shadowOffset: 'Y offset',
         shadowOpacity: 'Opacity',
@@ -532,6 +552,20 @@
           gallery: 'Gallery',
           instant: 'Instant',
           film: 'Film'
+        }
+      },
+      preset: {
+        factoryTitle: '✦ Curated presets',
+        userTitle: 'My presets',
+        factoryHint: 'Tap a seed look as a starting point — twist any control, then save into "My presets" as your own.',
+        factory: {
+          film35:     '35mm authentic',
+          magazine:   'Magazine editorial',
+          hasselblad: 'Hasselblad tribute',
+          leica:      'Leica side-rail',
+          kodak:      'Kodak Pro',
+          polaroid:   'Polaroid classic',
+          frosted:    'Frosted classic'
         }
       },
       caption: {
