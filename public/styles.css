@@ -236,6 +236,12 @@ body {
 }
 .topbar-pill-badge[hidden] { display: none; }
 
+/* Mobile workshop pill — hidden by default; revealed inside the mobile
+   media query. The lookbar's workshop entry is hidden on mobile (the
+   bottom sheet can't fit a 4th control row) so this topbar pill is the
+   discoverable replacement entry. */
+.workshop-pill-mobile { display: none; }
+
 /* Language toggle — two-segment pill, mono small caps to echo brand-sub */
 .lang-seg {
   display: inline-flex;
@@ -1180,7 +1186,7 @@ input[type="range"]::-moz-range-thumb {
   border: 0;
   border-top: 1px solid var(--line);
 }
-@media (max-width: 768px) {
+@media (max-width: 700px), (max-height: 500px) and (orientation: landscape) {
   /* Bigger touch targets on mobile (48pt floor) */
   .rail-context-item { padding: 14px 14px; font-size: 14px; }
 }
@@ -1948,6 +1954,15 @@ input[type="range"]::-moz-range-thumb {
   align-items: center;
   justify-content: center;
   position: relative;
+  /* overflow: hidden so a pinch-zoomed canvas (max 4x) clips to the pane
+     instead of spilling into the lookbar / filmstrip. The vignette + frame
+     badge already live inside .canvas-stage, which is 100%×100%, so they
+     stay visible. */
+  overflow: hidden;
+  /* iOS Safari: prevent the browser's default pinch-zoom of the page
+     surface — we handle pinch on the canvas ourselves. Without this, a
+     pinch on the canvas would zoom the entire page including chrome. */
+  touch-action: pan-x pan-y;
 }
 
 .canvas-vignette {
@@ -1982,6 +1997,14 @@ input[type="range"]::-moz-range-thumb {
   min-width: 160px;
   display: block;
   animation: prev-in 280ms cubic-bezier(0.22, 1, 0.36, 1);
+  /* Pinch-zoom transform applies inline via JS — origin stays at canvas
+     center so a 1-finger zoom feels symmetric (the centroid translate
+     handles off-center pinches). */
+  transform-origin: 50% 50%;
+}
+.pane-canvas[data-zoomed="true"] #preview-canvas {
+  /* Lift shadow + cursor hint when zoomed so pan affordance is obvious. */
+  cursor: grab;
 }
 #preview-canvas.empty { display: none; }
 
@@ -3535,15 +3558,27 @@ body {
 .file-drop-hint-mobile { display: none; }
 
 /* =========================================================
-   RESPONSIVE — phone (≤768px): canvas-on-top + bottom sheet.
+   RESPONSIVE — phone (≤700px portrait OR landscape ≤500px tall):
+   canvas-on-top + bottom sheet.
    The lookbar grows into a real bottom sheet; the picker takes over
    full-width; the workshop drawer becomes a near-full-screen sheet.
+
+   Breakpoint chosen to EXCLUDE iPad-class tablets (smallest iPad mini
+   is 744px wide in portrait): tablets stay on the desktop layout but
+   inherit touch-friendly sizing via the (pointer: coarse) block below.
+   The OR-clause catches landscape phones (e.g. iPhone 14 at 844×390),
+   which still need bottom-sheet UX because thumb-zone is at the bottom
+   regardless of orientation.
    ========================================================= */
-@media (max-width: 768px) {
+@media (max-width: 700px), (max-height: 500px) and (orientation: landscape) {
   :root {
     --topbar-h: 44px;
     --statusbar-h: 0px;
-    --lookbar-h: 116px;
+    /* 2-row lookbar: [import + chips] above [export + ZIP]. Total content
+       104px (8 padding + 44 row + 8 gap + 44 row + 0) plus safe-area-inset
+       for home-indicator devices. ~40px shorter than the v0.17 first-cut
+       3-row design — the canvas gets that height back. */
+    --lookbar-h: calc(104px + max(8px, env(safe-area-inset-bottom)));
   }
   body {
     /* On phones, the lookbar reverts to a bottom sheet so the workspace
@@ -3565,6 +3600,10 @@ body {
   .cmdk-trigger { display: none; }
   .topbar-meta { gap: 6px; }
   .topbar-meta .topbar-pill { width: 36px; height: 32px; padding: 0; justify-content: center; }
+  /* Replacement workshop entry on mobile — see comment on the desktop
+     base rule. inline-flex so it slots cleanly between the lang switcher
+     and the changelog pill. */
+  .workshop-pill-mobile { display: inline-flex; }
 
   .workspace {
     grid-template-columns: 1fr;
@@ -3576,18 +3615,23 @@ body {
   .file-drop-hint-mobile  { display: inline; }
   .empty-sub-desktop { display: none; }
 
-  /* Lookbar becomes a bottom sheet: chips horizontal, full-width Export
-     row beneath, Import inline as a small accent pill at the top. */
+  /* Lookbar becomes a bottom sheet: 2×2 grid — [import + chips] over
+     [Export + ZIP]. Grid (vs flex column) gives import + chip-group a
+     shared row without DOM restructure: import sits column 1 row 1,
+     chip-group spans column 2 row 1, export-group spans both columns
+     row 2. */
   .lookbar {
     /* Lift out of the workspace's left grid cell — fixed-bottom layer. */
     position: fixed;
     left: 0; right: 0; bottom: 0;
     width: 100vw;
     height: var(--lookbar-h);
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: 44px 1fr;
+    grid-template-rows: 44px 44px;
     gap: 8px;
-    padding: 10px 14px;
-    padding-bottom: max(10px, env(safe-area-inset-bottom));
+    padding: 8px 14px;
+    padding-bottom: max(8px, env(safe-area-inset-bottom));
     border-right: none;
     border-top: 1px solid var(--line-strong);
     border-radius: 16px 16px 0 0;
@@ -3607,23 +3651,37 @@ body {
     border-radius: 2px;
     filter: none;
   }
-  /* Import condenses into a compact pill that sits inline with the
-     chip row's parent — tap launches the file input the same as
-     desktop. */
+  /* Import: 44×44 square accent button on the left of row 1, sharing
+     the row with the chip-group. Label hidden — the upload-arrow glyph
+     in an accent-red square reads as "add photo" without text on every
+     mobile photo app pattern. */
   .lookbar-import {
-    align-self: flex-start;
-    padding: 6px 12px 6px 8px;
-    height: 32px;
-    margin-top: 8px;
-    font-size: 11.5px;
+    grid-row: 1; grid-column: 1;
+    align-self: stretch;
+    width: 44px; height: 44px;
+    padding: 0;
+    margin-top: 0;
+    justify-content: center;
+    flex-shrink: 0;
   }
-  .lookbar-import-glyph { width: 18px; height: 18px; }
+  .lookbar-import-label { display: none; }
+  .lookbar-import-glyph { width: 22px; height: 22px; }
+  /* Workshop entry — hidden in lookbar on mobile, exposed as a topbar
+     pill instead. Mobile lookbar is focused on hot-path frame/template/
+     aspect/quality + import + export; workshop (crop / EXIF / sign /
+     tile / lib) is global discovery, lives next to changelog/lang. */
+  .lookbar-workshop { display: none; }
   .chip-group {
+    grid-row: 1; grid-column: 2;
     flex-direction: row;
     width: 100%;
+    flex-shrink: 0;
   }
   .chip-group .lookchip + .lookchip { border-top: 0; border-left: 1px solid var(--line); }
-  .lookchip { flex: 1; padding: 6px 8px; min-width: 0; }
+  /* Lookchip: bumped vertical padding from 6px → 11px so the cell hits
+     the 44px touch-target floor (was ~38px, below WCAG). Horizontal stays
+     8px so 4 chips still fit on a 360px screen. */
+  .lookchip { flex: 1; padding: 11px 8px; min-width: 0; min-height: 44px; }
   .lookchip-icon { width: 18px; height: 12px; }
   .lookchip-key { font-size: 7.5px; letter-spacing: 0.14em; }
   .lookchip-value { font-size: 12px; max-width: none; }
@@ -3638,12 +3696,17 @@ body {
 
   .lookbar-spacer { display: none; }
   .export-group {
+    grid-row: 2; grid-column: 1 / -1;
     flex-direction: row;
     gap: 6px;
+    flex-shrink: 0;
   }
-  .export-btn { flex: 1; height: 44px; padding: 0 14px; }
+  /* Export / ZIP balance — was 5:1 (huge red Export, tiny ZIP pill at the
+     right edge), now 2:1. ZIP gains visual weight as a real secondary
+     action without competing with the primary Export. */
+  .export-btn { flex: 2; height: 44px; padding: 0 14px; }
   .export-btn kbd { display: none; }
-  .export-btn-secondary { flex: 0 0 auto; padding: 0 14px; height: 44px; }
+  .export-btn-secondary { flex: 1; padding: 0 12px; height: 44px; }
 
   /* Picker becomes a bottom sheet — overrides the desktop right-anchor
      rules. */
@@ -3658,9 +3721,25 @@ body {
     border-bottom: none;
     max-height: 70vh;
     transform: translate(0, 8px);
+    /* Make room for the drag-handle pill above the title. */
+    padding-top: 14px;
   }
   .picker-overlay[data-open="true"] .picker:not([hidden]) {
     transform: translate(0, 0);
+  }
+  /* Drag-handle pill at top of every bottom sheet — mirrors the lookbar
+     drag-handle visual + the JS swipe-dismiss listener uses the top 36px
+     as the gesture catch zone. */
+  .picker::before,
+  .workshop::before {
+    content: '';
+    position: absolute;
+    top: 8px; left: 50%;
+    transform: translateX(-50%);
+    width: 36px; height: 4px;
+    border-radius: 999px;
+    background: var(--line-strong);
+    pointer-events: none;
   }
   .frame-tile-grid { grid-template-columns: repeat(3, 1fr); }
   .tmpl-tile-grid  { grid-template-columns: 1fr 1fr; }
@@ -3677,6 +3756,10 @@ body {
     transform: translateY(100%);
     border-left: none;
     border-top: 1px solid var(--line-strong);
+    /* Top padding makes room for the drag-handle pill (::before above) so
+       it sits cleanly above the workshop-head row instead of overlapping
+       the title. */
+    padding-top: 14px;
   }
   .workshop-overlay[data-open="true"] .workshop { transform: translateY(0); }
   .workshop-tabs { padding: 10px 14px 0; gap: 0; overflow-x: auto; }
@@ -3705,8 +3788,11 @@ body {
   input[type="range"]::-moz-range-thumb { width: 22px; height: 22px; }
   .seg button { padding: 12px 4px; font-size: 12px; min-height: 44px; }
   .chips { gap: 8px; }
-  .chip { padding: 11px 13px 11px 11px; font-size: 13px; min-height: 40px; }
-  .chip input { width: 12px; height: 12px; }
+  /* Chip (radio/checkbox row) bumped to 44px floor; the input grows to
+     18px and the label hit area expands so the whole row is tappable. */
+  .chip { padding: 12px 14px 12px 12px; font-size: 13px; min-height: 44px; gap: 10px; }
+  .chip input { width: 18px; height: 18px; }
+  .chip input:checked { box-shadow: 0 0 0 3px var(--accent-soft); }
 
   .btn { padding: 13px 14px; font-size: 13px; min-height: 44px; }
   .btn-ghost { padding: 10px 14px; font-size: 11px; min-height: 38px; }
@@ -3777,9 +3863,135 @@ body {
   .export-modal-head .modal-x { width: 36px; height: 36px; }
 }
 
-/* Landscape-phone refinement: lookbar shrinks, canvas gets more room. */
-@media (max-width: 768px) and (max-height: 500px) and (orientation: landscape) {
-  :root { --lookbar-h: 84px; }
+/* =========================================================
+   SMALL-PHONE refinement (≤480px portrait): tighten spacing
+   so the bottom sheet's 4-chip row, topbar pills, and lookbar
+   import button all fit without horizontal overflow on
+   3.5"–4.7" devices (iPhone SE, Pixel 7a, smaller Androids).
+   ========================================================= */
+@media (max-width: 480px) {
+  /* Tighten only horizontal spacing + font scale on small phones; the
+     lookbar's 2-row grid from the portrait mobile block above carries
+     through unchanged. Chip-group has less horizontal space (390px −
+     44 import − 28 padding − 8 gap = 310px / 4 chips = ~77px each), so
+     icon + text get tighter. */
+  .canvas-area, .pane-canvas { padding: 8px; }
+  .lookbar { padding: 8px 10px; padding-bottom: max(8px, env(safe-area-inset-bottom)); }
+  .lookbar-import-glyph { width: 18px; height: 18px; }
+  .lookchip { padding: 10px 6px; gap: 6px; }
+  .lookchip-icon { width: 16px; height: 11px; }
+  .lookchip-key { font-size: 7px; letter-spacing: 0.12em; }
+  .lookchip-value { font-size: 11.5px; }
+  .topbar-meta .topbar-pill { width: 32px; height: 30px; }
+  .brand-name { font-size: 14px; }
+  .export-btn { font-size: 12px; }
+  .export-btn-secondary { padding: 0 10px; font-size: 12px; }
+  .frame-tile-grid { grid-template-columns: 1fr 1fr; }
+  .picker-title { font-size: 18px; }
+}
+
+/* Landscape-phone refinement: a 112px lookbar still eats ~28% of a
+   390px-tall landscape viewport. Compress button heights from 44 to
+   38px so the bar stays usable but shrinks to ~92px. Touch targets
+   slightly under the 44px floor on the lookbar specifically —
+   acceptable trade because (a) landscape is transient on phones,
+   (b) two-handed grip improves finger accuracy, (c) the alternative
+   is having no canvas at all. iPad's landscape height is always ≥768,
+   well above 500, so iPad doesn't match. */
+@media (max-height: 500px) and (orientation: landscape) {
+  :root { --lookbar-h: calc(92px + max(4px, env(safe-area-inset-bottom))); }
+  .lookbar {
+    grid-template-columns: 38px 1fr;
+    grid-template-rows: 38px 38px;
+    padding: 4px 14px;
+    gap: 4px;
+  }
+  .lookbar::before { top: 3px; }
+  .lookbar-import { width: 38px; height: 38px; }
+  .lookbar-import-glyph { width: 18px; height: 18px; }
+  .lookchip { padding: 6px 6px; min-height: 38px; }
+  .lookchip-key { font-size: 7px; letter-spacing: 0.1em; }
+  .lookchip-value { font-size: 11px; }
+  .export-btn { height: 38px; font-size: 11.5px; padding: 0 10px; }
+  .export-btn-secondary { padding: 0 10px; }
+}
+
+/* =========================================================
+   TABLET / TOUCH-PRIMARY DESKTOP — iPad-class devices that
+   stay on the desktop layout but need touch-friendly sizing.
+   Targets primary-pointer-coarse devices wider than the phone
+   breakpoint: iPad portrait (744–820), iPad Pro 12.9 (1024),
+   touch-screen Windows tablets in tablet mode, etc.
+   ========================================================= */
+@media (min-width: 701px) and (pointer: coarse) {
+  /* Form controls — 16px to dodge iOS auto-zoom on focus, 44px floor for hit area. */
+  input[type="text"],
+  input[type="number"],
+  select,
+  textarea {
+    font-size: 16px;
+    min-height: 44px;
+  }
+  .grid-2 input, .grid-2 select { font-size: 15px; min-height: 42px; }
+  input[type="range"] { height: 32px; }
+  input[type="range"]::-webkit-slider-thumb { width: 22px; height: 22px; margin-top: -10px; }
+  input[type="range"]::-moz-range-thumb { width: 22px; height: 22px; }
+
+  .seg button { min-height: 44px; padding: 10px 8px; }
+  .btn { min-height: 44px; }
+  .chip { min-height: 44px; padding: 11px 13px 11px 11px; gap: 10px; }
+  .chip input { width: 18px; height: 18px; }
+  .chip input:checked { box-shadow: 0 0 0 3px var(--accent-soft); }
+  .lookchip { padding: 10px 11px 10px 10px; min-height: 44px; }
+  .crop-rot-btn { width: 36px; height: 36px; }
+  .crop-aspect-seg button { padding: 9px 14px; }
+
+  /* More columns in the picker on tablet — leverage the wider canvas to
+     compare frames / templates side-by-side. */
+  .frame-tile-grid { grid-template-columns: repeat(4, 1fr); }
+  .tmpl-tile-grid  { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* =========================================================
+   TOUCH-ONLY HOVER STATE NEUTRALIZATION.
+   iOS Safari (and Android Chrome's mobile mode) keep :hover sticky
+   for a few hundred ms after a tap, which makes "lifted" buttons
+   read like they're stuck mid-press. Reset hover transforms and
+   border-style flips on devices whose primary pointer is coarse;
+   :active still fires during the actual press for tactile feedback.
+   ========================================================= */
+@media (hover: none) {
+  .topbar-pill:hover,
+  .topbar-pill-strong:hover,
+  .lookbar-import:hover,
+  .lookbar-workshop:hover,
+  .btn:hover:not(:disabled),
+  .btn-primary:hover:not(:disabled),
+  .btn-secondary:hover:not(:disabled),
+  .frame-tile:hover,
+  .tmpl-tile:hover,
+  .crop-rot-btn:hover,
+  .file-drop:hover,
+  .update-banner-btn:hover {
+    transform: none;
+  }
+  /* Workshop entry hover dashes→solid on desktop — undo on touch so the
+     dashed "more surfaces behind here" affordance stays visible. */
+  .lookbar-workshop:hover {
+    border-style: dashed;
+    border-color: var(--line-strong);
+    background: transparent;
+  }
+  .lookbar-workshop:hover .lookbar-workshop-glyph {
+    background: var(--bg-elev);
+    border-color: var(--line);
+    color: var(--text-muted);
+  }
+  .lookbar-workshop:hover .lookbar-workshop-caret {
+    color: var(--text-dim);
+    transform: none;
+  }
+  .geometry-btn:hover::after { transform: translate(0, 0); color: var(--text-dim); }
 }
 
 /* Reduced motion */
