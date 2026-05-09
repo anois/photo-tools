@@ -469,7 +469,20 @@
       offsetY: cfg.shadowOffsetY != null ? Number(cfg.shadowOffsetY) : sd.offsetY,
       opacity: cfg.shadowOpacity != null ? Number(cfg.shadowOpacity) : sd.opacity
     };
-    return { bg: bg, shadow: shadow };
+    // Torn-paper params — only meaningful for the `torn` frame, but kept on
+    // the universal params shape so renderer call sites don't need
+    // frame-specific branching. Frame's `torn` block carries the defaults;
+    // cfg overrides win when present. Fields:
+    //   jitter      — inward bite depth in base-1440 px (0 = clean cut)
+    //   step        — sample point spacing in base-1440 px (smaller = finer)
+    //   edgeOpacity — alpha of the dark hairline traced along the tear
+    const td = frame.torn || { jitter: 6, step: 7, edgeOpacity: 0.22 };
+    const torn = {
+      jitter:      cfg.tornJitter      != null ? Number(cfg.tornJitter)      : td.jitter,
+      step:        cfg.tornStep        != null ? Number(cfg.tornStep)        : td.step,
+      edgeOpacity: cfg.tornEdgeOpacity != null ? Number(cfg.tornEdgeOpacity) : td.edgeOpacity
+    };
+    return { bg: bg, shadow: shadow, torn: torn };
   }
 
   function captionColors(textStyle) {

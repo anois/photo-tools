@@ -55,19 +55,25 @@
     ) >>> 0;
   }
 
-  function tornClip(ctx, x, y, w, h, layout) {
+  function tornClip(ctx, x, y, w, h, layout, args) {
     const s = layout.scale || 1;
-    // Sample point spacing along the edge, in canvas px. 7 base-px gives
-    // a believable "torn paper" texture at 1× preview / standard quality
-    // — enough sample points that the edge looks fibrous, not so many
-    // that it becomes visual noise. Floor at 2 so very-low-quality
-    // previews don't degenerate to a single point per side.
-    const step = Math.max(2, 7 * s);
+    // Defaults match the original hardcoded values; cfg overrides arrive
+    // via R.resolveRenderParams' `params.torn` block. Floored so that
+    // very-low-quality previews don't degenerate (step → 1 sample / side)
+    // and so jitter=0 reads as "clean cut" rather than NaN/-px.
+    const t = (args && args.params && args.params.torn)
+      ? args.params.torn
+      : { jitter: 6, step: 7 };
+    // Sample point spacing along the edge, in canvas px. ~7 base-px reads
+    // as fibrous-not-noisy at 1× preview. Larger steps give chunkier,
+    // more irregular tears (think old paperback dog-eared corners);
+    // smaller is finer.
+    const step = Math.max(2, t.step * s);
     // Inward jitter amplitude — how deep the tear can bite into the
-    // photo. ~6 base-px reads as "torn" without eating noticeable
-    // chunks of the image. Larger looks chewed; smaller looks like
-    // cut-with-scissors.
-    const jitter = Math.max(1, 6 * s);
+    // photo. 0 = scissors-cut clean; ~6 base-px reads as "torn paper";
+    // very large (>12) reads as chewed. Math.max with 0 (not 1) so the
+    // user can dial it to a perfectly straight edge if they want.
+    const jitter = Math.max(0, t.jitter * s);
 
     const rng = mulberry32(hashGeom(x, y, w, h));
     const j = () => rng() * jitter;
@@ -110,11 +116,22 @@
   // slightly above, where the inner edge catches a bit of shadow).
   // Without this the photo can read as "perfectly clipped polygon",
   // not "ripped out of paper".
-  function decorate(ctx, layout) {
+  function decorate(ctx, layout, args) {
     const op = layout.outputPx || Math.max(0.5, (layout.scale || 1) * 0.6);
+    const t = (args && args.params && args.params.torn)
+      ? args.params.torn
+      : { edgeOpacity: 0.22 };
+    // Skip the hairline entirely when opacity is dialed to 0 — saves a
+    // pointless stroke pass and gives users a clean exit (no faint line
+    // at all when they want a soft-clip-only look).
+    if (t.edgeOpacity <= 0) return;
     ctx.save();
-    tornClip(ctx, layout.fgLeft, layout.fgTop, layout.fgW, layout.fgH, layout);
-    ctx.strokeStyle = 'rgba(45, 30, 15, 0.22)';   // warm dark, paper-fiber tint
+    // Forward `args` so the inner tornClip reads the same jitter/step the
+    // photo clip + shadow path used. Without this, decorate would re-tear
+    // with a different geometry and the dark hairline would float free
+    // of the actual silhouette.
+    tornClip(ctx, layout.fgLeft, layout.fgTop, layout.fgW, layout.fgH, layout, args);
+    ctx.strokeStyle = 'rgba(45, 30, 15, ' + t.edgeOpacity.toFixed(3) + ')';
     ctx.lineWidth = Math.max(1, 1.0 * op);
     ctx.stroke();
     ctx.restore();
@@ -132,6 +149,11 @@
     // Heavy shadow would fight the "casual scrapbook" vibe; zero
     // shadow flattens the torn into being merely a clipping mask.
     shadowDefault: { blur: 50, offsetY: 16, opacity: 0.20 },
+    // Torn-paper procedural defaults. cfg.tornJitter / tornStep /
+    // tornEdgeOpacity (when present) win over these via R.resolveRenderParams,
+    // exposing the same DIY-knob pattern frosted's bgBlur/Brightness/
+    // Saturation use. See B · Frame's "Advanced · torn paper" panel.
+    torn: { jitter: 6, step: 7, edgeOpacity: 0.22 },
     clipPath: tornClip,
     decorate: decorate
   });
