@@ -69,6 +69,7 @@
         close: '关闭工作台',
         hint: '裁剪 · EXIF · 签名 · 拼贴',
         padding: '边距 + 文字带',
+        topBadge: '顶部标记',
         exifOverride: '按图覆盖',
         signature: '签名',
         tabs: {
@@ -77,6 +78,12 @@
           sign: '签名',
           tile: '拼贴'
         }
+      },
+      topTemplate: {
+        none: '关闭',
+        brandModel: '品牌·型号',
+        brandOnly: '品牌',
+        wordmark: '字标'
       },
       cmdk: {
         open: '打开命令面板',
@@ -147,10 +154,12 @@
         presetDefaultName: '预设 {ts}',
         advancedFrosted: '高级 · 毛玻璃参数',
         advancedTorn: '高级 · 撕纸纸面',
+        advancedFilmMf: '高级 · 复古印品',
         advancedShadow: '高级 · 阴影',
         tornJitter: '撕扯深度',
         tornStep: '撕扯密度',
         tornEdgeOpacity: '暗边强度',
+        filmMfAge: '复古程度',
         blur: '模糊',
         brightness: '亮度',
         saturation: '饱和度',
@@ -159,24 +168,21 @@
         radius: '圆角',
         captionOverlay: '水印嵌入图片',
         captionOverlayHint: '盖在照片底部渐变条上（35mm 真实底片观感）',
+        captionOverlayLift: '水印离底部距离',
+        topTemplate: '风格',
+        topTemplateHint: '在照片上方留白处加一行品牌身份标记。某些相框（35mm 胶片）会用上方留白做自己的装饰。',
         shadowBlur: '模糊半径',
         shadowOffset: '纵向偏移',
         shadowOpacity: '不透明度',
         applyAll: '将相框设置应用到全部',
         applyAllTitle: '把当前照片的所有相框设置（画幅 / 风格 / 边距 / 高级参数 / 阴影 / 文字模板 / 字段开关）应用到全部已加载的照片',
         styles: {
-          frosted: '毛玻璃',
-          'frosted-noir': '暗调',
-          'gallery-white': '白衬',
-          'gallery-noir': '黑衬',
-          polaroid: '宝丽来',
+          'frosted-noir': '暗调毛玻璃',
+          'gallery-white': '白衬画廊',
           instax: 'Instax',
           torn: '撕纸',
-          'film-35': '35mm',
-          'film-mf': '中画幅',
-          editorial: '杂志',
-          'editorial-mirror': '杂志·镜像',
-          'kodak-pro': 'Kodak Professional'
+          'film-35': '35mm 胶片',
+          'film-mf': '银盐印品'
         },
         families: {
           editorial: '编辑',
@@ -187,13 +193,10 @@
       },
       preset: {
         factory: {
-          film35:     '35mm 胶片真',
-          magazine:   '杂志编辑',
-          hasselblad: '哈苏致敬',
-          leica:      'Leica 侧栏',
-          kodak:      'Kodak 专业',
-          polaroid:   '宝丽来经典',
-          frosted:    'Frosted 经典'
+          frostedNoirStack: '夜色毛玻璃',
+          tornPaperStack:   '撕纸',
+          film35Stack:      '35mm 胶卷',
+          filmMfPrint:      '银盐印品'
         }
       },
       caption: {
@@ -467,6 +470,7 @@
         close: 'Close workshop',
         hint: 'crop · exif · sign · tile',
         padding: 'Padding & caption',
+        topBadge: 'Top badge',
         exifOverride: 'Override (per photo)',
         signature: 'Signature',
         tabs: {
@@ -475,6 +479,12 @@
           sign: 'Sign',
           tile: 'Tile'
         }
+      },
+      topTemplate: {
+        none: 'None',
+        brandModel: 'Brand · Model',
+        brandOnly: 'Brand',
+        wordmark: 'Wordmark'
       },
       cmdk: {
         open: 'Open command palette',
@@ -545,10 +555,12 @@
         presetDefaultName: 'Preset {ts}',
         advancedFrosted: 'Advanced · frosted bg',
         advancedTorn: 'Advanced · torn paper',
+        advancedFilmMf: 'Advanced · vintage print',
         advancedShadow: 'Advanced · shadow',
         tornJitter: 'Tear depth',
         tornStep: 'Tear density',
         tornEdgeOpacity: 'Edge ink',
+        filmMfAge: 'Aging',
         blur: 'Blur',
         brightness: 'Brightness',
         saturation: 'Saturation',
@@ -557,24 +569,21 @@
         radius: 'Corner radius',
         captionOverlay: 'Caption inside photo',
         captionOverlayHint: 'stamp on photo bottom (35mm authentic look)',
+        captionOverlayLift: 'Lift from bottom',
+        topTemplate: 'Style',
+        topTemplateHint: 'Stamps brand identity into the frame’s top padding. Some frames (film-35) reserve that space for their own decoration.',
         shadowBlur: 'Blur radius',
         shadowOffset: 'Y offset',
         shadowOpacity: 'Opacity',
         applyAll: 'Apply frame to all',
         applyAllTitle: 'Copy this photo’s frame settings (aspect / style / padding / advanced / shadow / template / fields) to every loaded photo',
         styles: {
-          frosted: 'Frosted',
-          'frosted-noir': 'Noir',
-          'gallery-white': 'White',
-          'gallery-noir': 'Noir',
-          polaroid: 'Polaroid',
+          'frosted-noir': 'Frosted noir',
+          'gallery-white': 'Gallery white',
           instax: 'Instax',
-          torn: 'Torn',
-          'film-35': '35 mm',
-          'film-mf': 'Medium',
-          editorial: 'Spread',
-          'editorial-mirror': 'Mirror',
-          'kodak-pro': 'Kodak Pro'
+          torn: 'Torn paper',
+          'film-35': '35mm film',
+          'film-mf': 'Silver print'
         },
         families: {
           editorial: 'Editorial',
@@ -585,13 +594,10 @@
       },
       preset: {
         factory: {
-          film35:     '35mm authentic',
-          magazine:   'Magazine editorial',
-          hasselblad: 'Hasselblad tribute',
-          leica:      'Leica side-rail',
-          kodak:      'Kodak Pro',
-          polaroid:   'Polaroid classic',
-          frosted:    'Frosted classic'
+          frostedNoirStack: 'Frosted noir',
+          tornPaperStack:   'Torn paper',
+          film35Stack:      '35mm film',
+          filmMfPrint:      'Silver print'
         }
       },
       caption: {

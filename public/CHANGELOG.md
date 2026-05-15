@@ -4,6 +4,55 @@
 
 每次有意义的功能 / 修复 / 优化都记到这里 —— 同一份文件既给开发者看，也通过顶栏 ✦ 按钮在应用内展示给用户。
 
+## 0.22.0 · 2026-05-15
+
+### ✨ 精选预设库重做 · 7 → 4
+
+旧的 7 个工厂预设大多是"相框 + 模板 + 几乎默认参数"的组合，没有真正调到位的最终观感。这一版砍到 4 套精炼预设，每一套都体现一种可识别的真实美学，每个 LOOK_KEYS 字段都是刻意设过的，新增旋钮都被用到了。
+
+- **夜色毛玻璃** ✨ `frosted-noir` + tech-stack · 3:4 · 圆角 44 · 重投影
+- **撕纸** 📜 `torn` + date-lens · 9:16 · 顶部 FUJIFILM·X-T5 标识 · 深撕 / 中密度 / 强暗边
+- **35mm 胶卷** 🎞 `film-35` + tech-stack · 9:16 · 水印嵌入图片 · 水印离底部 32px 留白
+- **银盐印品** 📽 `film-mf` + slate · 9:16 · 暗房印品语言
+
+### 🆕 顶部品牌标记 · `topTemplate`
+
+任意相框都能在上方留白处加一行品牌身份标记。E · Top 新区块的 picker 选择呈现方式：
+
+- **None** — 不加（默认）
+- **品牌·型号** — 例如 FUJIFILM · X-T5（撕纸预设默认开）
+- **品牌** — 仅 logo
+- **字标** — 大号纯字（找回旧 Kodak Professional 相框那种字标语言）
+
+走 LOOK_KEYS，被预设 / 分享码捕获，切相框时重置为 None。
+
+### 🆕 水印嵌入图片 · 离底距离
+
+`水印嵌入图片` 开启后多了一个滑块：水印离照片底边的距离（0–120px，base-1440 单位）。半透明渐变背景仍贴底，但文字基线在渐变内向上抬。35mm 胶卷预设默认 32px。
+
+### 🪒 相框库瘦身 · 12 → 6
+
+为了让出品的 frame 都"高度可用"，砍掉了识别度低 / 与现存功能重叠的 6 个相框：
+
+- `frosted`（与 `frosted-noir` 仅深浅之差） · `polaroid`（极近 `instax`） · `gallery-noir`（同 `gallery-white` 的明暗倒换） · `editorial` / `editorial-mirror`（不对称布局难凭直觉触发） · `kodak-pro`（字标语言现在通过 `topTemplate=wordmark` 在任意相框上复刻）
+- **`film-mf` 重做** —— 从原本的"120 胶卷 · 片头标签 + 帧号"重设计为「**银盐印品 · 复古褪色版**」：偏黄的 amber fiber 纸基底色（老纸自然黄化的色调）+ 照片上叠加 sepia 暖色调 + 左上角对角线方向的部分褪色（模拟挂壁照片几十年的光照漂白）+ 边角 vignette（处理痕迹氧化）+ 18 个随机散布在纸边的棕色 foxing 斑（铁杂质氧化痕迹，按几何 seed 确定性生成 → 同一张照片渲染多次斑点位置不变）+ 右下角手写库存编号。整体观感是「从抽屉里翻出的 50 年代印品」。**新增「复古程度」滑块**：选中 film-mf 时 B · Frame 显示「高级 · 复古印品」展开 panel，0–100% 单一标量同时缩放 sepia / 褪色 / vignette / foxing 强度。0 = 干净印品（只剩纸基 + 发丝线 + 手写编号），100% = 完全复古（默认）。slider 数值进 cfg + LOOK_KEYS，可被预设捕获
+
+保留的 6 个：`frosted-noir` · `gallery-white` · `instax` · `torn` · `film-35` · `film-mf`
+
+### ⚠️ Breaking
+
+旧分享码 / 已保存预设里如果引用了已经下线的相框名，在加载时会自动迁移到最近邻：
+
+| 旧名 | 迁移到 | 损失 |
+|---|---|---|
+| `frosted` | `frosted-noir` | 浅色变体（暂无 bg darken 滑块还原） |
+| `polaroid` | `instax` | 极近，几乎无损 |
+| `gallery-noir` | `gallery-white` | 黑白对换 |
+| `editorial` / `editorial-mirror` | `gallery-white` | 右栏不对称布局（无替代） |
+| `kodak-pro` | `gallery-white` | Kodak 字标（可手动开 `topTemplate=wordmark` 找回） |
+
+旧的 4 个工厂预设（`film-35-authentic` / `magazine-editorial` / `hasselblad-tribute` / `leica-side-rail` / `kodak-professional` / `polaroid-classic` / `frosted-classic`）从工厂库下线。用户自己保存的预设不受影响。
+
 ## 0.21.0 · 2026-05-09
 
 ### 🪒 撕纸相框 · 高级自定义

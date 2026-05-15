@@ -390,6 +390,14 @@
       prefer: opts.captionPrefer || null,
       forceOverlay: opts.captionForceOverlay === true
     });
+    // captionOverlayTextLift: only meaningful when caption ends up in overlay
+    // placement. Carried as canvas-px on caption so wrapCaption can apply it
+    // to the text inner-group while leaving the gradient backdrop pinned to
+    // the bottom edge.
+    if (caption.placement === 'overlay' && opts.captionOverlayTextLift != null) {
+      const lift = Math.max(0, Math.min(120, Number(opts.captionOverlayTextLift) || 0));
+      caption.textLift = Math.round(lift * scale);
+    }
 
     // outputPx is a soft scaling factor for "thin lines / hairlines that
     // shouldn't bloat at high quality": `Math.max(1, N * outputPx)` gives a
@@ -444,12 +452,31 @@
   // Frame styles register themselves into FRAMES via registerFrame() — see
   // public/frames/*.js. Keeping each definition in its own file makes
   // adding / tweaking a frame a single-file change rather than a hunt
-  // through this monolith. The fallback to 'frosted' below assumes that
-  // frame is always registered (frosted.js is the first frame script the
-  // shell loads, so by the time anything calls resolveFrame() it's there).
+  // through this monolith.
+  //
+  // FRAME_ALIASES carries migration shims for retired frame names: when
+  // a share-code or stored preset references a frame that's been removed,
+  // we resolve to the closest surviving alternative rather than silently
+  // falling through to the default. Aliases land in 0.22.0 — the cull from
+  // 12 frames to 6 (see CLAUDE.md "Project conventions"). Old share-codes
+  // posted before the cull still render to something visually adjacent.
   const FRAMES = {};
+  const FRAME_ALIASES = {
+    // Retired in 0.22.0 (12 → 6 frames). Each maps to the nearest survivor.
+    'frosted':          'frosted-noir',     // light variant → dark variant (lossy: bg dim differs)
+    'polaroid':         'instax',           // sibling instant-print frame
+    'gallery-noir':     'gallery-white',    // dark gallery → light gallery (lossy: color invert)
+    'kodak-pro':        'gallery-white',    // cream bg closest survivor; brand wordmark moves to cfg.topTemplate
+    'editorial':        'gallery-white',    // asymmetric layout retired; default to clean gallery
+    'editorial-mirror': 'gallery-white'
+  };
   function registerFrame(name, def) { FRAMES[name] = def; }
-  function resolveFrame(name) { return FRAMES[name] || FRAMES.frosted; }
+  function resolveFrame(name) {
+    if (FRAMES[name]) return FRAMES[name];
+    const aliased = FRAME_ALIASES[name];
+    if (aliased && FRAMES[aliased]) return FRAMES[aliased];
+    return FRAMES['frosted-noir'] || FRAMES[Object.keys(FRAMES)[0]];
+  }
 
   // Merge user cfg overrides with frame presets to produce the single set of
   // numbers both the SVG (compose.js) and Canvas (clientRender.js) renderers
@@ -482,7 +509,14 @@
       step:        cfg.tornStep        != null ? Number(cfg.tornStep)        : td.step,
       edgeOpacity: cfg.tornEdgeOpacity != null ? Number(cfg.tornEdgeOpacity) : td.edgeOpacity
     };
-    return { bg: bg, shadow: shadow, torn: torn };
+    // Film-mf vintage-aging scalar — 0..1 strength multiplier consumed by
+    // film-mf's decorate hook to scale sepia / fade / vignette / foxing
+    // alphas. Same shape contract as `torn` (frame default + cfg override).
+    const fmd = frame.filmMf || { age: 1.0 };
+    const filmMf = {
+      age: cfg.filmMfAge != null ? Math.max(0, Math.min(1, Number(cfg.filmMfAge))) : fmd.age
+    };
+    return { bg: bg, shadow: shadow, torn: torn, filmMf: filmMf };
   }
 
   function captionColors(textStyle) {
@@ -1753,8 +1787,17 @@
         '</linearGradient></defs>';
       overlayRect = '<rect x="0" y="0" width="' + cap.width + '" height="' + cap.height + '" fill="url(#capGrad)"/>';
     }
+    // captionOverlayTextLift: when caption is in overlay placement and the
+    // user has dialed a lift > 0, wrap the template's inner content in a
+    // separate translate so text floats up while gradient stays bottom-pinned.
+    let innerWrap;
+    if (cap.placement === 'overlay' && cap.textLift > 0) {
+      innerWrap = '<g transform="translate(0 ' + (-cap.textLift) + ')">' + innerContent + '</g>';
+    } else {
+      innerWrap = innerContent;
+    }
     return '<svg xmlns="http://www.w3.org/2000/svg" width="' + CW + '" height="' + CH + '">' +
-      defs + '<g transform="' + transform + '">' + overlayRect + innerContent + '</g></svg>';
+      defs + '<g transform="' + transform + '">' + overlayRect + innerWrap + '</g></svg>';
   }
 
   // ======================================================================
@@ -1934,6 +1977,131 @@
   }
 
   // ======================================================================
+  // Top-of-frame badge (cfg.topTemplate)
+  // ======================================================================
+
+  // Builds a small SVG that paints into the frame's top padding area —
+  // independent of the bottom caption template. The composition layers
+  // brand logo + camera model along a centered baseline so the photo gets
+  // a "magazine masthead" style stamp at the top edge.
+  //
+  // Returns null when topTemplate is 'none', when there's no EXIF brand to
+  // surface, or when the frame's top padding is too tight to read.
+  //
+  // Variants:
+  //   'brand-model' — logo + " · " + model (the common case; matches the
+  //                   torn-paper preset's intent)
+  //   'brand-only'  — logo by itself, slightly larger
+  //   'wordmark'    — large uppercase brand name, no logo (channels the
+  //                   retired kodak-pro frame's identity onto any frame)
+  function buildTopBadgeSvg(exif, layout, opts) {
+    const tt = opts && opts.topTemplate;
+    if (!tt || tt === 'none') return null;
+    const s = layout.scale || 1;
+    const fgL = layout.fgLeft, fgT = layout.fgTop, fgW = layout.fgW;
+    // Need at least ~30 base-px of top padding to render without crowding
+    // either the canvas edge or the photo edge. Frames with no real top
+    // padding (e.g. extreme custom aspects) skip silently.
+    if (fgT < 30 * s) return null;
+
+    const make = (exif && exif.make) ? String(exif.make).trim() : '';
+    const model = (exif && exif.model) ? String(exif.model).trim() : '';
+    if (!make && !model) return null;
+
+    const CW = layout.canvas.W, CH = layout.canvas.H;
+    const colors = captionColors(opts.textStyle || 'light');
+    const logos = opts.logos || {};
+    const logoKey = make ? brandToLogoKey(make, logos) : null;
+    const logoEntry = logoKey ? logos[logoKey] : null;
+    const logoFill = logoEntry ? resolveLogoFill(logoEntry.brandColor, opts.textStyle) : colors.brand;
+
+    // Sizing: badge height target = min(36 base-px, 50% of top padding).
+    // The lower bound (14 base-px) keeps text legible on very tight frames.
+    const baseBadgeH = Math.min(36, (fgT / s) * 0.5);
+    const badgeH = Math.max(14, Math.round(baseBadgeH * s));
+    const textPx = Math.round(badgeH * 0.62);
+    const sepGap = Math.round(textPx * 0.5);
+    const cx = fgL + Math.round(fgW / 2);
+    const cy = Math.round(fgT / 2);
+    // Baseline: place the badge's optical center at cy. textPx*0.34 is the
+    // approximate descent-to-baseline ratio for Inter — gives a baseline
+    // that sits visually centered with logo (which we draw with its top at
+    // cy - badgeH/2).
+    const baselineY = cy + Math.round(textPx * 0.34);
+
+    // Collect pieces, computing widths first so we can center the whole row.
+    const pieces = [];
+    function pushLogo() {
+      if (logoEntry) {
+        const probe = logoInlineSvg(logoKey, logos, { x: 0, y: 0, height: badgeH, fillColor: logoFill, textStyle: opts.textStyle });
+        pieces.push({ kind: 'logo', width: probe.width });
+      } else if (make) {
+        const w = estimateTextWidth(make.toUpperCase(), textPx, 600, Math.round(2 * s));
+        pieces.push({ kind: 'text', text: make.toUpperCase(), cls: 'tb-brand', width: w });
+      }
+    }
+    function pushModel() {
+      if (!model) return;
+      // Sep dot then model text, both at textPx
+      pieces.push({ kind: 'spacer', width: sepGap });
+      const sepW = estimateTextWidth('·', textPx, 400, 0);
+      pieces.push({ kind: 'text', text: '·', cls: 'tb-sep', width: sepW });
+      pieces.push({ kind: 'spacer', width: sepGap });
+      const w = estimateTextWidth(model, textPx, 500, 0);
+      pieces.push({ kind: 'text', text: model, cls: 'tb-model', width: w });
+    }
+
+    if (tt === 'brand-only') {
+      pushLogo();
+    } else if (tt === 'brand-model') {
+      pushLogo();
+      pushModel();
+    } else if (tt === 'wordmark') {
+      // Single oversized uppercase brand. Falls back silently if there's
+      // no make in EXIF — we won't fake one.
+      if (make) {
+        const bigPx = Math.round(badgeH * 0.85);
+        const bigLs = Math.round(3 * s);
+        const w = estimateTextWidth(make.toUpperCase(), bigPx, 700, bigLs);
+        pieces.push({ kind: 'text', text: make.toUpperCase(), cls: 'tb-wordmark', width: w, size: bigPx, ls: bigLs });
+      }
+    } else {
+      return null;
+    }
+    if (!pieces.length) return null;
+
+    const totalW = pieces.reduce(function (a, p) { return a + p.width; }, 0);
+    let cursor = cx - Math.round(totalW / 2);
+    let body = '';
+    for (const p of pieces) {
+      if (p.kind === 'logo') {
+        const logoY = Math.round(cy - badgeH / 2);
+        body += logoInlineSvg(logoKey, logos, { x: cursor, y: logoY, height: badgeH, fillColor: logoFill, textStyle: opts.textStyle }).svg;
+      } else if (p.kind === 'text') {
+        body += '<text x="' + cursor + '" y="' + baselineY + '" class="' + p.cls + '">' + escapeXml(p.text) + '</text>';
+      }
+      // 'spacer' just advances cursor
+      cursor += p.width;
+    }
+
+    const fontFaceCss = opts.fontFaceCss || '';
+    const ls = Math.round(1 * s);
+    const lsBrand = Math.round(2 * s);
+    const wordmarkPx = pieces.find(function (p) { return p.cls === 'tb-wordmark'; });
+    const wmSize = wordmarkPx ? wordmarkPx.size : Math.round(badgeH * 0.85);
+    const wmLs = wordmarkPx ? wordmarkPx.ls : Math.round(3 * s);
+    const styleBlock = '<style>' + fontFaceCss +
+      '.tb-brand{font:600 ' + textPx + 'px \'Inter\',sans-serif;fill:' + colors.brand + ';letter-spacing:' + lsBrand + 'px;}' +
+      '.tb-model{font:500 ' + textPx + 'px \'Inter\',sans-serif;fill:' + colors.meta + ';letter-spacing:' + ls + 'px;}' +
+      '.tb-sep{font:400 ' + textPx + 'px \'Inter\',sans-serif;fill:' + colors.accent + ';}' +
+      '.tb-wordmark{font:700 ' + wmSize + 'px \'Inter\',sans-serif;fill:' + colors.brand + ';letter-spacing:' + wmLs + 'px;}' +
+      '</style>';
+
+    return '<svg xmlns="http://www.w3.org/2000/svg" width="' + CW + '" height="' + CH + '">' +
+      styleBlock + body + '</svg>';
+  }
+
+  // ======================================================================
   // Public API
   // ======================================================================
 
@@ -1958,6 +2126,7 @@
 
     // Frames
     FRAMES: FRAMES,
+    FRAME_ALIASES: FRAME_ALIASES,
     registerFrame: registerFrame,
     resolveFrame: resolveFrame,
     resolveRenderParams: resolveRenderParams,
@@ -1981,6 +2150,7 @@
     renderTemplate: renderTemplate,
     wrapCaption: wrapCaption,
     buildCaptionSvg: buildCaptionSvg,
+    buildTopBadgeSvg: buildTopBadgeSvg,
 
     // Custom signature
     customLogoRect: customLogoRect,

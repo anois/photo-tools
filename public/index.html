@@ -84,7 +84,7 @@
 
     <div class="chip-group">
       <button class="lookchip" data-picker="frame" type="button" aria-haspopup="dialog">
-        <span class="lookchip-icon" id="lookchip-frame-swatch" data-frame="frosted"></span>
+        <span class="lookchip-icon" id="lookchip-frame-swatch" data-frame="frosted-noir"></span>
         <span class="lookchip-text">
           <span class="lookchip-key" data-i18n="lookbar.frame">Frame</span>
           <span class="lookchip-value" id="lookchip-frame-value">Frosted</span>
@@ -151,7 +151,7 @@
     </div>
     <div class="canvas-stage" id="canvas-stage">
       <div class="canvas-frame-badge" id="canvas-frame-badge" hidden>
-        <span class="canvas-badge-swatch lookchip-icon" id="canvas-badge-swatch" data-frame="frosted"></span>
+        <span class="canvas-badge-swatch lookchip-icon" id="canvas-badge-swatch" data-frame="frosted-noir"></span>
         <em id="canvas-badge-frame">Frosted</em>
         <span class="canvas-badge-sep">·</span>
         <span id="canvas-badge-template">Minimal</span>
@@ -236,18 +236,12 @@
          iterates these; tile-grid clicks above forward to them programmatically.
          Rule of thumb: tile = visual surface; seg button = data plumbing. -->
     <div class="seg" id="frame-seg" role="radiogroup" hidden>
-      <button data-val="frosted" data-family="editorial" class="active" role="radio" aria-checked="true" data-i18n="frame.styles.frosted">Frosted</button>
-      <button data-val="frosted-noir" data-family="editorial" role="radio" aria-checked="false" data-i18n="frame.styles.frosted-noir">Frosted · noir</button>
-      <button data-val="editorial" data-family="editorial" role="radio" aria-checked="false" data-i18n="frame.styles.editorial">Editorial</button>
-      <button data-val="editorial-mirror" data-family="editorial" role="radio" aria-checked="false" data-i18n="frame.styles.editorial-mirror">Editorial · mirror</button>
+      <button data-val="frosted-noir" data-family="editorial" class="active" role="radio" aria-checked="true" data-i18n="frame.styles.frosted-noir">Frosted · noir</button>
       <button data-val="gallery-white" data-family="gallery" role="radio" aria-checked="false" data-i18n="frame.styles.gallery-white">Gallery</button>
-      <button data-val="gallery-noir" data-family="gallery" role="radio" aria-checked="false" data-i18n="frame.styles.gallery-noir">Gallery · noir</button>
-      <button data-val="polaroid" data-family="instant" role="radio" aria-checked="false" data-i18n="frame.styles.polaroid">Polaroid</button>
       <button data-val="instax" data-family="instant" role="radio" aria-checked="false" data-i18n="frame.styles.instax">Instax</button>
       <button data-val="torn" data-family="instant" role="radio" aria-checked="false" data-i18n="frame.styles.torn">Torn</button>
       <button data-val="film-35" data-family="film" role="radio" aria-checked="false" data-i18n="frame.styles.film-35">Film 35</button>
       <button data-val="film-mf" data-family="film" role="radio" aria-checked="false" data-i18n="frame.styles.film-mf">Film MF</button>
-      <button data-val="kodak-pro" data-family="film" role="radio" aria-checked="false" data-i18n="frame.styles.kodak-pro">Kodak Professional</button>
     </div>
     <div class="seg" id="frame-family-seg" hidden>
       <button data-family="editorial" class="active"></button>
@@ -483,6 +477,28 @@
               <span class="chip-hint" data-i18n="frame.captionOverlayHint">stamp on photo bottom (35mm authentic look)</span>
             </label>
           </div>
+          <div class="row" id="caption-overlay-lift-row" hidden>
+            <div class="field">
+              <label class="field-label"><span data-i18n="frame.captionOverlayLift">Lift from bottom</span> <span class="field-readout" id="caption-overlay-lift-val">0<span class="ru">px</span></span></label>
+              <input id="caption-overlay-lift" type="range" min="0" max="120" value="0" step="2" />
+            </div>
+          </div>
+        </div>
+
+        <div class="ws-section">
+          <div class="ws-section-head" data-i18n="workshop.topBadge">Top badge</div>
+          <div class="row">
+            <div class="field">
+              <label class="field-label"><span data-i18n="frame.topTemplate">Style</span></label>
+              <div class="seg" id="top-template-seg" role="radiogroup">
+                <button type="button" data-val="none" class="active" role="radio" aria-checked="true" data-i18n="topTemplate.none">None</button>
+                <button type="button" data-val="brand-model" role="radio" aria-checked="false" data-i18n="topTemplate.brandModel">Brand · Model</button>
+                <button type="button" data-val="brand-only" role="radio" aria-checked="false" data-i18n="topTemplate.brandOnly">Brand</button>
+                <button type="button" data-val="wordmark" role="radio" aria-checked="false" data-i18n="topTemplate.wordmark">Wordmark</button>
+              </div>
+            </div>
+          </div>
+          <div class="ws-section-hint" data-i18n="frame.topTemplateHint">Stamps brand identity into the frame's top padding. Some frames (film-35) reserve that space for their own decoration.</div>
         </div>
 
         <div class="ws-section">
@@ -563,6 +579,20 @@
             </div>
           </div>
           <button id="reset-torn-btn" type="button" class="btn-ghost" data-i18n="frame.resetDefault">Reset to default</button>
+        </details>
+
+        <!-- Film-mf vintage-aging — visible only when frame === 'film-mf'.
+             Single slider scales sepia / partial-fade / vignette / foxing
+             alphas uniformly. 0 = clean print, 1 = full vintage. -->
+        <details class="frame-advanced" id="film-mf-advanced" hidden>
+          <summary data-i18n="frame.advancedFilmMf">Advanced · vintage print</summary>
+          <div class="row">
+            <div class="field">
+              <label class="field-label"><span data-i18n="frame.filmMfAge">Aging</span> <span class="field-readout" id="film-mf-age-val" data-i18n="frame.defaultReadout">preset</span></label>
+              <input id="film-mf-age" type="range" min="0" max="1" step="0.05" />
+            </div>
+          </div>
+          <button id="reset-film-mf-btn" type="button" class="btn-ghost" data-i18n="frame.resetDefault">Reset to default</button>
         </details>
 
         <details class="frame-advanced" id="shadow-advanced">
@@ -921,18 +951,12 @@
 <script src="vendor/jszip.min.js"></script>
 <script src="i18n.js"></script>
 <script src="shared/render.js"></script>
-<script src="frames/frosted.js"></script>
 <script src="frames/frosted-noir.js"></script>
 <script src="frames/gallery-white.js"></script>
-<script src="frames/gallery-noir.js"></script>
-<script src="frames/polaroid.js"></script>
 <script src="frames/instax.js"></script>
 <script src="frames/film-35.js"></script>
 <script src="frames/film-mf.js"></script>
-<script src="frames/editorial.js"></script>
-<script src="frames/editorial-mirror.js"></script>
 <script src="frames/torn.js"></script>
-<script src="frames/kodak-pro.js"></script>
 <script src="exifio.js"></script>
 <script src="heic.js"></script>
 <script src="geopicker.js"></script>

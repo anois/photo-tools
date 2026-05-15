@@ -320,16 +320,22 @@ Frames are organized into 4 visual families. The seg buttons in `#frame-seg` car
 
 | family | name | bg | textStyle | layout mods | shadowDefault (blur/offsetY/opacity) | decorate |
 |---|---|---|---|---|---|---|
-| **Editorial** | `frosted`        | blurred self-image, light dim | light | — | 80 / 24 / 0.35 | — |
-| | `frosted-noir` (alias `frosted-dark`) | blurred self-image, stronger dim | light | — | 90 / 28 / 0.45 | — |
+| **Editorial** | `frosted-noir` (alias `frosted-dark`) | blurred self-image, strong dim | light | — | 90 / 28 / 0.45 | — |
 | **Gallery** | `gallery-white` (alias `white`) | solid `#f4f3ee` | dark | — | 60 / 18 / 0.18 | passe-partout double thin lines (1.5px outer, 0.9px inner) |
-| | `gallery-noir` (alias `black`) | solid `#171717` | light | — | 90 / 28 / 0.55 | inner phosphor highlight ring (~0.7px) |
-| **Instant** | `polaroid` | solid `#fafafa` | dark  | `extraBottom: 180, fgYBoost: -80, radiusOverride: 8` | 0 / 0 / 0 (flat) | — |
-| | `instax`   | solid `#fffdf6` | dark  | `extraBottom: 240, fgYBoost: -120, radiusOverride: 4` | 30 / 12 / 0.18 | — |
+| **Instant** | `instax`   | solid `#fffdf6` | dark  | `extraBottom: 240, fgYBoost: -120, radiusOverride: 4` | 30 / 12 / 0.18 | — |
 | | `torn`     | solid `#f4ecd6` | dark  | — | 50 / 16 / 0.20 | procedural jagged silhouette via `clipPath: tornClip` + dark hairline along the tear via `decorate`. **Tunable via cfg**: `tornJitter` (depth 0–14), `tornStep` (sample density 3–14), `tornEdgeOpacity` (0–0.5). Frame defaults `torn: { jitter: 6, step: 7, edgeOpacity: 0.22 }` |
-| **Film** | `film-35`   | solid `#0c0c0c` | light | `topPaddingBoost: 70, bottomPaddingBoost: 90` | 0 / 0 / 0 | 7 sprocket-hole pairs top+bottom + cream "F · 4000 · DX" leader stamp (brand-letter + ISO from EXIF) |
-| | `kodak-pro` | solid `#fafaf7` | dark  | `topPaddingBoost: 90, bottomPaddingBoost: 30` | 50 / 16 / 0.18 | "**Kodak** Professional" red+black wordmark in top padding, left-aligned with photo edge |
-| | `editorial` | solid `#f4f0e6` | dark  | `extraRightInset: 350, captionPrefer: 'right'` | 70 / 22 / 0.22 | — |
+| **Film** | `film-35`   | solid `#100c08` | light | `topPaddingBoost: 70, bottomPaddingBoost: 90` | 0 / 0 / 0 | sprocket-hole rows top+bottom (density adapts to fg width) + cream "BRAND · ISOT · DX" edge print + EXIF-day frame number on the bottom gutter |
+| | `film-mf`   | solid `#e8d7ab` (aged amber fiber paper) | dark | `topPaddingBoost: 100, bottomPaddingBoost: 120` | 40 / 12 / 0.16 | aged gelatin silver print: deckle hairline + italic library notation + **vintage aging effects** baked into decorate — sepia multiply tint on the photo, diagonal screen-gradient partial fade (upper-left bleached, simulating decades of light exposure), radial corner vignette (handling oxidation), 18 deterministic foxing spots scattered across the paper margin (rejected from photo + caption zones, seeded per geometry so they stay stable across renders). This is the print AFTER 50 years, not the fresh print |
+
+**Retired frames** (0.22.0 — see `FRAME_ALIASES` in `shared/render.js`): `frosted`, `polaroid`, `gallery-noir`, `editorial`, `editorial-mirror`, `kodak-pro`. Old share-codes / saved presets that reference them resolve via the alias table at preset-apply time (closest survivor → render anyway with `resolveFrame` fallback). `applyPresetToCfg` rewrites `cfg.frame` to the survivor name so the UI shows a coherent seg-button state. Migration table:
+
+| old | new | what's lost |
+|---|---|---|
+| `frosted` | `frosted-noir` | lighter bg dim variant (no `bgDarken` cfg knob yet) |
+| `polaroid` | `instax` | smaller bottom slab + sharper radius; pad/captionH knobs recover most of it |
+| `gallery-noir` | `gallery-white` | color inversion (black gallery wall) |
+| `editorial` / `editorial-mirror` | `gallery-white` | asymmetric right/left strip layout (no successor) |
+| `kodak-pro` | `gallery-white` | red+black "Kodak Professional" wordmark stamp — recover via `cfg.topTemplate = 'wordmark'` on any frame |
 
 Each frame carries a `shadowDefault` (drop shadow under the rounded foreground photo). User-tunable via the **D · Shadow** UI (3 sliders) and overrideable in cfg. `opacity = 0` short-circuits the entire shadow render path.
 
@@ -351,6 +357,29 @@ Each frame carries a `shadowDefault` (drop shadow under the rounded foreground p
 - `shadowBlur` (0–160) / `shadowOffsetY` (0–80) / `shadowOpacity` (0–0.8) — for any frame. Frame switch resets to `frame.shadowDefault`.
 
 `darken` and `grainOpacity` of the frosted bg are intentionally **not** UI-exposed.
+
+### Top-of-frame badge (`cfg.topTemplate`, 0.22+)
+
+Independent of the bottom caption template. Stamps a brand-identity line into the frame's top padding zone — useful when the user wants "FUJIFILM · X-T5" floated above the photo without committing the caption strip to that role.
+
+| value | shape |
+|---|---|
+| `'none'` | no badge (default) |
+| `'brand-model'` | logo SVG + " · " + model text, centered over fg |
+| `'brand-only'` | logo SVG alone |
+| `'wordmark'` | oversized uppercase brand name, no logo (channels the retired `kodak-pro` aesthetic onto any frame) |
+
+`R.buildTopBadgeSvg(exif, layout, opts)` returns a full-canvas SVG that `compose()` rasterizes via `svgToImage` and `drawImage`s **BEFORE** the frame's `decorate` hook. Rationale: frames that own their top padding (film-35's edge print, future kodak-style stamps) take visual primacy over the user-applied badge — `decorate` paints over the badge. For clean frames (frosted-noir, instax, torn, gallery-white) there's no conflict and the badge shows through. Badge auto-hides when top padding is below ~30 base-px (extreme custom aspects).
+
+Lives in **E · Top** UI block (workshop tweak tab). Goes through `LOOK_KEYS` so preset / share-code captures it. Frame switch resets to `'none'`.
+
+### Caption overlay text lift (`cfg.captionOverlayTextLift`, 0.22+)
+
+Only meaningful when `captionForceOverlay === true`. Range 0–120 (base-1440 px). Floats the overlay caption's **text** up by N px while the semi-transparent gradient backdrop stays pinned to the photo's bottom edge. 0 = legacy bottom-pinned text; 32 = subtle breathing room from the bottom edge (the value the `film-35-stack` factory preset uses); 120 = text floats ~10% of fg height up.
+
+Implementation: `computeLayout` attaches `caption.textLift` (in canvas px) when caption ends up in overlay placement, then `wrapCaption` emits an inner `<g transform="translate(0 -textLift)">` wrapping the template's text content. Gradient `<rect>` stays at zone origin so it doesn't shift.
+
+UI is the slider row right under the "Caption inside photo" toggle (`#caption-overlay-lift-row`), hidden when forceOverlay is off. Goes through `LOOK_KEYS`. Frame switch resets to 0.
 
 ### Templates (in `public/shared/render.js`)
 
@@ -462,6 +491,9 @@ Adding / editing a factory preset:
 **Design rule for factory presets**: every parameter a seed sets must also be **reachable from the UI**. If a seed needs a knob the user can't dial themselves, expose the knob first (slider / toggle / picker), then add the seed. Otherwise the user can't fork the preset, and we've shipped a "skin" instead of an engine showcase. Past examples:
 - `radiusOverride` was unlocked from frame-only to cfg+UI specifically so "35mm authentic" could set it AND users could keep dialing it.
 - `captionForceOverlay` likewise.
+- `topTemplate` + `captionOverlayTextLift` (0.22) were unlocked as new cfg+UI knobs specifically because the curated `torn-paper-stack` preset wanted "FUJIFILM · X-T5" at the top and `film-35-stack` wanted the watermark lifted 32px from the bottom edge — neither was reachable before, so both knobs landed first, then the seeds.
+
+**0.22.0 preset rework**: the library was cut from 7 generic seeds (`film-35-authentic`, `magazine-editorial`, `hasselblad-tribute`, `leica-side-rail`, `kodak-professional`, `polaroid-classic`, `frosted-classic`) to 4 tuned ones — `frosted-noir-stack`, `torn-paper-stack`, `film-35-stack`, `film-mf-print`. The old seeds were "frame × template combinations with mostly-default knobs"; the new ones each commit to a finished aesthetic (every LOOK_KEYS field set deliberately, every new knob exercised). User-saved presets in localStorage are untouched.
 
 ### Custom background image (`cfg.customBg`)
 
@@ -530,11 +562,17 @@ Limitations:
 
 ## Per-photo cfg model
 
-Each `state.files[i]` carries its own complete `cfg` (frame / aspect / template / padding / captionHeight / bg* / shadow* / radiusOverride / captionForceOverlay / showFields / customLogo / collage / exifOverride). Only `format` and `quality` stay global because they apply to a batch uniformly. The collage `partnerFiles` array lives on the rail entry itself (not in cfg) because `File` is not JSON-serializable.
+Each `state.files[i]` carries its own complete `cfg` (frame / aspect / template / padding / captionHeight / bg* / shadow* / radiusOverride / captionForceOverlay / captionOverlayTextLift / topTemplate / torn* / showFields / customLogo / customBg / collage / rotation / crop / exifOverride). Only `format` and `quality` stay global because they apply to a batch uniformly. The collage `partnerFiles` array lives on the rail entry itself (not in cfg) because `File` is not JSON-serializable.
 
 **`radiusOverride` / `captionForceOverlay`** were added 2026-05-09 (0.19.0) as the first cfg-level unlocks of frame-internal knobs. `radiusOverride: null` means "fall through to frame.layout.radiusOverride or aspect base"; any number 0–72 wins. `captionForceOverlay: true` short-circuits `computeCaptionZone` straight to overlay regardless of `prefer` / available padding. Both are reset to default on frame switch (consistent with bg* / shadow*) and propagated by "Apply frame to all" + presets.
 
 **`tornJitter` / `tornStep` / `tornEdgeOpacity`** (0.21+) — torn-paper frame's procedural-tear knobs, exposed under "Advanced · torn paper" in B · Frame, mirroring frosted-advanced's blur/brightness/saturation triplet. `null` = use frame default (jitter 6 / step 7 / edgeOpacity 0.22). Plumbed via `R.resolveRenderParams` into `params.torn`, which `tornClip` + `decorate` consume from `args.params.torn`. Same reset / preset / share-code semantics as the radius/overlay pair.
+
+**`filmMfAge`** (0.22+) — film-mf vintage-aging strength (0..1). Single composite scalar that scales all of the frame's `decorate`-baked aging effects (sepia tint, partial-fade gradient, corner vignette, foxing speck alphas) uniformly. `null` = use frame default `filmMf: { age: 1.0 }` (full vintage); 0 = clean print (paper bg + deckle hairline + library notation persist; sepia / fade / vignette / foxing all suppressed). Exposed under "Advanced · vintage print" in B · Frame as a single 0–100% slider. Plumbed via `R.resolveRenderParams` into `params.filmMf`, which film-mf's `decorate` reads from `args.params.filmMf.age`. Same reset / preset / share-code semantics as the torn triplet.
+
+**`topTemplate`** (0.22+) — `'none' | 'brand-model' | 'brand-only' | 'wordmark'`. Top-of-frame badge picker (workshop's **E · Top** section). Independent of bottom caption template. Renders via `R.buildTopBadgeSvg` before frame `decorate`. Resets to `'none'` on frame switch. See "Top-of-frame badge" section above for the full design.
+
+**`captionOverlayTextLift`** (0.22+) — 0–120 base-1440 px. Only meaningful when `captionForceOverlay === true`. Lifts overlay caption text up within the gradient. Slider sits in the same C · Template section as the forceOverlay toggle (hidden when overlay is off via `els.captionOverlayLiftRow.hidden`). Resets to 0 on frame switch.
 
 **Adding a new cfg field — full checklist (DO NOT SKIP).** A cfg field that's read in render code (clientRender / worker / shared/render.js) is *not* automatically reachable from the UI just because it exists on the cfg object. There are TWO whitelist projections that strip unknown fields, and forgetting either silently makes the feature look "completely broken" while the schema looks correct:
 

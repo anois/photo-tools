@@ -12,18 +12,12 @@
 self.importScripts(
   'vendor/piexif.js',
   'shared/render.js',
-  'frames/frosted.js',
   'frames/frosted-noir.js',
   'frames/gallery-white.js',
-  'frames/gallery-noir.js',
-  'frames/polaroid.js',
   'frames/instax.js',
   'frames/film-35.js',
   'frames/film-mf.js',
-  'frames/editorial.js',
-  'frames/editorial-mirror.js',
-  'frames/torn.js',
-  'frames/kodak-pro.js'
+  'frames/torn.js'
 );
 
 const R = self.PhotoRender;
@@ -196,6 +190,20 @@ async function compose(canvas, args) {
     cap.close();
   }
 
+  // Top-of-frame badge (cfg.topTemplate). Painted before decorate so the
+  // frame's own top-padding decoration (e.g. film-35 edge stamp) keeps
+  // visual primacy when combined with a user-applied topBadge.
+  if (args.topBadgeSvg) {
+    try {
+      const tbBlob = new Blob([args.topBadgeSvg], { type: 'image/svg+xml;charset=utf-8' });
+      const tb = await createImageBitmap(tbBlob);
+      ctx.drawImage(tb, 0, 0);
+      tb.close();
+    } catch (err) {
+      console.warn('[worker] top badge rasterize failed:', err);
+    }
+  }
+
   // Mirrors clientRender.js: frame.decorate runs after caption, before
   // signature. decorate runs in worker context (no DOM) — frames must use
   // ctx primitives + R.pathRoundRect, not document.createElement.
@@ -337,6 +345,7 @@ async function renderJob(msg) {
     };
     if (cfg.radiusOverride != null)   layoutOpts.radiusOverride     = cfg.radiusOverride;
     if (cfg.captionForceOverlay)      layoutOpts.captionForceOverlay = true;
+    if (cfg.captionOverlayTextLift != null) layoutOpts.captionOverlayTextLift = cfg.captionOverlayTextLift;
     const rot = ((Number(cfg.rotation) || 0) % 360 + 360) % 360;
     const safe = R.inscribedSafeArea(bitmap, rot);
     const cropW = cfg.crop && cfg.crop.w > 0 ? cfg.crop.w : 1;
@@ -350,11 +359,16 @@ async function renderJob(msg) {
       showFields: cfg.showFields,
       fontFaceCss, logos
     });
+    const topBadgeSvg = R.buildTopBadgeSvg(normExif, layout, {
+      topTemplate: cfg.topTemplate,
+      textStyle: frame.textStyle,
+      fontFaceCss, logos
+    });
     const canvas = new OffscreenCanvas(layout.canvas.W, layout.canvas.H);
     const collage = wantsCollage && partnerBms.some(Boolean) ? { layout: cfg.collage.layout } : null;
     const bitmaps = collage ? [bitmap, ...partnerBms] : null;
     await compose(canvas, {
-      bitmap, bitmaps, layout, params, captionSvg, frame, normExif,
+      bitmap, bitmaps, layout, params, captionSvg, topBadgeSvg, frame, normExif,
       customLogo: cfg.customLogo || null,
       customBg: cfg.customBg || null,
       collage,
