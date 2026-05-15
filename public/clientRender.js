@@ -434,6 +434,19 @@
       }
     }
 
+    // ─── Top-of-frame badge (cfg.topTemplate) ────────────────────────────
+    // Painted BEFORE decorate so frames whose decorate hook already owns
+    // the top padding (e.g., film-35's edge stamp) keep their identity if
+    // a user happens to combine them — frame decoration wins visually.
+    if (args.topBadgeSvg) {
+      try {
+        const tbImg = await svgToImage(args.topBadgeSvg, null);
+        ctx.drawImage(tbImg, 0, 0);
+      } catch (err) {
+        console.warn('[render] top badge rasterize failed:', err);
+      }
+    }
+
     // ─── Frame decorate hook (passe-partout, sprocket holes, etc.) ───────
     // Runs after caption so decorative elements draw on top of captions in
     // the rare overlap case (film-35 stamps cover caption corners), and
@@ -482,6 +495,7 @@
     // application) that intentionally override frame defaults.
     if (cfg.radiusOverride != null)   layoutOpts.radiusOverride     = cfg.radiusOverride;
     if (cfg.captionForceOverlay)      layoutOpts.captionForceOverlay = true;
+    if (cfg.captionOverlayTextLift != null) layoutOpts.captionOverlayTextLift = cfg.captionOverlayTextLift;
     if (opts.customScale != null) layoutOpts.customScale = opts.customScale;
     if (opts.quality)             layoutOpts.quality     = opts.quality;
     // Rotation + crop pre-image: cfg.crop is normalized in the rotation-
@@ -504,6 +518,16 @@
       logos: opts.logos
     };
     const captionSvg = R.buildCaptionSvg(normExif, layout, captionArgs);
+    // Top badge (cfg.topTemplate): independent of caption template; sits
+    // in the frame's top padding. textStyle is the frame's native style
+    // (not the caption's overlay-forced 'light') because the badge lives
+    // outside the photo.
+    const topBadgeSvg = R.buildTopBadgeSvg(normExif, layout, {
+      topTemplate: cfg.topTemplate,
+      textStyle: frame.textStyle,
+      fontFaceCss: opts.fontFaceCss,
+      logos: opts.logos
+    });
     // Cache only the preview path — full-resolution exports are ad-hoc and
     // rarely repeated, so caching them just wastes memory on multi-MB SVGs.
     const captionKey = opts.cacheCaption
@@ -514,7 +538,7 @@
       ? { layout: cfg.collage.layout }
       : null;
     return {
-      layout, params, captionSvg, captionKey, frame, normExif,
+      layout, params, captionSvg, captionKey, topBadgeSvg, frame, normExif,
       customLogo: cfg.customLogo || null,
       customBg: cfg.customBg || null,
       collage: collage,

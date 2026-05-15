@@ -39,18 +39,12 @@
 <script src="public/vendor/piexif.js"></script>
 <script src="public/i18n.js"></script>
 <script src="public/shared/render.js"></script>
-<script src="public/frames/frosted.js"></script>
 <script src="public/frames/frosted-noir.js"></script>
 <script src="public/frames/gallery-white.js"></script>
-<script src="public/frames/gallery-noir.js"></script>
-<script src="public/frames/polaroid.js"></script>
 <script src="public/frames/instax.js"></script>
 <script src="public/frames/film-35.js"></script>
 <script src="public/frames/film-mf.js"></script>
-<script src="public/frames/editorial.js"></script>
-<script src="public/frames/editorial-mirror.js"></script>
 <script src="public/frames/torn.js"></script>
-<script src="public/frames/kodak-pro.js"></script>
 <script src="public/exifio.js"></script>
 <script src="public/clientRender.js"></script>
 
@@ -61,7 +55,7 @@
   // surfaces it here or the baselines need to be re-rendered alongside.
   function makeCfg(overrides) {
     const FRAMES = window.PhotoRender.FRAMES;
-    const frameName = overrides.frame || 'frosted';
+    const frameName = overrides.frame || 'frosted-noir';
     const sd = FRAMES[frameName].shadowDefault;
     return {
       aspect: '9:16',

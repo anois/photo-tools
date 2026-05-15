@@ -5,7 +5,7 @@ const R = window.PhotoRender;
 const CR = window.ClientRender;
 const T = (k, vars) => window.I18N.t(k, vars);
 
-const DEFAULT_FRAME = 'frosted';
+const DEFAULT_FRAME = 'frosted-noir';
 
 // One immutable factory — every photo gets its own cloned cfg. Each photo
 // holds its complete render configuration (frame/aspect/template/padding/bg/
@@ -36,6 +36,20 @@ function defaultCfg() {
     tornJitter: null,
     tornStep: null,
     tornEdgeOpacity: null,
+    // Film-mf vintage-aging strength (0..1). null = use frame default
+    // (1.0 = full vintage). Scales sepia / fade / vignette / foxing
+    // alphas uniformly. Only meaningful when frame === 'film-mf'.
+    filmMfAge: null,
+    // Top-of-frame badge (cfg.topTemplate). Independent of bottom caption —
+    // stamps brand identity into the frame's top padding. 'none' = no badge.
+    // 'brand-model' = logo + " · " + model. 'brand-only' = logo alone.
+    // 'wordmark' = oversized uppercase brand name (no logo).
+    topTemplate: 'none',
+    // captionOverlayTextLift: only meaningful with captionForceOverlay = true.
+    // 0–120 base-1440 px. Floats the overlay TEXT up by N px while the
+    // semi-transparent gradient backdrop stays pinned to the photo's bottom
+    // edge. 0 = caption text sits at the very bottom (legacy behavior).
+    captionOverlayTextLift: 0,
     showFields: { brand: true, model: true, focal: true, aperture: true, shutter: true, iso: true, lens: false, date: false, author: true, flash: false, gps: false },
     // Rotation applied at render time, in degrees clockwise. 0 / 90 / 180 / 270.
     // Per-photo correction — not propagated by "Apply frame to all" or by
@@ -134,6 +148,10 @@ const els = {
   radius: document.getElementById('radius'),
   radiusVal: document.getElementById('radius-val'),
   captionOverlayToggle: document.getElementById('caption-overlay-toggle'),
+  captionOverlayLiftRow: document.getElementById('caption-overlay-lift-row'),
+  captionOverlayLift: document.getElementById('caption-overlay-lift'),
+  captionOverlayLiftVal: document.getElementById('caption-overlay-lift-val'),
+  topTemplateSeg: document.getElementById('top-template-seg'),
   frostedAdvanced: document.getElementById('frosted-advanced'),
   bgBlur: document.getElementById('bg-blur'),
   bgBlurVal: document.getElementById('bg-blur-val'),
@@ -151,6 +169,11 @@ const els = {
   tornEdgeOpacity: document.getElementById('torn-edge-opacity'),
   tornEdgeOpacityVal: document.getElementById('torn-edge-opacity-val'),
   resetTornBtn: document.getElementById('reset-torn-btn'),
+  // Film-mf advanced — vintage-aging slider, gated on frame === 'film-mf'
+  filmMfAdvanced: document.getElementById('film-mf-advanced'),
+  filmMfAge: document.getElementById('film-mf-age'),
+  filmMfAgeVal: document.getElementById('film-mf-age-val'),
+  resetFilmMfBtn: document.getElementById('reset-film-mf-btn'),
   applyFrameAllBtn: document.getElementById('apply-frame-all-btn'),
   // ── LOOK system (presets library — promoted to lookbar first-class) ──
   lookbarLook: document.querySelector('.lookbar-look'),
@@ -466,9 +489,12 @@ async function doRender() {
         shadowOpacity: c.shadowOpacity,
         radiusOverride: c.radiusOverride,
         captionForceOverlay: c.captionForceOverlay,
+        captionOverlayTextLift: c.captionOverlayTextLift,
+        topTemplate: c.topTemplate,
         tornJitter: c.tornJitter,
         tornStep: c.tornStep,
         tornEdgeOpacity: c.tornEdgeOpacity,
+        filmMfAge: c.filmMfAge,
         showFields: c.showFields,
         customLogo: c.customLogo,
         customBg: c.customBg,
@@ -510,6 +536,16 @@ function requestRender() {
 // Reflect a per-photo cfg into all the DOM controls. Called whenever the
 // active photo changes (or apply-to-all rewrites the active photo's EXIF).
 function syncControlsFromCfg(cfg) {
+  // Guard against a cfg carrying a retired frame name that slipped past the
+  // applyPresetToCfg migration path (e.g. a future session where someone
+  // hand-edits localStorage). resolveFrame's alias table covers rendering,
+  // but the UI sync touches R.FRAMES[cfg.frame] directly below, which would
+  // throw on an unknown key. Migrate in place here too.
+  const aliases = R.FRAME_ALIASES || {};
+  if (cfg.frame && !R.FRAMES[cfg.frame] && aliases[cfg.frame]) {
+    cfg.frame = aliases[cfg.frame];
+  }
+  if (cfg.frame && !R.FRAMES[cfg.frame]) cfg.frame = DEFAULT_FRAME;
   syncAspectSeg(cfg.aspect);
   setSegActive(els.frameSeg, cfg.frame);
   syncFamilyFromValue(els.frameFamilySeg, els.frameSeg, cfg.frame);
@@ -534,6 +570,16 @@ function syncControlsFromCfg(cfg) {
   if (cfg.radiusOverride != null) setReadoutNum(els.radiusVal, cfg.radiusOverride, 'px');
   else els.radiusVal.textContent = T('frame.defaultReadout');
   els.captionOverlayToggle.checked = !!cfg.captionForceOverlay;
+  // Caption overlay text-lift slider is only meaningful with forceOverlay on;
+  // hide the row when overlay is off so the UI doesn't dangle a control that
+  // has no visible effect.
+  if (els.captionOverlayLiftRow) {
+    els.captionOverlayLiftRow.hidden = !cfg.captionForceOverlay;
+    const lift = Number(cfg.captionOverlayTextLift) || 0;
+    if (els.captionOverlayLift) els.captionOverlayLift.value = lift;
+    if (els.captionOverlayLiftVal) setReadoutNum(els.captionOverlayLiftVal, lift, 'px');
+  }
+  if (els.topTemplateSeg) setSegActive(els.topTemplateSeg, cfg.topTemplate || 'none');
   const frame = R.FRAMES[cfg.frame];
   if (frame.bg.type === 'frosted') {
     els.bgBlur.value = cfg.bgBlur != null ? cfg.bgBlur : frame.bg.blurSigma;
@@ -561,6 +607,20 @@ function syncControlsFromCfg(cfg) {
   if (els.tornAdvanced) {
     els.tornAdvanced.hidden = cfg.frame !== 'torn';
     if (els.tornAdvanced.open && cfg.frame !== 'torn') els.tornAdvanced.open = false;
+  }
+  // Film-mf vintage-aging panel — sister of torn-advanced, gated on
+  // frame === 'film-mf'. Slider position reflects cfg override; readout
+  // shows "preset" when null.
+  if (cfg.frame === 'film-mf' && els.filmMfAdvanced) {
+    const fmd = (frame.filmMf) || { age: 1.0 };
+    els.filmMfAge.value = cfg.filmMfAge != null ? cfg.filmMfAge : fmd.age;
+    els.filmMfAgeVal.textContent = cfg.filmMfAge != null
+      ? Math.round(Number(cfg.filmMfAge) * 100) + '%'
+      : T('frame.defaultReadout');
+  }
+  if (els.filmMfAdvanced) {
+    els.filmMfAdvanced.hidden = cfg.frame !== 'film-mf';
+    if (els.filmMfAdvanced.open && cfg.frame !== 'film-mf') els.filmMfAdvanced.open = false;
   }
   els.shadowBlur.value = cfg.shadowBlur;
   els.shadowOffset.value = cfg.shadowOffsetY;
@@ -623,7 +683,7 @@ function updateFrameBadge(cfg) {
     els.canvasFrameBadge.hidden = true;
     return;
   }
-  const frameKey = cfg.frame || 'frosted';
+  const frameKey = cfg.frame || 'frosted-noir';
   const tplKey = cfg.template || 'minimal-text';
   const frameLabel = T('frame.styles.' + frameKey) || frameKey;
   const tplLabel = T('caption.templates.' + tplKey) || tplKey;
@@ -1182,11 +1242,8 @@ wireFamilyTabs(els.templateFamilySeg, els.templateSeg, (val) => { activeCfg().te
 //   - 'rotated': frames where caption rotates ±90° (editorial family)
 //     trying to use a horizontally-laid spec template
 const TEMPLATE_INCOMPAT = {
-  polaroid:           { slate: 'narrow',  'tech-stack': 'narrow'  },
-  instax:             { slate: 'narrow',  'tech-stack': 'narrow'  },
-  torn:               { slate: 'narrow',  'tech-stack': 'narrow'  },
-  editorial:          { slate: 'rotated', 'tech-stack': 'rotated', 'spec-grid': 'rotated' },
-  'editorial-mirror': { slate: 'rotated', 'tech-stack': 'rotated', 'spec-grid': 'rotated' }
+  instax: { slate: 'narrow',  'tech-stack': 'narrow'  },
+  torn:   { slate: 'narrow',  'tech-stack': 'narrow'  }
 };
 
 function refreshTemplateCompatHint() {
@@ -1241,6 +1298,15 @@ function onFrameChange(frameName) {
     els.tornAdvanced.hidden = frameName !== 'torn';
     if (els.tornAdvanced.open && frameName !== 'torn') els.tornAdvanced.open = false;
   }
+  // Film-mf vintage-aging — same reset semantic.
+  cfg.filmMfAge = null;
+  if (els.filmMfAdvanced) {
+    const fmd = frame.filmMf || { age: 1.0 };
+    els.filmMfAge.value = fmd.age;
+    els.filmMfAgeVal.textContent = T('frame.defaultReadout');
+    els.filmMfAdvanced.hidden = frameName !== 'film-mf';
+    if (els.filmMfAdvanced.open && frameName !== 'film-mf') els.filmMfAdvanced.open = false;
+  }
 
   const sd = frame.shadowDefault;
   cfg.shadowBlur = sd.blur;
@@ -1257,10 +1323,16 @@ function onFrameChange(frameName) {
   // a 35mm-authentic radius=0 shouldn't bleed into the next frame.
   cfg.radiusOverride = null;
   cfg.captionForceOverlay = false;
+  cfg.captionOverlayTextLift = 0;
+  cfg.topTemplate = 'none';
   const baseRadius = (frame.layout && frame.layout.radiusOverride != null) ? frame.layout.radiusOverride : 36;
   els.radius.value = baseRadius;
   els.radiusVal.textContent = T('frame.defaultReadout');
   els.captionOverlayToggle.checked = false;
+  if (els.captionOverlayLiftRow) els.captionOverlayLiftRow.hidden = true;
+  if (els.captionOverlayLift)    els.captionOverlayLift.value = 0;
+  if (els.captionOverlayLiftVal) setReadoutNum(els.captionOverlayLiftVal, 0, 'px');
+  if (els.topTemplateSeg)        setSegActive(els.topTemplateSeg, 'none');
   refreshTemplateCompatHint();
 }
 
@@ -1307,6 +1379,29 @@ if (els.tornEdgeOpacity) els.tornEdgeOpacity.addEventListener('input', () => {
   const v = Number(els.tornEdgeOpacity.value);
   activeCfg().tornEdgeOpacity = v;
   els.tornEdgeOpacityVal.textContent = v.toFixed(2);
+  requestRender();
+});
+
+// Film-mf vintage-aging slider — single 0..1 knob scaling all of the
+// frame's aging effects (sepia / fade / vignette / foxing). Readout shows
+// percentage so users can talk about it in human terms ("dial down to
+// 50%"). Reset button blanks back to null = use frame default.
+if (els.filmMfAge) els.filmMfAge.addEventListener('input', () => {
+  const v = Number(els.filmMfAge.value);
+  activeCfg().filmMfAge = v;
+  els.filmMfAgeVal.textContent = Math.round(v * 100) + '%';
+  requestRender();
+});
+if (els.resetFilmMfBtn) els.resetFilmMfBtn.addEventListener('click', () => {
+  onFrameChange(activeCfg().frame);
+  requestRender();
+});
+if (els.filmMfAgeVal) els.filmMfAgeVal.addEventListener('dblclick', () => {
+  activeCfg().filmMfAge = null;
+  els.filmMfAgeVal.textContent = T('frame.defaultReadout');
+  const fr = R.FRAMES[activeCfg().frame];
+  const fmd = (fr && fr.filmMf) || { age: 1.0 };
+  els.filmMfAge.value = fmd.age;
   requestRender();
 });
 function makeTornReadoutResetter(valueEl, sliderEl, fieldKey, frameDefaultGetter) {
@@ -1398,8 +1493,27 @@ els.radiusVal.addEventListener('dblclick', () => {
 
 els.captionOverlayToggle.addEventListener('change', () => {
   activeCfg().captionForceOverlay = els.captionOverlayToggle.checked;
+  // Show/hide the lift slider in lockstep — it only matters under forceOverlay.
+  if (els.captionOverlayLiftRow) els.captionOverlayLiftRow.hidden = !els.captionOverlayToggle.checked;
   requestRender();
 });
+
+// Caption overlay text-lift slider — base-1440 px (0..120). 0 = legacy
+// bottom-pinned text; higher values float text up inside the gradient.
+if (els.captionOverlayLift) {
+  els.captionOverlayLift.addEventListener('input', () => {
+    const v = Math.max(0, Math.min(120, Number(els.captionOverlayLift.value) || 0));
+    activeCfg().captionOverlayTextLift = v;
+    if (els.captionOverlayLiftVal) setReadoutNum(els.captionOverlayLiftVal, v, 'px');
+    requestRender();
+  });
+}
+
+// Top-of-frame badge picker (cfg.topTemplate). 'none' | 'brand-model' |
+// 'brand-only' | 'wordmark' — see shared/render.js → buildTopBadgeSvg.
+if (els.topTemplateSeg) {
+  wireSeg(els.topTemplateSeg, 'topTemplate', () => {});
+}
 
 els.showFields.querySelectorAll('input[type=checkbox]').forEach((cb) => {
   cb.checked = state.draftCfg.showFields[cb.dataset.key];
@@ -2649,9 +2763,12 @@ function buildConfigForFile(f) {
   if (c.bgSaturation != null)  cfg.bgSaturation = c.bgSaturation;
   if (c.radiusOverride != null) cfg.radiusOverride = c.radiusOverride;
   if (c.captionForceOverlay)   cfg.captionForceOverlay = true;
+  if (c.captionOverlayTextLift) cfg.captionOverlayTextLift = c.captionOverlayTextLift;
+  if (c.topTemplate && c.topTemplate !== 'none') cfg.topTemplate = c.topTemplate;
   if (c.tornJitter != null)    cfg.tornJitter = c.tornJitter;
   if (c.tornStep != null)      cfg.tornStep = c.tornStep;
   if (c.tornEdgeOpacity != null) cfg.tornEdgeOpacity = c.tornEdgeOpacity;
+  if (c.filmMfAge != null)     cfg.filmMfAge = c.filmMfAge;
   if (c.customLogo)            cfg.customLogo = { ...c.customLogo };
   if (c.customBg)              cfg.customBg = { ...c.customBg };
   if (c.collage)               cfg.collage = { ...c.collage };
@@ -2836,7 +2953,13 @@ const LOOK_KEYS = [
   'radiusOverride', 'captionForceOverlay',
   // Torn-paper knobs (0.21+) — null on non-torn frames, only kicked in
   // when the active frame is torn. Same additive-default invariant.
-  'tornJitter', 'tornStep', 'tornEdgeOpacity'
+  'tornJitter', 'tornStep', 'tornEdgeOpacity',
+  // Top-of-frame badge + overlay text-lift (0.22+) — additive in v:1.
+  // Old share-codes that don't carry these default to 'none' / 0.
+  'topTemplate', 'captionOverlayTextLift',
+  // Film-mf vintage-aging strength (0.22+) — null on non-film-mf frames,
+  // only kicked in when the active frame is film-mf.
+  'filmMfAge'
 ];
 
 // Factory ("seed") presets — curated combos shipped with the app to
@@ -2845,74 +2968,67 @@ const LOOK_KEYS = [
 // then twists into their own look", not "ready-made skins" — every
 // field a factory preset sets is also reachable via UI controls so
 // the user can override and save back into "我的预设".
+//
+// 0.22.0 rework: dropped from 7 → 4 seeds. Each remaining seed
+// represents one identifiable real-world aesthetic (frosted glass,
+// torn paper, 35mm negative, gelatin silver print), tuned end-to-end
+// rather than picking a frame + template + leaving defaults. Removed
+// seeds (magazine-editorial / hasselblad-tribute / leica-side-rail /
+// kodak-professional / polaroid-classic / frosted-classic / film-35-
+// authentic) were unfocused — they showcased frame×template
+// combinations without committing to a finished look.
 const FACTORY_PRESETS = [
-  // 35mm authentic film — the showcase example for the cfg-level
-  // radiusOverride + captionForceOverlay schema unlocks. Hard 0
-  // corners + caption stamped on photo bottom + zero shadow give
-  // the negative-strip feel; perforations / edge print stay because
-  // they're frame-level identity.
-  { id: 'film-35-authentic',  nameKey: 'preset.factory.film35',     iconEmoji: '🎞',
-    preset: { v: 1, frame: 'film-35', template: 'minimal-text',
-              aspect: '3:2', padding: 70, captionHeight: null,
+  // Frosted noir · tech-stack — dark blurred-self-bg with a moody
+  // depth pop. Showcases bg dim + heavy floating shadow + bumped radius.
+  { id: 'frosted-noir-stack', nameKey: 'preset.factory.frostedNoirStack', iconEmoji: '✨',
+    preset: { v: 1, frame: 'frosted-noir', template: 'tech-stack',
+              aspect: '3:4', padding: 70, captionHeight: 252,
+              bgBlur: 72, bgBrightness: 0.98, bgSaturation: 1.32,
+              shadowBlur: 124, shadowOffsetY: 34, shadowOpacity: 0.64,
+              radiusOverride: 44, captionForceOverlay: false,
+              captionOverlayTextLift: 0, topTemplate: 'none',
+              tornJitter: null, tornStep: null, tornEdgeOpacity: null,
+              filmMfAge: null,
+              showFields: { brand: true, model: true, focal: true, aperture: true, shutter: true, iso: true, lens: false, date: true, gps: false, author: true, flash: false } } },
+  // Torn paper · date-lens + top brand-model — handmade scrapbook feel.
+  // Showcases the new topTemplate ('brand-model' stamps FUJIFILM · X-T5
+  // above the photo) + torn-paper jitter/density knobs.
+  { id: 'torn-paper-stack',   nameKey: 'preset.factory.tornPaperStack',   iconEmoji: '📜',
+    preset: { v: 1, frame: 'torn', template: 'date-lens',
+              aspect: '9:16', padding: 32, captionHeight: 360,
+              bgBlur: null, bgBrightness: null, bgSaturation: null,
+              shadowBlur: 50, shadowOffsetY: 16, shadowOpacity: 0.20,
+              radiusOverride: 0, captionForceOverlay: false,
+              captionOverlayTextLift: 0, topTemplate: 'brand-model',
+              tornJitter: 9.5, tornStep: 6.5, tornEdgeOpacity: 0.28,
+              filmMfAge: null,
+              showFields: { brand: true, model: true, focal: true, aperture: true, shutter: true, iso: true, lens: false, date: true, gps: false, author: true, flash: false } } },
+  // Film 35mm · tech-stack + overlay watermark — caption stamped onto the
+  // negative, lifted 32px from the bottom edge for breathing room.
+  // Showcases captionForceOverlay + new captionOverlayTextLift knob.
+  { id: 'film-35-stack',      nameKey: 'preset.factory.film35Stack',      iconEmoji: '🎞',
+    preset: { v: 1, frame: 'film-35', template: 'tech-stack',
+              aspect: '9:16', padding: 60, captionHeight: 228,
               bgBlur: null, bgBrightness: null, bgSaturation: null,
               shadowBlur: 0, shadowOffsetY: 0, shadowOpacity: 0,
               radiusOverride: 0, captionForceOverlay: true,
-              showFields: { brand: true, model: false, focal: true, aperture: true, shutter: true, iso: true, lens: false, date: true, gps: false, author: false, flash: false } } },
-  // Magazine editorial — Editorial frame's right strip + spec-rail
-  // capsule template. The pairing the spec-rail template was
-  // designed for. Brand on, model off (rail's brand cluster carries it).
-  { id: 'magazine-editorial', nameKey: 'preset.factory.magazine',   iconEmoji: '📖',
-    preset: { v: 1, frame: 'editorial', template: 'spec-rail',
-              aspect: '3:4', padding: 70, captionHeight: null,
+              captionOverlayTextLift: 32, topTemplate: 'none',
+              tornJitter: null, tornStep: null, tornEdgeOpacity: null,
+              filmMfAge: null,
+              showFields: { brand: true, model: true, focal: false, aperture: false, shutter: false, iso: false, lens: false, date: true, gps: false, author: true, flash: false } } },
+  // Medium format · slate — gelatin silver darkroom print with the
+  // monospace slate template carrying full spec + lens. The hand-written
+  // library notation comes from the frame's decorate hook.
+  { id: 'film-mf-print',      nameKey: 'preset.factory.filmMfPrint',      iconEmoji: '📽',
+    preset: { v: 1, frame: 'film-mf', template: 'slate',
+              aspect: '9:16', padding: 60, captionHeight: 360,
               bgBlur: null, bgBrightness: null, bgSaturation: null,
-              shadowBlur: 70, shadowOffsetY: 22, shadowOpacity: 0.22,
-              radiusOverride: null, captionForceOverlay: false,
-              showFields: { brand: true, model: true, focal: true, aperture: true, shutter: true, iso: true, lens: false, date: false, gps: false, author: true, flash: false } } },
-  // Hasselblad tribute — gallery-white + spec-grid (horizontal bottom
-  // strip with capsules). Wide square-ish aspect for the X2D vibe.
-  { id: 'hasselblad-tribute', nameKey: 'preset.factory.hasselblad', iconEmoji: '⬛',
-    preset: { v: 1, frame: 'gallery-white', template: 'spec-grid',
-              aspect: '4:3', padding: 80, captionHeight: 160,
-              bgBlur: null, bgBrightness: null, bgSaturation: null,
-              shadowBlur: 60, shadowOffsetY: 18, shadowOpacity: 0.18,
-              radiusOverride: 4, captionForceOverlay: false,
-              showFields: { brand: true, model: true, focal: true, aperture: true, shutter: true, iso: true, lens: false, date: false, gps: false, author: false, flash: false } } },
-  // Leica side rail — same rail template but on the editorial-mirror
-  // frame so the photo sits on the right and rail goes left.
-  { id: 'leica-side-rail',    nameKey: 'preset.factory.leica',      iconEmoji: '🔴',
-    preset: { v: 1, frame: 'editorial-mirror', template: 'spec-rail',
-              aspect: '3:4', padding: 70, captionHeight: null,
-              bgBlur: null, bgBrightness: null, bgSaturation: null,
-              shadowBlur: 70, shadowOffsetY: 22, shadowOpacity: 0.22,
-              radiusOverride: null, captionForceOverlay: false,
-              showFields: { brand: true, model: true, focal: true, aperture: true, shutter: true, iso: true, lens: false, date: false, gps: false, author: false, flash: false } } },
-  // Kodak Professional — kodak-pro frame (red+black header) + brand-logo
-  // template (carries Make/Model/lens cleanly in the bottom strip).
-  { id: 'kodak-professional', nameKey: 'preset.factory.kodak',      iconEmoji: '🟡',
-    preset: { v: 1, frame: 'kodak-pro', template: 'brand-logo',
-              aspect: '3:4', padding: 70, captionHeight: null,
-              bgBlur: null, bgBrightness: null, bgSaturation: null,
-              shadowBlur: 50, shadowOffsetY: 16, shadowOpacity: 0.18,
-              radiusOverride: null, captionForceOverlay: false,
-              showFields: { brand: true, model: true, focal: true, aperture: true, shutter: true, iso: true, lens: true, date: true, gps: false, author: false, flash: false } } },
-  // Polaroid classic — polaroid frame + wordmark for that BIG brand
-  // mark on the white bottom slab vibe.
-  { id: 'polaroid-classic',   nameKey: 'preset.factory.polaroid',   iconEmoji: '📷',
-    preset: { v: 1, frame: 'polaroid', template: 'wordmark',
-              aspect: '1:1', padding: 60, captionHeight: null,
-              bgBlur: null, bgBrightness: null, bgSaturation: null,
-              shadowBlur: 0, shadowOffsetY: 0, shadowOpacity: 0,
-              radiusOverride: null, captionForceOverlay: false,
-              showFields: { brand: true, model: false, focal: false, aperture: false, shutter: false, iso: false, lens: false, date: true, gps: false, author: true, flash: false } } },
-  // Frosted classic — the original "frosted glass + minimal text"
-  // look as a one-tap reset / starting point.
-  { id: 'frosted-classic',    nameKey: 'preset.factory.frosted',    iconEmoji: '✨',
-    preset: { v: 1, frame: 'frosted', template: 'minimal-text',
-              aspect: '9:16', padding: 70, captionHeight: null,
-              bgBlur: null, bgBrightness: null, bgSaturation: null,
-              shadowBlur: 80, shadowOffsetY: 24, shadowOpacity: 0.35,
-              radiusOverride: null, captionForceOverlay: false,
-              showFields: { brand: true, model: true, focal: true, aperture: true, shutter: true, iso: true, lens: false, date: false, gps: false, author: true, flash: false } } }
+              shadowBlur: 40, shadowOffsetY: 12, shadowOpacity: 0.14,
+              radiusOverride: 0, captionForceOverlay: false,
+              captionOverlayTextLift: 0, topTemplate: 'none',
+              tornJitter: null, tornStep: null, tornEdgeOpacity: null,
+              filmMfAge: null,
+              showFields: { brand: true, model: true, focal: false, aperture: false, shutter: false, iso: true, lens: true, date: true, gps: false, author: true, flash: false } } }
 ];
 
 function presetFromCfg(cfg, opts) {
@@ -2929,6 +3045,16 @@ function applyPresetToCfg(preset, cfg) {
   if (!preset || preset.v !== PRESET_SCHEMA_VERSION) return false;
   for (const k of LOOK_KEYS) if (k in preset) cfg[k] = preset[k];
   if (preset.showFields) cfg.showFields = { ...preset.showFields };
+  // 0.22.0 frame retirements: when an old share-code or stored preset
+  // references a frame that no longer exists, walk it forward to the
+  // closest survivor via the central FRAME_ALIASES table. Rendering
+  // would resolve the alias anyway (resolveFrame falls through), but
+  // migrating cfg.frame at apply time keeps the UI (seg button, swatch,
+  // future preset re-saves) coherent with the surviving frame name.
+  const aliases = R.FRAME_ALIASES || {};
+  if (cfg.frame && !R.FRAMES[cfg.frame] && aliases[cfg.frame]) {
+    cfg.frame = aliases[cfg.frame];
+  }
   // customLogo is optional in the preset; only applied when present so a
   // share code without the signature doesn't wipe a local one the user has.
   // Run through migrateCustomLogo so older presets / share-codes that
@@ -3463,9 +3589,9 @@ checkChangelogBadge();
 (function wireToolbarShell() {
   // ── Frame metadata for the cmdk + tile name display.
   const FRAME_FAMILIES = {
-    frosted: 'editorial', 'frosted-noir': 'editorial', editorial: 'editorial', 'editorial-mirror': 'editorial',
-    'gallery-white': 'gallery', 'gallery-noir': 'gallery',
-    polaroid: 'instant', instax: 'instant', torn: 'instant',
+    'frosted-noir': 'editorial',
+    'gallery-white': 'gallery',
+    instax: 'instant', torn: 'instant',
     'film-35': 'film', 'film-mf': 'film',
   };
   const ALL_FRAMES = Object.keys(FRAME_FAMILIES);
@@ -3576,7 +3702,7 @@ checkChangelogBadge();
   function syncLookchips() {
     const cfg = activeCfg();
     if (!cfg) return;
-    if (swatch) swatch.setAttribute('data-frame', cfg.frame || 'frosted');
+    if (swatch) swatch.setAttribute('data-frame', cfg.frame || 'frosted-noir');
     setChipValue(frameVal, frameLabel(cfg.frame));
     setChipValue(tmplVal, tmplLabel(cfg.template));
     setChipValue(aspectVal, (cfg.aspect || '').replace(':', ' : '));

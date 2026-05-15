@@ -41,15 +41,17 @@ This project is maintained autonomously by [Claude Code](https://claude.com/clau
 
 ## Features
 
-- **12 frame styles in 4 families** — Editorial (frosted, frosted-noir, editorial spread, editorial mirror), Gallery (gallery-white passe-partout, gallery-noir phosphor highlight), Instant (polaroid, instax, torn paper), Film (film-35 with sprocket holes + leader stamp, film-mf medium format, **kodak-pro** with red+black brand banner)
+- **6 highly-tuned frame styles in 4 families** — Editorial (`frosted-noir` blurred-self bg with strong dim), Gallery (`gallery-white` passe-partout double thin lines), Instant (`instax` instant-print bottom slab, `torn` procedural torn-paper edge), Film (`film-35` with sprocket holes + leader stamp, `film-mf` gelatin silver darkroom print). 0.22 cull from 12 → 6 dropped low-distinction / overlap variants; every survivor is tuned for high output quality
+- **Top-of-frame badge** — `cfg.topTemplate` stamps brand identity in the frame's top padding, independent of the bottom caption: pick **Brand · Model** for "FUJIFILM · X-T5", **Brand** for just the logo, or **Wordmark** for an oversized brand stamp à la Kodak Professional. Works on any frame
 - **11 caption templates in 4 grammars** — Spec (minimal-text, tech-stack, **spec-grid** Hasselblad-style outlined capsules, **spec-rail** Leica-style vertical capsules), Brand (brand-logo, brand-right), Editorial (wordmark, headline with GPS+date hero line), Stamp (date-lens, slate OSD field grid, passport postmark)
 - **Real bundled brand logos** — Fujifilm, Sony, Leica, Nikon, Canon, Apple, Xiaomi, OPPO, Vivo, DJI… (Wikimedia Commons + simple-icons)
 - **Auto EXIF parsing** with per-photo manual override and `LensInfo` → lens-model fallback
 - **Custom signature overlay** — upload an SVG/PNG and pin it to a corner of the photo; persisted across sessions in `localStorage`
 - **Custom background image** — replace the self-blur frosted-bg source with any image you like (only applies to frosted frames)
-- **LOOK — first-class library entry** — the lookbar's dashed-border LOOK block is the single one-tap entry to the entire preset library. Click → a Looks picker opens with the 7 curated seeds (✦ 35mm authentic / Magazine editorial / Hasselblad tribute / Leica side-rail / Kodak Pro / Polaroid classic / Frosted classic) in a 4-column tile grid + user-saved presets in a list + save / share / paste-share-code actions in one panel. The chip's accent dot pulses when the active cfg has drifted from the applied preset — visual nudge to save your fork.
+- **LOOK — first-class library entry** — the lookbar's dashed-border LOOK block is the single one-tap entry to the entire preset library. Click → a Looks picker opens with **4 finished aesthetic seeds** in a tile grid (✨ Frosted noir · 📜 Torn paper · 🎞 35mm film · 📽 Silver print) + user-saved presets in a list + save / share / paste-share-code actions in one panel. The chip's accent dot pulses when the active cfg has drifted from the applied preset — visual nudge to save your fork.
 - **Share + paste a Look in one click** — copy the current cfg as a `#p=<code>` URL, or paste an incoming link / code straight from the clipboard via the picker footer.
-- **DIY render engine** — corner radius slider + "caption inside photo" toggle (35mm authentic look) joined the existing slider zoo; every render parameter the seed presets touch is also reachable directly from the UI for full forking
+- **Caption-inside-photo watermark with lift control** — toggle "Caption inside photo" to stamp the caption onto the picture itself (35mm authentic look) and dial how far it floats up from the bottom edge with a 0–120px slider; gradient backdrop stays pinned, text breathes
+- **DIY render engine** — corner radius slider + "caption inside photo" toggle + caption-lift + torn-paper jitter/density/edge + top-badge picker all joined the existing slider zoo; every render parameter the seed presets touch is also reachable directly from the UI for full forking
 - **HEIC / HEIF input** — iPhone photos transcode in-browser via lazy-loaded libheif-js (only fetched on first HEIC import)
 - **Collage mode** — pair 2–4 photos in one frame: side-by-side, stacked, 1×3 / 3×1 row, or 2×2 grid
 - **90° rotation + free-form crop** — per-photo, render-time only (source bitmap untouched, fully reversible)
@@ -69,12 +71,12 @@ Two real outputs from the live pipeline:
 
 <table>
   <tr>
-    <td width="50%"><img src="data/00010_preview.jpg" alt="Cafe wall — frosted-dark frame with single-line caption" /></td>
-    <td width="50%"><img src="data/00012_preview.jpg" alt="Industrial structure at dusk — frosted frame with stacked tech caption" /></td>
+    <td width="50%"><img src="data/00010_preview.jpg" alt="Cafe wall — frosted-noir frame with single-line caption" /></td>
+    <td width="50%"><img src="data/00012_preview.jpg" alt="Industrial structure at dusk — frosted-noir frame with stacked tech caption" /></td>
   </tr>
   <tr>
-    <td align="center"><sub><b>frosted-dark</b> · <b>minimal-text</b><br/>FUJIFILM X-M5 · 27mm F1.6 1/100s ISO4000</sub></td>
-    <td align="center"><sub><b>frosted</b> · <b>tech-stack</b><br/>FUJIFILM X-M5 · SIGMA 18-50mm F2.8 · 2026.02.21</sub></td>
+    <td align="center"><sub><b>frosted-noir</b> · <b>minimal-text</b><br/>FUJIFILM X-M5 · 27mm F1.6 1/100s ISO4000</sub></td>
+    <td align="center"><sub><b>frosted-noir</b> · <b>tech-stack</b><br/>FUJIFILM X-M5 · SIGMA 18-50mm F2.8 · 2026.02.21</sub></td>
   </tr>
 </table>
 
