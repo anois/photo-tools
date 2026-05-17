@@ -17,6 +17,7 @@ self.importScripts(
   'frames/instax.js',
   'frames/film-35.js',
   'frames/film-mf.js',
+  'frames/slide-mount.js',
   'frames/torn.js'
 );
 
@@ -181,28 +182,35 @@ async function compose(canvas, args) {
     }, bitmap, rot, layout.radius, args.crop, clipFn);
   }
 
+  // Stash captionImg on args so frame.decorate hooks that destructively
+  // paint over the caption zone (slide-mount's leather tile fill) can
+  // re-stamp the caption. Defer cap.close() until after decorate runs.
+  let captionImg = null;
   if (captionSvg) {
     const blob = new Blob([captionSvg], { type: 'image/svg+xml;charset=utf-8' });
     // Workers can't use new Image(); createImageBitmap accepts SVG blobs in
     // Chrome/Firefox. Safari worker SVG support landed in 17.4.
-    const cap = await createImageBitmap(blob);
-    ctx.drawImage(cap, 0, 0);
-    cap.close();
+    captionImg = await createImageBitmap(blob);
+    ctx.drawImage(captionImg, 0, 0);
   }
+  args.captionImg = captionImg;
 
   // Top-of-frame badge (cfg.topTemplate). Painted before decorate so the
   // frame's own top-padding decoration (e.g. film-35 edge stamp) keeps
-  // visual primacy when combined with a user-applied topBadge.
+  // visual primacy when combined with a user-applied topBadge. Stashed
+  // on args so destructive decorate hooks (slide-mount leather) can
+  // re-stamp it on top; close() is deferred until end of compose.
+  let topBadgeImg = null;
   if (args.topBadgeSvg) {
     try {
       const tbBlob = new Blob([args.topBadgeSvg], { type: 'image/svg+xml;charset=utf-8' });
-      const tb = await createImageBitmap(tbBlob);
-      ctx.drawImage(tb, 0, 0);
-      tb.close();
+      topBadgeImg = await createImageBitmap(tbBlob);
+      ctx.drawImage(topBadgeImg, 0, 0);
     } catch (err) {
       console.warn('[worker] top badge rasterize failed:', err);
     }
   }
+  args.topBadgeImg = topBadgeImg;
 
   // Mirrors clientRender.js: frame.decorate runs after caption, before
   // signature. decorate runs in worker context (no DOM) — frames must use
@@ -215,6 +223,8 @@ async function compose(canvas, args) {
   }
 
   if (customBgBm) customBgBm.close();
+  if (captionImg && captionImg.close) captionImg.close();
+  if (topBadgeImg && topBadgeImg.close) topBadgeImg.close();
 
   if (args.customLogo && args.customLogo.data) {
     let bm = null;

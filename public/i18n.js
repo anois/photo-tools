@@ -182,7 +182,8 @@
           instax: 'Instax',
           torn: '撕纸',
           'film-35': '35mm 胶片',
-          'film-mf': '银盐印品'
+          'film-mf': '银盐印品',
+          'slide-mount': '幻灯片'
         },
         families: {
           editorial: '编辑',
@@ -196,7 +197,8 @@
           frostedNoirStack: '夜色毛玻璃',
           tornPaperStack:   '撕纸',
           film35Stack:      '35mm 胶卷',
-          filmMfPrint:      '银盐印品'
+          filmMfPrint:      '银盐印品',
+          slideMountPrint:  '幻灯片'
         }
       },
       caption: {
@@ -583,7 +585,8 @@
           instax: 'Instax',
           torn: 'Torn paper',
           'film-35': '35mm film',
-          'film-mf': 'Silver print'
+          'film-mf': 'Silver print',
+          'slide-mount': 'Slide mount'
         },
         families: {
           editorial: 'Editorial',
@@ -597,7 +600,8 @@
           frostedNoirStack: 'Frosted noir',
           tornPaperStack:   'Torn paper',
           film35Stack:      '35mm film',
-          filmMfPrint:      'Silver print'
+          filmMfPrint:      'Silver print',
+          slideMountPrint:  'Slide mount'
         }
       },
       caption: {

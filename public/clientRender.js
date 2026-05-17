@@ -425,27 +425,38 @@
     }
 
     // ─── Caption (SVG → Image → drawImage) ───────────────────────────────
+    // Stash the rasterized caption on `args` so any frame.decorate hook
+    // that paints destructively over the caption zone (slide-mount's
+    // tile-pattern leather fill) can re-stamp the caption on top with
+    // its own treatment. Non-destructive decorate hooks ignore it.
+    let captionImg = null;
     if (captionSvg) {
       try {
-        const capImg = await svgToImage(captionSvg, args.captionKey);
-        ctx.drawImage(capImg, 0, 0);
+        captionImg = await svgToImage(captionSvg, args.captionKey);
+        ctx.drawImage(captionImg, 0, 0);
       } catch (err) {
         console.warn('[render] caption rasterize failed:', err);
       }
     }
+    args.captionImg = captionImg;
 
     // ─── Top-of-frame badge (cfg.topTemplate) ────────────────────────────
     // Painted BEFORE decorate so frames whose decorate hook already owns
     // the top padding (e.g., film-35's edge stamp) keep their identity if
     // a user happens to combine them — frame decoration wins visually.
+    // Stash the rasterized bitmap on `args` for the same reason as
+    // captionImg: a destructive decorate hook (slide-mount's leather
+    // tile fill) can re-stamp it on top with its own treatment.
+    let topBadgeImg = null;
     if (args.topBadgeSvg) {
       try {
-        const tbImg = await svgToImage(args.topBadgeSvg, null);
-        ctx.drawImage(tbImg, 0, 0);
+        topBadgeImg = await svgToImage(args.topBadgeSvg, null);
+        ctx.drawImage(topBadgeImg, 0, 0);
       } catch (err) {
         console.warn('[render] top badge rasterize failed:', err);
       }
     }
+    args.topBadgeImg = topBadgeImg;
 
     // ─── Frame decorate hook (passe-partout, sprocket holes, etc.) ───────
     // Runs after caption so decorative elements draw on top of captions in
