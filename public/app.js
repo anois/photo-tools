@@ -3028,7 +3028,21 @@ const FACTORY_PRESETS = [
               captionOverlayTextLift: 0, topTemplate: 'none',
               tornJitter: null, tornStep: null, tornEdgeOpacity: null,
               filmMfAge: null,
-              showFields: { brand: true, model: true, focal: false, aperture: false, shutter: false, iso: true, lens: true, date: true, gps: false, author: true, flash: false } } }
+              showFields: { brand: true, model: true, focal: false, aperture: false, shutter: false, iso: true, lens: true, date: true, gps: false, author: true, flash: false } } },
+  // Slide mount — Kodachrome-era mounted transparency. Top + bottom
+  // EXIF-stamps (BRAND / TRANSPARENCY / PROCESSED BY BRAND, bottom
+  // mirrored 180°) carry the brand identity, so the inner caption stays
+  // minimal: just date + lens for the per-shot stamp.
+  { id: 'slide-mount-print',  nameKey: 'preset.factory.slideMountPrint',  iconEmoji: '🎞',
+    preset: { v: 1, frame: 'slide-mount', template: 'date-lens',
+              aspect: '4:3', padding: 70, captionHeight: null,
+              bgBlur: null, bgBrightness: null, bgSaturation: null,
+              shadowBlur: 0, shadowOffsetY: 0, shadowOpacity: 0,
+              radiusOverride: 0, captionForceOverlay: false,
+              captionOverlayTextLift: 0, topTemplate: 'none',
+              tornJitter: null, tornStep: null, tornEdgeOpacity: null,
+              filmMfAge: null,
+              showFields: { brand: false, model: false, focal: true, aperture: true, shutter: true, iso: true, lens: true, date: true, gps: false, author: true, flash: false } } }
 ];
 
 function presetFromCfg(cfg, opts) {
@@ -3592,7 +3606,7 @@ checkChangelogBadge();
     'frosted-noir': 'editorial',
     'gallery-white': 'gallery',
     instax: 'instant', torn: 'instant',
-    'film-35': 'film', 'film-mf': 'film',
+    'film-35': 'film', 'film-mf': 'film', 'slide-mount': 'film',
   };
   const ALL_FRAMES = Object.keys(FRAME_FAMILIES);
   const ALL_TEMPLATES = ['minimal-text', 'tech-stack', 'brand-logo', 'brand-right', 'wordmark', 'headline', 'date-lens', 'slate', 'passport'];

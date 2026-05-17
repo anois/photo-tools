@@ -41,14 +41,14 @@
 
 ## 特性
 
-- **4 个家族 · 6 个精选相框风格** — 编辑（`frosted-noir` 深色毛玻璃自我磨砂）/ 画廊（`gallery-white` 双层细线衬纸）/ 即影（`instax` 即拍即得底部宽边 / `torn` 程序化撕纸边缘）/ 胶片（`film-35` 齿孔+leader stamp / `film-mf` 银盐暗房印品）。0.22 从 12 砍到 6，下线低识别度 / 与现存功能重叠的变体，每个保留下来的都是高度调优过的出品
+- **4 个家族 · 7 个精选相框风格** — 编辑（`frosted-noir` 深色毛玻璃自我磨砂）/ 画廊（`gallery-white` 双层细线衬纸）/ 即影（`instax` 即拍即得底部宽边 / `torn` 程序化撕纸边缘）/ 胶片（`film-35` 齿孔+leader stamp / `film-mf` 银盐暗房印品 / `slide-mount` 装裱幻灯片：酒红外圈 + 仿皮革乳白卡纸 + 照片凹陷感）。0.22 从 12 砍到 6，每个保留下来的都是高度调优过的出品
 - **顶部品牌标记** — `cfg.topTemplate` 在任意相框上方留白处加一行品牌身份标记：**品牌·型号**（FUJIFILM · X-T5）/ **品牌**（仅 logo）/ **字标**（大号纯字，复刻 Kodak Professional 那种字标语言）
 - **4 个语法 · 11 种字幕模板** — Spec（minimal-text、tech-stack、**spec-grid** Hasselblad 描边胶囊、**spec-rail** Leica 侧栏胶囊）/ Brand（brand-logo、brand-right）/ Editorial（wordmark 大字字标、headline GPS+日期标题）/ Stamp（date-lens、slate OSD 字段格、passport 邮印戳）
 - **真实品牌 logo 内嵌** — Fujifilm、Sony、Leica、Nikon、Canon、Apple、Xiaomi、OPPO、Vivo、DJI…（来自 Wikimedia Commons + simple-icons）
 - **EXIF 自动解析**，每张照片可独立手动覆盖；当 `LensModel` 缺失时用 `LensInfo` 数组反推镜头型号
 - **自定义签名水印** — 上传 SVG/PNG 钉在前景照片的某个角落；通过 `localStorage` 跨会话保留
 - **自定义背景图** — 把 frosted 相框的自我磨砂背景源换成任意图片（仅对毛玻璃风格生效）
-- **LOOK 一级入口** —— 左轨 dashed 边框的 LOOK 区块就是整个预设库的单击入口。点开 → 风格库 picker 弹出：上半 4 列网格陈列 **4 个调到位的 ✦ 精选预设**（✨ 夜色毛玻璃 · 📜 撕纸 · 🎞 35mm 胶卷 · 📽 银盐印品），下半是「我的预设」列表，底部固定 ✚ 保存 / ↗ 分享 / ⎘ 粘贴 三个操作。当应用某个预设之后调任何 cfg 字段，LOOK chip 右上角会出现 accent 红呼吸点，提醒"已偏离这个 look，要不要保存为新的"
+- **LOOK 一级入口** —— 左轨 dashed 边框的 LOOK 区块就是整个预设库的单击入口。点开 → 风格库 picker 弹出：上半 4 列网格陈列 **5 个调到位的 ✦ 精选预设**（✨ 夜色毛玻璃 · 📜 撕纸 · 🎞 35mm 胶卷 · 📽 银盐印品 · 🎞 幻灯片），下半是「我的预设」列表，底部固定 ✚ 保存 / ↗ 分享 / ⎘ 粘贴 三个操作。当应用某个预设之后调任何 cfg 字段，LOOK chip 右上角会出现 accent 红呼吸点，提醒"已偏离这个 look，要不要保存为新的"
 - **一键分享 / 粘贴 look** —— 把当前 look 编成 `#p=<code>` URL 复制走，或从剪贴板粘贴别人的链接 / 分享码直接应用，都在 picker 底部
 - **水印嵌入图片 · 高度可调** —— 开启「水印嵌入图片」后水印盖在照片上（35mm 真实底片观感），新滑块控制水印离底边的距离（0–120px），半透明渐变背景仍贴底但文字基线在渐变内向上抬
 - **DIY 渲染引擎** —— 圆角 / 水印嵌入图片 / 水印高度 / 撕纸抖动密度暗边 / 顶部标记 picker，全部加入控件区；精选预设里所有动到的渲染参数，用户都能直接在 UI 上独立调，方便基于种子继续衍生
