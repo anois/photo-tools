@@ -1,0 +1,36 @@
+MIT License
+
+Copyright (c) 2026 anois
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+---
+
+This MIT license covers code authored for this project. The repository
+additionally bundles third-party assets which retain their own licenses:
+
+- Inter font (public/fonts/Inter-*.ttf and the subset baked into public/fonts.css)
+  — SIL Open Font License 1.1 — see https://fonts.google.com/specimen/Inter
+- Brand logo SVGs (public/logos/*.svg) — sourced from Wikimedia Commons and
+  simple-icons (https://simpleicons.org/, CC0). The logos themselves remain
+  trademarks of their respective owners and are used here for the personal
+  purpose of compositing photo metadata onto user-supplied images.
+- Vendored libraries (public/vendor/) retain their upstream licenses:
+  exifr (MIT), piexifjs (MIT), JSZip (MIT/GPL), libheif-js (LGPL), Leaflet
+  (BSD-2-Clause), aws4fetch (MIT).

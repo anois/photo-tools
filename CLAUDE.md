@@ -1,12 +1,11 @@
 # photo-tools
 
-Pure-frontend single-page app that adds a "frosted-glass" camera frame (blurred self-background + rounded foreground + EXIF caption) to photos. Reference input / output pairs live in `data/`:
+Pure-frontend single-page app that adds a "frosted-glass" camera frame (blurred self-background + rounded foreground + EXIF caption) to photos.
 
-- `data/old.jpg` → `data/new.jpg` — original aesthetic target (frosted frame, minimal-text caption)
-- `data/00010.JPG` → `data/00010_framed.jpg` — cafe wall, `frosted-dark` + `minimal-text`, FUJIFILM X-M5
-- `data/00012.JPG` → `data/00012_framed.jpg` — industrial structure, `frosted` + `tech-stack`, FUJIFILM X-M5 + SIGMA 18-50/2.8 lens caption
+Reference assets live in two places:
 
-The `_framed.jpg` outputs are real renders from the current pipeline — keep them as a visual regression baseline. If a refactor changes layout / typography, expect these to drift; re-render and commit alongside the change so future readers see the new look.
+- **Regression baselines for `smoke.html`** — `data/00010.JPG` → `data/00010_framed.jpg` (cafe wall, `frosted-noir` + `minimal-text`) and `data/00012.JPG` → `data/00012_framed.jpg` (industrial structure, `frosted-noir` + `tech-stack`). The `_framed.jpg` outputs are real renders from the current pipeline — keep them as visual regression baselines. If a refactor changes layout / typography, expect them to drift; re-render and commit alongside the change.
+- **README showcase samples** — `data/samples/0[1-5]-*.jpg` are the 5 finished aesthetics rendered for the README hero strip, each accompanied by a 720px `*_preview.jpg` for inline embedding.
 
 ## Project declaration
 
@@ -62,11 +61,11 @@ When iterating on this project:
      - Quick Start commands (script renames, Node version bump, new env vars)
      - the Project Layout tree (file additions / moves / removals)
      - the Deployment section (new target, changed CI workflow, new env requirements)
-     - **preview images** — re-render `data/00010_framed.jpg` / `data/00012_framed.jpg` and regenerate the 480px previews via `sips --resampleWidth 480` (or future `scripts/build-previews.sh`) whenever a pipeline change visibly alters output. Stale previews lie about what the tool does today.
+     - **showcase samples** — when a pipeline change visibly alters the look of any of the 5 frames featured in the README hero strip (`data/samples/0[1-5]-*.jpg`), re-render those samples and regenerate the 720px previews via `sips --resampleWidth 720 <full>.jpg --out <full>_preview.jpg`. Stale samples lie about what the tool does today.
 
      **Two-language rule**: any structural edit (new section, renamed section, reordered sections, new badge, changed image, changed deploy URL) MUST be applied to both `README.md` and `README.zh-CN.md` in the same commit. The two files mirror section-for-section (verify with `grep -E "^##? " README*.md`). English is the canonical source for content decisions; Chinese is the localized mirror — translate prose, but keep code blocks / file paths / badge URLs identical.
 
-     Don't duplicate detail between READMEs and CLAUDE.md — link to CLAUDE.md sections from READMEs for deep dives.
+     Don't duplicate detail between READMEs and the visitor-facing technical docs under [`docs/`](docs/) (currently [`docs/architecture.md`](docs/architecture.md) for the engine + extending recipes, and [`docs/deploy.md`](docs/deploy.md) for GitHub Pages + Aliyun OSS setup). READMEs link out to those `docs/` files for deep dives; CLAUDE.md (this file) is the Claude-Code-internal working doc and is **not** linked from the public READMEs — it carries agent conventions and pitfalls that would be noise to a human visitor.
 
 7. **One source of truth per concept.**
    - Layout math + templates + caption SVG: `public/shared/render.js` (the original UMD module — module.exports branch is dead but harmless).

@@ -4,6 +4,32 @@
 
 每次有意义的功能 / 修复 / 优化都记到这里 —— 同一份文件既给开发者看，也通过顶栏 ✦ 按钮在应用内展示给用户。
 
+## 1.0.0 · 2026-05-17
+
+### 🎉 第一个稳定版
+
+把 0.x 阶段累积下来的引擎 / UI / 资产产品边界画下来 —— 1.0 = 这套形态稳定，可以基于它做长期使用 / 分享 / 二次创作了。版本号跨过 0 区段，但**没有任何破坏性变更**：cfg `v:1` 不动，所有 0.x 存下来的 preset / share-code / 云相册分享链接都继续解析。
+
+引擎层视作 feature-complete：
+- **7 个相框 × 4 个家族**（编辑 / 画廊 / 即影 / 胶片三连）+ **11 个字幕模板 × 4 个语法**（Spec / Brand / Editorial / Stamp）
+- **DIY 渲染引擎**：每一个渲染参数都从 UI 可达、能存进 LOOK preset / share-code，不存在"只能在精选预设里看到却调不出的旋钮"
+- **LOOK 一级入口**：左轨独立 LOOK 区块 + 5 个调到位的种子预设 + 我的预设 + 一键分享 / 粘贴
+- **S3 云相册**：上传 / 画廊 + 灯箱 / 单张 + 多张打包下载 / 凭证分享链接（AWS / R2 / 阿里云 OSS 三家）
+- **PWA**：service worker 离线壳 + i18n 中英文 + EXIF 完整 round-trip
+- **桌面与移动同等公民**：各自的手势语法不互相缩放派生
+
+### 📖 项目仓库面向公开访客升级
+
+之前的 README 是给早期使用者看的"功能清单"，1.0 改成给 GitHub 路过者 30 秒决定"试 / 不试 / 收藏"的产品页：
+
+- **新增 `LICENSE` 文件 · MIT 协议**，README 同时列出第三方资产各自的 license（Inter / 品牌 logo / 各 vendored 库），让 fork / 借鉴的人能一眼判断边界
+- **新增 5 张精选相框样张**到 [`data/samples/`](data/samples/)（`film-mf` / `slide-mount` / `film-35` / `torn` / `frosted-noir`），README 顶部一整排陈列；每张同时有 720px `*_preview.jpg` 缩略图给 README 内嵌
+- **新增 6 张应用 UI 截图**到 `docs/screenshots/`（桌面主界面 / LOOK picker / 工作台 / 裁剪 modal + 移动主界面 / 移动 LOOK picker bottom sheet），README 「Screenshots」分区陈列
+- **README 双语**重写：英文版作为 canonical，中文版逐节镜像；badges 加 `release-1.0.0` / `license-MIT` 两条
+- **部署章节**里的"阿里云 OSS 国内镜像配置"折叠进 `<details>` —— 给真要部署到国内的访客留全步骤，但不再占首屏
+
+> **从 0.x 升上来**：什么都不用做。打开应用就是 1.0.0，原有的 LOOK preset / share-code / 云相册配置原样可用。✦ pill 顶上会有 accent 红点提示有新版本，点开就看到这一页。
+
 ## 0.25.1 · 2026-05-17
 
 ### ✂️ RAW 按钮归位到云端画廊

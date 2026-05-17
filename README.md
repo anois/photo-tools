@@ -1,89 +1,115 @@
 <div align="center">
 
-<img src="public/logo.svg" width="84" alt="photo-tools logo" />
+<img src="public/logo.svg" width="88" alt="photo-tools logo" />
 
 # photo-tools
 
-**Frosted-glass camera frame for your photos — pure browser, no server.**
+**Camera-real finishing aesthetics for your photos.**
 
-[![Live demo](https://img.shields.io/badge/live_demo-anois.github.io%2Fphoto--tools-e5493a?style=flat-square)](https://anois.github.io/photo-tools/)
-[![CN mirror](https://img.shields.io/badge/CN_mirror-Aliyun_OSS-e5493a?style=flat-square)](https://photo-tools.oss-cn-hangzhou.aliyuncs.com/)
-[![No build step](https://img.shields.io/badge/build-vanilla_HTML/JS-1d2329?style=flat-square)](#stack)
-[![Node](https://img.shields.io/badge/node-%3E%3D18-1d2329?style=flat-square)](#quick-start)
-[![Repo](https://img.shields.io/badge/source-github-1d2329?style=flat-square&logo=github)](https://github.com/anois/photo-tools)
+Pick a seed · fork it in the workshop · share by URL. 100% in the browser.
 
-[中文](README.zh-CN.md) · English
+<p>
+<a href="https://anois.github.io/photo-tools/"><img src="https://img.shields.io/badge/launch_app-anois.github.io%2Fphoto--tools-e5493a?style=for-the-badge" alt="Launch app" /></a>
+</p>
+
+<sub>
+<a href="https://photo-tools.oss-cn-hangzhou.aliyuncs.com/">CN mirror</a> ·
+<a href="public/CHANGELOG.md">v1.0.0</a> ·
+<a href="LICENSE">MIT</a> ·
+<a href="README.zh-CN.md">中文</a>
+</sub>
 
 </div>
 
-A single-page web app that wraps photos in a "frosted-glass" frame — blurred self-background, rounded foreground, EXIF caption with brand logo. Drag in a photo, pick a frame, export. Everything runs in your browser; no upload, no backend.
+---
 
-```
-   ┌─────────────────────┐
-   │ ░░░░░░░░░░░░░░░░░░ │
-   │ ░ ┌──────────────┐ ░ │       blurred self-background
-   │ ░ │              │ ░ │       + rounded foreground
-   │ ░ │    photo     │ ░ │       + EXIF caption
-   │ ░ │              │ ░ │
-   │ ░ └──────────────┘ ░ │
-   │   FUJIFILM  X-T5    │
-   │   46mm  F4.5  1/210s │
-   └─────────────────────┘
-```
+photo-tools is a photo-finishing engine that lives entirely in your browser. Drop in a photo (JPEG / PNG / HEIC), pick one of seven finishing aesthetics — silver darkroom print, mounted Kodachrome slide, 35mm negative with sprocket holes, torn paper edge, frosted-glass card, gallery passe-partout, instant print — then either keep the seed as-is or open the workshop and rewrite every render parameter yourself. A "look" is just a JSON snapshot, so you save your own, share by `#p=...` URL, and back-load via a personal S3 / R2 / OSS bucket if you want. Nothing leaves your device unless you ask it to.
 
-## 🤖 Maintained by Claude Code
+## 7 finishing aesthetics, one engine
 
-This project is maintained autonomously by [Claude Code](https://claude.com/claude-code). There are no human committers — every line of code, every doc update, every CHANGELOG entry is produced by an AI agent inside the maintenance pipeline.
-
-- **Want a feature, hit a bug, or have an idea?** Open a [GitHub Issue](https://github.com/anois/photo-tools/issues/new). Plain prose is fine; a few lines describing what you'd like is enough.
-- **How it ships**: reasonable Issues are pulled periodically, fed to a Claude Code session that implements + tests + writes the CHANGELOG bullet, and auto-deploys via GitHub Pages + the Aliyun OSS mirror.
-- **Track what landed**: every shipped change shows up in [`public/CHANGELOG.md`](public/CHANGELOG.md). The ✦ pill in the topbar surfaces it inside the app, with a small accent dot whenever there's a version you haven't seen yet.
-
-## Features
-
-- **7 highly-tuned frame styles in 4 families** — Editorial (`frosted-noir` blurred-self bg with strong dim), Gallery (`gallery-white` passe-partout double thin lines), Instant (`instax` instant-print bottom slab, `torn` procedural torn-paper edge), Film (`film-35` with sprocket holes + leader stamp, `film-mf` gelatin silver darkroom print, `slide-mount` mounted-transparency aesthetic with deep-wine outer border + faux-leather cream cardstock + recessed photo aperture). 0.22 cull from 12 → 6 dropped low-distinction / overlap variants; every survivor is tuned for high output quality
-- **Top-of-frame badge** — `cfg.topTemplate` stamps brand identity in the frame's top padding, independent of the bottom caption: pick **Brand · Model** for "FUJIFILM · X-T5", **Brand** for just the logo, or **Wordmark** for an oversized brand stamp à la Kodak Professional. Works on any frame
-- **11 caption templates in 4 grammars** — Spec (minimal-text, tech-stack, **spec-grid** Hasselblad-style outlined capsules, **spec-rail** Leica-style vertical capsules), Brand (brand-logo, brand-right), Editorial (wordmark, headline with GPS+date hero line), Stamp (date-lens, slate OSD field grid, passport postmark)
-- **Real bundled brand logos** — Fujifilm, Sony, Leica, Nikon, Canon, Apple, Xiaomi, OPPO, Vivo, DJI… (Wikimedia Commons + simple-icons)
-- **Auto EXIF parsing** with per-photo manual override and `LensInfo` → lens-model fallback
-- **Custom signature overlay** — upload an SVG/PNG and pin it to a corner of the photo; persisted across sessions in `localStorage`
-- **Custom background image** — replace the self-blur frosted-bg source with any image you like (only applies to frosted frames)
-- **LOOK — first-class library entry** — the lookbar's dashed-border LOOK block is the single one-tap entry to the entire preset library. Click → a Looks picker opens with **5 finished aesthetic seeds** in a tile grid (✨ Frosted noir · 📜 Torn paper · 🎞 35mm film · 📽 Silver print · 🎞 Slide mount) + user-saved presets in a list + save / share / paste-share-code actions in one panel. The chip's accent dot pulses when the active cfg has drifted from the applied preset — visual nudge to save your fork.
-- **Share + paste a Look in one click** — copy the current cfg as a `#p=<code>` URL, or paste an incoming link / code straight from the clipboard via the picker footer.
-- **Caption-inside-photo watermark with lift control** — toggle "Caption inside photo" to stamp the caption onto the picture itself (35mm authentic look) and dial how far it floats up from the bottom edge with a 0–120px slider; gradient backdrop stays pinned, text breathes
-- **DIY render engine** — corner radius slider + "caption inside photo" toggle + caption-lift + torn-paper jitter/density/edge + top-badge picker all joined the existing slider zoo; every render parameter the seed presets touch is also reachable directly from the UI for full forking
-- **HEIC / HEIF input** — iPhone photos transcode in-browser via lazy-loaded libheif-js (only fetched on first HEIC import)
-- **Collage mode** — pair 2–4 photos in one frame: side-by-side, stacked, 1×3 / 3×1 row, or 2×2 grid
-- **90° rotation + free-form crop** — per-photo, render-time only (source bitmap untouched, fully reversible)
-- **GPS coordinates** — opt-in caption field that prints decimal lat/lon when EXIF GPS is present (off by default for privacy). Source missing GPS? Type lat/lon directly in the EXIF panel, or hit **📍 Pick on map** for a Leaflet + AutoNavi (高德地图) modal (lazy-loaded, ~165KB, only fetched on first use; AutoNavi is reachable from mainland China where OSM is firewalled). GCJ-02 ↔ WGS-84 correction is applied at the Leaflet boundary so EXIF stays in standard WGS-84 even though the rendered tiles are GCJ-02 (a no-op outside China). Export writes the chosen coords into the JPEG's GPS IFD even when the source had no EXIF.
-- **☁️ S3 cloud gallery + share-link** — upload the current rail to your own S3-compatible bucket (AWS S3 / Cloudflare R2 / Aliyun OSS), copy a `#s3=<code>` URL, send it to a friend; their app auto-opens the gallery, they pick thumbnails, originals load straight into their rail. Pure-frontend SigV4 signing via vendored `aws4fetch` (~12KB, lazy-loaded only when the cloud panel is first opened — non-users pay nothing). Plus a third **RAW** export button to grab the source file untouched
-- **Installable PWA** — service worker precaches the SPA shell so the app loads instantly and works fully offline after the first visit
-- **Live preview** via Canvas2D + GPU `ctx.filter` blur — no round-trip to a server
-- **Single + batch export** with EXIF round-trip preserved on JPEG (Make / Model / focal / aperture / shutter / ISO / lens / date / GPS)
-- **Web-Worker pool** for batch render off the main thread
-- **Bilingual UI** — Chinese / English toggle in the topbar; auto-detects browser locale on first visit, persists choice in `localStorage`
-- **Surface-native interaction** — desktop and mobile each speak their own gesture grammar (not one scaled-up from the other):
-  - **Desktop**: collapsible left sidebar with a vertical activity bar (`a–g` tiles, accent-bar active marker, dashed film-leader spine), `[` to fold, `⌘1–7` to jump sections, hold `Space` to peek at the unframed source (Photoshop/Lightroom convention), right-click on a filmstrip thumbnail for an "apply this photo's frame/EXIF to all" + "remove" context menu.
-  - **Mobile (≤768px)**: thumb-zone Export dock pinned to the viewport bottom (52pt CTA, safe-area-aware), horizontal swipe on the canvas for prev/next photo, 0.5s long-press on the canvas to peek at the original, long-press a thumbnail to bring up the same context menu, changelog modal slides up as an iOS-style bottom sheet with drag handle.
-
-## Preview
-
-Two real outputs from the live pipeline:
+These are not skins. Each one is a tuned starting point — every render parameter (frame · template · padding · radius · caption placement · top-badge · grain · shadow · …) is reachable from the workshop and capturable into your own LOOK.
 
 <table>
   <tr>
-    <td width="50%"><img src="data/00010_preview.jpg" alt="Cafe wall — frosted-noir frame with single-line caption" /></td>
-    <td width="50%"><img src="data/00012_preview.jpg" alt="Industrial structure at dusk — frosted-noir frame with stacked tech caption" /></td>
+    <td width="20%" align="center"><img src="data/samples/01-film-mf_preview.jpg" alt="film-mf · slate template" /></td>
+    <td width="20%" align="center"><img src="data/samples/02-slide-mount_preview.jpg" alt="slide-mount · date-lens template" /></td>
+    <td width="20%" align="center"><img src="data/samples/03-film-35_preview.jpg" alt="film-35 · wordmark template" /></td>
+    <td width="20%" align="center"><img src="data/samples/04-torn_preview.jpg" alt="torn · brand topTemplate" /></td>
+    <td width="20%" align="center"><img src="data/samples/05-frosted-noir_preview.jpg" alt="frosted-noir · brand-logo template" /></td>
   </tr>
   <tr>
-    <td align="center"><sub><b>frosted-noir</b> · <b>minimal-text</b><br/>FUJIFILM X-M5 · 27mm F1.6 1/100s ISO4000</sub></td>
-    <td align="center"><sub><b>frosted-noir</b> · <b>tech-stack</b><br/>FUJIFILM X-M5 · SIGMA 18-50mm F2.8 · 2026.02.21</sub></td>
+    <td align="center"><sub><b>📽 Silver print</b><br/><code>film-mf</code> · slate</sub></td>
+    <td align="center"><sub><b>🎞 Slide mount</b><br/><code>slide-mount</code> · date-lens</sub></td>
+    <td align="center"><sub><b>🎞 35mm film</b><br/><code>film-35</code> · wordmark</sub></td>
+    <td align="center"><sub><b>📜 Torn paper</b><br/><code>torn</code> · brand-model</sub></td>
+    <td align="center"><sub><b>✨ Frosted noir</b><br/><code>frosted-noir</code> · brand-logo</sub></td>
   </tr>
 </table>
 
-<sub>Above are 480px previews. Full-resolution outputs (`data/*_framed.jpg`) and the source originals sit side-by-side under [`data/`](data/) so you can compare the round-trip.</sub>
+<sub>Above are 720px previews. Full-resolution outputs sit under <a href="data/samples/"><code>data/samples/</code></a>.</sub>
 
-## Quick start
+## The 30-second loop
+
+1. **Drop a photo onto the canvas.** EXIF gets parsed automatically; HEIC transcodes in the browser via a lazy-loaded libheif wasm shim, so iPhone shots work without conversion.
+2. **Pick a LOOK** from the picker (or paste a `#p=` share-code from a friend). Five tuned seeds ship with the app; user-saved presets list right below.
+3. **Export.** Single photo → JPEG / PNG; batch → ZIP via a web-worker pool. EXIF round-trips intact (Make / Model / focal / aperture / shutter / ISO / lens / date / GPS).
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/01-desktop-main.png" alt="Main canvas with photo loaded" /></td>
+    <td width="50%"><img src="docs/screenshots/02-desktop-look-picker.png" alt="LOOK picker open with 5 factory seeds" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Main canvas — sidebar / canvas / filmstrip</sub></td>
+    <td align="center"><sub>LOOK picker — seeds + saved presets + share/paste</sub></td>
+  </tr>
+</table>
+
+## Workshop — seeds, not skins
+
+The product model is **engine + community look library**, not "fixed frames + a few sliders". When a seed isn't quite your photo's vibe, the workshop opens with every knob the engine exposes: corner radius, caption-inside-photo with sub-pixel lift, torn-paper jitter/density/edge, vintage-print age scalar, top-of-frame badge picker, custom background image, drop-shadow tuple, signature overlay. Every change becomes a new LOOK you can save, share by URL, or apply to the whole rail.
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/03-desktop-workshop.png" alt="Workshop drawer open" /></td>
+    <td width="50%"><img src="docs/screenshots/04-desktop-crop.png" alt="Crop & rotate modal" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Workshop — every render knob exposed</sub></td>
+    <td align="center"><sub>Crop & rotate — per-photo, render-time only</sub></td>
+  </tr>
+</table>
+
+## Share by URL, not by file
+
+A LOOK is a base64url-encoded JSON snapshot. Copy `#p=<code>`, send it as a chat message, the recipient's app applies it on boot. If you want to share *photos* (not just the look), the S3 cloud module signs SigV4 directly from the browser against your own bucket: upload the rail, copy a `#s3=<code>` URL, the recipient sees your gallery with a thumbnail grid + lightbox preview + per-image or bulk-ZIP download. Pure-frontend signing (vendored aws4fetch, ~12 KB, lazy-loaded only on first cloud-panel open), three providers handled (AWS S3 / Cloudflare R2 / Aliyun OSS).
+
+<table>
+  <tr>
+    <td width="50%" align="center"><img src="docs/screenshots/05-mobile-main.png" alt="Mobile main UI" width="300" /></td>
+    <td width="50%" align="center"><img src="docs/screenshots/06-mobile-look-picker.png" alt="Mobile LOOK picker as bottom sheet" width="300" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Mobile main — lookbar at thumb zone</sub></td>
+    <td align="center"><sub>Mobile LOOK picker — bottom-sheet native</sub></td>
+  </tr>
+</table>
+
+## What's inside the toolkit
+
+| Axis | What's there |
+|---|---|
+| **Frames** | 7 hand-tuned styles in 4 families — Editorial (`frosted-noir`) · Gallery (`gallery-white`) · Instant (`instax` · `torn`) · Film (`film-35` · `film-mf` · `slide-mount`) |
+| **Captions** | 11 templates in 4 grammars — Spec (`minimal-text` · `tech-stack` · `spec-grid` · `spec-rail`) · Brand (`brand-logo` · `brand-right`) · Editorial (`wordmark` · `headline`) · Stamp (`date-lens` · `slate` · `passport`) |
+| **Engine** | Every render parameter UI-reachable + preset-capturable · LOOK seeds as first-class entries · `#p=<code>` share-link round-trip |
+| **Input** | JPEG / PNG / HEIC (libheif lazy-loaded) · auto EXIF · `LensInfo` → lens-model fallback · per-photo manual override |
+| **Output** | Single + batch (web-worker pool) · JPEG / PNG · EXIF round-trip preserved · RAW pass-through from cloud gallery |
+| **Composition** | Collage 2 / 3 / 4 cells · 90° rotation · free-form crop (render-time, source untouched) · GPS auto-parse + manual + map picker (Leaflet + AutoNavi, GCJ-02 ↔ WGS-84) |
+| **Cloud** | Direct-from-browser SigV4 against your bucket (AWS S3 / Cloudflare R2 / Aliyun OSS) · `#s3=<code>` share-link · upload / gallery / lightbox / bulk download |
+| **Platform** | Installable PWA · offline shell · Chinese / English UI · brand logos for Fujifilm · Sony · Leica · Nikon · Canon · Apple · Xiaomi · OPPO · Vivo · DJI · … |
+| **Surface** | Desktop and mobile speak their own gesture grammar — sidebar + keyboard shortcuts on desktop, bottom sheets + thumb-zone CTA + swipe on mobile |
+
+## Run it locally
 
 ```bash
 git clone https://github.com/anois/photo-tools.git
@@ -93,136 +119,33 @@ npm run build       # generates logos.json + fonts.css
 npm run dev         # → http://localhost:3000
 ```
 
-That's it — open the URL, drop in a photo, tweak the controls, export.
+No transpilation, no bundler, no backend process — `serve` only serves static files.
 
-## How it works
+- **Deeper architecture** (render pipeline, cfg / LOOK / share-link data model, frame & template systems, PWA cache layering, cloud module, plus step-by-step recipes for adding a frame / template / aspect / brand logo / translation in a fork) → [`docs/architecture.md`](docs/architecture.md)
+- **Deployment** (GitHub Pages workflow, other static hosts, full Aliyun OSS China-mirror setup, custom domain) → [`docs/deploy.md`](docs/deploy.md)
 
-```
-┌──────────────────────────── browser tab ─────────────────────────────┐
-│                                                                      │
-│  index.html → <script> vendored libs (exifr, piexif, jszip)         │
-│             → <script> shared/render.js   (layout + frames + caption SVG)
-│             → <script> exifio.js          (parse + write JPEG EXIF) │
-│             → <script> clientRender.js    (Canvas pipeline)         │
-│             → <script> exporter.js        (single + batch + ZIP)    │
-│             → <script> cloudS3.js          (S3 cloud gallery)         │
-│             → <script> app.js             (UI + per-photo cfg)      │
-│                                                                      │
-│  Boot fetch: logos.json (~60KB)  +  fonts.css (~870KB base64 Inter) │
-└──────────────────────────────────────────────────────────────────────┘
-```
+## 🤖 Maintained by Claude Code
 
-A single shared module — `public/shared/render.js` — owns all layout math, frame definitions, caption-SVG construction, and template rendering. The on-screen preview and the full-resolution export both go through the same code path; only the canvas size differs.
+**Every commit in this repository is produced by a [Claude Code](https://claude.com/claude-code) session.** Code, frame definitions, render math, UI wiring, CSS, i18n strings, this README, the CHANGELOG, the deploy workflow — there is no human-authored line of code in the visible history, and there isn't supposed to be. This is the project's actual operating model, not a marketing flourish.
 
-For exhaustive architecture notes, see [CLAUDE.md](CLAUDE.md).
+- **Human-initiated PRs are not part of the workflow.** Please don't open one — it won't be merged. The single committer identity for this repo is the Claude Code maintenance pipeline.
+- **Input channel = [GitHub Issues](https://github.com/anois/photo-tools/issues/new).** Plain prose is fine; describe what you'd like in a few lines. Reasonable issues get pulled periodically, handed to a Claude Code session that implements + tests + writes the CHANGELOG bullet + opens the PR + (after the maintainer's local acceptance) merges + auto-deploys.
+- **Auditable**: every shipped change shows up in [`public/CHANGELOG.md`](public/CHANGELOG.md). The ✦ pill in the topbar surfaces it inside the app, with an accent dot whenever there's a version you haven't seen yet. Commit history is the audit trail; PR descriptions document why each shipped.
 
-## Project layout
+## License
 
-```
-photo-tools/
-├── public/                 ← deployable artifact (no build step)
-│   ├── index.html
-│   ├── app.js              ← UI wiring + per-photo cfg state
-│   ├── shared/render.js    ← layout + frames + caption SVG (single source of truth)
-│   ├── clientRender.js     ← Canvas2D compose pipeline (preview + export)
-│   ├── exifio.js           ← EXIF parse (exifr) + JPEG re-attach (piexifjs)
-│   ├── exporter.js         ← single + batch export + ZIP packing
-│   ├── cloudS3.js          ← S3 cloud gallery (upload / list / share)
-│   ├── worker.js           ← off-main-thread render for batch
-│   ├── progressModal.js    ← <dialog> controller for batch progress
-│   ├── i18n.js             ← zh-CN / en dictionaries + locale switcher
-│   ├── styles.css
-│   ├── logo.svg            ← project logo (favicon + README header)
-│   ├── vendor/             ← exifr, piexif, jszip (vendored, no CDN)
-│   ├── logos/*.svg         ← brand logo source SVGs (Wikimedia + simple-icons)
-│   ├── fonts/*.ttf         ← Inter Regular + SemiBold
-│   ├── logos.json          ← built from logos/*.svg
-│   └── fonts.css           ← built from fonts/*.ttf
-├── scripts/
-│   ├── build-logos.js      ← logos/*.svg  → logos.json
-│   ├── build-fonts.js      ← fonts/*.ttf  → fonts.css
-│   └── fetch-logos.sh      ← scrape Wikimedia Commons / simple-icons
-└── data/                   ← reference input/output photos
-```
+[MIT](LICENSE) for the code in this repository.
 
-## Deployment
+The repository additionally bundles third-party assets that retain their own licenses:
 
-The `public/` directory is the entire deployable artifact — no transpilation, no bundling. Any static host works.
+- **Inter** font subset — [SIL Open Font License 1.1](https://fonts.google.com/specimen/Inter)
+- **Brand logo SVGs** (`public/logos/*.svg`) — sourced from Wikimedia Commons and [simple-icons](https://simpleicons.org/) (CC0). Trademarks remain with their respective owners; the logos are used here for the personal-use purpose of compositing photo metadata onto user-supplied images
+- **Vendored libraries** retain their upstream licenses: exifr (MIT) · piexifjs (MIT) · JSZip (MIT/GPL) · libheif-js (LGPL) · Leaflet (BSD-2-Clause) · aws4fetch (MIT)
 
-**GitHub Pages** (live at [anois.github.io/photo-tools](https://anois.github.io/photo-tools/), $0):
-
-The workflow lives in [.github/workflows/deploy.yml](.github/workflows/deploy.yml). Every push to `main` triggers it: install deps → `npm run build` → upload `./public/` → publish. Manual re-runs available via the **Actions** tab.
-
-**One-time setup**: in repo Settings → Pages, set **Source** to `GitHub Actions`.
-
-**Other hosts** (S3 + CloudFront, Cloudflare Pages, Netlify, Vercel, …): same idea — point them at `public/` after running `npm run build`.
-
-### China-domestic mirror via Aliyun OSS
-
-GitHub Pages is intermittently slow / unreachable from mainland China. The same `public/` artifact is also synced to an Aliyun OSS bucket (mainland region, no ICP filing) for a domestic entry:
-
-```
-https://photo-tools.oss-cn-hangzhou.aliyuncs.com/
-```
-
-The deploy job ([deploy.yml](.github/workflows/deploy.yml) → `deploy-oss`) runs in parallel with the GitHub Pages job — a failure on one target doesn't block the other.
-
-**One-time Aliyun setup** (needed before the first OSS deploy):
-
-1. **Create bucket**: OSS Console → Create Bucket
-   - Region: `oss-cn-hangzhou` (or any mainland region)
-   - ACL: **Public Read** (`public-read`)
-   - In **Static Website** settings, set default index document to `index.html`
-2. **Create RAM sub-user**: RAM Console → Users → Create user `photo-tools-deploy`
-   - Access type: **OpenAPI Access**
-   - Attach a custom policy scoped to the bucket only (least-privilege):
-     ```json
-     {
-       "Version": "1",
-       "Statement": [{
-         "Effect": "Allow",
-         "Action": ["oss:PutObject", "oss:DeleteObject", "oss:GetObject", "oss:ListObjects"],
-         "Resource": ["acs:oss:*:*:photo-tools", "acs:oss:*:*:photo-tools/*"]
-       }]
-     }
-     ```
-   - Save the AccessKey ID and Secret (shown only once)
-3. **Add GitHub repo secrets** (Settings → Secrets and variables → Actions → New secret):
-   - `ALIYUN_ACCESS_KEY_ID`
-   - `ALIYUN_ACCESS_KEY_SECRET`
-   - `ALIYUN_OSS_BUCKET` = `photo-tools`
-   - `ALIYUN_OSS_ENDPOINT` = `oss-cn-hangzhou.aliyuncs.com`
-4. **Add a repo variable** to enable the OSS step:
-   - Settings → Secrets and variables → Actions → **Variables** → `ENABLE_OSS_DEPLOY` = `true`
-
-**Caveat**: Aliyun mainland-region direct OSS URLs (`*.oss-cn-<region>.aliyuncs.com`) sometimes display a security check page or get rate-limited when used as user-facing site endpoints, since the domain isn't ICP-filed. For low-volume personal use this typically works fine. If it triggers, fall back to:
-
-- **HK region** (`oss-cn-hongkong.aliyuncs.com`) — no filing, no security check, slightly slower (50–100 ms to mainland)
-- **Custom domain + Aliyun CDN** (requires ICP filing, 7–20 working days) — best CN performance long-term
-
-## Stack
-
-- **Vanilla HTML/JS** — no framework, no transpilation, no build pipeline at runtime
-- **CommonJS only** — `public/shared/render.js` is a UMD module so the same source file runs both in the browser and under Node `require()` for ad-hoc rendering smoke checks
-- **Canvas2D + WebWorker** — `createImageBitmap` decode, `ctx.filter='blur()'` for the frosted background, `ctx.drawImage` composition, `OffscreenCanvas.convertToBlob` encode
-- **Vendored libraries** — [exifr](https://github.com/MikeKovarik/exifr), [piexifjs](https://github.com/hMatoba/piexifjs), [JSZip](https://stuk.github.io/jszip/) — no CDN dependency
-
-## Adding a brand logo
-
-1. Drop `public/logos/<brand-slug>.svg` (Wikimedia multi-color preferred; simple-icons single-color works too).
-2. `npm run build-logos`
-3. Refresh the browser. If EXIF `Make` doesn't match the slug directly, add an entry to `ALIASES` in `public/shared/render.js`.
-
-## Adding a frame / template / aspect ratio
-
-See the **Extending** section of [CLAUDE.md](CLAUDE.md#extending) — concise step-by-step for each.
-
-## Personal-use mindset
-
-This is a personal photo tool. Bundled third-party assets (brand logos, the Inter font) are used for personal photo compositions; no redistribution, no commercial product. Bug reports and rendering quality take precedence over theoretical legal hedging.
+This is a personal photo tool. Bundled third-party assets are used for personal photo compositions; no redistribution, no commercial product. Rendering quality and bug fixes take precedence over theoretical legal hedging.
 
 ---
 
 <div align="center">
-<sub><a href="https://github.com/anois/photo-tools">github.com/anois/photo-tools</a></sub>
+<sub><a href="https://github.com/anois/photo-tools">github.com/anois/photo-tools</a> · every line shipped by <a href="https://claude.com/claude-code">Claude Code</a></sub>
 </div>
