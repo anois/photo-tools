@@ -51,6 +51,10 @@
       <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M5 7h14M5 12h14M5 17h7"/></svg>
       <span class="topbar-pill-badge" id="changelog-badge" hidden></span>
     </button>
+    <button id="s3-trigger" type="button" class="topbar-pill" data-i18n-aria-label="s3.open" data-i18n-title="s3.open" aria-label="Cloud gallery">
+      <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 18h10a4 4 0 0 0 0-8 5 5 0 0 0-9.78-1.3A3.5 3.5 0 0 0 7 18z"/></svg>
+      <span class="topbar-pill-badge" id="s3-trigger-badge" hidden></span>
+    </button>
     <a class="topbar-pill" href="https://github.com/anois/photo-tools" target="_blank" rel="noopener" data-i18n-aria-label="topbar.github" data-i18n-title="topbar.github">
       <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
     </a>
@@ -62,12 +66,20 @@
 
   <!-- LEFT LOOK BAR — vertical chip rail, pinned to canvas left edge -->
   <aside class="lookbar" id="lookbar" aria-label="Look bar">
-    <button id="import-btn" class="lookbar-import" type="button" data-i18n-aria-label="source.importTitle" data-i18n-title="source.importTitle">
-      <span class="lookbar-import-glyph" aria-hidden="true">
-        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M12 5v10m0 0l-4-4m4 4l4-4M5 19h14"/></svg>
-      </span>
-      <span class="lookbar-import-label" data-i18n="topbar.import">Import</span>
-    </button>
+    <div class="lookbar-import-group">
+      <button id="import-btn" class="lookbar-import" type="button" data-i18n-aria-label="source.importTitle" data-i18n-title="source.importTitle">
+        <span class="lookbar-import-glyph" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M12 5v10m0 0l-4-4m4 4l4-4M5 19h14"/></svg>
+        </span>
+        <span class="lookbar-import-label" data-i18n="topbar.import">Import</span>
+      </button>
+      <button id="import-cloud-btn" class="lookbar-import lookbar-import-cloud" type="button" data-i18n-aria-label="topbar.importCloudTitle" data-i18n-title="topbar.importCloudTitle">
+        <span class="lookbar-import-glyph" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17h10a4 4 0 0 0 0-8 5 5 0 0 0-9.78-1.3A3.5 3.5 0 0 0 7 17z"/><path d="M12 12v6m0 0l-2.5-2.5M12 18l2.5-2.5"/></svg>
+        </span>
+        <span class="lookbar-import-label" data-i18n="topbar.importCloud">From Cloud</span>
+      </button>
+    </div>
 
     <!-- LOOK section — first-class meta-primitive, sits above the 4 fine-tune
          lookchips. Reads as the "answer" to "what overall look am I going for?";
@@ -179,6 +191,73 @@
         </div>
         <p class="empty-title" data-i18n="canvas.emptyTitle">No photo loaded</p>
         <p class="empty-sub" data-i18n="canvas.emptySubLookbar">Import from the topbar, or drop here.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- CLOUD GALLERY PANE — occupies the same grid column as the canvas
+       pane. Sibling-toggled: only one of (canvas-pane, cloud-gallery-pane)
+       is visible at a time. Triggered by the lookbar "From Cloud" hero
+       (sibling-level to local Import). Holds the entire bucket-browsing
+       UX — grid + lightbox + upload + load-selected — none of which
+       belongs in a config modal. -->
+  <section id="cloud-gallery-pane" class="pane cloud-gallery-pane" hidden data-i18n-aria-label="gallery.title">
+    <header class="gallery-head">
+      <button id="gallery-back" class="gallery-back" type="button" data-i18n-title="gallery.back" aria-label="Back">
+        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>
+        <span data-i18n="gallery.back">Back</span>
+      </button>
+      <h2 class="gallery-title">
+        <span class="gallery-title-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 18h10a4 4 0 0 0 0-8 5 5 0 0 0-9.78-1.3A3.5 3.5 0 0 0 7 18z"/></svg>
+        </span>
+        <span data-i18n="gallery.title">Cloud gallery</span>
+        <span class="gallery-path" id="gallery-path"></span>
+      </h2>
+      <button id="gallery-config" class="gallery-config-btn" type="button" data-i18n-aria-label="s3.open" data-i18n-title="s3.open" aria-label="Open config">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+      </button>
+    </header>
+
+    <div class="gallery-toolbar">
+      <button id="gallery-upload-current" type="button" class="btn btn-secondary" data-i18n="s3.uploadCurrent">Upload current rail</button>
+      <button id="gallery-upload-local" type="button" class="btn btn-secondary" data-i18n="s3.uploadLocal" data-i18n-title="s3.uploadLocalTitle">Upload local files</button>
+      <input id="gallery-local-input" type="file" multiple accept="image/jpeg,image/png,image/heic,image/heif,.heic,.heif" hidden>
+      <button id="gallery-refresh" type="button" class="btn btn-secondary" data-i18n="s3.refresh">Refresh</button>
+      <span class="gallery-toolbar-spacer"></span>
+      <span class="gallery-status" id="gallery-status"></span>
+      <span class="gallery-count" id="gallery-count" data-i18n="s3.noneSelected">No photos selected</span>
+      <button id="gallery-download-selected" type="button" class="btn btn-secondary" disabled data-i18n="gallery.downloadSelected" data-i18n-title="gallery.downloadSelectedTitle">Download selected</button>
+      <button id="gallery-load-selected" type="button" class="btn btn-primary" disabled data-i18n="s3.loadSelected">Load selected</button>
+    </div>
+
+    <div class="gallery-grid" id="gallery-grid" role="listbox" aria-multiselectable="true"></div>
+
+    <!-- Lightbox overlay — occupies the pane on top of the grid. Holds a
+         single image stage with prev/next nav + footer (name + select +
+         close). Esc / arrow keys are handled in app.js when the lightbox
+         is open. -->
+    <div class="gallery-lightbox" id="gallery-lightbox" hidden role="dialog" data-i18n-aria-label="gallery.lightboxTitle" aria-modal="true">
+      <button id="lightbox-close" class="lightbox-close" type="button" data-i18n-aria-label="gallery.lightboxClose" aria-label="Close">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+      <button id="lightbox-prev" class="lightbox-nav lightbox-nav-prev" type="button" data-i18n-aria-label="gallery.lightboxPrev" aria-label="Previous">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>
+      </button>
+      <div class="lightbox-stage" id="lightbox-stage">
+        <img id="lightbox-img" alt="" decoding="async">
+        <div class="lightbox-loading" id="lightbox-loading" hidden data-i18n="gallery.lightboxLoading">Loading original…</div>
+      </div>
+      <button id="lightbox-next" class="lightbox-nav lightbox-nav-next" type="button" data-i18n-aria-label="gallery.lightboxNext" aria-label="Next">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+      </button>
+      <div class="lightbox-footer">
+        <span class="lightbox-meta">
+          <span class="lightbox-name" id="lightbox-name"></span>
+          <span class="lightbox-size" id="lightbox-size"></span>
+        </span>
+        <button id="lightbox-download" type="button" class="btn btn-secondary" data-i18n="gallery.download" data-i18n-title="gallery.downloadTitle">Download</button>
+        <button id="lightbox-toggle-select" type="button" class="btn btn-secondary" data-i18n="gallery.lightboxSelect">Select</button>
       </div>
     </div>
   </section>
@@ -918,6 +997,88 @@
   </div>
 </dialog>
 
+<!-- S3 CONFIG MODAL (single-purpose: bucket / credentials / CORS guide).
+     The gallery is a top-level pane (#cloud-gallery-pane) — config and
+     browsing are now distinct UI surfaces (config = lightweight popover-
+     ish dialog from the topbar pill; gallery = full canvas-column pane). -->
+<dialog id="s3-modal" class="s3-modal" aria-labelledby="s3-modal-title">
+  <div class="s3-modal-inner">
+    <div class="s3-modal-head">
+      <h3 id="s3-modal-title" data-i18n="s3.configTitle">Cloud config</h3>
+      <button id="s3-close" type="button" class="modal-x" data-i18n-aria-label="s3.close" aria-label="Close">
+        <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+
+    <div class="s3-pane">
+      <div class="s3-pane-body">
+        <div class="s3-field">
+          <label class="s3-field-label" data-i18n="s3.provider">Provider</label>
+          <div class="s3-provider-seg" id="s3-provider-seg" role="radiogroup">
+            <button type="button" data-val="aws" role="radio" aria-checked="true" data-i18n="s3.providerAws">AWS S3</button>
+            <button type="button" data-val="r2" role="radio" aria-checked="false" data-i18n="s3.providerR2">Cloudflare R2</button>
+            <button type="button" data-val="aliyun" role="radio" aria-checked="false" data-i18n="s3.providerAliyun">Aliyun OSS</button>
+          </div>
+        </div>
+
+        <div class="s3-grid">
+          <div class="s3-field" id="s3-field-region">
+            <label class="s3-field-label" for="s3-region" data-i18n="s3.region">Region</label>
+            <input id="s3-region" type="text" autocomplete="off" spellcheck="false" placeholder="us-east-1">
+          </div>
+          <div class="s3-field s3-field-hidden" id="s3-field-account">
+            <label class="s3-field-label" for="s3-account" data-i18n="s3.accountId">Account ID</label>
+            <input id="s3-account" type="text" autocomplete="off" spellcheck="false" placeholder="abc123def456">
+          </div>
+          <div class="s3-field">
+            <label class="s3-field-label" for="s3-bucket" data-i18n="s3.bucket">Bucket</label>
+            <input id="s3-bucket" type="text" autocomplete="off" spellcheck="false" placeholder="my-bucket">
+          </div>
+          <div class="s3-field">
+            <label class="s3-field-label" for="s3-prefix" data-i18n="s3.prefix">Folder / prefix</label>
+            <input id="s3-prefix" type="text" autocomplete="off" spellcheck="false" placeholder="trips/2024">
+          </div>
+        </div>
+
+        <div class="s3-field">
+          <label class="s3-field-label" for="s3-endpoint" data-i18n="s3.endpoint">Endpoint (auto-resolved · edit to override)</label>
+          <input id="s3-endpoint" type="text" autocomplete="off" spellcheck="false" placeholder="https://bucket.s3.region.amazonaws.com/">
+        </div>
+
+        <div class="s3-grid">
+          <div class="s3-field">
+            <label class="s3-field-label" for="s3-access-key" data-i18n="s3.accessKeyId">Access key ID</label>
+            <input id="s3-access-key" type="text" autocomplete="off" spellcheck="false">
+          </div>
+          <div class="s3-field">
+            <label class="s3-field-label" for="s3-secret-key" data-i18n="s3.secretAccessKey">Secret access key</label>
+            <div class="s3-secret-wrap">
+              <input id="s3-secret-key" type="password" autocomplete="off" spellcheck="false">
+              <button type="button" id="s3-secret-toggle" class="s3-secret-toggle" data-i18n-aria-label="s3.toggleSecret" aria-label="Show/hide secret">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="s3-config-error" class="s3-error" hidden></div>
+
+        <details class="s3-guide" id="s3-guide">
+          <summary data-i18n="s3.guideHeader">Setup guide · create bucket → credentials → CORS</summary>
+          <div class="s3-guide-body" id="s3-guide-body"></div>
+        </details>
+      </div>
+
+      <div class="s3-pane-foot">
+        <button id="s3-test" type="button" class="btn btn-secondary" data-i18n="s3.test">Test connection</button>
+        <button id="s3-share" type="button" class="btn btn-secondary" data-i18n="s3.share">Copy share link</button>
+        <button id="s3-save" type="button" class="btn btn-primary" data-i18n="s3.save">Save</button>
+      </div>
+    </div>
+
+  </div>
+</dialog>
+
 <!-- UPDATE BANNER -->
 <div id="update-banner" class="update-banner" role="status" aria-live="polite" hidden>
   <span data-i18n="update.available">New version available</span>
@@ -964,6 +1125,7 @@
 <script src="geopicker.js"></script>
 <script src="clientRender.js"></script>
 <script src="exporter.js"></script>
+<script src="cloudS3.js"></script>
 <script src="progressModal.js"></script>
 <script src="app.js"></script>
 

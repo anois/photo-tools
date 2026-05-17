@@ -56,6 +56,7 @@ This project is maintained autonomously by [Claude Code](https://claude.com/clau
 - **Collage mode** — pair 2–4 photos in one frame: side-by-side, stacked, 1×3 / 3×1 row, or 2×2 grid
 - **90° rotation + free-form crop** — per-photo, render-time only (source bitmap untouched, fully reversible)
 - **GPS coordinates** — opt-in caption field that prints decimal lat/lon when EXIF GPS is present (off by default for privacy). Source missing GPS? Type lat/lon directly in the EXIF panel, or hit **📍 Pick on map** for a Leaflet + AutoNavi (高德地图) modal (lazy-loaded, ~165KB, only fetched on first use; AutoNavi is reachable from mainland China where OSM is firewalled). GCJ-02 ↔ WGS-84 correction is applied at the Leaflet boundary so EXIF stays in standard WGS-84 even though the rendered tiles are GCJ-02 (a no-op outside China). Export writes the chosen coords into the JPEG's GPS IFD even when the source had no EXIF.
+- **☁️ S3 cloud gallery + share-link** — upload the current rail to your own S3-compatible bucket (AWS S3 / Cloudflare R2 / Aliyun OSS), copy a `#s3=<code>` URL, send it to a friend; their app auto-opens the gallery, they pick thumbnails, originals load straight into their rail. Pure-frontend SigV4 signing via vendored `aws4fetch` (~12KB, lazy-loaded only when the cloud panel is first opened — non-users pay nothing). Plus a third **RAW** export button to grab the source file untouched
 - **Installable PWA** — service worker precaches the SPA shell so the app loads instantly and works fully offline after the first visit
 - **Live preview** via Canvas2D + GPU `ctx.filter` blur — no round-trip to a server
 - **Single + batch export** with EXIF round-trip preserved on JPEG (Make / Model / focal / aperture / shutter / ISO / lens / date / GPS)
@@ -104,6 +105,7 @@ That's it — open the URL, drop in a photo, tweak the controls, export.
 │             → <script> exifio.js          (parse + write JPEG EXIF) │
 │             → <script> clientRender.js    (Canvas pipeline)         │
 │             → <script> exporter.js        (single + batch + ZIP)    │
+│             → <script> cloudS3.js          (S3 cloud gallery)         │
 │             → <script> app.js             (UI + per-photo cfg)      │
 │                                                                      │
 │  Boot fetch: logos.json (~60KB)  +  fonts.css (~870KB base64 Inter) │
@@ -125,6 +127,7 @@ photo-tools/
 │   ├── clientRender.js     ← Canvas2D compose pipeline (preview + export)
 │   ├── exifio.js           ← EXIF parse (exifr) + JPEG re-attach (piexifjs)
 │   ├── exporter.js         ← single + batch export + ZIP packing
+│   ├── cloudS3.js          ← S3 cloud gallery (upload / list / share)
 │   ├── worker.js           ← off-main-thread render for batch
 │   ├── progressModal.js    ← <dialog> controller for batch progress
 │   ├── i18n.js             ← zh-CN / en dictionaries + locale switcher

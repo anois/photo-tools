@@ -33,29 +33,48 @@
   let stage = 'idle';      // 'render' | 'pack' | 'done' | 'idle'
   let currentName = '';
   let errorCount = 0;
+  // i18n keys for the active "verb" (export render/pack vs. upload). Defaults
+  // match the export use case; `open(total, opts)` can override for upload.
+  // Stored as keys (not resolved strings) so `paintStage` repaints under a
+  // mid-flight locale flip.
+  let keys = null;
+  const EXPORT_KEYS = {
+    title: 'export.modalTitle',
+    stageRender: 'export.stageRender',
+    stagePack: 'export.stagePack',
+    stageDone: 'export.stageDone',
+    currentEmpty: 'export.currentEmpty',
+    currentPack: 'export.currentPack',
+    currentDone: 'export.currentDone',
+    doneTitle: 'export.modalDoneTitle',
+    doneWithErrors: 'export.modalDoneWithErrors'
+  };
 
   function paintStage() {
+    const k = keys || EXPORT_KEYS;
     if (stage === 'render') {
-      els.title.textContent = T('export.modalTitle');
-      els.stage.textContent = T('export.stageRender');
-      els.current.textContent = currentName || T('export.currentEmpty');
+      els.title.textContent = T(k.title);
+      els.stage.textContent = T(k.stageRender);
+      els.current.textContent = currentName || T(k.currentEmpty);
     } else if (stage === 'pack') {
-      els.stage.textContent = T('export.stagePack');
-      els.current.textContent = T('export.currentPack');
+      els.stage.textContent = T(k.stagePack);
+      els.current.textContent = T(k.currentPack);
     } else if (stage === 'done') {
-      els.title.textContent = errorCount
-        ? T('export.modalDoneWithErrors')
-        : T('export.modalDoneTitle');
-      els.stage.textContent = T('export.stageDone');
-      els.current.textContent = T('export.currentDone');
+      els.title.textContent = errorCount ? T(k.doneWithErrors) : T(k.doneTitle);
+      els.stage.textContent = T(k.stageDone);
+      els.current.textContent = T(k.currentDone);
     }
   }
 
-  function open(total) {
+  function open(total, opts) {
     totalCount = total;
     stage = 'render';
     currentName = '';
     errorCount = 0;
+    // Merge caller-supplied key overrides; anything they don't set falls
+    // through to the export defaults. Keeps existing exporter call sites
+    // unchanged while letting the S3 upload path show "Uploading…" etc.
+    keys = opts ? Object.assign({}, EXPORT_KEYS, opts) : EXPORT_KEYS;
     els.done.textContent = '0';
     els.total.textContent = String(total);
     els.fill.style.width = '0%';
@@ -71,7 +90,8 @@
     currentName = name || '';
     els.done.textContent = String(done);
     els.fill.style.width = totalCount ? `${(done / totalCount) * 100}%` : '0%';
-    els.current.textContent = currentName || T('export.currentEmpty');
+    const k = keys || EXPORT_KEYS;
+    els.current.textContent = currentName || T(k.currentEmpty);
   }
 
   function pack() {
