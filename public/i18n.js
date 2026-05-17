@@ -435,6 +435,7 @@
       s3: {
         configTitle: '云存储配置',
         title: '云相册',
+        cloudEntry: '云相册（点击进入画廊）',
         open: '云相册配置',
         close: '关闭',
         tabConfig: '配置',
@@ -932,6 +933,7 @@
       s3: {
         configTitle: 'Cloud config',
         title: 'Cloud gallery',
+        cloudEntry: 'Cloud gallery (open)',
         open: 'Cloud config',
         close: 'Close',
         tabConfig: 'Config',

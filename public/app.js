@@ -4515,13 +4515,25 @@ function showUpdateBanner(waitingSw) {
   });
 
   // ── Surface routing ─────────────────────────────────────────────────────
-  // Topbar ☁ pill = lightweight "config" entry (right-corner element, per
-  // user direction). Lookbar "From Cloud" hero = gallery pane (same level
-  // as local "Import"). Gallery pane has its own ⚙ button to jump into
-  // the config modal without leaving the browse context.
-  trigger.addEventListener('click', openConfigModal);
+  // Topbar ☁ pill = unified "cloud entry" available on every breakpoint.
+  // Mobile breakpoints hide the lookbar "From Cloud" hero (the lookbar is
+  // a fixed 3-row grid with no room for it), so the pill MUST also reach
+  // the gallery — not just the config modal. Behavior:
+  //   • config present + usable → open gallery pane
+  //   • config missing / invalid → open config modal first
+  // Once credentials land, the next click on the pill drops the user
+  // straight into the gallery. The lookbar "From Cloud" hero on desktop is
+  // an equivalent shortcut; both routes converge on showGalleryPane via
+  // the same smart entry. The gallery pane's ⚙ button is the explicit
+  // route to config without leaving the browse context.
+  function openCloudEntry() {
+    const cfg = liveCfg || loadFromStorage();
+    if (CS.isUsable(cfg)) showGalleryPane();
+    else openConfigModal();
+  }
+  trigger.addEventListener('click', openCloudEntry);
   const cloudImportBtn = document.getElementById('import-cloud-btn');
-  if (cloudImportBtn) cloudImportBtn.addEventListener('click', showGalleryPane);
+  if (cloudImportBtn) cloudImportBtn.addEventListener('click', openCloudEntry);
   if (el.galleryBack) el.galleryBack.addEventListener('click', hideGalleryPane);
   if (el.galleryConfig) el.galleryConfig.addEventListener('click', openConfigModal);
 
@@ -4729,21 +4741,40 @@ function showUpdateBanner(waitingSw) {
       await CS.ensureLoaded();
       const client = CS.buildClient(cfg);
       const basePrefix = cfg.prefix ? cfg.prefix + '/' : '';
-      const items = await CS.listObjects(client, cfg.endpoint, basePrefix + THUMB_PREFIX, { maxKeys: 1000 });
+      // List the whole prefix (one round-trip, paginated internally) and
+      // split into originals + thumbs. The `size` field on each item must
+      // reflect the *original* photo, not the 480px thumbnail, so the
+      // lightbox footer reports something meaningful when the user is
+      // about to download. Items without a matching thumbnail are hidden
+      // — we never generated one for them, so they don't belong on the
+      // grid (was the prior behavior; preserved).
+      const all = await CS.listObjects(client, cfg.endpoint, basePrefix, { maxKeys: 1000 });
       // Clear previous blob URLs to avoid leaks across multiple refreshes.
       thumbBlobUrls.forEach((u) => URL.revokeObjectURL(u));
       thumbBlobUrls.length = 0;
-      gallery = items
-        .filter((it) => it.size > 0)
+      const thumbPrefix = basePrefix + THUMB_PREFIX;
+      const thumbBySource = new Map(); // origKey → { key, size, etag }
+      const originals = [];
+      for (const it of all) {
+        if (it.size <= 0) continue;
+        if (it.key.startsWith(thumbPrefix)) {
+          const fileName = it.key.slice(thumbPrefix.length).replace(/\.jpg$/i, '');
+          thumbBySource.set(basePrefix + fileName, it);
+        } else if (it.key.startsWith(basePrefix)) {
+          originals.push(it);
+        }
+      }
+      gallery = originals
+        .filter((it) => thumbBySource.has(it.key))
         .map((it) => {
-          // _thumbs/<filename>.jpg → original is at <basePrefix><filename>
-          const thumbKey = it.key;
-          const fileName = thumbKey.slice((basePrefix + THUMB_PREFIX).length).replace(/\.jpg$/i, '');
+          const thumb = thumbBySource.get(it.key);
+          const fileName = it.key.slice(basePrefix.length);
           return {
-            thumbKey,
-            origKey: basePrefix + fileName,
+            thumbKey: thumb.key,
+            origKey: it.key,
             name: fileName,
-            size: it.size,
+            size: it.size,        // original photo bytes (was thumb size; bug fix)
+            thumbSize: thumb.size,
             etag: it.etag,
             thumbUrl: '',
             selected: false
