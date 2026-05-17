@@ -56,6 +56,7 @@
 - **拼贴模式** — 2–4 张照片套同一个相框：左右、上下、1×3 / 3×1 横排、2×2 田字格
 - **90° 旋转 + 自由裁剪** — 每张照片独立、渲染时应用（不重新编码源图，完全可逆）
 - **GPS 坐标** — 字段开关（默认关闭，避免误公开），开了之后字幕带十进制经纬度。源图没 GPS？EXIF 面板末尾两个 lat/lon 输入框可以手填，或点 **📍 在地图上选** 弹出 Leaflet + 高德地图选点 modal（首次打开懒加载约 165KB；OSM 在国内被墙，所以默认走高德可达的瓦片源）。Leaflet 边界两侧自动做 GCJ-02 ↔ WGS-84 火星坐标校正，存到 EXIF 的永远是标准 WGS-84，国境外是 no-op。导出时即使源图原本没 EXIF 也会合成一段 GPS IFD 写到成品 JPEG 里
+- **☁️ S3 云相册 + 分享链接** —— 把当前胶卷上传到自己的 S3 兼容存储（AWS S3 / Cloudflare R2 / 阿里云 OSS），复制一条 `#s3=<code>` URL 发给朋友；对方打开链接后画廊自动弹出，勾选缩略图后原图直接加载到他的胶卷里继续做图。纯前端 SigV4 签名（vendored `aws4fetch`，~12KB，首次打开云面板才懒加载，不用云的用户零成本）。导出区还有第三个 **RAW** 按钮，一键拿原图，不走渲染管线
 - **可安装 PWA** — service worker 预缓存整套 SPA shell，首次访问后完全离线可用
 - **实时预览** 走 Canvas2D + GPU 的 `ctx.filter` blur，不走服务端往返
 - **单张 + 批量导出** 都保留源图 EXIF（Make / Model / 焦距 / 光圈 / 快门 / ISO / 镜头 / 日期 / GPS）
@@ -104,6 +105,7 @@ npm run dev         # → http://localhost:3000
 │             → <script> exifio.js          (解析 + 写回 JPEG EXIF)    │
 │             → <script> clientRender.js    (Canvas 合成管线)          │
 │             → <script> exporter.js        (单张 + 批量 + ZIP)        │
+│             → <script> cloudS3.js          (S3 云相册)                  │
 │             → <script> app.js             (UI + 每张照片的 cfg)      │
 │                                                                      │
 │  启动时 fetch: logos.json (~60KB)  +  fonts.css (~870KB Inter base64)│
@@ -125,6 +127,7 @@ photo-tools/
 │   ├── clientRender.js     ← Canvas2D 合成管线（预览 + 导出）
 │   ├── exifio.js           ← EXIF 解析 (exifr) + JPEG 重新写回 (piexifjs)
 │   ├── exporter.js         ← 单张 + 批量导出 + ZIP 打包
+│   ├── cloudS3.js          ← S3 云相册（上传 / 列表 / 分享）
 │   ├── worker.js           ← 批量渲染的 worker 实现
 │   ├── progressModal.js    ← <dialog> 进度框控制
 │   ├── i18n.js             ← 中英文字典 + 语言切换

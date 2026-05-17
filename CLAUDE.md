@@ -205,6 +205,7 @@ These are authoring-time helpers, not part of the runtime path.
 │             → <script> geopicker.js       (lazy Leaflet shim — GPS map pick)│
 │             → <script> clientRender.js    (Canvas pipeline; preview + final)│
 │             → <script> exporter.js        (single + batch + ZIP + download) │
+│             → <script> cloudS3.js          (lazy aws4fetch shim — S3 gallery)│
 │             → <script> app.js             (UI wiring + per-photo cfg state) │
 │                                                                              │
 │  Static fetched at boot: logos.json (~57KB), fonts.css (~150KB base64)      │
@@ -669,6 +670,53 @@ The original HEIC `File` is kept on `entry.heicSource` so `uploadForExif` can fe
 
 The lazy load means non-HEIC users never download the wasm bundle.
 
+### S3 cloud gallery (`public/cloudS3.js` + `<dialog id="s3-modal">`, 0.24+)
+
+Optional cloud branch: upload the current rail to a user-owned S3-compatible bucket, share the bucket via a credential-bearing URL hash, and let recipients pull thumbnails + originals back into their rail. Pure-frontend — every PUT / GET / LIST is browser-signed via SigV4 (vendored `aws4fetch`). Three providers: **AWS S3**, **Cloudflare R2**, **Aliyun OSS** (S3-compat mode).
+
+**Module surface** (`window.CloudS3`):
+- `ensureLoaded()` — lazy-injects `vendor/aws4fetch.js` (~12KB UMD) on first use. Never enters service-worker precache; users who skip the cloud feature pay zero bytes.
+- `buildClient(cfg)` → `AwsClient` — wraps aws4fetch with `service:'s3'` and a provider-resolved signing region.
+- `putObject / getObject / deleteObject / listObjects` — minimal CRUD. List parses `ListObjectsV2` XML via native `DOMParser` and handles `NextContinuationToken` pagination.
+- `resolveEndpoint(provider, region, bucket, accountId)` — generates default bucket-scope URL per provider; users can override the endpoint field directly.
+- `makeThumb(file)` — 480px long-edge JPEG q=0.7 thumbnail blob (same recipe as `compressBgImage`).
+- `encodeShareCode / decodeShareCode` — base64url(JSON) for the `#s3=` URL hash. Same pattern as preset `#p=`.
+
+**Data model** (`state.s3Config`, NOT in `LOOK_KEYS` and NOT in preset/share-code):
+```js
+{ v: 1, provider: 'aws'|'r2'|'aliyun', endpoint, region, bucket, prefix,
+  accountId, accessKeyId, secretAccessKey }
+```
+
+localStorage key: `phototools.s3Config`. Persisted on Save / Test-success / Share / Upload (any action that confirms the user intends to keep using this bucket).
+
+**Storage layout on the bucket**:
+```
+<prefix>/<filename>                  ← original, what mergeFiles() will receive
+<prefix>/_thumbs/<filename>.jpg      ← 480px JPEG q=0.7 thumbnail
+```
+
+Gallery refresh lists `<prefix>/_thumbs/`, derives each original key by stripping the `_thumbs/` segment + `.jpg` suffix, and renders cells lazily — thumbnail blob URLs populate as GETs resolve. Clicking "Load selected" GETs each original, wraps in `new File([blob], name, { type, lastModified: Date.now() })`, and feeds the array to `mergeFiles()`. mergeFiles' dedup key uses `name + size + lastModified`; from-cloud loads stamp `lastModified` with `Date.now()` so a re-load of the same name doesn't silently dedup.
+
+**Share URL semantics** (`#s3=<base64url(JSON)>`):
+- Bundles the full config object including read/write credentials. The UI surfaces a hard warning on copy ("此链接含读写凭证") so the user isn't surprised.
+- Recipients: `applyHashS3IfPresent()` at boot decodes → writes to localStorage → strips the hash from the URL via `history.replaceState` → auto-opens the modal on the Gallery tab → triggers `refreshGallery()`.
+- Coexists with `#p=` preset-share independently — they're separate boot calls. Cannot combine both in one URL.
+
+**Provider quirks (handled in `resolveEndpoint` + `signingRegion`)**:
+- **AWS S3**: virtual-hosted host (`<bucket>.s3.<region>.amazonaws.com`). Region passed as-is.
+- **Cloudflare R2**: path-style (`<account>.r2.cloudflarestorage.com/<bucket>/`). Signing region forced to `auto`. Form shows an "Account ID" field instead of region.
+- **Aliyun OSS (S3 mode)**: virtual-hosted (`<bucket>.oss-<region>.aliyuncs.com`). Signing region auto-strips the `oss-` prefix users sometimes paste from the console (so `oss-cn-hangzhou` signs as `cn-hangzhou`).
+- Users can hand-override the endpoint field for non-listed providers (MinIO etc.) — the form's endpoint is the canonical bucket-scope URL.
+
+**CORS** is the most common failure mode (browser can't sign across `Failed to fetch`). The modal's collapsible "CORS help" panel renders a provider-specific config template inline that the user can copy into their bucket console. `CloudS3.describeError()` adds a "likely CORS misconfig" hint when fetch fails with TypeError.
+
+**Upload-related caveats** (single-file PUT, no multipart):
+- For files >50MB AWS S3 recommends multipart; we don't implement it. Single-file PUT works up to several hundred MB on modern browsers but stalls if the connection drops mid-stream.
+- Thumbnail is generated client-side via `createImageBitmap` → OffscreenCanvas.convertToBlob; if the source can't be decoded (corrupt JPEG, unsupported format) the upload aborts before the original PUT so the bucket never ends up with an original-without-thumbnail.
+
+**Export-original button** (`Exporter.exportOriginal(entry)` in `public/exporter.js`): a third button in the lookbar export group (`#export-original-btn`, label "RAW"). Bypasses `compose()` entirely and just streams `entry.file` through the same `triggerDownload` helper as framed exports. Useful in the cloud-pull workflow ("get my photo back unedited") but works on any rail entry.
+
 ### PWA / offline (`public/service-worker.js` + `public/manifest.json`)
 
 The app is a PWA — it can be installed to the home screen and runs offline after the first visit. Two pieces:
@@ -801,6 +849,8 @@ To promote a ratio into the seg as a first-class preset (gets its own button + t
 - **A flex container with fixed height + children that sum past it does NOT clip — it silently shrinks every child via `flex-shrink: 1` (default), making one child collapse to ~0 instead of overflowing visibly.** Diagnostic signature: a child element with `min-height: 44px` declared but `getBoundingClientRect().height` returns 2; `document.elementFromPoint()` at the child's expected center returns a *sibling* element instead of the child (the sibling shifted up to fill the space the shrunken child vacated). Bit us in v0.17 when the mobile lookbar (fixed 116px height) gained a 4th control row in v0.16.1 (workshop entry, ~50px) without lookbar-h being bumped — the flex shrinkage ratio became extreme and chip-group collapsed to 2px, making all 4 lookchips unclickable while LOOKING normal because workshop-trigger had drifted up to overlay the chip area visually. The bug shipped because it was tested at desktop breakpoints where `flex-direction: column` was overridden to `row` with sufficient horizontal space. **Fix**: when adding any new child to a fixed-height flex container, sum the children's natural heights and adjust the container OR add `flex-shrink: 0` to the children that must keep their declared size. Verify on every breakpoint, not just the development viewport. Mobile-specific lookbar additions especially need a "does this fit?" pass — `var(--lookbar-h)` is the budget, every child's natural height counts against it. The lesson generalizes: **fixed-dimension flex containers are silently destructive of size constraints under overflow**, and bottom-sheet UIs are the most common flavor of fixed-dimension flex on this project.
 - **iOS Safari keeps `:hover` sticky for ~300ms after a tap, making "lifted" buttons read as stuck mid-press.** Any rule that does `transform: translateY(-1px)` / border-style flip / dramatic background shift on `:hover` will leave that visual state on screen well after the user's finger has lifted, giving a "broken/unresponsive" feel. Diagnostic: tap a button on iOS, observe the lift state freezes for ~half a second; tap an unrelated area to clear. **Fix**: gate hover styling behind `@media (hover: hover) and (pointer: fine)` for desktop-only behavior, OR add a counter-rule under `@media (hover: none)` that resets transforms / border-style / dramatic bg shifts on touch. The latter is less invasive when you have ~50 hover selectors and don't want to refactor each one — it's purely additive. Keep `:active` styles untouched: those fire during the actual press and disappear cleanly on release. Caught during the v0.17 mobile pass; the workshop entry's dashed→solid hover and the Import button's `translateY(-1px)` were the most jarring offenders.
 - **`@media (max-width: 768px)` is the wrong cutoff for "is mobile" because iPad portrait is 744–820px wide.** Anything that triggers bottom-sheet / single-column layout at ≤768px will incorrectly catch every iPad in portrait, giving them a tablet-sized phone UI. **Fix**: the project uses a two-axis breakpoint stack instead — `@media (max-width: 700px), (max-height: 500px) and (orientation: landscape)` for "phone mode" (portrait phones up to 700px wide OR any landscape device <500px tall, which catches landscape phones regardless of width while iPad-landscape's 768px height cleanly excludes), AND `@media (min-width: 701px) and (pointer: coarse)` to layer touch-friendly sizing onto the desktop layout for tablets. The "phone vs tablet" split lands on capability + form factor (touch-primary + width), not raw width. When adding new responsive rules, follow the same convention.
+- **Browser `fetch()` does not distinguish CORS failures from network failures.** Both surface as a generic `TypeError: Failed to fetch` (`NetworkError` on Firefox, `Load failed` on Safari) — same exception type, no usable detail. When wiring a feature that hits a third-party origin (S3 buckets, OSS endpoints, R2 hostnames), it's easy to chase the wrong cause for half an hour: looks like the URL is wrong, but actually CORS isn't configured. **Fix**: in any user-facing error path that wraps a cross-origin fetch, annotate the error with a "likely CORS misconfiguration" hint AND surface a sample CORS config the user can copy into their bucket console. `CloudS3.describeError()` in `public/cloudS3.js` is the example; the S3 modal's collapsible CORS-help panel shows per-provider templates inline. Without this UX, the user gets "Failed to fetch" and concludes the app is broken — when actually their bucket just needs an `AllowedOrigins` entry. The lesson generalizes: any browser cross-origin call needs UX that pre-empts the CORS confusion, not just code that handles the exception.
+- **AWS SigV4 signing region for S3-compatible providers isn't always the obvious string.** Aliyun OSS users paste `oss-cn-hangzhou` into the region field (matching their console URL); SigV4 expects `cn-hangzhou` (no `oss-` prefix) because the service token is already `s3`. Cloudflare R2 ignores region entirely but the SDK requires *something* — they conventionally use the literal string `auto`. AWS S3 uses the bare region like `us-east-1`. `CloudS3.signingRegion(provider, region)` normalizes these so the user can paste whatever their console shows and signing still succeeds. **Lesson when adding a new S3-compat provider**: don't pass the user's input region string straight to AwsClient; map it first. Wrong region produces a signature mismatch (HTTP 403 `SignatureDoesNotMatch`), which from the browser side is indistinguishable from "credentials wrong" — debugging is slow without this normalization layer.
 - **`<dialog>` UA stylesheet has `overflow: auto` by default.** Combined with global `* { box-sizing: border-box }`, a dialog with `max-height: 86vh` + 1px top/bottom border has a *content area* of `86vh - 2px` — but if `.dialog-inner` also sets `max-height: 86vh`, the inner overflows the dialog's content box by exactly the border width (2px). The UA's auto-scrollbar then triggers, showing as an OS-native scrollbar on the dialog itself (separate from any custom-scrollbar work on inner scroll containers). Diagnostic: `dialog.scrollHeight - dialog.clientHeight === border-width-sum`. **Fix**: explicitly set `overflow: hidden` on the `<dialog>`. The inner content's own scroll container handles the actual scrolling; the dialog never needs to.
 
 ## Known limitations / future work

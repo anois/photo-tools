@@ -211,5 +211,14 @@
     return { errors };
   }
 
-  window.Exporter = { exportSingle, exportBatch };
+  window.Exporter = {
+    exportSingle,
+    exportBatch,
+    // Stream any Blob (or File) to disk as `name`. Exposed for surfaces that
+    // need to deliver bytes verbatim — e.g. the cloud gallery's per-image
+    // "Download" button and batch "Download selected" ZIP — so they don't
+    // re-implement the anchor-click dance. Pure pass-through; no canvas, no
+    // EXIF rewrite, no encoding decisions.
+    downloadBlob: triggerDownload
+  };
 })();

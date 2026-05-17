@@ -4231,3 +4231,931 @@ function showUpdateBanner(waitingSw) {
   });
   syncActive();
 })();
+
+// ─── S3 cloud gallery — config, upload, gallery, share, export-original ──
+// Self-contained block. Reuses outer-scope helpers (setStatus, T, state,
+// activeCfg, mergeFiles). All DOM lookups are local to keep `els` lean.
+// Storage / dataflow / share-code semantics are documented in CLAUDE.md.
+(function wireS3() {
+  const CS = window.CloudS3;
+  if (!CS) {
+    console.warn('[s3] CloudS3 module not present — feature disabled');
+    return;
+  }
+
+  const S3_STORAGE_KEY = 'phototools.s3Config';
+  const SHARE_PREFIX = '#s3=';
+  const THUMB_PREFIX = '_thumbs/';
+
+  const modal = document.getElementById('s3-modal');
+  const trigger = document.getElementById('s3-trigger');
+  if (!modal || !trigger) return;
+
+  const el = {
+    // ── Config modal (single-pane, no tabs) ────────────────────────────
+    close: document.getElementById('s3-close'),
+    providerSeg: document.getElementById('s3-provider-seg'),
+    region: document.getElementById('s3-region'),
+    accountField: document.getElementById('s3-field-account'),
+    account: document.getElementById('s3-account'),
+    bucket: document.getElementById('s3-bucket'),
+    prefix: document.getElementById('s3-prefix'),
+    endpoint: document.getElementById('s3-endpoint'),
+    accessKey: document.getElementById('s3-access-key'),
+    secretKey: document.getElementById('s3-secret-key'),
+    secretToggle: document.getElementById('s3-secret-toggle'),
+    configError: document.getElementById('s3-config-error'),
+    guideBody: document.getElementById('s3-guide-body'),
+    save: document.getElementById('s3-save'),
+    test: document.getElementById('s3-test'),
+    share: document.getElementById('s3-share'),
+    // ── Gallery pane (top-level, sibling of canvas-pane) ──────────────
+    galleryPane: document.getElementById('cloud-gallery-pane'),
+    canvasPane: document.getElementById('canvas-pane'),
+    galleryBack: document.getElementById('gallery-back'),
+    galleryConfig: document.getElementById('gallery-config'),
+    galleryPath: document.getElementById('gallery-path'),
+    uploadCurrent: document.getElementById('gallery-upload-current'),
+    uploadLocal: document.getElementById('gallery-upload-local'),
+    localInput: document.getElementById('gallery-local-input'),
+    refresh: document.getElementById('gallery-refresh'),
+    galleryStatus: document.getElementById('gallery-status'),
+    galleryGrid: document.getElementById('gallery-grid'),
+    galleryCount: document.getElementById('gallery-count'),
+    loadSelected: document.getElementById('gallery-load-selected'),
+    downloadSelected: document.getElementById('gallery-download-selected'),
+    // ── Lightbox (overlay inside gallery pane) ────────────────────────
+    lightbox: document.getElementById('gallery-lightbox'),
+    lightboxImg: document.getElementById('lightbox-img'),
+    lightboxLoading: document.getElementById('lightbox-loading'),
+    lightboxPrev: document.getElementById('lightbox-prev'),
+    lightboxNext: document.getElementById('lightbox-next'),
+    lightboxClose: document.getElementById('lightbox-close'),
+    lightboxName: document.getElementById('lightbox-name'),
+    lightboxSize: document.getElementById('lightbox-size'),
+    lightboxToggleSelect: document.getElementById('lightbox-toggle-select'),
+    lightboxDownload: document.getElementById('lightbox-download')
+  };
+
+  // Module-local state.
+  // formCfg / liveCfg / endpointDirty — config-modal form state.
+  // gallery — current list of remote items.
+  // lightboxIdx — currently-previewed item index in `gallery`; -1 when closed.
+  // lightboxOriginalUrl — blob URL for the swap-in original; revoked on next nav.
+  let formCfg = CS.normalizeConfig({ provider: 'aws' });
+  let liveCfg = null;
+  let endpointDirty = false;
+  let gallery = []; // [{ key, name, size, thumbUrl, selected }]
+  const thumbBlobUrls = []; // for cleanup on refresh
+  let lightboxIdx = -1;
+  let lightboxOriginalUrl = null;
+  let lightboxClient = null; // memoized AwsClient for lightbox-original GETs
+  state.s3Config = null;
+
+  function renderGuide(provider) {
+    if (!el.guideBody) return;
+    // i18n stores the per-provider guide as a pre-built HTML fragment with a
+    // {origin} placeholder — `T(...)` is the project's vars-substituting
+    // accessor (see public/i18n.js → t()). Content is developer-authored, so
+    // innerHTML is safe; do NOT concatenate any user-supplied input here.
+    const html = window.I18N.t('s3.guide.' + provider, { origin: location.origin });
+    el.guideBody.innerHTML = html || '';
+  }
+
+  function loadFromStorage() {
+    try {
+      const raw = localStorage.getItem(S3_STORAGE_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      return CS.normalizeConfig(parsed);
+    } catch (_) { return null; }
+  }
+
+  function saveToStorage(cfg) {
+    try { localStorage.setItem(S3_STORAGE_KEY, JSON.stringify(cfg)); }
+    catch (_) { /* quota; ignore */ }
+  }
+
+  function setProvider(provider) {
+    formCfg.provider = provider;
+    el.providerSeg.querySelectorAll('button').forEach((b) => {
+      b.setAttribute('aria-checked', b.dataset.val === provider ? 'true' : 'false');
+    });
+    // R2 needs an account ID (not a region in the conventional sense). Toggle
+    // visibility — region stays in the form for AWS/Aliyun.
+    el.accountField.classList.toggle('s3-field-hidden', provider !== 'r2');
+    renderGuide(provider);
+    rederiveEndpoint();
+  }
+
+  function rederiveEndpoint() {
+    if (endpointDirty && el.endpoint.value.trim()) return;
+    const auto = CS.resolveEndpoint(formCfg.provider, el.region.value, el.bucket.value, el.account.value);
+    if (auto) {
+      el.endpoint.value = auto;
+      endpointDirty = false;
+    }
+  }
+
+  function readForm() {
+    return CS.normalizeConfig({
+      provider: formCfg.provider,
+      endpoint: el.endpoint.value,
+      region: el.region.value,
+      bucket: el.bucket.value,
+      prefix: el.prefix.value,
+      accountId: el.account.value,
+      accessKeyId: el.accessKey.value,
+      secretAccessKey: el.secretKey.value
+    });
+  }
+
+  function writeForm(cfg) {
+    if (!cfg) return;
+    setProvider(cfg.provider || 'aws');
+    el.region.value = cfg.region || '';
+    el.account.value = cfg.accountId || '';
+    el.bucket.value = cfg.bucket || '';
+    el.prefix.value = cfg.prefix || '';
+    el.endpoint.value = cfg.endpoint || '';
+    el.accessKey.value = cfg.accessKeyId || '';
+    el.secretKey.value = cfg.secretAccessKey || '';
+    endpointDirty = !!cfg.endpoint;
+  }
+
+  function showConfigError(msg) {
+    if (!msg) { el.configError.hidden = true; el.configError.textContent = ''; return; }
+    el.configError.hidden = false;
+    el.configError.textContent = msg;
+  }
+
+  // ── Config modal (lightweight; bucket / credentials / guide only) ──────
+  function openConfigModal() {
+    CS.ensureLoaded().catch((err) => console.warn('[s3] aws4fetch load failed', err));
+    const stored = loadFromStorage();
+    if (stored) writeForm(stored);
+    else setProvider(formCfg.provider || 'aws');
+    showConfigError('');
+    if (typeof modal.showModal === 'function') modal.showModal();
+    else modal.setAttribute('open', '');
+  }
+
+  function closeModal() {
+    if (typeof modal.close === 'function') modal.close();
+    else modal.removeAttribute('open');
+  }
+
+  // ── Cloud gallery pane (sibling of canvas pane; toggles via hidden attr).
+  // Canvas-pane gets hidden too so the user is on one surface at a time;
+  // lookbar + rail stay put so they don't lose the rest of the chrome. ──
+  function showGalleryPane() {
+    const cfg = liveCfg || loadFromStorage();
+    if (!CS.isUsable(cfg)) {
+      // No usable config yet — drop into the config modal first; user can
+      // re-trigger the gallery once credentials land.
+      openConfigModal();
+      setStatus('status.s3MissingFields', 'err');
+      setTimeout(() => setStatus('status.ready'), 2500);
+      return;
+    }
+    // Pin liveCfg before downstream paths consult it — refreshGallery and
+    // the lightbox both read liveCfg directly, so an explicit assignment here
+    // saves them from re-walking localStorage.
+    liveCfg = cfg;
+    state.s3Config = cfg;
+    if (el.canvasPane) el.canvasPane.hidden = true;
+    if (el.galleryPane) el.galleryPane.hidden = false;
+    updatePathLabel(cfg);
+    refreshGallery().catch((err) => console.warn('[s3] auto-refresh failed', err));
+    // Wire global keyboard handler while the pane is visible (Esc closes
+    // lightbox or pane; arrows nav lightbox).
+    document.addEventListener('keydown', onGalleryKeydown, true);
+  }
+
+  function hideGalleryPane() {
+    closeLightbox();
+    if (el.galleryPane) el.galleryPane.hidden = true;
+    if (el.canvasPane) el.canvasPane.hidden = false;
+    document.removeEventListener('keydown', onGalleryKeydown, true);
+  }
+
+  function updatePathLabel(cfg) {
+    if (!el.galleryPath) return;
+    const path = (cfg.bucket || '?') + (cfg.prefix ? '/' + cfg.prefix : '') + '/';
+    el.galleryPath.textContent = path;
+  }
+
+  function onGalleryKeydown(e) {
+    if (!el.galleryPane || el.galleryPane.hidden) return;
+    // Don't hijack typing in text inputs.
+    const tag = (e.target && e.target.tagName) || '';
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || (e.target && e.target.isContentEditable)) return;
+    if (lightboxIdx >= 0) {
+      if (e.key === 'Escape') { e.preventDefault(); closeLightbox(); }
+      else if (e.key === 'ArrowLeft') { e.preventDefault(); navLightbox(-1); }
+      else if (e.key === 'ArrowRight') { e.preventDefault(); navLightbox(1); }
+      else if (e.key === ' ' || e.key === 'Spacebar') {
+        e.preventDefault();
+        toggleSelectedAt(lightboxIdx);
+        paintLightboxSelectState();
+      }
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      hideGalleryPane();
+    }
+  }
+
+  // ── Hash boot: #s3=<base64url(JSON)> ────────────────────────────────────
+  function applyHashS3IfPresent() {
+    const m = location.hash.match(/^#s3=([A-Za-z0-9_-]+)/);
+    if (!m) return;
+    let cfg;
+    try { cfg = CS.decodeShareCode(m[1]); }
+    catch (_) {
+      setStatus('status.s3HashBad', 'err');
+      setTimeout(() => setStatus('status.ready'), 2500);
+      return;
+    }
+    if (!CS.isUsable(cfg)) {
+      setStatus('status.s3HashBad', 'err');
+      setTimeout(() => setStatus('status.ready'), 2500);
+      return;
+    }
+    saveToStorage(cfg);
+    state.s3Config = cfg;
+    liveCfg = cfg;
+    writeForm(cfg);
+    history.replaceState(null, '', location.pathname + location.search);
+    setStatus('status.s3HashApplied');
+    setTimeout(() => setStatus('status.ready'), 2000);
+    // Auto-open the gallery pane so the receiver immediately sees the
+    // shared photos — the whole point of the share flow.
+    setTimeout(() => { showGalleryPane(); }, 100);
+  }
+
+  // ── Form wiring ─────────────────────────────────────────────────────────
+  el.providerSeg.addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-val]');
+    if (!b) return;
+    setProvider(b.dataset.val);
+  });
+  el.region.addEventListener('input', rederiveEndpoint);
+  el.account.addEventListener('input', rederiveEndpoint);
+  el.bucket.addEventListener('input', rederiveEndpoint);
+  el.endpoint.addEventListener('input', () => { endpointDirty = true; });
+
+  el.secretToggle.addEventListener('click', () => {
+    el.secretKey.type = el.secretKey.type === 'password' ? 'text' : 'password';
+  });
+
+  el.close.addEventListener('click', closeModal);
+  modal.addEventListener('click', (e) => {
+    // Click outside .s3-modal-inner (i.e. on backdrop) closes the dialog.
+    if (e.target === modal) closeModal();
+  });
+
+  // ── Surface routing ─────────────────────────────────────────────────────
+  // Topbar ☁ pill = lightweight "config" entry (right-corner element, per
+  // user direction). Lookbar "From Cloud" hero = gallery pane (same level
+  // as local "Import"). Gallery pane has its own ⚙ button to jump into
+  // the config modal without leaving the browse context.
+  trigger.addEventListener('click', openConfigModal);
+  const cloudImportBtn = document.getElementById('import-cloud-btn');
+  if (cloudImportBtn) cloudImportBtn.addEventListener('click', showGalleryPane);
+  if (el.galleryBack) el.galleryBack.addEventListener('click', hideGalleryPane);
+  if (el.galleryConfig) el.galleryConfig.addEventListener('click', openConfigModal);
+
+  // ── Save / Test / Share ─────────────────────────────────────────────────
+  el.save.addEventListener('click', () => {
+    const cfg = readForm();
+    if (!CS.isUsable(cfg)) {
+      showConfigError(T('status.s3MissingFields'));
+      return;
+    }
+    showConfigError('');
+    saveToStorage(cfg);
+    state.s3Config = cfg;
+    liveCfg = cfg;
+    // Credentials may have changed — drop the cached signer so the next
+    // gallery action rebuilds it against the new cfg.
+    lightboxClient = null;
+    setStatus('status.s3Saved');
+    setTimeout(() => setStatus('status.ready'), 1500);
+    closeModal();
+  });
+
+  el.test.addEventListener('click', async () => {
+    const cfg = readForm();
+    if (!CS.isUsable(cfg)) {
+      showConfigError(T('status.s3MissingFields'));
+      return;
+    }
+    showConfigError('');
+    el.test.disabled = true;
+    setStatus('status.s3Listing', 'busy');
+    try {
+      await CS.ensureLoaded();
+      const client = CS.buildClient(cfg);
+      await CS.listObjects(client, cfg.endpoint, cfg.prefix ? cfg.prefix + '/' : '', { maxKeys: 1, pageLimit: 1 });
+      setStatus('status.s3TestOk');
+      // After a successful test, treat the form values as live so subsequent
+      // gallery actions don't require a separate Save click.
+      saveToStorage(cfg);
+      state.s3Config = cfg;
+      liveCfg = cfg;
+      setTimeout(() => setStatus('status.ready'), 1500);
+    } catch (err) {
+      const msg = CS.describeError(err);
+      showConfigError(msg);
+      setStatus('status.s3TestFail', 'err', { msg });
+    } finally {
+      el.test.disabled = false;
+    }
+  });
+
+  el.share.addEventListener('click', async () => {
+    const cfg = readForm();
+    if (!CS.isUsable(cfg)) {
+      showConfigError(T('status.s3MissingFields'));
+      return;
+    }
+    const code = CS.encodeShareCode(cfg);
+    const url = location.origin + location.pathname + SHARE_PREFIX + code;
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(url);
+      } else {
+        prompt('Share link:', url);
+      }
+      // Save-as-side-effect mirrors what users mentally do anyway: they only
+      // share configs they've validated as their own.
+      saveToStorage(cfg);
+      state.s3Config = cfg;
+      liveCfg = cfg;
+      setStatus('status.s3LinkCopied');
+      // Surface the read-write warning conspicuously — the link grants the
+      // bearer full bucket permission, and the user just put it on their
+      // clipboard.
+      window.setTimeout(() => alert(T('s3.shareWarning')), 50);
+      setTimeout(() => setStatus('status.ready'), 2500);
+    } catch (_) {
+      setStatus('status.s3LinkFail', 'err');
+    }
+  });
+
+  // ── Upload helpers ──────────────────────────────────────────────────────
+  // Generate the thumbnail blob for the gallery. HEIC files can't be fed to
+  // createImageBitmap directly (browsers don't decode HEIC), so we transcode
+  // via the same lazy libheif shim mergeFiles uses. The HEIC original itself
+  // is still uploaded as-is — when someone loads it back through the gallery,
+  // mergeFiles transcodes it at import time the same way local-import does.
+  async function makeThumbForUpload(file) {
+    if (window.HeicTools && window.HeicTools.isHeic(file)) {
+      const jpeg = await window.HeicTools.transcode(file);
+      return await CS.makeThumb(jpeg, 480);
+    }
+    return await CS.makeThumb(file, 480);
+  }
+
+  // Source-agnostic upload helper. Drives the ProgressModal stage-by-stage
+  // (one increment per file pair), collects errors into the modal's error
+  // list, refreshes the gallery once everything settles. Both
+  // #gallery-upload-current (state.files) and #gallery-upload-local
+  // (file-picker output) route through this.
+  async function uploadFiles(files) {
+    // uploadFiles can be triggered from either the gallery pane (where the
+    // user is browsing) or, in principle, before any config exists — fall
+    // back to opening the config modal so the user can fix it without us
+    // dumping them somewhere stateless.
+    const cfg = liveCfg && CS.isUsable(liveCfg) ? liveCfg : readForm();
+    if (!CS.isUsable(cfg)) {
+      showConfigError(T('status.s3MissingFields'));
+      openConfigModal();
+      return;
+    }
+    if (!files || files.length === 0) {
+      setStatus('status.noPhoto', 'err');
+      setTimeout(() => setStatus('status.ready'), 1500);
+      return;
+    }
+    saveToStorage(cfg);
+    state.s3Config = cfg;
+    liveCfg = cfg;
+
+    const PM = window.ProgressModal;
+    const total = files.length;
+    const errors = [];
+    const uploadKeys = {
+      title: 's3.upload.modalTitle',
+      stageRender: 's3.upload.stageUpload',
+      stageDone: 's3.upload.stageDone',
+      currentEmpty: 's3.upload.currentEmpty',
+      currentDone: 's3.upload.currentDone',
+      doneTitle: 's3.upload.modalDoneTitle',
+      doneWithErrors: 's3.upload.modalDoneWithErrors'
+    };
+    el.uploadCurrent.disabled = true;
+    if (el.uploadLocal) el.uploadLocal.disabled = true;
+    el.refresh.disabled = true;
+    if (PM) PM.open(total, uploadKeys);
+    try {
+      await CS.ensureLoaded();
+      const client = CS.buildClient(cfg);
+      const basePrefix = cfg.prefix ? cfg.prefix + '/' : '';
+      let done = 0;
+      for (const file of files) {
+        const name = file.name || ('photo-' + Date.now() + '.jpg');
+        if (PM) PM.render(done, name);
+        try {
+          // Thumbnail first — if the source can't be decoded we fail before
+          // pushing the original up, so the bucket never holds an original-
+          // without-thumbnail (gallery list keys off `_thumbs/`).
+          const thumb = await makeThumbForUpload(file);
+          await CS.putObject(client, cfg.endpoint, basePrefix + name, file);
+          await CS.putObject(client, cfg.endpoint, basePrefix + THUMB_PREFIX + name + '.jpg', thumb);
+        } catch (err) {
+          console.warn('[s3] upload failed for', name, err);
+          errors.push(name + ': ' + CS.describeError(err));
+        }
+        done++;
+        if (PM) PM.render(done, name);
+      }
+      if (PM) PM.done(errors);
+      const ok = total - errors.length;
+      setStatus('status.s3UploadDone', errors.length ? 'err' : null, { n: ok });
+      setTimeout(() => setStatus('status.ready'), 2500);
+      await refreshGallery();
+    } catch (err) {
+      const msg = CS.describeError(err);
+      if (PM) PM.done([msg]);
+      setStatus('status.s3UploadFail', 'err', { msg });
+    } finally {
+      el.uploadCurrent.disabled = false;
+      if (el.uploadLocal) el.uploadLocal.disabled = false;
+      el.refresh.disabled = false;
+    }
+  }
+
+  // ── Upload current rail ─────────────────────────────────────────────────
+  el.uploadCurrent.addEventListener('click', () => {
+    const files = state.files.map((entry) => entry.file).filter(Boolean);
+    uploadFiles(files);
+  });
+
+  // ── Upload from local disk (no rail involvement) ────────────────────────
+  if (el.uploadLocal && el.localInput) {
+    el.uploadLocal.addEventListener('click', () => {
+      // Reset so picking the same files twice fires `change` both times.
+      el.localInput.value = '';
+      el.localInput.click();
+    });
+    el.localInput.addEventListener('change', () => {
+      const picked = Array.from(el.localInput.files || []);
+      el.localInput.value = '';
+      if (picked.length) uploadFiles(picked);
+    });
+  }
+
+  // ── Gallery list + render ───────────────────────────────────────────────
+  async function refreshGallery() {
+    const cfg = liveCfg || loadFromStorage() || readForm();
+    if (!CS.isUsable(cfg)) {
+      el.galleryStatus.textContent = T('status.s3MissingFields');
+      return;
+    }
+    el.galleryStatus.textContent = T('status.s3Listing');
+    el.refresh.disabled = true;
+    try {
+      await CS.ensureLoaded();
+      const client = CS.buildClient(cfg);
+      const basePrefix = cfg.prefix ? cfg.prefix + '/' : '';
+      const items = await CS.listObjects(client, cfg.endpoint, basePrefix + THUMB_PREFIX, { maxKeys: 1000 });
+      // Clear previous blob URLs to avoid leaks across multiple refreshes.
+      thumbBlobUrls.forEach((u) => URL.revokeObjectURL(u));
+      thumbBlobUrls.length = 0;
+      gallery = items
+        .filter((it) => it.size > 0)
+        .map((it) => {
+          // _thumbs/<filename>.jpg → original is at <basePrefix><filename>
+          const thumbKey = it.key;
+          const fileName = thumbKey.slice((basePrefix + THUMB_PREFIX).length).replace(/\.jpg$/i, '');
+          return {
+            thumbKey,
+            origKey: basePrefix + fileName,
+            name: fileName,
+            size: it.size,
+            etag: it.etag,
+            thumbUrl: '',
+            selected: false
+          };
+        });
+      // Sort newest-first by file name (timestamps in EXIF flow as suffixes
+      // for many cameras; for non-camera names fall back to lexicographic).
+      gallery.sort((a, b) => b.name.localeCompare(a.name));
+      renderGallery();
+      el.galleryStatus.textContent = gallery.length
+        ? T('status.s3ListDone', { n: gallery.length })
+        : T('status.s3ListEmpty');
+      // Fetch thumbnails in parallel-ish (the browser will queue them anyway).
+      gallery.forEach(async (item) => {
+        try {
+          const { blob } = await CS.getObject(client, cfg.endpoint, item.thumbKey);
+          const url = URL.createObjectURL(blob);
+          thumbBlobUrls.push(url);
+          item.thumbUrl = url;
+          const img = el.galleryGrid.querySelector('[data-key="' + CSS.escape(item.thumbKey) + '"] img');
+          if (img) img.src = url;
+        } catch (err) {
+          console.warn('[s3] thumb fetch failed', item.thumbKey, err);
+        }
+      });
+    } catch (err) {
+      const msg = CS.describeError(err);
+      el.galleryStatus.textContent = msg;
+      setStatus('status.s3TestFail', 'err', { msg });
+    } finally {
+      el.refresh.disabled = false;
+    }
+  }
+
+  // Two distinct click targets per cell so users get fast browse + selection:
+  //   • cell body → open lightbox (large preview, navigation, hi-fi review)
+  //   • cell checkbox → toggle selected (no lightbox)
+  // The checkbox is also surfaced inside the lightbox so users can decide
+  // after looking at the original.
+  function renderGallery() {
+    el.galleryGrid.innerHTML = '';
+    if (gallery.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'gallery-empty';
+      empty.textContent = T('status.s3ListEmpty');
+      el.galleryGrid.appendChild(empty);
+      updateSelectedCount();
+      return;
+    }
+    gallery.forEach((item, idx) => {
+      const cell = document.createElement('button');
+      cell.type = 'button';
+      cell.className = 'gallery-cell';
+      cell.setAttribute('aria-selected', item.selected ? 'true' : 'false');
+      cell.dataset.key = item.thumbKey;
+      cell.dataset.idx = String(idx);
+      cell.title = item.name;
+      const img = document.createElement('img');
+      img.alt = item.name;
+      if (item.thumbUrl) img.src = item.thumbUrl;
+      const label = document.createElement('span');
+      label.className = 'gallery-cell-name';
+      label.textContent = item.name;
+      const check = document.createElement('span');
+      check.className = 'gallery-cell-checkbox';
+      check.textContent = '✓';
+      check.setAttribute('role', 'checkbox');
+      check.setAttribute('aria-checked', item.selected ? 'true' : 'false');
+      check.title = T('gallery.lightboxSelect');
+      cell.appendChild(img);
+      cell.appendChild(label);
+      cell.appendChild(check);
+      check.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleSelectedAt(idx);
+      });
+      cell.addEventListener('click', () => openLightbox(idx));
+      el.galleryGrid.appendChild(cell);
+    });
+    updateSelectedCount();
+  }
+
+  function toggleSelectedAt(idx) {
+    const item = gallery[idx];
+    if (!item) return;
+    item.selected = !item.selected;
+    const cell = el.galleryGrid.querySelector('[data-idx="' + idx + '"]');
+    if (cell) {
+      cell.setAttribute('aria-selected', item.selected ? 'true' : 'false');
+      const cb = cell.querySelector('.gallery-cell-checkbox');
+      if (cb) cb.setAttribute('aria-checked', item.selected ? 'true' : 'false');
+    }
+    updateSelectedCount();
+  }
+
+  function updateSelectedCount() {
+    const n = gallery.filter((g) => g.selected).length;
+    el.loadSelected.disabled = n === 0;
+    if (el.downloadSelected) el.downloadSelected.disabled = n === 0;
+    el.galleryCount.textContent = n === 0 ? T('s3.noneSelected') : T('status.s3CountSelected', { n });
+  }
+
+  // ── Lightbox ────────────────────────────────────────────────────────────
+  // Shows the thumbnail instantly (already in cache), then fetches the
+  // original via signed GET and swaps the <img src> when it lands. Blob URL
+  // for the original is revoked on next nav / close so we don't leak.
+  function openLightbox(idx) {
+    if (idx < 0 || idx >= gallery.length) return;
+    lightboxIdx = idx;
+    paintLightboxFor(gallery[idx]);
+    if (el.lightbox) el.lightbox.hidden = false;
+    // Focus the close button so screen readers / keyboard users land in the
+    // overlay; arrow keys are bound at document level via onGalleryKeydown.
+    if (el.lightboxClose) el.lightboxClose.focus();
+  }
+
+  function closeLightbox() {
+    lightboxIdx = -1;
+    if (lightboxOriginalUrl) {
+      URL.revokeObjectURL(lightboxOriginalUrl);
+      lightboxOriginalUrl = null;
+    }
+    if (el.lightbox) el.lightbox.hidden = true;
+    if (el.lightboxImg) el.lightboxImg.removeAttribute('src');
+  }
+
+  function navLightbox(dir) {
+    if (gallery.length === 0 || lightboxIdx < 0) return;
+    const next = (lightboxIdx + dir + gallery.length) % gallery.length;
+    openLightbox(next);
+  }
+
+  function paintLightboxFor(item) {
+    if (!item) return;
+    // Revoke previous original blob URL — we're switching photos.
+    if (lightboxOriginalUrl) {
+      URL.revokeObjectURL(lightboxOriginalUrl);
+      lightboxOriginalUrl = null;
+    }
+    if (el.lightboxImg) {
+      el.lightboxImg.src = item.thumbUrl || '';
+      el.lightboxImg.alt = item.name;
+    }
+    if (el.lightboxName) el.lightboxName.textContent = item.name;
+    if (el.lightboxSize) el.lightboxSize.textContent = formatBytes(item.size);
+    if (el.lightboxLoading) el.lightboxLoading.hidden = !item.thumbUrl;
+    paintLightboxSelectState();
+    // Fetch the original asynchronously and swap. Track the idx-at-request
+    // time so a fast nav doesn't overwrite the current view with a stale
+    // original.
+    const requestedIdx = lightboxIdx;
+    const cfg = liveCfg || loadFromStorage();
+    if (!CS.isUsable(cfg)) return;
+    if (!lightboxClient) {
+      try { lightboxClient = CS.buildClient(cfg); }
+      catch (err) { console.warn('[s3] lightbox client failed', err); return; }
+    }
+    if (el.lightboxLoading) {
+      el.lightboxLoading.hidden = false;
+      el.lightboxLoading.textContent = T('gallery.lightboxLoading');
+    }
+    CS.getObject(lightboxClient, cfg.endpoint, item.origKey).then((got) => {
+      if (requestedIdx !== lightboxIdx) return; // user navigated away
+      lightboxOriginalUrl = URL.createObjectURL(got.blob);
+      if (el.lightboxImg) el.lightboxImg.src = lightboxOriginalUrl;
+      if (el.lightboxLoading) el.lightboxLoading.hidden = true;
+    }).catch((err) => {
+      console.warn('[s3] original fetch failed', item.origKey, err);
+      if (requestedIdx !== lightboxIdx) return;
+      if (el.lightboxLoading) {
+        el.lightboxLoading.hidden = false;
+        el.lightboxLoading.textContent = CS.describeError(err);
+      }
+    });
+  }
+
+  function paintLightboxSelectState() {
+    if (lightboxIdx < 0 || !el.lightboxToggleSelect) return;
+    const item = gallery[lightboxIdx];
+    if (!item) return;
+    const sel = !!item.selected;
+    el.lightboxToggleSelect.setAttribute('aria-pressed', sel ? 'true' : 'false');
+    el.lightboxToggleSelect.textContent = sel
+      ? T('gallery.lightboxSelected')
+      : T('gallery.lightboxSelect');
+  }
+
+  function formatBytes(n) {
+    if (!n || n < 1024) return (n || 0) + ' B';
+    if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB';
+    return (n / 1024 / 1024).toFixed(1) + ' MB';
+  }
+
+  if (el.lightboxClose) el.lightboxClose.addEventListener('click', closeLightbox);
+  if (el.lightboxPrev) el.lightboxPrev.addEventListener('click', () => navLightbox(-1));
+  if (el.lightboxNext) el.lightboxNext.addEventListener('click', () => navLightbox(1));
+  if (el.lightboxToggleSelect) {
+    el.lightboxToggleSelect.addEventListener('click', () => {
+      if (lightboxIdx < 0) return;
+      toggleSelectedAt(lightboxIdx);
+      paintLightboxSelectState();
+    });
+  }
+  if (el.lightboxDownload) {
+    el.lightboxDownload.addEventListener('click', () => {
+      if (lightboxIdx < 0) return;
+      downloadOne(gallery[lightboxIdx]);
+    });
+  }
+  // Lightbox backdrop click closes — except clicks on the image itself or
+  // on the nav buttons / footer, which keep it open.
+  if (el.lightbox) {
+    el.lightbox.addEventListener('click', (e) => {
+      if (e.target === el.lightbox) closeLightbox();
+    });
+  }
+
+  // ── Download to local ──────────────────────────────────────────────────
+  // Two surfaces. Single download = lightbox "Download" button — reuses
+  // the original blob already in memory if the lightbox finished loading
+  // it, otherwise re-GETs. Batch download = toolbar "Download selected" —
+  // packs every selected pick into a ZIP via JSZip + uses ProgressModal
+  // for the per-file progress (parallel to upload flow's UX). Single-pick
+  // selections short-circuit straight to downloadOne to avoid a 1-entry
+  // ZIP that nobody asked for.
+  async function downloadOne(item) {
+    if (!item) return;
+    const cfg = liveCfg || loadFromStorage();
+    if (!CS.isUsable(cfg)) {
+      setStatus('status.s3MissingFields', 'err');
+      setTimeout(() => setStatus('status.ready'), 2000);
+      return;
+    }
+    // Lightbox path: if the original is already loaded into a blob URL,
+    // download it directly without a second GET — instant for users who
+    // browsed before deciding.
+    if (lightboxIdx >= 0 && gallery[lightboxIdx] === item && lightboxOriginalUrl) {
+      const a = document.createElement('a');
+      a.href = lightboxOriginalUrl;
+      a.download = item.name;
+      a.click();
+      setStatus('status.s3DownloadDone', null, { name: item.name });
+      setTimeout(() => setStatus('status.ready'), 1500);
+      return;
+    }
+    try {
+      await CS.ensureLoaded();
+      const client = CS.buildClient(cfg);
+      setStatus('status.s3Downloading', 'busy', { name: item.name });
+      const got = await CS.getObject(client, cfg.endpoint, item.origKey);
+      window.Exporter.downloadBlob(got.blob, item.name);
+      setStatus('status.s3DownloadDone', null, { name: item.name });
+      setTimeout(() => setStatus('status.ready'), 1500);
+    } catch (err) {
+      setStatus('status.s3DownloadFail', 'err', { msg: CS.describeError(err) });
+    }
+  }
+
+  async function downloadSelected() {
+    const picks = gallery.filter((g) => g.selected);
+    if (picks.length === 0) return;
+    if (picks.length === 1) { await downloadOne(picks[0]); return; }
+    const cfg = liveCfg || loadFromStorage();
+    if (!CS.isUsable(cfg)) return;
+    if (!window.JSZip) {
+      setStatus('status.s3DownloadFail', 'err', { msg: 'JSZip not loaded' });
+      return;
+    }
+    const PM = window.ProgressModal;
+    const total = picks.length;
+    const errors = [];
+    const downloadKeys = {
+      title: 's3.download.modalTitle',
+      stageRender: 's3.download.stageDownload',
+      stagePack: 's3.download.stagePack',
+      stageDone: 's3.download.stageDone',
+      currentEmpty: 's3.download.currentEmpty',
+      currentPack: 's3.download.currentPack',
+      currentDone: 's3.download.currentDone',
+      doneTitle: 's3.download.modalDoneTitle',
+      doneWithErrors: 's3.download.modalDoneWithErrors'
+    };
+    el.downloadSelected.disabled = true;
+    if (PM) PM.open(total, downloadKeys);
+    try {
+      await CS.ensureLoaded();
+      const client = CS.buildClient(cfg);
+      const zip = new window.JSZip();
+      let done = 0;
+      for (const pick of picks) {
+        if (PM) PM.render(done, pick.name);
+        try {
+          const got = await CS.getObject(client, cfg.endpoint, pick.origKey);
+          // STORE (no deflate) — input is mostly already-compressed JPEG /
+          // HEIC bytes, deflate buys ~1-2% at high CPU cost.
+          zip.file(pick.name, got.blob, { compression: 'STORE' });
+        } catch (err) {
+          console.warn('[s3] download failed for', pick.origKey, err);
+          errors.push(pick.name + ': ' + CS.describeError(err));
+        }
+        done++;
+        if (PM) PM.render(done, pick.name);
+      }
+      if (PM) PM.pack();
+      const zipBlob = await zip.generateAsync({ type: 'blob', compression: 'STORE' });
+      const stamp = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+      const zipName = (cfg.bucket || 'cloud') + '-' + stamp + '.zip';
+      window.Exporter.downloadBlob(zipBlob, zipName);
+      if (PM) PM.done(errors);
+      const ok = total - errors.length;
+      setStatus('status.s3DownloadDone', errors.length ? 'err' : null, { name: zipName + ' · ' + ok + '/' + total });
+      setTimeout(() => setStatus('status.ready'), 2500);
+    } catch (err) {
+      const msg = CS.describeError(err);
+      if (PM) PM.done([msg]);
+      setStatus('status.s3DownloadFail', 'err', { msg });
+    } finally {
+      el.downloadSelected.disabled = false;
+    }
+  }
+
+  if (el.downloadSelected) {
+    el.downloadSelected.addEventListener('click', () => {
+      downloadSelected().catch((err) => console.warn('[s3] download batch', err));
+    });
+  }
+
+  el.refresh.addEventListener('click', () => {
+    refreshGallery().catch((err) => console.warn('[s3] refresh', err));
+  });
+
+  // ── Load selected → rail via mergeFiles ─────────────────────────────────
+  el.loadSelected.addEventListener('click', async () => {
+    const cfg = liveCfg || loadFromStorage();
+    const picks = gallery.filter((g) => g.selected);
+    if (!cfg || picks.length === 0) return;
+    el.loadSelected.disabled = true;
+    try {
+      await CS.ensureLoaded();
+      const client = CS.buildClient(cfg);
+      const files = [];
+      const errors = [];
+      let done = 0;
+      // Mint a single base timestamp per click so files within one batch get
+      // monotonically-increasing lastModified values. mergeFiles dedups on
+      // `name + size + lastModified`; using Date.now() per pick guarantees a
+      // fresh dedup key on every "Load selected" click — so re-loading the
+      // same photo on purpose isn't silently dropped, and the user always
+      // sees rail count increase.
+      const baseTs = Date.now();
+      for (let i = 0; i < picks.length; i++) {
+        const pick = picks[i];
+        setStatus('status.s3LoadingRemote', 'busy', { done: done + 1, total: picks.length });
+        try {
+          const got = await CS.getObject(client, cfg.endpoint, pick.origKey);
+          const file = new File([got.blob], pick.name, {
+            type: got.contentType || got.blob.type || 'image/jpeg',
+            lastModified: baseTs + i
+          });
+          files.push(file);
+        } catch (err) {
+          console.warn('[s3] get failed for', pick.origKey, err);
+          errors.push({ name: pick.name, msg: CS.describeError(err) });
+        }
+        done++;
+      }
+      if (files.length === 0) {
+        const msg = errors.length
+          ? (errors[0].name + ': ' + errors[0].msg)
+          : 'GET returned no files';
+        setStatus('status.s3UploadFail', 'err', { msg });
+        return;
+      }
+      // Mirror the local-file import pattern at app.js:1110-1112 — without
+      // selectFile() the rail updates but the canvas keeps showing whatever
+      // was active before, which looks like "nothing happened" to the user.
+      const prevLen = state.files.length;
+      await mergeFiles(files);
+      if (state.files.length > prevLen) await selectFile(prevLen);
+      const added = state.files.length - prevLen;
+      if (errors.length) {
+        const detail = errors.length === 1
+          ? errors[0].name + ': ' + errors[0].msg
+          : T('status.decodeFailMany', { n: errors.length });
+        setStatus(detail, 'err');
+      } else {
+        setStatus('status.s3LoadedRemote', null, { n: added });
+      }
+      setTimeout(() => setStatus('status.ready'), 2500);
+      closeModal();
+    } catch (err) {
+      const msg = CS.describeError(err);
+      setStatus('status.s3UploadFail', 'err', { msg });
+    } finally {
+      el.loadSelected.disabled = false;
+      updateSelectedCount();
+    }
+  });
+
+  // ── Boot: rehydrate from localStorage; then check share-URL hash ──────
+  const stored = loadFromStorage();
+  if (stored) {
+    state.s3Config = stored;
+    liveCfg = stored;
+    writeForm(stored);
+  } else {
+    setProvider('aws');
+  }
+  // Repaint the setup guide on locale flip so a mid-modal language toggle
+  // doesn't strand the user on a stale-language walkthrough.
+  if (window.I18N && typeof window.I18N.onChange === 'function') {
+    window.I18N.onChange(() => renderGuide(formCfg.provider));
+  }
+  applyHashS3IfPresent();
+})();
