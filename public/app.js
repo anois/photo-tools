@@ -1171,16 +1171,26 @@ els.aspectSeg.querySelectorAll('button').forEach((btn) => {
   }
 });
 
-function openAspectModal() {
+// Pluggable apply callback — when set by openAspectModal({ onApply }), the
+// modal's confirm button routes through the callback instead of writing
+// to activeCfg().aspect. Used by Compose mode's crop-aspect chip bar to
+// reuse this exact modal for its own "Custom" entry. Reset to null after
+// every apply / cancel so we don't accidentally cross-wire later opens.
+let aspectModalOnApply = null;
+
+function openAspectModal(opts) {
   const dlg = els.aspectModal;
   if (!dlg) return;
-  // Pre-fill: if current aspect is a custom W:H, reuse it; else fall back to
-  // the last saved custom value, then a hard default of 3:2.
-  const cur = activeCfg().aspect;
-  const curParsed = R.parseAspectRatio(cur);
+  aspectModalOnApply = (opts && typeof opts.onApply === 'function') ? opts.onApply : null;
+  // Pre-fill: caller can override via opts.initToken (e.g. Compose's current
+  // cropAspect when it's already a custom W:H); else if current aspect is
+  // a custom W:H, reuse it; else fall back to the last saved value; finally
+  // a hard default of 3:2.
   let initW = 3, initH = 2;
-  if (curParsed && !R.BASE_PRESETS[cur]) {
-    initW = curParsed.w; initH = curParsed.h;
+  const initTok = (opts && opts.initToken) || (aspectModalOnApply ? null : activeCfg().aspect);
+  const tokenParsed = initTok ? R.parseAspectRatio(initTok) : null;
+  if (tokenParsed && !R.BASE_PRESETS[initTok]) {
+    initW = tokenParsed.w; initH = tokenParsed.h;
   } else {
     try {
       const saved = JSON.parse(localStorage.getItem(ASPECT_CUSTOM_LS) || 'null');
@@ -1199,6 +1209,7 @@ function closeAspectModal() {
   if (!dlg) return;
   if (typeof dlg.close === 'function') dlg.close();
   else dlg.removeAttribute('open');
+  aspectModalOnApply = null;
 }
 function applyAspectModal() {
   const w = Number(els.aspectW.value);
@@ -1218,11 +1229,17 @@ function applyAspectModal() {
     els.aspectError.hidden = false;
     return;
   }
-  activeCfg().aspect = token;
   try { localStorage.setItem(ASPECT_CUSTOM_LS, JSON.stringify({ w: wR, h: hR })); } catch (_) {}
-  syncAspectSeg(token);
+  // Callback path (Compose's crop-aspect chip "Custom") or default
+  // (writes to frame aspect on main UI).
+  if (aspectModalOnApply) {
+    aspectModalOnApply(token, wR, hR);
+  } else {
+    activeCfg().aspect = token;
+    syncAspectSeg(token);
+    requestRender();
+  }
   closeAspectModal();
-  requestRender();
 }
 if (els.aspectApply) els.aspectApply.addEventListener('click', applyAspectModal);
 if (els.aspectCancel) els.aspectCancel.addEventListener('click', closeAspectModal);
@@ -5250,7 +5267,12 @@ function showUpdateBanner(waitingSw) {
     renderRAF: 0,
     minPad: null,         // current frame's minPadding (or null)
     isDragging: false,    // any handle / pan drag in flight — drives low-res render
-    settleTimer: 0        // scheduled hi-res re-render after drag ends
+    settleTimer: 0,       // scheduled hi-res re-render after drag ends
+    // Crop-aspect lock state for the chip bar — 'free' (default), 'frame'
+    // (uses current cfg.aspect), or a W:H token like '1:1' / '4.5:3'.
+    // Constrains corner-drag resize math so the crop rect stays at the
+    // chosen pixel ratio. Edge mid-pins hide via CSS when non-free.
+    cropAspect: 'free'
   };
   // Resolution presets — at-rest preview matches main UI's PREVIEW_SCALE
   // (0.5); during drag we drop to 0.2 so the canvas pixel area is ~1/6,
@@ -5273,6 +5295,9 @@ function showUpdateBanner(waitingSw) {
     ghost: document.getElementById('compose-ghost-img'),
     canvas: document.getElementById('compose-canvas'),
     handles: document.getElementById('compose-handles'),
+    // Crop aspect chip bar
+    aspectBar: document.getElementById('compose-aspect-bar'),
+    aspectCustomLabel: document.getElementById('compose-aspect-custom-label'),
     // Rotation slider bar (replaces the v1.1.0 photo-overlay knob)
     rotBar: document.getElementById('compose-rot-bar'),
     rotSlider: document.getElementById('compose-rot-slider'),
@@ -5761,6 +5786,44 @@ function showUpdateBanner(waitingSw) {
     }, () => { h.classList.remove('is-warn'); });
   }
 
+  // ── Crop aspect lock helpers ────────────────────────────────────────
+  // Resolve the chip selection to a numeric pixel ratio (w/h) the corner
+  // drag math can clamp to. Returns null when no lock is active (free
+  // mode), so callers branch on `!== null`.
+  function resolveCropPixelRatio() {
+    const tok = COMPOSE.cropAspect;
+    if (!tok || tok === 'free') return null;
+    if (tok === 'frame') {
+      const p = R.parseAspectRatio(COMPOSE.cfg.aspect);
+      return p ? p.r : null;
+    }
+    const p = R.parseAspectRatio(tok);
+    return p ? p.r : null;
+  }
+  // Re-fit the crop rect to the locked ratio, centered in the safe area,
+  // maximizing area. Used both when a chip is freshly selected (so the
+  // user immediately sees the new aspect) and when rotation changes the
+  // safe area's own shape (the locked rect would otherwise drift OOB).
+  function refitCropToLockedAspect() {
+    const r = resolveCropPixelRatio();
+    if (r == null) return;  // free mode — leave crop as-is
+    const rot = ((Number(COMPOSE.cfg.rotation) || 0) % 360 + 360) % 360;
+    const safe = R.inscribedSafeArea(COMPOSE.bm, rot);
+    // Largest rect of pixel ratio r that fits inside (safe.w × safe.h):
+    // try W = safe.w first, derive H from ratio. If H > safe.h, fall back
+    // to H = safe.h and derive W. Whichever is smaller in dim normalized
+    // to safe wins.
+    const tryW = 1; // normalized
+    const tryH = (safe.w * tryW) / (safe.h * r);
+    let cw, ch;
+    if (tryH <= 1) { cw = tryW; ch = tryH; }
+    else { ch = 1; cw = (safe.h * r * ch) / safe.w; }
+    // Center
+    const cx = (1 - cw) / 2;
+    const cy = (1 - ch) / 2;
+    COMPOSE.cfg.crop = (cw >= 0.999 && ch >= 0.999) ? null : { x: cx, y: cy, w: cw, h: ch };
+  }
+
   // ── Crop corner / edge drags ────────────────────────────────────────
   function bindCropCorner(corner) {
     const h = el.handles.querySelector(`[data-h="crop:${corner}"]`);
@@ -5778,11 +5841,46 @@ function showUpdateBanner(waitingSw) {
       const startCrop = start.cfg.crop || { x: 0, y: 0, w: 1, h: 1 };
       const dcw = dxBase / safe.w;
       const dch = dyBase / safe.h;
+      const lockR = resolveCropPixelRatio();   // null = free aspect
+
       let c = { ...startCrop };
-      if (sx === -1) { const nx = Math.max(0, Math.min(c.x + c.w - 0.05, startCrop.x + dcw)); c.w = startCrop.w + (startCrop.x - nx); c.x = nx; }
-      else           { c.w = Math.max(0.05, Math.min(1 - c.x, startCrop.w + dcw)); }
-      if (sy === -1) { const ny = Math.max(0, Math.min(c.y + c.h - 0.05, startCrop.y + dch)); c.h = startCrop.h + (startCrop.y - ny); c.y = ny; }
-      else           { c.h = Math.max(0.05, Math.min(1 - c.y, startCrop.h + dch)); }
+      if (lockR == null) {
+        // Free aspect — independent w/h adjustment per axis.
+        if (sx === -1) { const nx = Math.max(0, Math.min(c.x + c.w - 0.05, startCrop.x + dcw)); c.w = startCrop.w + (startCrop.x - nx); c.x = nx; }
+        else           { c.w = Math.max(0.05, Math.min(1 - c.x, startCrop.w + dcw)); }
+        if (sy === -1) { const ny = Math.max(0, Math.min(c.y + c.h - 0.05, startCrop.y + dch)); c.h = startCrop.h + (startCrop.y - ny); c.y = ny; }
+        else           { c.h = Math.max(0.05, Math.min(1 - c.y, startCrop.h + dch)); }
+      } else {
+        // Locked aspect — use the dominant axis (in screen px) as driver,
+        // derive the other from lockR. Then re-anchor the opposite corner
+        // so the dragged corner moves naturally and the opposite stays put.
+        const dwPx = Math.abs(dcw * safe.w);
+        const dhPx = Math.abs(dch * safe.h);
+        // Signed new width (start + drag, with corner-side flip)
+        const dwSigned = sx === -1 ? -dcw : dcw;
+        const dhSigned = sy === -1 ? -dch : dch;
+        let newW, newH;
+        if (dwPx >= dhPx) {
+          newW = Math.max(0.05, startCrop.w + dwSigned);
+          newH = newW * (safe.w / safe.h) / lockR;
+        } else {
+          newH = Math.max(0.05, startCrop.h + dhSigned);
+          newW = newH * lockR * (safe.h / safe.w);
+        }
+        // Anchor the OPPOSITE corner (the one not being dragged): its x/y
+        // stays fixed at start.cfg's value, the dragged corner moves.
+        const anchorX = sx === -1 ? (startCrop.x + startCrop.w) : startCrop.x;
+        const anchorY = sy === -1 ? (startCrop.y + startCrop.h) : startCrop.y;
+        c.w = newW; c.h = newH;
+        c.x = sx === -1 ? (anchorX - newW) : anchorX;
+        c.y = sy === -1 ? (anchorY - newH) : anchorY;
+        // Clamp to [0..1] preserving aspect. If we hit a boundary, shrink
+        // both dims proportionally so aspect stays locked.
+        if (c.x < 0)         { const k = (anchorX - 0) / newW; c.w *= k; c.h *= k; c.x = anchorX - c.w; }
+        if (c.y < 0)         { const k = (anchorY - 0) / newH; c.w *= k; c.h *= k; c.y = anchorY - c.h; }
+        if (c.x + c.w > 1)   { const k = (1 - anchorX) / newW; c.w *= k; c.h *= k; }
+        if (c.y + c.h > 1)   { const k = (1 - anchorY) / newH; c.w *= k; c.h *= k; }
+      }
       c.x = Math.max(0, Math.min(1 - 0.05, c.x));
       c.y = Math.max(0, Math.min(1 - 0.05, c.y));
       c.w = Math.max(0.05, Math.min(1 - c.x, c.w));
@@ -5919,6 +6017,7 @@ function showUpdateBanner(waitingSw) {
       COMPOSE.cfg.crop = null;
       COMPOSE.cfg.paddingTop = COMPOSE.cfg.paddingRight = COMPOSE.cfg.paddingBottom = COMPOSE.cfg.paddingLeft = null;
       COMPOSE.cfg.rotation = 0;
+      applyAspectChip('free', { skipFit: true });
       requestComposeRender();
     });
   }
@@ -5942,6 +6041,52 @@ function showUpdateBanner(waitingSw) {
       if (e.target.closest('input, button')) return;
       setFocus(m.dataset.mod);
     }));
+  }
+
+  // ── Crop aspect chip bar ───────────────────────────────────────────
+  function applyAspectChip(token, opts) {
+    COMPOSE.cropAspect = token || 'free';
+    el.stage.dataset.aspectLock = (token && token !== 'free') ? '1' : '';
+    // Highlight active chip
+    if (el.aspectBar) {
+      el.aspectBar.querySelectorAll('button[data-aspect]').forEach((b) => {
+        const active = b.dataset.aspect === COMPOSE.cropAspect
+          // 'custom' chip stays highlighted when the active token is any
+          // user-entered W:H not in the preset set.
+          || (b.dataset.aspect === 'custom' && /^[\d.]+:[\d.]+$/.test(COMPOSE.cropAspect) && !['1:1','3:4','4:3','9:16','16:9'].includes(COMPOSE.cropAspect));
+        b.classList.toggle('is-active', !!active);
+        b.setAttribute('aria-checked', active ? 'true' : 'false');
+      });
+      // Show the actual ratio in the Custom chip's label when active
+      if (el.aspectCustomLabel) {
+        const isCustom = /^[\d.]+:[\d.]+$/.test(COMPOSE.cropAspect)
+          && !['1:1','3:4','4:3','9:16','16:9'].includes(COMPOSE.cropAspect);
+        el.aspectCustomLabel.textContent = isCustom ? COMPOSE.cropAspect : (T('compose.crop.aspectCustom') || '⋯');
+      }
+    }
+    // Snap the crop rect to the new aspect immediately (unless caller
+    // says skip — used during programmatic re-syncs, not user clicks).
+    if (!opts || !opts.skipFit) refitCropToLockedAspect();
+    requestComposeRender();
+  }
+  function bindAspectChips() {
+    if (!el.aspectBar) return;
+    el.aspectBar.querySelectorAll('button[data-aspect]').forEach((b) => {
+      b.addEventListener('click', () => {
+        const tok = b.dataset.aspect;
+        if (tok === 'custom') {
+          // Reuse the main UI's aspect modal — same input UX as the outer
+          // frame-aspect picker. Callback writes into our local cropAspect
+          // instead of cfg.aspect.
+          openAspectModal({
+            initToken: /^[\d.]+:[\d.]+$/.test(COMPOSE.cropAspect) ? COMPOSE.cropAspect : null,
+            onApply: (token) => applyAspectChip(token)
+          });
+        } else {
+          applyAspectChip(tok);
+        }
+      });
+    });
   }
 
   // ── Keyboard ────────────────────────────────────────────────────────
@@ -5983,6 +6128,9 @@ function showUpdateBanner(waitingSw) {
       const bits = [ne.cameraMake, ne.cameraModel, ne.focalLengthInfo, ne.apertureInfo, ne.shutterInfo, ne.isoInfo].filter(Boolean);
       el.meta.textContent = bits.join(' · ') || '—';
     }
+    // Reset crop aspect lock to Free on every dialog open — it's an editing
+    // preference, not a per-photo cfg field, so each session starts fresh.
+    applyAspectChip('free', { skipFit: true });
     setFocus('crop');
     COMPOSE.open = true;
     dlg.showModal();
@@ -6030,6 +6178,7 @@ function showUpdateBanner(waitingSw) {
   bindBenchInputs();
   bindResets();
   bindModSelectors();
+  bindAspectChips();
 
   // Pan-crop: drag inside the photo aperture to shift crop without resizing.
   el.canvas.addEventListener('pointerdown', (e) => {

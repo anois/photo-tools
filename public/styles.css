@@ -5369,6 +5369,70 @@ body {
 .compose-pad-handle.is-warn::before { background: var(--c-warn); }
 
 /* Rotation knob — single handle protruding above top of photo */
+/* Crop aspect chip bar — visible only when crop mod is active. Same
+   row position as rot-bar (between stage and bench) so the two modes'
+   tool strips swap cleanly. Chip-style buttons in the darkroom palette. */
+.compose-aspect-bar {
+  position: relative; z-index: 5;
+  display: none;
+  align-items: center; justify-content: center;
+  gap: 14px;
+  padding: 11px 24px 12px;
+  border-top: 1px solid var(--c-ink-3);
+  background: linear-gradient(to top, rgba(20,18,15,0.93), rgba(20,18,15,0.55));
+  backdrop-filter: blur(8px);
+}
+.compose-stage[data-focus="crop"] ~ .compose-aspect-bar,
+.compose-aspect-bar:not([hidden]).compose-aspect-bar { /* fallback no-op for specificity */ }
+/* Show only when crop mode is active — driven by data-focus on the parent
+   stage. Bar lives INSIDE the stage so the selector descends from there. */
+.compose-stage[data-focus="crop"] .compose-aspect-bar { display: flex; }
+.compose-aspect-label {
+  font: 500 9.5px/1 var(--f-mono);
+  letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--c-cream-mute);
+}
+.compose-aspect-seg {
+  display: flex; flex-wrap: wrap;
+  gap: 6px;
+}
+.compose-aspect-seg button {
+  font: 500 11px/1 var(--f-mono);
+  letter-spacing: 0.06em;
+  color: var(--c-cream-mid);
+  padding: 7px 11px;
+  border: 1px solid var(--c-ink-4);
+  border-radius: 99px;
+  background: transparent;
+  cursor: pointer;
+  transition: all .15s cubic-bezier(.4,0,.2,1);
+}
+.compose-aspect-seg button:hover {
+  color: var(--c-amber);
+  border-color: var(--c-amber-dim);
+}
+.compose-aspect-seg button.is-active {
+  color: var(--c-ink-1);
+  background: var(--c-amber);
+  border-color: var(--c-amber);
+  box-shadow: 0 0 12px var(--c-amber-glow);
+}
+.compose-aspect-sep {
+  color: var(--c-cream-faint);
+  margin: 0 2px;
+}
+.compose-aspect-seg button.is-active .compose-aspect-sep {
+  color: rgba(20,18,15,0.55);
+}
+
+/* When aspect is locked (non-free), crop edge mid-pins lose their resize
+   affordance — only corners drive the aspect-constrained resize. Keeping
+   the pins interactive would let the user drag one axis independently,
+   which silently breaks the lock and confuses the chip state. */
+.compose-stage[data-focus="crop"][data-aspect-lock] .compose-crop-edge {
+  opacity: 0; pointer-events: none;
+}
+
 /* Rotation slider bar — replaces the old photo-overlay rotation knob.
    Sits between the stage and the bench, full-width, visible only when
    the rot mod is active. Mirrors the existing crop modal's rotate-bar
@@ -5502,7 +5566,10 @@ input.compose-rot-slider, .compose-rot-slider {
    time. Removing the dial eliminates a duplicate UI and reduces the
    "everything is interactive simultaneously" cognitive load.) */
 
-/* Hint pill at viewport-bottom-center inside stage */
+/* Hint pill — pinned above any visible tool strip (crop chip bar / rot
+   slider bar). Sits inside the stage, but lifted to clear those strips
+   when they're shown. For pad mode there's no separate strip, so the
+   hint stays at its default low position to avoid wasting vertical space. */
 .compose-hint {
   position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%);
   font: 400 9.5px/1.4 var(--f-mono);
@@ -5514,7 +5581,13 @@ input.compose-rot-slider, .compose-rot-slider {
   backdrop-filter: blur(6px);
   pointer-events: none; z-index: 3;
   max-width: calc(100vw - 40px); text-align: center;
+  transition: bottom .2s cubic-bezier(.4,0,.2,1);
 }
+/* Crop mode shows the aspect-chip strip at the bottom of the stage; rot
+   mode shows the rotation slider bar there. Push the hint up so it sits
+   above the strip instead of behind it. */
+.compose-stage[data-focus="crop"] .compose-hint,
+.compose-stage[data-focus="rot"]  .compose-hint { bottom: 78px; }
 
 /* Measurement HUD — follows cursor during drags */
 .compose-hud {

@@ -533,6 +533,12 @@
         rotateCcw: '逆时针 90°',
         rotateCw: '顺时针 90°',
         rotateZero: '归零',
+        crop: {
+          aspect: '比例',
+          aspectFree: '自由',
+          aspectFrame: '当前画幅',
+          aspectCustom: '自定义'
+        },
         hud: {
           pad: '边距', crop: '裁剪', rot: '旋转', pan: '平移',
           min: '最小', below: '低于推荐',
@@ -1063,6 +1069,12 @@
         rotateCcw: 'Rotate −90°',
         rotateCw: 'Rotate +90°',
         rotateZero: 'Zero',
+        crop: {
+          aspect: 'Aspect',
+          aspectFree: 'Free',
+          aspectFrame: 'Frame',
+          aspectCustom: 'Custom'
+        },
         hud: {
           pad: 'PAD', crop: 'CROP', rot: 'ROT', pan: 'PAN',
           min: 'min', below: 'below min',

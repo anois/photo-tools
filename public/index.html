@@ -1002,6 +1002,26 @@
         </div>
       </div>
 
+      <!-- Crop aspect chip bar — visible only when the crop module is active.
+           Sits at the bottom of the stage (above the bench). Clicking a chip
+           locks the crop rect to that pixel-aspect (Free = no constraint,
+           Frame = the current cfg.aspect). When locked, edge mid-pins fade
+           out so corner-drag is the only resize affordance — keeps the
+           interaction unambiguous. Same set as the legacy crop modal. -->
+      <div class="compose-aspect-bar" id="compose-aspect-bar">
+        <span class="compose-aspect-label" data-i18n="compose.crop.aspect">比例</span>
+        <div class="compose-aspect-seg" role="radiogroup">
+          <button type="button" data-aspect="free"  class="is-active" role="radio" aria-checked="true"  data-i18n="compose.crop.aspectFree">自由</button>
+          <button type="button" data-aspect="frame" role="radio" aria-checked="false" data-i18n="compose.crop.aspectFrame">当前画幅</button>
+          <button type="button" data-aspect="1:1"   role="radio" aria-checked="false">1<span class="compose-aspect-sep">:</span>1</button>
+          <button type="button" data-aspect="3:4"   role="radio" aria-checked="false">3<span class="compose-aspect-sep">:</span>4</button>
+          <button type="button" data-aspect="4:3"   role="radio" aria-checked="false">4<span class="compose-aspect-sep">:</span>3</button>
+          <button type="button" data-aspect="9:16"  role="radio" aria-checked="false">9<span class="compose-aspect-sep">:</span>16</button>
+          <button type="button" data-aspect="16:9"  role="radio" aria-checked="false">16<span class="compose-aspect-sep">:</span>9</button>
+          <button type="button" data-aspect="custom" id="compose-aspect-custom" role="radio" aria-checked="false"><span id="compose-aspect-custom-label" data-i18n="compose.crop.aspectCustom">⋯</span></button>
+        </div>
+      </div>
+
       <!-- Rotation slider bar — visible only when the rot module is active.
            Sits at the bottom of the stage (above the bench), full-width.
            Mirrors the existing crop modal's rotate-bar pattern but tuned to
