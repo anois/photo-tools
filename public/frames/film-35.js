@@ -187,6 +187,11 @@
     bg: { type: 'solid', color: '#100c08' },
     textStyle: 'light',
     layout: { topPaddingBoost: 70, bottomPaddingBoost: 90 },
+    // Compose-mode soft minimum — sprocket rows + edge print + frame
+    // number need vertical breathing room. Going below triggers a warning
+    // but is not blocked (per the rule-3 product direction: more knobs,
+    // user-controllable). Values in base-1440 px.
+    minPadding: { top: 70, bottom: 90 },
     shadowDefault: { blur: 0, offsetY: 0, opacity: 0 },
     decorate: decorate
   });

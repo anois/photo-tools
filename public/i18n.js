@@ -35,7 +35,8 @@
         frame: '相框',
         template: '模板',
         aspect: '画幅',
-        quality: '质量'
+        quality: '质量',
+        compose: '构图'
       },
       look: {
         title: '风格库',
@@ -508,6 +509,43 @@
         rotate: '旋转',
         rotateReset: '归零'
       },
+      compose: {
+        openTitle: '构图 · 直接拖拽调整裁剪、旋转与四边距',
+        title: '直接操控',
+        crumbName: '构图',
+        crumbSub: '· Compose',
+        empty: '—',
+        close: '关闭',
+        cancel: '取消',
+        apply: '应用',
+        resetAll: '全部重置',
+        session: '编排',
+        requirePhoto: '需要先导入一张照片',
+        rotateKnob: '拖动以旋转 · 按住 Shift 自由旋转',
+        kbd: { switch: '切换', free: '自由', exit: '退出' },
+        focus: { crop: '裁剪 (1)', pad: '边距 (2)', rot: '旋转 (3)' },
+        bench: { crop: '裁剪', pad: '边距', rot: '旋转', ratio: '比例', snap: '吸附', reset: '重置' },
+        hint: {
+          crop: '拖角落收紧裁剪 · 拖照片内部平移裁剪框',
+          pad: '推拉胶囊条调整四边边距',
+          rot: '拖下方拖拽条调整角度 · 任意度数都可以'
+        },
+        rotateCcw: '逆时针 90°',
+        rotateCw: '顺时针 90°',
+        rotateZero: '归零',
+        crop: {
+          aspect: '比例',
+          aspectFree: '自由',
+          aspectFrame: '当前画幅',
+          aspectCustom: '自定义'
+        },
+        hud: {
+          pad: '边距', crop: '裁剪', rot: '旋转', pan: '平移',
+          min: '最小', below: '低于推荐',
+          free: '自由 · 1°', snap90: '吸附 · 90°'
+        },
+        tag: { crop: '裁', rot: '旋', pad: '距' }
+      },
       changelog: {
         button: '更新日志',
         title: '更新日志',
@@ -533,7 +571,8 @@
         frame: 'Frame',
         template: 'Template',
         aspect: 'Aspect',
-        quality: 'Quality'
+        quality: 'Quality',
+        compose: 'Compose'
       },
       look: {
         title: 'Looks',
@@ -1005,6 +1044,43 @@
         aspectFrame: 'Frame',
         rotate: 'Rotate',
         rotateReset: 'Zero'
+      },
+      compose: {
+        openTitle: 'Compose — drag crop / rotation / per-edge padding directly',
+        title: 'Direct manipulation',
+        crumbName: 'Compose',
+        crumbSub: '',
+        empty: '—',
+        close: 'Close',
+        cancel: 'Cancel',
+        apply: 'Apply',
+        resetAll: 'Reset all',
+        session: 'compose',
+        requirePhoto: 'Import a photo first',
+        rotateKnob: 'Drag to rotate · hold Shift for free rotation',
+        kbd: { switch: 'switch', free: 'free', exit: 'exit' },
+        focus: { crop: 'Crop (1)', pad: 'Padding (2)', rot: 'Rotate (3)' },
+        bench: { crop: 'Crop', pad: 'Padding', rot: 'Rotate', ratio: 'Ratio', snap: 'Snap', reset: 'Reset' },
+        hint: {
+          crop: 'drag corners to tighten · drag inside to pan',
+          pad: 'push the edge bars to adjust margins',
+          rot: 'drag the slider below · any angle'
+        },
+        rotateCcw: 'Rotate −90°',
+        rotateCw: 'Rotate +90°',
+        rotateZero: 'Zero',
+        crop: {
+          aspect: 'Aspect',
+          aspectFree: 'Free',
+          aspectFrame: 'Frame',
+          aspectCustom: 'Custom'
+        },
+        hud: {
+          pad: 'PAD', crop: 'CROP', rot: 'ROT', pan: 'PAN',
+          min: 'min', below: 'below min',
+          free: 'free · 1°', snap90: 'snap · 90°'
+        },
+        tag: { crop: 'crop', rot: 'rot', pad: 'pad' }
       },
       changelog: {
         button: "What's new",

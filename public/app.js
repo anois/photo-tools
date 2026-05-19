@@ -18,6 +18,16 @@ function defaultCfg() {
     frame: DEFAULT_FRAME,
     template: 'minimal-text',
     padding: 70,
+    // Per-edge padding overrides (1.1+). null = follow scalar `padding` +
+    // frame's topPaddingBoost / bottomPaddingBias. Any non-null value WINS
+    // outright: the user has explicitly dialed that edge in Compose mode,
+    // bypassing frame boosts (frame.minPadding then nudges via warning,
+    // doesn't block). Reset to null on frame switch (consistent with
+    // bgBlur / shadowBlur). Same v:1 additive contract as radiusOverride.
+    paddingTop: null,
+    paddingRight: null,
+    paddingBottom: null,
+    paddingLeft: null,
     captionHeight: null,
     bgBlur: null, bgBrightness: null, bgSaturation: null,   // null → use frame preset
     shadowBlur: sd.blur, shadowOffsetY: sd.offsetY, shadowOpacity: sd.opacity,
@@ -480,6 +490,10 @@ async function doRender() {
         frame: c.frame,
         template: c.template,
         padding: c.padding,
+        paddingTop: c.paddingTop,
+        paddingRight: c.paddingRight,
+        paddingBottom: c.paddingBottom,
+        paddingLeft: c.paddingLeft,
         captionHeight: c.captionHeight,
         bgBlur: c.bgBlur,
         bgBrightness: c.bgBrightness,
@@ -1157,16 +1171,26 @@ els.aspectSeg.querySelectorAll('button').forEach((btn) => {
   }
 });
 
-function openAspectModal() {
+// Pluggable apply callback — when set by openAspectModal({ onApply }), the
+// modal's confirm button routes through the callback instead of writing
+// to activeCfg().aspect. Used by Compose mode's crop-aspect chip bar to
+// reuse this exact modal for its own "Custom" entry. Reset to null after
+// every apply / cancel so we don't accidentally cross-wire later opens.
+let aspectModalOnApply = null;
+
+function openAspectModal(opts) {
   const dlg = els.aspectModal;
   if (!dlg) return;
-  // Pre-fill: if current aspect is a custom W:H, reuse it; else fall back to
-  // the last saved custom value, then a hard default of 3:2.
-  const cur = activeCfg().aspect;
-  const curParsed = R.parseAspectRatio(cur);
+  aspectModalOnApply = (opts && typeof opts.onApply === 'function') ? opts.onApply : null;
+  // Pre-fill: caller can override via opts.initToken (e.g. Compose's current
+  // cropAspect when it's already a custom W:H); else if current aspect is
+  // a custom W:H, reuse it; else fall back to the last saved value; finally
+  // a hard default of 3:2.
   let initW = 3, initH = 2;
-  if (curParsed && !R.BASE_PRESETS[cur]) {
-    initW = curParsed.w; initH = curParsed.h;
+  const initTok = (opts && opts.initToken) || (aspectModalOnApply ? null : activeCfg().aspect);
+  const tokenParsed = initTok ? R.parseAspectRatio(initTok) : null;
+  if (tokenParsed && !R.BASE_PRESETS[initTok]) {
+    initW = tokenParsed.w; initH = tokenParsed.h;
   } else {
     try {
       const saved = JSON.parse(localStorage.getItem(ASPECT_CUSTOM_LS) || 'null');
@@ -1185,6 +1209,7 @@ function closeAspectModal() {
   if (!dlg) return;
   if (typeof dlg.close === 'function') dlg.close();
   else dlg.removeAttribute('open');
+  aspectModalOnApply = null;
 }
 function applyAspectModal() {
   const w = Number(els.aspectW.value);
@@ -1204,11 +1229,17 @@ function applyAspectModal() {
     els.aspectError.hidden = false;
     return;
   }
-  activeCfg().aspect = token;
   try { localStorage.setItem(ASPECT_CUSTOM_LS, JSON.stringify({ w: wR, h: hR })); } catch (_) {}
-  syncAspectSeg(token);
+  // Callback path (Compose's crop-aspect chip "Custom") or default
+  // (writes to frame aspect on main UI).
+  if (aspectModalOnApply) {
+    aspectModalOnApply(token, wR, hR);
+  } else {
+    activeCfg().aspect = token;
+    syncAspectSeg(token);
+    requestRender();
+  }
   closeAspectModal();
-  requestRender();
 }
 if (els.aspectApply) els.aspectApply.addEventListener('click', applyAspectModal);
 if (els.aspectCancel) els.aspectCancel.addEventListener('click', closeAspectModal);
@@ -1270,6 +1301,12 @@ function onFrameChange(frameName) {
   cfg.bgBlur = null;
   cfg.bgBrightness = null;
   cfg.bgSaturation = null;
+  // Per-edge padding overrides reset on frame switch — film-35's sprocket
+  // boost should kick in on switch even if previous frame had paddingTop:0.
+  cfg.paddingTop = null;
+  cfg.paddingRight = null;
+  cfg.paddingBottom = null;
+  cfg.paddingLeft = null;
   els.bgBlurVal.textContent = T('frame.defaultReadout');
   els.bgBrightnessVal.textContent = T('frame.defaultReadout');
   els.bgSaturationVal.textContent = T('frame.defaultReadout');
@@ -2758,6 +2795,10 @@ function buildConfigForFile(f) {
     exif: exifPayload
   };
   if (c.captionHeight != null) cfg.captionHeight = c.captionHeight;
+  if (c.paddingTop != null)    cfg.paddingTop = c.paddingTop;
+  if (c.paddingRight != null)  cfg.paddingRight = c.paddingRight;
+  if (c.paddingBottom != null) cfg.paddingBottom = c.paddingBottom;
+  if (c.paddingLeft != null)   cfg.paddingLeft = c.paddingLeft;
   if (c.bgBlur != null)        cfg.bgBlur = c.bgBlur;
   if (c.bgBrightness != null)  cfg.bgBrightness = c.bgBrightness;
   if (c.bgSaturation != null)  cfg.bgSaturation = c.bgSaturation;
@@ -2946,6 +2987,9 @@ const PRESET_STORAGE_KEY = 'phototools.presets';
 const PRESET_SCHEMA_VERSION = 1;
 const LOOK_KEYS = [
   'aspect', 'frame', 'template', 'padding', 'captionHeight',
+  // Per-edge padding (1.1+) — additive in v:1. Old presets / share-codes
+  // that don't carry these default to null = follow scalar padding.
+  'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft',
   'bgBlur', 'bgBrightness', 'bgSaturation',
   'shadowBlur', 'shadowOffsetY', 'shadowOpacity',
   // Additive in v:1 — old presets / share-codes that don't carry these
@@ -2989,6 +3033,7 @@ const FACTORY_PRESETS = [
               captionOverlayTextLift: 0, topTemplate: 'none',
               tornJitter: null, tornStep: null, tornEdgeOpacity: null,
               filmMfAge: null,
+              paddingTop: null, paddingRight: null, paddingBottom: null, paddingLeft: null,
               showFields: { brand: true, model: true, focal: true, aperture: true, shutter: true, iso: true, lens: false, date: true, gps: false, author: true, flash: false } } },
   // Torn paper · date-lens + top brand-model — handmade scrapbook feel.
   // Showcases the new topTemplate ('brand-model' stamps FUJIFILM · X-T5
@@ -3002,6 +3047,7 @@ const FACTORY_PRESETS = [
               captionOverlayTextLift: 0, topTemplate: 'brand-model',
               tornJitter: 9.5, tornStep: 6.5, tornEdgeOpacity: 0.28,
               filmMfAge: null,
+              paddingTop: null, paddingRight: null, paddingBottom: null, paddingLeft: null,
               showFields: { brand: true, model: true, focal: true, aperture: true, shutter: true, iso: true, lens: false, date: true, gps: false, author: true, flash: false } } },
   // Film 35mm · tech-stack + overlay watermark — caption stamped onto the
   // negative, lifted 32px from the bottom edge for breathing room.
@@ -3015,6 +3061,7 @@ const FACTORY_PRESETS = [
               captionOverlayTextLift: 32, topTemplate: 'none',
               tornJitter: null, tornStep: null, tornEdgeOpacity: null,
               filmMfAge: null,
+              paddingTop: null, paddingRight: null, paddingBottom: null, paddingLeft: null,
               showFields: { brand: true, model: true, focal: false, aperture: false, shutter: false, iso: false, lens: false, date: true, gps: false, author: true, flash: false } } },
   // Medium format · slate — gelatin silver darkroom print with the
   // monospace slate template carrying full spec + lens. The hand-written
@@ -3028,6 +3075,7 @@ const FACTORY_PRESETS = [
               captionOverlayTextLift: 0, topTemplate: 'none',
               tornJitter: null, tornStep: null, tornEdgeOpacity: null,
               filmMfAge: null,
+              paddingTop: null, paddingRight: null, paddingBottom: null, paddingLeft: null,
               showFields: { brand: true, model: true, focal: false, aperture: false, shutter: false, iso: true, lens: true, date: true, gps: false, author: true, flash: false } } },
   // Slide mount — Kodachrome-era mounted transparency. Top + bottom
   // EXIF-stamps (BRAND / TRANSPARENCY / PROCESSED BY BRAND, bottom
@@ -3042,6 +3090,7 @@ const FACTORY_PRESETS = [
               captionOverlayTextLift: 0, topTemplate: 'none',
               tornJitter: null, tornStep: null, tornEdgeOpacity: null,
               filmMfAge: null,
+              paddingTop: null, paddingRight: null, paddingBottom: null, paddingLeft: null,
               showFields: { brand: false, model: false, focal: true, aperture: true, shutter: true, iso: true, lens: true, date: true, gps: false, author: true, flash: false } } }
 ];
 
@@ -5189,4 +5238,1002 @@ function showUpdateBanner(waitingSw) {
     window.I18N.onChange(() => renderGuide(formCfg.provider));
   }
   applyHashS3IfPresent();
+})();
+
+// ────────────────────────────────────────────────────────────────────────
+// COMPOSE MODE (1.1+) — direct-manipulation surface unifying crop /
+// rotation / per-edge padding on a darkroom-aesthetic full-bleed dialog.
+// Reuses CR.renderPreview on the inner canvas for the live composition;
+// layers a ghost <img> behind so the user sees the full source with the
+// framed-out portion at 30% — the "what's getting clipped" affordance.
+// Bench at the bottom is always live and editable. Apply commits the
+// working cfg back to activeCfg + triggers a main-canvas re-render.
+// ────────────────────────────────────────────────────────────────────────
+(() => {
+  const dlg = document.getElementById('compose-modal');
+  if (!dlg) return;
+
+  const COMPOSE = {
+    open: false,
+    cfg: null,            // working cfg — mutated by handles, committed on Apply
+    origCfg: null,        // snapshot for Cancel
+    bm: null,             // active photo bitmap
+    sourceW: 0, sourceH: 0,
+    ghostUrl: null,       // blob URL for the ghost <img>
+    focus: 'crop',        // dial selection: crop | pad | rot | all
+    rotSnap: 0,           // shadow rotation snapped to nearest 90°
+    layout: null,         // last computed layout (R.computeLayout output)
+    stageScale: 1,        // scene → stage pixel scale
+    renderRAF: 0,
+    minPad: null,         // current frame's minPadding (or null)
+    isDragging: false,    // any handle / pan drag in flight — drives low-res render
+    settleTimer: 0,       // scheduled hi-res re-render after drag ends
+    // Crop-aspect lock state for the chip bar — 'free' (default), 'frame'
+    // (uses current cfg.aspect), or a W:H token like '1:1' / '4.5:3'.
+    // Constrains corner-drag resize math so the crop rect stays at the
+    // chosen pixel ratio. Edge mid-pins hide via CSS when non-free.
+    cropAspect: 'free'
+  };
+  // Resolution presets — at-rest preview matches main UI's PREVIEW_SCALE
+  // (0.5); during drag we drop to 0.2 so the canvas pixel area is ~1/6,
+  // bringing per-frame render cost from ~50-80ms down to ~8-12ms for
+  // smooth 60fps feedback. cfg values are resolution-independent so the
+  // geometry stays correct across scales — only sharpness changes.
+  const COMPOSE_SCALE_REST = 0.5;
+  const COMPOSE_SCALE_DRAG = 0.2;
+
+  // ── elements ────────────────────────────────────────────────────────
+  const el = {
+    trigger: document.getElementById('compose-trigger'),
+    chipValue: document.getElementById('lookbar-compose-value'),
+    closeBtn: document.getElementById('compose-close'),
+    resetAll: document.getElementById('compose-reset-all'),
+    apply: document.getElementById('compose-apply'),
+    cancel: document.getElementById('compose-cancel'),
+    stage: document.getElementById('compose-stage'),
+    stageInner: document.getElementById('compose-stage-inner'),
+    ghost: document.getElementById('compose-ghost-img'),
+    canvas: document.getElementById('compose-canvas'),
+    handles: document.getElementById('compose-handles'),
+    // Crop aspect chip bar
+    aspectBar: document.getElementById('compose-aspect-bar'),
+    aspectCustomLabel: document.getElementById('compose-aspect-custom-label'),
+    // Rotation slider bar (replaces the v1.1.0 photo-overlay knob)
+    rotBar: document.getElementById('compose-rot-bar'),
+    rotSlider: document.getElementById('compose-rot-slider'),
+    rotBarVal: document.getElementById('compose-rot-bar-val'),
+    rotCcw: document.getElementById('compose-rot-ccw'),
+    rotCw: document.getElementById('compose-rot-cw'),
+    rotZero: document.getElementById('compose-rot-zero'),
+    hint: document.getElementById('compose-hint'),
+    hud: document.getElementById('compose-hud'),
+    hudKey: document.getElementById('compose-hud-key'),
+    hudVal: document.getElementById('compose-hud-val'),
+    hudUnit: document.getElementById('compose-hud-unit'),
+    hudAux: document.getElementById('compose-hud-aux'),
+    title: document.getElementById('compose-modal-title'),
+    meta: document.getElementById('compose-meta'),
+    leaderNum: document.getElementById('compose-leader-num'),
+    leaderDate: document.getElementById('compose-leader-date'),
+    leaderDim: document.getElementById('compose-leader-dim'),
+    benchCropW: document.getElementById('bench-crop-w'),
+    benchCropH: document.getElementById('bench-crop-h'),
+    benchCropRatio: document.getElementById('bench-crop-ratio'),
+    benchPadT: document.getElementById('bench-pad-t'),
+    benchPadR: document.getElementById('bench-pad-r'),
+    benchPadB: document.getElementById('bench-pad-b'),
+    benchPadL: document.getElementById('bench-pad-l'),
+    benchRotDeg: document.getElementById('bench-rot-deg'),
+    benchRotSnap: document.getElementById('bench-rot-snap')
+  };
+
+  // ── trigger gating: button is disabled when no photo is loaded ─────
+  function refreshTriggerEnabled() {
+    if (!el.trigger) return;
+    const has = state.activeIdx >= 0 && state.files[state.activeIdx];
+    el.trigger.disabled = !has;
+    el.trigger.dataset.empty = has ? 'false' : 'true';
+    // Surface a one-line summary in the chip value: "Crop · Rot 90° · Pad"
+    if (has) {
+      const c = state.files[state.activeIdx].cfg;
+      const parts = [];
+      if (c.crop && (c.crop.w < 0.999 || c.crop.h < 0.999)) parts.push(T('compose.tag.crop'));
+      if (c.rotation && Math.abs(c.rotation) > 0.5) parts.push(T('compose.tag.rot') + ' ' + Math.round(c.rotation) + '°');
+      if (c.paddingTop != null || c.paddingRight != null || c.paddingBottom != null || c.paddingLeft != null) parts.push(T('compose.tag.pad'));
+      el.chipValue.textContent = parts.length ? parts.join(' · ') : T('compose.empty');
+    } else {
+      el.chipValue.textContent = T('compose.empty');
+    }
+  }
+  // Photo-switch / rail-mutate triggers a chip refresh. MutationObserver on
+  // the rail is cheap and avoids invasive edits to selectFile() — the rail
+  // mutates on add/remove/select via class toggles, which the observer sees.
+  const rail = document.getElementById('thumb-rail');
+  if (rail) {
+    const obs = new MutationObserver(refreshTriggerEnabled);
+    obs.observe(rail, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'data-active'] });
+  }
+  document.addEventListener('DOMContentLoaded', refreshTriggerEnabled);
+
+  // ── working-cfg helpers ─────────────────────────────────────────────
+  // Subset of cfg fields the Compose mode reads / writes. Other fields
+  // pass through untouched to renderPreview.
+  function snapshotCfg(src) {
+    return {
+      ...src,
+      crop: src.crop ? { ...src.crop } : null,
+      showFields: { ...src.showFields },
+      customLogo: src.customLogo ? { ...src.customLogo } : null,
+      customBg: src.customBg ? { ...src.customBg } : null,
+      collage: src.collage ? { ...src.collage } : null,
+      exifOverride: { ...(src.exifOverride || {}) }
+    };
+  }
+  function commitWorkingToActive() {
+    const active = state.files[state.activeIdx];
+    if (!active) return;
+    const target = active.cfg;
+    const w = COMPOSE.cfg;
+    target.crop = w.crop ? { ...w.crop } : null;
+    target.rotation = w.rotation || 0;
+    target.paddingTop = w.paddingTop;
+    target.paddingRight = w.paddingRight;
+    target.paddingBottom = w.paddingBottom;
+    target.paddingLeft = w.paddingLeft;
+  }
+
+  // ── ratio formatter ─────────────────────────────────────────────────
+  function simplifyRatio(w, h) {
+    if (!w || !h) return '—';
+    const g = (a, b) => b ? g(b, a % b) : a;
+    const d = g(w, h);
+    const a = w / d, b = h / d;
+    if (a < 40 && b < 40) return `${a}:${b}`;
+    const r = w / h;
+    const cands = [[1,1],[3,2],[2,3],[4,3],[3,4],[16,9],[9,16],[4,5],[5,4],[5,7],[7,5],[21,9],[9,21]];
+    let best = cands[0], bestD = Infinity;
+    cands.forEach(c => { const dd = Math.abs(c[0]/c[1] - r); if (dd < bestD) { bestD = dd; best = c; } });
+    return `≈${best[0]}:${best[1]}`;
+  }
+
+  // Active customScale for the current render — flips between REST and DRAG
+  // values driven by the isDragging flag. Same value is used both here for
+  // layout math AND passed to CR.renderPreview so the painted canvas and
+  // the JS-computed handle positions reference the same scale space.
+  function currentScale() {
+    return COMPOSE.isDragging ? COMPOSE_SCALE_DRAG : COMPOSE_SCALE_REST;
+  }
+
+  // ── layout computation (mirrors buildLayoutAndCaption's relevant math) ─
+  function computeComposeLayout(stageW, stageH) {
+    const cfg = COMPOSE.cfg;
+    if (!cfg || !COMPOSE.bm) return null;
+    const frame = R.resolveFrame(cfg.frame);
+    const rot = ((Number(cfg.rotation) || 0) % 360 + 360) % 360;
+    const safe = R.inscribedSafeArea(COMPOSE.bm, rot);
+    const cropW = cfg.crop && cfg.crop.w > 0 ? cfg.crop.w : 1;
+    const cropH = cfg.crop && cfg.crop.h > 0 ? cfg.crop.h : 1;
+    const meta = { width: safe.w * cropW, height: safe.h * cropH };
+    const layoutOpts = {
+      aspect: cfg.aspect,
+      padding: cfg.padding,
+      captionHeight: cfg.captionHeight,
+      ...frame.layout,
+      customScale: currentScale()
+    };
+    if (cfg.radiusOverride != null) layoutOpts.radiusOverride = cfg.radiusOverride;
+    if (cfg.captionForceOverlay) layoutOpts.captionForceOverlay = true;
+    if (cfg.captionOverlayTextLift != null) layoutOpts.captionOverlayTextLift = cfg.captionOverlayTextLift;
+    if (cfg.paddingTop != null) layoutOpts.paddingTop = cfg.paddingTop;
+    if (cfg.paddingRight != null) layoutOpts.paddingRight = cfg.paddingRight;
+    if (cfg.paddingBottom != null) layoutOpts.paddingBottom = cfg.paddingBottom;
+    if (cfg.paddingLeft != null) layoutOpts.paddingLeft = cfg.paddingLeft;
+    const layout = R.computeLayout(meta, layoutOpts);
+
+    // Scene scale: fit canvas into stage with margin. Account for the ghost
+    // potentially extending beyond canvas when crop < 1 (we want the full
+    // source plus a little air around it). Use the larger of (canvas dims,
+    // estimated ghost dims) as the scene bounding box.
+    // R.computeLayout exposes the foreground rect as TOP-LEVEL fgLeft/fgTop/
+    // fgW/fgH (not a nested layout.fg.{x,y,w,h}) — accessing the latter
+    // returned undefined and threw on .w. Bug found via chrome-devtools MCP
+    // console diagnostics after the user reported "everything is broken".
+    const ghostScale = 1; // ghost lives in same scene scale as canvas
+    const fullDispW = layout.fgW / cropW;
+    const fullDispH = layout.fgH / cropH;
+    // Account for rotation expansion of the ghost bbox
+    const rad = rot * Math.PI / 180;
+    const ghostBboxW = Math.abs(fullDispW * Math.cos(rad)) + Math.abs(fullDispH * Math.sin(rad));
+    const ghostBboxH = Math.abs(fullDispW * Math.sin(rad)) + Math.abs(fullDispH * Math.cos(rad));
+    const sceneW = Math.max(layout.canvas.W, ghostBboxW + 60);
+    const sceneH = Math.max(layout.canvas.H, ghostBboxH + 60);
+    // margin: keep at least 80px breathing room around the canvas so the user
+    // always sees stage background framing the composition — without this, a
+    // 16:9 / landscape canvas fills the entire stage edge-to-edge and the
+    // "framed photo as a discrete element" intent disappears visually.
+    const margin = 90;
+    const fitS = Math.min((stageW - margin * 2) / sceneW, (stageH - margin * 2) / sceneH);
+    // Hard cap at 0.85 = canvas never takes >85% of either stage dimension.
+    // Lower bound 0.15 = even if stage hasn't laid out yet, we still produce
+    // a visible canvas (better tiny than invisible).
+    return { layout, stageScale: Math.max(0.15, Math.min(0.85, fitS)) };
+  }
+
+  // ── ghost <img> positioning ─────────────────────────────────────────
+  function updateGhost() {
+    const cfg = COMPOSE.cfg;
+    const layout = COMPOSE.layout;
+    if (!cfg || !layout || !COMPOSE.ghostUrl) return;
+    const ss = COMPOSE.stageScale;
+    const fgX = layout.fgLeft * ss, fgY = layout.fgTop * ss;
+    const fgW = layout.fgW * ss, fgH = layout.fgH * ss;
+    const crop = cfg.crop || { x: 0, y: 0, w: 1, h: 1 };
+    const rot = ((Number(cfg.rotation) || 0) % 360 + 360) % 360;
+
+    // Full uncropped source display dims (in stage coords) such that the
+    // cropped portion matches fg. Rotation around fg center will spin the
+    // ghost in place; the cropped portion stays anchored to fg.
+    const fullW = fgW / Math.max(crop.w, 0.01);
+    const fullH = fgH / Math.max(crop.h, 0.01);
+    const ghostX = fgX - crop.x * fullW;
+    const ghostY = fgY - crop.y * fullH;
+
+    el.ghost.style.width = fullW + 'px';
+    el.ghost.style.height = fullH + 'px';
+    el.ghost.style.left = ghostX + 'px';
+    el.ghost.style.top = ghostY + 'px';
+    if (rot) {
+      const fgCenterX = fgX + fgW / 2;
+      const fgCenterY = fgY + fgH / 2;
+      el.ghost.style.transform = `rotate(${rot}deg)`;
+      el.ghost.style.transformOrigin = `${fgCenterX - ghostX}px ${fgCenterY - ghostY}px`;
+    } else {
+      el.ghost.style.transform = '';
+      el.ghost.style.transformOrigin = '';
+    }
+  }
+
+  // ── handle positioning ──────────────────────────────────────────────
+  function updateHandles() {
+    const layout = COMPOSE.layout;
+    if (!layout) return;
+    const ss = COMPOSE.stageScale;
+    const fgX = layout.fgLeft * ss, fgY = layout.fgTop * ss;
+    const fgW = layout.fgW * ss, fgH = layout.fgH * ss;
+    const cvW = layout.canvas.W * ss, cvH = layout.canvas.H * ss;
+
+    // Position handles via `transform: translate3d()` instead of style.left/
+    // top — promotes each handle to its own compositor layer so positioning
+    // updates skip layout + paint and stay GPU-side. Pre-existing transform
+    // patterns (translate(-50%,-50%) on edge pins / pad handles) are baked
+    // into the translate3d offsets here. left/top remain 0 in CSS.
+    const set = (sel, x, y, baseAdjustX, baseAdjustY) => {
+      const h = el.handles.querySelector(`[data-h="${sel}"]`);
+      if (!h) return;
+      const tx = x + (baseAdjustX || 0);
+      const ty = y + (baseAdjustY || 0);
+      h.style.transform = `translate3d(${tx}px, ${ty}px, 0)`;
+    };
+    // Crop corner brackets are 22×22, anchored at fg corner so subtract 11
+    // to center the corner of the bracket on the corner of fg.
+    set('crop:tl', fgX - 11, fgY - 11);
+    set('crop:tr', fgX + fgW - 11, fgY - 11);
+    set('crop:br', fgX + fgW - 11, fgY + fgH - 11);
+    set('crop:bl', fgX - 11, fgY + fgH - 11);
+    // Crop edge mid-pins: CSS originally used translate(-50%,-50%) to center
+    // the pin on its anchor — replicated here as an 11-px offset (half of
+    // the 22-px hit area) in the transform.
+    set('crop:t', fgX + fgW / 2, fgY,            -11, -11);
+    set('crop:b', fgX + fgW / 2, fgY + fgH,      -11, -11);
+    set('crop:l', fgX,           fgY + fgH / 2,  -11, -11);
+    set('crop:r', fgX + fgW,     fgY + fgH / 2,  -11, -11);
+    // Padding handles: hit area 40×14 (horiz) or 14×40 (vert). Center on
+    // anchor by subtracting half-dim per axis.
+    set('pad:top',    fgX + fgW / 2, fgY / 2,                       -20, -7);
+    set('pad:bottom', fgX + fgW / 2, fgY + fgH + (cvH - fgY - fgH) / 2, -20, -7);
+    set('pad:left',   fgX / 2,                  fgY + fgH / 2,         -7, -20);
+    set('pad:right',  fgX + fgW + (cvW - fgX - fgW) / 2, fgY + fgH / 2, -7, -20);
+    // Rotation slider replaces the v1.1.0 knob — no per-render handle
+    // positioning needed; the slider is in the bottom rot-bar, not on the
+    // photo overlay.
+
+    // Center crosshair (24×24, translate(-50%,-50%) anchor)
+    const cc = el.handles.querySelector('.compose-center-cross');
+    if (cc) {
+      cc.style.transform = `translate3d(${fgX + fgW / 2 - 12}px, ${fgY + fgH / 2 - 12}px, 0)`;
+    }
+    // min-padding warning bands per edge
+    const mp = COMPOSE.minPad || {};
+    const setWarn = (edge, on, bandPx) => {
+      const w = el.handles.querySelector(`.compose-minwarn[data-edge="${edge}"]`);
+      if (!w) return;
+      w.classList.toggle('is-on', !!on);
+      if (!on) return;
+      if (edge === 'top')    { w.style.left = fgX + 'px'; w.style.top = 0; w.style.width = fgW + 'px'; w.style.height = bandPx + 'px'; }
+      if (edge === 'bottom') { w.style.left = fgX + 'px'; w.style.top = (cvH - bandPx) + 'px'; w.style.width = fgW + 'px'; w.style.height = bandPx + 'px'; }
+      if (edge === 'left')   { w.style.left = 0; w.style.top = fgY + 'px'; w.style.width = bandPx + 'px'; w.style.height = fgH + 'px'; }
+      if (edge === 'right')  { w.style.left = (cvW - bandPx) + 'px'; w.style.top = fgY + 'px'; w.style.width = bandPx + 'px'; w.style.height = fgH + 'px'; }
+    };
+    const cfg = COMPOSE.cfg;
+    const effPadTop    = cfg.paddingTop    != null ? cfg.paddingTop    : (cfg.padding + (R.resolveFrame(cfg.frame).layout?.topPaddingBoost || 0));
+    const effPadRight  = cfg.paddingRight  != null ? cfg.paddingRight  : cfg.padding;
+    const effPadBottom = cfg.paddingBottom != null ? cfg.paddingBottom : (cfg.padding + (R.resolveFrame(cfg.frame).layout?.bottomPaddingBoost || 0));
+    const effPadLeft   = cfg.paddingLeft   != null ? cfg.paddingLeft   : cfg.padding;
+    setWarn('top',    mp.top    && effPadTop    < mp.top,    (mp.top    || 0) * ss * 0.5);
+    setWarn('right',  mp.right  && effPadRight  < mp.right,  (mp.right  || 0) * ss * 0.5);
+    setWarn('bottom', mp.bottom && effPadBottom < mp.bottom, (mp.bottom || 0) * ss * 0.5);
+    setWarn('left',   mp.left   && effPadLeft   < mp.left,   (mp.left   || 0) * ss * 0.5);
+  }
+
+  // ── canvas + ghost render (debounced via rAF) ───────────────────────
+  let renderingPreview = false;
+  let pendingPreview = false;
+  function requestComposeRender() {
+    if (!COMPOSE.open) return;
+    if (COMPOSE.renderRAF) return;
+    COMPOSE.renderRAF = requestAnimationFrame(() => { COMPOSE.renderRAF = 0; doComposeRender(); });
+  }
+  async function doComposeRender() {
+    if (renderingPreview) { pendingPreview = true; return; }
+    renderingPreview = true;
+    try {
+      const stage = el.stage;
+      // Dialog layout can lag by 1-2 frames after showModal in some browsers
+      // (Safari especially). Fall back to viewport dims if stage hasn't
+      // measured yet — the ResizeObserver below will fire a follow-up render
+      // once the real dims land.
+      const sw = stage.clientWidth || window.innerWidth || 1200;
+      const sh = (stage.clientHeight || window.innerHeight) - 0;
+      const lr = computeComposeLayout(sw, sh);
+      if (!lr) return;
+      COMPOSE.layout = lr.layout;
+      COMPOSE.stageScale = lr.stageScale;
+      // Size canvas to displayed scene
+      el.canvas.style.width = (lr.layout.canvas.W * lr.stageScale) + 'px';
+      el.canvas.style.height = (lr.layout.canvas.H * lr.stageScale) + 'px';
+      el.stageInner.style.width = (lr.layout.canvas.W * lr.stageScale) + 'px';
+      el.stageInner.style.height = (lr.layout.canvas.H * lr.stageScale) + 'px';
+      // Center stageInner in stage (use absolute positioning)
+      const active = state.files[state.activeIdx];
+      if (!active) return;
+      const cfgProjection = composeProjection(COMPOSE.cfg);
+      await CR.renderPreview(el.canvas, {
+        file: active.file,
+        partnerFiles: active.partnerFiles || [],
+        cfg: cfgProjection,
+        normExif: buildCurrentExif(),
+        logos: state.logos,
+        fontFaceCss: state.fontFaceCss,
+        customScale: currentScale()
+      });
+      // Canvas's CSS sometimes gets clobbered when renderPreview internally
+      // assigns canvas.width/height (the attribute resets the displayed CSS
+      // size to match the drawing buffer in some browsers). Re-apply our
+      // scene-fit CSS sizing AFTER the paint to be defensive.
+      el.canvas.style.width = (lr.layout.canvas.W * lr.stageScale) + 'px';
+      el.canvas.style.height = (lr.layout.canvas.H * lr.stageScale) + 'px';
+      // Each helper wrapped in try/catch so one failure doesn't break the
+      // others — without this an updateBench throw left handles unpositioned
+      // and the user couldn't see what state the dialog was in.
+      try { updateGhost(); }   catch (e) { console.error('[compose:ghost]', e); }
+      try { updateHandles(); } catch (e) { console.error('[compose:handles]', e); }
+      try { updateBench(); }   catch (e) { console.error('[compose:bench]', e); }
+    } catch (err) {
+      console.error('[compose render]', err);
+    } finally {
+      renderingPreview = false;
+      if (pendingPreview) { pendingPreview = false; requestComposeRender(); }
+    }
+  }
+  // Mirror of doRender's cfg projection
+  function composeProjection(c) {
+    return {
+      aspect: c.aspect, frame: c.frame, template: c.template,
+      padding: c.padding,
+      paddingTop: c.paddingTop, paddingRight: c.paddingRight,
+      paddingBottom: c.paddingBottom, paddingLeft: c.paddingLeft,
+      captionHeight: c.captionHeight,
+      bgBlur: c.bgBlur, bgBrightness: c.bgBrightness, bgSaturation: c.bgSaturation,
+      shadowBlur: c.shadowBlur, shadowOffsetY: c.shadowOffsetY, shadowOpacity: c.shadowOpacity,
+      radiusOverride: c.radiusOverride,
+      captionForceOverlay: c.captionForceOverlay,
+      captionOverlayTextLift: c.captionOverlayTextLift,
+      topTemplate: c.topTemplate,
+      tornJitter: c.tornJitter, tornStep: c.tornStep, tornEdgeOpacity: c.tornEdgeOpacity,
+      filmMfAge: c.filmMfAge,
+      showFields: c.showFields,
+      customLogo: c.customLogo, customBg: c.customBg,
+      collage: c.collage,
+      rotation: c.rotation || 0,
+      crop: c.crop || null
+    };
+  }
+
+  // ── bench (state readouts + editable inputs) ───────────────────────
+  function updateBench() {
+    const cfg = COMPOSE.cfg;
+    if (!cfg || !COMPOSE.bm) return;
+    const crop = cfg.crop || { x: 0, y: 0, w: 1, h: 1 };
+    const rot = ((Number(cfg.rotation) || 0) % 360 + 360) % 360;
+    const safe = R.inscribedSafeArea(COMPOSE.bm, rot) || { w: COMPOSE.sourceW, h: COMPOSE.sourceH };
+    const cropPxW = Math.round((safe.w || COMPOSE.sourceW || 1) * crop.w);
+    const cropPxH = Math.round((safe.h || COMPOSE.sourceH || 1) * crop.h);
+    if (document.activeElement !== el.benchCropW) el.benchCropW.value = cropPxW;
+    if (document.activeElement !== el.benchCropH) el.benchCropH.value = cropPxH;
+    el.benchCropRatio.textContent = simplifyRatio(cropPxW, cropPxH);
+
+    const mp = COMPOSE.minPad || {};
+    const frameLayout = R.resolveFrame(cfg.frame).layout || {};
+    const effT = cfg.paddingTop    != null ? cfg.paddingTop    : (cfg.padding + (frameLayout.topPaddingBoost || 0));
+    const effR = cfg.paddingRight  != null ? cfg.paddingRight  : cfg.padding;
+    const effB = cfg.paddingBottom != null ? cfg.paddingBottom : (cfg.padding + (frameLayout.bottomPaddingBoost || 0));
+    const effL = cfg.paddingLeft   != null ? cfg.paddingLeft   : cfg.padding;
+    if (document.activeElement !== el.benchPadT) el.benchPadT.value = Math.round(effT);
+    if (document.activeElement !== el.benchPadR) el.benchPadR.value = Math.round(effR);
+    if (document.activeElement !== el.benchPadB) el.benchPadB.value = Math.round(effB);
+    if (document.activeElement !== el.benchPadL) el.benchPadL.value = Math.round(effL);
+    el.benchPadT.classList.toggle('is-warn', !!(mp.top    && effT < mp.top));
+    el.benchPadR.classList.toggle('is-warn', !!(mp.right  && effR < mp.right));
+    el.benchPadB.classList.toggle('is-warn', !!(mp.bottom && effB < mp.bottom));
+    el.benchPadL.classList.toggle('is-warn', !!(mp.left   && effL < mp.left));
+
+    // Normalize cfg.rotation (any number) into the -180..180 range used by
+    // both the bench number input and the slider track. Tiny snap to 0
+    // applied at write time, not here.
+    const rotRaw = Number(COMPOSE.cfg.rotation) || 0;
+    const deg = (((rotRaw + 180) % 360) + 360) % 360 - 180;
+    if (document.activeElement !== el.benchRotDeg) {
+      el.benchRotDeg.value = Math.abs(deg) < 0.05 ? '0' : deg.toFixed(1).replace(/\.0$/, '');
+    }
+    const snap = ((Math.round(deg / 90) * 90) % 360 + 360) % 360;
+    el.benchRotSnap.textContent = snap + '°';
+    // Sync the rot-bar slider + readout when it's not the source of truth
+    // for this render (e.g. driven by reset / bench number / ±90 button).
+    if (el.rotSlider && document.activeElement !== el.rotSlider) {
+      el.rotSlider.value = deg;
+    }
+    if (el.rotBarVal) {
+      el.rotBarVal.textContent = (Math.abs(deg) < 0.05 ? '0' : deg.toFixed(1).replace(/\.0$/, '')) + '°';
+    }
+  }
+
+  // ── HUD helpers ─────────────────────────────────────────────────────
+  function showHud(key, val, unit, aux, x, y, warn) {
+    el.hudKey.textContent = key;
+    el.hudVal.textContent = val;
+    el.hudUnit.textContent = unit || '';
+    el.hudAux.textContent = aux || '';
+    el.hudAux.classList.toggle('is-warn', !!warn);
+    el.hud.style.left = x + 'px';
+    el.hud.style.top = y + 'px';
+    el.hud.classList.add('is-on');
+  }
+  function hideHud() { el.hud.classList.remove('is-on'); }
+
+  // Flip isDragging on/off + schedule a hi-res re-render N ms after the
+  // drag ends. The settle timer covers the case where the user releases
+  // between renders — without it the canvas would be stuck at low-res
+  // until something else triggers a re-render.
+  function beginDrag() {
+    COMPOSE.isDragging = true;
+    if (COMPOSE.settleTimer) { clearTimeout(COMPOSE.settleTimer); COMPOSE.settleTimer = 0; }
+  }
+  function endDrag() {
+    COMPOSE.isDragging = false;
+    if (COMPOSE.settleTimer) clearTimeout(COMPOSE.settleTimer);
+    COMPOSE.settleTimer = setTimeout(() => { if (COMPOSE.open) requestComposeRender(); }, 120);
+  }
+
+  // ── drag helpers ────────────────────────────────────────────────────
+  function bindDrag(elem, onMove, onUp) {
+    elem.addEventListener('pointerdown', (e) => {
+      if (e.button !== undefined && e.button !== 0 && e.pointerType === 'mouse') return;
+      e.preventDefault();
+      try { elem.setPointerCapture(e.pointerId); } catch {}
+      elem.classList.add('is-dragging');
+      beginDrag();
+      const start = { x: e.clientX, y: e.clientY, cfg: snapshotCfg(COMPOSE.cfg) };
+      const move = (ev) => { onMove(ev, start); requestComposeRender(); };
+      const up = (ev) => {
+        try { elem.releasePointerCapture(e.pointerId); } catch {}
+        elem.classList.remove('is-dragging');
+        elem.removeEventListener('pointermove', move);
+        elem.removeEventListener('pointerup', up);
+        elem.removeEventListener('pointercancel', up);
+        hideHud();
+        endDrag();
+        onUp && onUp(ev);
+      };
+      elem.addEventListener('pointermove', move);
+      elem.addEventListener('pointerup', up);
+      elem.addEventListener('pointercancel', up);
+    });
+  }
+
+  // ── Padding handle drags ────────────────────────────────────────────
+  function bindPadHandle(side, sign, axis) {
+    const h = el.handles.querySelector(`[data-h="pad:${side}"]`);
+    if (!h) return;
+    bindDrag(h, (e, start) => {
+      // Each handle drags inward/outward. Convert pointer delta from
+      // scene px → base-1440 px via stageScale and computeLayout's customScale.
+      // layout's customScale is 0.5, so layout px = base * 0.5. Stage px = layout * stageScale.
+      // → base = stagePx / stageScale / 0.5
+      const deltaScene = axis === 'y' ? (e.clientY - start.y) : (e.clientX - start.x);
+      const deltaBase = (deltaScene / COMPOSE.stageScale / 0.5) * sign;
+      const key = 'padding' + side.charAt(0).toUpperCase() + side.slice(1);
+      // Starting value from cfg snapshot; if null, derive effective.
+      const frameLayout = R.resolveFrame(start.cfg.frame).layout || {};
+      let baseStart = start.cfg[key];
+      if (baseStart == null) {
+        if (side === 'top')    baseStart = start.cfg.padding + (frameLayout.topPaddingBoost || 0);
+        else if (side === 'bottom') baseStart = start.cfg.padding + (frameLayout.bottomPaddingBoost || 0);
+        else baseStart = start.cfg.padding;
+      }
+      const next = Math.max(0, Math.min(300, baseStart + deltaBase));
+      COMPOSE.cfg[key] = next;
+      // HUD
+      const mp = COMPOSE.minPad || {};
+      const minV = mp[side] || 0;
+      const isWarn = next < minV;
+      h.classList.toggle('is-warn', isWarn);
+      showHud(
+        T('compose.hud.pad') + ' · ' + side.toUpperCase(),
+        Math.round(next), 'PX',
+        T('compose.hud.min') + ' · ' + minV + (isWarn ? ' · ' + T('compose.hud.below') : ''),
+        e.clientX, e.clientY, isWarn
+      );
+    }, () => { h.classList.remove('is-warn'); });
+  }
+
+  // ── Crop aspect lock helpers ────────────────────────────────────────
+  // Resolve the chip selection to a numeric pixel ratio (w/h) the corner
+  // drag math can clamp to. Returns null when no lock is active (free
+  // mode), so callers branch on `!== null`.
+  function resolveCropPixelRatio() {
+    const tok = COMPOSE.cropAspect;
+    if (!tok || tok === 'free') return null;
+    if (tok === 'frame') {
+      const p = R.parseAspectRatio(COMPOSE.cfg.aspect);
+      return p ? p.r : null;
+    }
+    const p = R.parseAspectRatio(tok);
+    return p ? p.r : null;
+  }
+  // Re-fit the crop rect to the locked ratio, centered in the safe area,
+  // maximizing area. Used both when a chip is freshly selected (so the
+  // user immediately sees the new aspect) and when rotation changes the
+  // safe area's own shape (the locked rect would otherwise drift OOB).
+  function refitCropToLockedAspect() {
+    const r = resolveCropPixelRatio();
+    if (r == null) return;  // free mode — leave crop as-is
+    const rot = ((Number(COMPOSE.cfg.rotation) || 0) % 360 + 360) % 360;
+    const safe = R.inscribedSafeArea(COMPOSE.bm, rot);
+    // Largest rect of pixel ratio r that fits inside (safe.w × safe.h):
+    // try W = safe.w first, derive H from ratio. If H > safe.h, fall back
+    // to H = safe.h and derive W. Whichever is smaller in dim normalized
+    // to safe wins.
+    const tryW = 1; // normalized
+    const tryH = (safe.w * tryW) / (safe.h * r);
+    let cw, ch;
+    if (tryH <= 1) { cw = tryW; ch = tryH; }
+    else { ch = 1; cw = (safe.h * r * ch) / safe.w; }
+    // Center
+    const cx = (1 - cw) / 2;
+    const cy = (1 - ch) / 2;
+    COMPOSE.cfg.crop = (cw >= 0.999 && ch >= 0.999) ? null : { x: cx, y: cy, w: cw, h: ch };
+  }
+
+  // ── Crop corner / edge drags ────────────────────────────────────────
+  function bindCropCorner(corner) {
+    const h = el.handles.querySelector(`[data-h="crop:${corner}"]`);
+    if (!h) return;
+    const sx = corner.includes('l') ? -1 : 1;
+    const sy = corner.includes('t') ? -1 : 1;
+    bindDrag(h, (e, start) => {
+      const dxBase = (e.clientX - start.x) / COMPOSE.stageScale / 0.5;
+      const dyBase = (e.clientY - start.y) / COMPOSE.stageScale / 0.5;
+      // Convert base-px deltas to crop normalized space. crop is normalized
+      // in the inscribed safe area; layout's foreground in base px equals
+      // safe × crop, so dragging by Δbase corresponds to Δcrop = Δbase / safe.
+      const rot = ((Number(start.cfg.rotation) || 0) % 360 + 360) % 360;
+      const safe = R.inscribedSafeArea(COMPOSE.bm, rot);
+      const startCrop = start.cfg.crop || { x: 0, y: 0, w: 1, h: 1 };
+      const dcw = dxBase / safe.w;
+      const dch = dyBase / safe.h;
+      const lockR = resolveCropPixelRatio();   // null = free aspect
+
+      let c = { ...startCrop };
+      if (lockR == null) {
+        // Free aspect — independent w/h adjustment per axis.
+        if (sx === -1) { const nx = Math.max(0, Math.min(c.x + c.w - 0.05, startCrop.x + dcw)); c.w = startCrop.w + (startCrop.x - nx); c.x = nx; }
+        else           { c.w = Math.max(0.05, Math.min(1 - c.x, startCrop.w + dcw)); }
+        if (sy === -1) { const ny = Math.max(0, Math.min(c.y + c.h - 0.05, startCrop.y + dch)); c.h = startCrop.h + (startCrop.y - ny); c.y = ny; }
+        else           { c.h = Math.max(0.05, Math.min(1 - c.y, startCrop.h + dch)); }
+      } else {
+        // Locked aspect — use the dominant axis (in screen px) as driver,
+        // derive the other from lockR. Then re-anchor the opposite corner
+        // so the dragged corner moves naturally and the opposite stays put.
+        const dwPx = Math.abs(dcw * safe.w);
+        const dhPx = Math.abs(dch * safe.h);
+        // Signed new width (start + drag, with corner-side flip)
+        const dwSigned = sx === -1 ? -dcw : dcw;
+        const dhSigned = sy === -1 ? -dch : dch;
+        let newW, newH;
+        if (dwPx >= dhPx) {
+          newW = Math.max(0.05, startCrop.w + dwSigned);
+          newH = newW * (safe.w / safe.h) / lockR;
+        } else {
+          newH = Math.max(0.05, startCrop.h + dhSigned);
+          newW = newH * lockR * (safe.h / safe.w);
+        }
+        // Anchor the OPPOSITE corner (the one not being dragged): its x/y
+        // stays fixed at start.cfg's value, the dragged corner moves.
+        const anchorX = sx === -1 ? (startCrop.x + startCrop.w) : startCrop.x;
+        const anchorY = sy === -1 ? (startCrop.y + startCrop.h) : startCrop.y;
+        c.w = newW; c.h = newH;
+        c.x = sx === -1 ? (anchorX - newW) : anchorX;
+        c.y = sy === -1 ? (anchorY - newH) : anchorY;
+        // Clamp to [0..1] preserving aspect. If we hit a boundary, shrink
+        // both dims proportionally so aspect stays locked.
+        if (c.x < 0)         { const k = (anchorX - 0) / newW; c.w *= k; c.h *= k; c.x = anchorX - c.w; }
+        if (c.y < 0)         { const k = (anchorY - 0) / newH; c.w *= k; c.h *= k; c.y = anchorY - c.h; }
+        if (c.x + c.w > 1)   { const k = (1 - anchorX) / newW; c.w *= k; c.h *= k; }
+        if (c.y + c.h > 1)   { const k = (1 - anchorY) / newH; c.w *= k; c.h *= k; }
+      }
+      c.x = Math.max(0, Math.min(1 - 0.05, c.x));
+      c.y = Math.max(0, Math.min(1 - 0.05, c.y));
+      c.w = Math.max(0.05, Math.min(1 - c.x, c.w));
+      c.h = Math.max(0.05, Math.min(1 - c.y, c.h));
+      COMPOSE.cfg.crop = (c.x === 0 && c.y === 0 && c.w >= 0.999 && c.h >= 0.999) ? null : c;
+      const w = Math.round(safe.w * c.w), hh = Math.round(safe.h * c.h);
+      showHud(T('compose.hud.crop'), `${w} × ${hh}`, 'PX', simplifyRatio(w, hh), e.clientX, e.clientY);
+    });
+  }
+  function bindCropEdge(side) {
+    const h = el.handles.querySelector(`[data-h="crop:${side}"]`);
+    if (!h) return;
+    bindDrag(h, (e, start) => {
+      const dxBase = (e.clientX - start.x) / COMPOSE.stageScale / 0.5;
+      const dyBase = (e.clientY - start.y) / COMPOSE.stageScale / 0.5;
+      const rot = ((Number(start.cfg.rotation) || 0) % 360 + 360) % 360;
+      const safe = R.inscribedSafeArea(COMPOSE.bm, rot);
+      const dcw = dxBase / safe.w;
+      const dch = dyBase / safe.h;
+      const startCrop = start.cfg.crop || { x: 0, y: 0, w: 1, h: 1 };
+      let c = { ...startCrop };
+      if (side === 't') { const ny = Math.max(0, Math.min(c.y + c.h - 0.05, startCrop.y + dch)); c.h = startCrop.h + (startCrop.y - ny); c.y = ny; }
+      if (side === 'b') { c.h = Math.max(0.05, Math.min(1 - c.y, startCrop.h + dch)); }
+      if (side === 'l') { const nx = Math.max(0, Math.min(c.x + c.w - 0.05, startCrop.x + dcw)); c.w = startCrop.w + (startCrop.x - nx); c.x = nx; }
+      if (side === 'r') { c.w = Math.max(0.05, Math.min(1 - c.x, startCrop.w + dcw)); }
+      c.x = Math.max(0, Math.min(1 - 0.05, c.x));
+      c.y = Math.max(0, Math.min(1 - 0.05, c.y));
+      c.w = Math.max(0.05, Math.min(1 - c.x, c.w));
+      c.h = Math.max(0.05, Math.min(1 - c.y, c.h));
+      COMPOSE.cfg.crop = (c.x === 0 && c.y === 0 && c.w >= 0.999 && c.h >= 0.999) ? null : c;
+      const w = Math.round(safe.w * c.w), hh = Math.round(safe.h * c.h);
+      showHud(T('compose.hud.crop'), `${w} × ${hh}`, 'PX', simplifyRatio(w, hh), e.clientX, e.clientY);
+    });
+  }
+
+  // ── Rotation slider bar (replaces v1.1.0 photo-overlay knob) ────────
+  // The bar lives at the bottom of the stage, full-width, visible only
+  // when the rot mod is active. Range -180..180, step 0.5, plus ±90°
+  // quick buttons and a reset. Live preview drives requestComposeRender
+  // on every input event; beginDrag()/endDrag() flip to low-res scale
+  // during slider drag, then settle back to hi-res on release.
+  function setRotationDeg(deg, source) {
+    deg = Number(deg) || 0;
+    // Range comes in as -180..180; cfg.rotation accepts any value but we
+    // normalize for display. Tiny snap to 0 when within 0.4° (helps the
+    // user actually land "no rotation" without aim-fight).
+    if (Math.abs(deg) < 0.4) deg = 0;
+    COMPOSE.cfg.rotation = deg;
+    if (source !== 'slider' && el.rotSlider) {
+      // Slider wraps -180..180; if cfg.rotation is outside, clamp display.
+      el.rotSlider.value = Math.max(-180, Math.min(180, deg));
+    }
+    if (el.rotBarVal) {
+      const s = Math.abs(deg) < 0.05 ? '0' : deg.toFixed(1).replace(/\.0$/, '');
+      el.rotBarVal.textContent = s + '°';
+    }
+    requestComposeRender();
+  }
+  function bindRotSlider() {
+    if (!el.rotSlider) return;
+    // The slider input emits during drag; use pointerdown/pointerup on the
+    // slider itself to bracket the low-res draft mode. `change` fires
+    // after pointerup so we can also force a settle render then.
+    el.rotSlider.addEventListener('pointerdown', () => beginDrag());
+    el.rotSlider.addEventListener('pointerup',   () => endDrag());
+    el.rotSlider.addEventListener('input', () => setRotationDeg(el.rotSlider.value, 'slider'));
+    if (el.rotCcw) el.rotCcw.addEventListener('click', () => {
+      let next = (Number(COMPOSE.cfg.rotation) || 0) - 90;
+      // Keep within -180..180 for the slider display
+      if (next < -180) next += 360;
+      setRotationDeg(next);
+    });
+    if (el.rotCw) el.rotCw.addEventListener('click', () => {
+      let next = (Number(COMPOSE.cfg.rotation) || 0) + 90;
+      if (next > 180) next -= 360;
+      setRotationDeg(next);
+    });
+    if (el.rotZero) el.rotZero.addEventListener('click', () => setRotationDeg(0));
+  }
+
+  // ── Bench numeric inputs ────────────────────────────────────────────
+  function bindBenchInputs() {
+    const setRender = () => requestComposeRender();
+    // Crop W/H — translate to crop.w/h while keeping crop center fixed
+    const onCropPx = () => {
+      const rot = ((Number(COMPOSE.cfg.rotation) || 0) % 360 + 360) % 360;
+      const safe = R.inscribedSafeArea(COMPOSE.bm, rot);
+      const w = Math.max(1, Math.min(safe.w, Number(el.benchCropW.value) || safe.w));
+      const h = Math.max(1, Math.min(safe.h, Number(el.benchCropH.value) || safe.h));
+      const newW = w / safe.w, newH = h / safe.h;
+      const cur = COMPOSE.cfg.crop || { x: 0, y: 0, w: 1, h: 1 };
+      const cxN = cur.x + cur.w / 2;
+      const cyN = cur.y + cur.h / 2;
+      let nx = Math.max(0, Math.min(1 - newW, cxN - newW / 2));
+      let ny = Math.max(0, Math.min(1 - newH, cyN - newH / 2));
+      COMPOSE.cfg.crop = (nx === 0 && ny === 0 && newW >= 0.999 && newH >= 0.999) ? null : { x: nx, y: ny, w: newW, h: newH };
+      setRender();
+    };
+    el.benchCropW.addEventListener('input', onCropPx);
+    el.benchCropH.addEventListener('input', onCropPx);
+    const onPad = (key, inputEl) => () => {
+      const v = Math.max(0, Math.min(300, Number(inputEl.value) || 0));
+      COMPOSE.cfg[key] = v;
+      setRender();
+    };
+    el.benchPadT.addEventListener('input', onPad('paddingTop', el.benchPadT));
+    el.benchPadR.addEventListener('input', onPad('paddingRight', el.benchPadR));
+    el.benchPadB.addEventListener('input', onPad('paddingBottom', el.benchPadB));
+    el.benchPadL.addEventListener('input', onPad('paddingLeft', el.benchPadL));
+    el.benchRotDeg.addEventListener('input', () => {
+      const v = Number(el.benchRotDeg.value);
+      if (isFinite(v)) setRotationDeg(v, 'bench');
+    });
+  }
+
+  // ── Module reset buttons ────────────────────────────────────────────
+  function bindResets() {
+    document.querySelectorAll('.compose-mod-reset').forEach((b) => {
+      b.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const what = b.dataset.reset;
+        if (what === 'crop') COMPOSE.cfg.crop = null;
+        if (what === 'pad') {
+          COMPOSE.cfg.paddingTop = null;
+          COMPOSE.cfg.paddingRight = null;
+          COMPOSE.cfg.paddingBottom = null;
+          COMPOSE.cfg.paddingLeft = null;
+        }
+        if (what === 'rot') COMPOSE.cfg.rotation = 0;
+        requestComposeRender();
+      });
+    });
+    el.resetAll.addEventListener('click', () => {
+      COMPOSE.cfg.crop = null;
+      COMPOSE.cfg.paddingTop = COMPOSE.cfg.paddingRight = COMPOSE.cfg.paddingBottom = COMPOSE.cfg.paddingLeft = null;
+      COMPOSE.cfg.rotation = 0;
+      applyAspectChip('free', { skipFit: true });
+      requestComposeRender();
+    });
+  }
+
+  // ── Module / dial focus selectors ───────────────────────────────────
+  function setFocus(f) {
+    // v1.1.1 — strict-exclusive: one tool active at a time. No 'all' mode.
+    // Setting `data-focus` on the stage drives all the CSS visibility +
+    // pointer-events gating. The rot-bar slider also toggles via `hidden`.
+    if (f !== 'crop' && f !== 'pad' && f !== 'rot') f = 'crop';
+    COMPOSE.focus = f;
+    el.stage.dataset.focus = f;
+    document.querySelectorAll('.compose-mod').forEach(m => m.classList.toggle('is-active', m.dataset.mod === f));
+    if (el.rotBar) el.rotBar.hidden = (f !== 'rot');
+    if (el.hint) el.hint.textContent = T('compose.hint.' + f);
+  }
+  function bindModSelectors() {
+    document.querySelectorAll('.compose-mod').forEach(m => m.addEventListener('click', (e) => {
+      // Don't switch focus on input / button clicks within the module —
+      // those are bench-level edits / reset, not mode switches.
+      if (e.target.closest('input, button')) return;
+      setFocus(m.dataset.mod);
+    }));
+  }
+
+  // ── Crop aspect chip bar ───────────────────────────────────────────
+  function applyAspectChip(token, opts) {
+    COMPOSE.cropAspect = token || 'free';
+    el.stage.dataset.aspectLock = (token && token !== 'free') ? '1' : '';
+    // Highlight active chip
+    if (el.aspectBar) {
+      el.aspectBar.querySelectorAll('button[data-aspect]').forEach((b) => {
+        const active = b.dataset.aspect === COMPOSE.cropAspect
+          // 'custom' chip stays highlighted when the active token is any
+          // user-entered W:H not in the preset set.
+          || (b.dataset.aspect === 'custom' && /^[\d.]+:[\d.]+$/.test(COMPOSE.cropAspect) && !['1:1','3:4','4:3','9:16','16:9'].includes(COMPOSE.cropAspect));
+        b.classList.toggle('is-active', !!active);
+        b.setAttribute('aria-checked', active ? 'true' : 'false');
+      });
+      // Show the actual ratio in the Custom chip's label when active
+      if (el.aspectCustomLabel) {
+        const isCustom = /^[\d.]+:[\d.]+$/.test(COMPOSE.cropAspect)
+          && !['1:1','3:4','4:3','9:16','16:9'].includes(COMPOSE.cropAspect);
+        el.aspectCustomLabel.textContent = isCustom ? COMPOSE.cropAspect : (T('compose.crop.aspectCustom') || '⋯');
+      }
+    }
+    // Snap the crop rect to the new aspect immediately (unless caller
+    // says skip — used during programmatic re-syncs, not user clicks).
+    if (!opts || !opts.skipFit) refitCropToLockedAspect();
+    requestComposeRender();
+  }
+  function bindAspectChips() {
+    if (!el.aspectBar) return;
+    el.aspectBar.querySelectorAll('button[data-aspect]').forEach((b) => {
+      b.addEventListener('click', () => {
+        const tok = b.dataset.aspect;
+        if (tok === 'custom') {
+          // Reuse the main UI's aspect modal — same input UX as the outer
+          // frame-aspect picker. Callback writes into our local cropAspect
+          // instead of cfg.aspect.
+          openAspectModal({
+            initToken: /^[\d.]+:[\d.]+$/.test(COMPOSE.cropAspect) ? COMPOSE.cropAspect : null,
+            onApply: (token) => applyAspectChip(token)
+          });
+        } else {
+          applyAspectChip(tok);
+        }
+      });
+    });
+  }
+
+  // ── Keyboard ────────────────────────────────────────────────────────
+  function onComposeKey(e) {
+    if (!COMPOSE.open) return;
+    const tag = (e.target && e.target.tagName || '').toLowerCase();
+    if (tag === 'input' || tag === 'textarea') return; // don't hijack bench typing
+    if (e.key === '1') { setFocus('crop'); e.preventDefault(); }
+    else if (e.key === '2') { setFocus('pad'); e.preventDefault(); }
+    else if (e.key === '3') { setFocus('rot'); e.preventDefault(); }
+    else if (e.key === 'r' || e.key === 'R') { el.resetAll.click(); e.preventDefault(); }
+  }
+
+  // ── Open / close ────────────────────────────────────────────────────
+  async function openCompose() {
+    const active = state.files[state.activeIdx];
+    if (!active) { setStatus('compose.requirePhoto', 'busy'); setTimeout(() => setStatus('status.ready'), 1500); return; }
+    COMPOSE.origCfg = snapshotCfg(active.cfg);
+    COMPOSE.cfg = snapshotCfg(active.cfg);
+    // Bitmap (full source — full-res for accurate inscribedSafeArea)
+    COMPOSE.bm = await CR.loadBitmap(active.file);
+    COMPOSE.sourceW = COMPOSE.bm.width;
+    COMPOSE.sourceH = COMPOSE.bm.height;
+    // Ghost <img> source: use a blob URL of the original file
+    if (COMPOSE.ghostUrl) URL.revokeObjectURL(COMPOSE.ghostUrl);
+    COMPOSE.ghostUrl = URL.createObjectURL(active.file);
+    el.ghost.src = COMPOSE.ghostUrl;
+    // Frame minPadding
+    const frame = R.resolveFrame(COMPOSE.cfg.frame);
+    COMPOSE.minPad = frame.minPadding || null;
+    // Leader metadata
+    if (el.leaderNum) el.leaderNum.textContent = `${state.activeIdx + 1} / ${state.files.length}`;
+    if (el.leaderDate) {
+      const d = new Date(); el.leaderDate.textContent = `${d.getFullYear()}·${String(d.getMonth()+1).padStart(2,'0')}·${String(d.getDate()).padStart(2,'0')} · ${T('compose.session')}`;
+    }
+    if (el.leaderDim) el.leaderDim.textContent = `${COMPOSE.sourceW} × ${COMPOSE.sourceH}`;
+    if (el.meta) {
+      const ne = buildCurrentExif();
+      const bits = [ne.cameraMake, ne.cameraModel, ne.focalLengthInfo, ne.apertureInfo, ne.shutterInfo, ne.isoInfo].filter(Boolean);
+      el.meta.textContent = bits.join(' · ') || '—';
+    }
+    // Reset crop aspect lock to Free on every dialog open — it's an editing
+    // preference, not a per-photo cfg field, so each session starts fresh.
+    applyAspectChip('free', { skipFit: true });
+    setFocus('crop');
+    COMPOSE.open = true;
+    dlg.showModal();
+    // Defer first render to next frame so the dialog has its dimensions.
+    // Belt-and-suspenders: also fire at 60ms + 200ms so a slow-laying-out
+    // dialog (Safari, big bitmap decode) doesn't strand the user on a
+    // tiny initial canvas. ResizeObserver below also catches it.
+    requestAnimationFrame(() => requestAnimationFrame(requestComposeRender));
+    setTimeout(() => { if (COMPOSE.open) requestComposeRender(); }, 60);
+    setTimeout(() => { if (COMPOSE.open) requestComposeRender(); }, 200);
+  }
+  function closeCompose(commit) {
+    if (commit) {
+      commitWorkingToActive();
+      requestRender();
+      refreshTriggerEnabled();
+    }
+    COMPOSE.open = false;
+    if (COMPOSE.ghostUrl) { URL.revokeObjectURL(COMPOSE.ghostUrl); COMPOSE.ghostUrl = null; }
+    el.ghost.removeAttribute('src');
+    try { dlg.close(); } catch {}
+  }
+
+  // ── Bindings ────────────────────────────────────────────────────────
+  if (el.trigger) el.trigger.addEventListener('click', () => openCompose());
+  if (el.closeBtn) el.closeBtn.addEventListener('click', () => closeCompose(false));
+  if (el.cancel) el.cancel.addEventListener('click', () => closeCompose(false));
+  if (el.apply) el.apply.addEventListener('click', () => closeCompose(true));
+  dlg.addEventListener('cancel', (e) => { e.preventDefault(); closeCompose(false); });
+  document.addEventListener('keydown', onComposeKey);
+
+  ['top', 'right', 'bottom', 'left'].forEach((side) => {
+    // Outward push = larger padding. Top: drag UP shrinks; drag DOWN grows.
+    // Top edge handle sits ABOVE the photo; dragging it DOWN (positive Y)
+    // means moving the handle toward the photo, which from the user's POV
+    // means SHRINKING the top margin — so sign = -1 for top, +1 for bottom,
+    // -1 for left, +1 for right.
+    const sign = (side === 'top' || side === 'left') ? -1 : 1;
+    const axis = (side === 'top' || side === 'bottom') ? 'y' : 'x';
+    bindPadHandle(side, sign, axis);
+  });
+  ['tl','tr','br','bl'].forEach(bindCropCorner);
+  ['t','r','b','l'].forEach(bindCropEdge);
+  bindRotSlider();
+  bindBenchInputs();
+  bindResets();
+  bindModSelectors();
+  bindAspectChips();
+
+  // Pan-crop: drag inside the photo aperture to shift crop without resizing.
+  el.canvas.addEventListener('pointerdown', (e) => {
+    if (!COMPOSE.open) return;
+    // Pan-crop only works when crop mode is active — strict-exclusive (1.1.1).
+    if (COMPOSE.focus !== 'crop') return;
+    if (e.button !== undefined && e.button !== 0 && e.pointerType === 'mouse') return;
+    const rect = el.canvas.getBoundingClientRect();
+    const px = (e.clientX - rect.left) / COMPOSE.stageScale;
+    const py = (e.clientY - rect.top) / COMPOSE.stageScale;
+    const layout = COMPOSE.layout;
+    if (!layout) return;
+    // Only if inside fg rect
+    if (px < layout.fgLeft || px > layout.fgLeft + layout.fgW) return;
+    if (py < layout.fgTop  || py > layout.fgTop  + layout.fgH) return;
+    e.preventDefault();
+    try { el.canvas.setPointerCapture(e.pointerId); } catch {}
+    beginDrag();
+    const startCrop = COMPOSE.cfg.crop ? { ...COMPOSE.cfg.crop } : { x: 0, y: 0, w: 1, h: 1 };
+    const start = { x: e.clientX, y: e.clientY };
+    const move = (ev) => {
+      const rot = ((Number(COMPOSE.cfg.rotation) || 0) % 360 + 360) % 360;
+      const safe = R.inscribedSafeArea(COMPOSE.bm, rot);
+      const dxBase = -(ev.clientX - start.x) / COMPOSE.stageScale / 0.5;
+      const dyBase = -(ev.clientY - start.y) / COMPOSE.stageScale / 0.5;
+      const dcx = dxBase / safe.w;
+      const dcy = dyBase / safe.h;
+      let nx = Math.max(0, Math.min(1 - startCrop.w, startCrop.x + dcx));
+      let ny = Math.max(0, Math.min(1 - startCrop.h, startCrop.y + dcy));
+      COMPOSE.cfg.crop = { x: nx, y: ny, w: startCrop.w, h: startCrop.h };
+      showHud(T('compose.hud.pan'), `${Math.round(nx*100)}, ${Math.round(ny*100)}`, '%', '', ev.clientX, ev.clientY);
+      requestComposeRender();
+    };
+    const up = () => {
+      try { el.canvas.releasePointerCapture(e.pointerId); } catch {}
+      el.canvas.removeEventListener('pointermove', move);
+      el.canvas.removeEventListener('pointerup', up);
+      el.canvas.removeEventListener('pointercancel', up);
+      hideHud();
+      endDrag();
+    };
+    el.canvas.addEventListener('pointermove', move);
+    el.canvas.addEventListener('pointerup', up);
+    el.canvas.addEventListener('pointercancel', up);
+  });
+
+  // Refresh on dialog resize / window resize. The ResizeObserver covers the
+  // case where the dialog's stage gets its real dimensions a frame or two
+  // AFTER showModal() — without it, the first render can land while stage
+  // is still 0×0 and the canvas shrinks to the minimum-clamp 0.1× scale.
+  window.addEventListener('resize', () => { if (COMPOSE.open) requestComposeRender(); });
+  if (typeof ResizeObserver !== 'undefined' && el.stage) {
+    new ResizeObserver(() => { if (COMPOSE.open) requestComposeRender(); }).observe(el.stage);
+  }
+
+  // Initial enable check
+  setTimeout(refreshTriggerEnabled, 100);
 })();

@@ -356,6 +356,11 @@ async function renderJob(msg) {
     if (cfg.radiusOverride != null)   layoutOpts.radiusOverride     = cfg.radiusOverride;
     if (cfg.captionForceOverlay)      layoutOpts.captionForceOverlay = true;
     if (cfg.captionOverlayTextLift != null) layoutOpts.captionOverlayTextLift = cfg.captionOverlayTextLift;
+    // Per-edge padding overrides — see clientRender.js mirror.
+    if (cfg.paddingTop != null)    layoutOpts.paddingTop    = cfg.paddingTop;
+    if (cfg.paddingRight != null)  layoutOpts.paddingRight  = cfg.paddingRight;
+    if (cfg.paddingBottom != null) layoutOpts.paddingBottom = cfg.paddingBottom;
+    if (cfg.paddingLeft != null)   layoutOpts.paddingLeft   = cfg.paddingLeft;
     const rot = ((Number(cfg.rotation) || 0) % 360 + 360) % 360;
     const safe = R.inscribedSafeArea(bitmap, rot);
     const cropW = cfg.crop && cfg.crop.w > 0 ? cfg.crop.w : 1;

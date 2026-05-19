@@ -4,6 +4,32 @@
 
 每次有意义的功能 / 修复 / 优化都记到这里 —— 同一份文件既给开发者看，也通过顶栏 ✦ 按钮在应用内展示给用户。
 
+## 1.1.0 · 2026-05-19
+
+把"裁剪 / 旋转 / 边距"三件事合并成一个 **构图模式（Compose）**，作为 lookbar 第 6 个独立块（与 LOOK / 4 个 lookchip 并列）。设计语言：**暗房工作台 + 大画幅 ground glass** —— 暖深棕底 + 单一琥珀色 safelight，照片"悬浮"在画面中央。**三种操作严格互斥**：先点击底部对应模块（裁剪 / 边距 / 旋转）激活该工具，再在照片上执行操作 —— 避免"全部同时可点"导致的干扰和误触。
+
+### ✨ 构图模式 · 全新外部层级功能
+
+- **三模式互斥**。底部工作台的 3 个模块（裁剪 / 边距 / 旋转）就是工具切换器，点哪个激活哪个；激活的模块顶部出现琥珀色 hairline，其他模块下沉为只读读数。激活的模块决定照片上能干什么 —— 其他工具的手柄都 `pointer-events: none`，无法误触。
+- **裁剪模式**：照片四角的琥珀色角括号 + 四边中点小针生效；拖角落收紧裁剪；拖照片内部平移裁剪框。**底部悬浮预设比例 chip 条**：自由 / 当前画幅 / 1:1 / 3:4 / 4:3 / 9:16 / 16:9 / 自定义（点"自定义"复用外部画幅 picker 同一个 `<dialog id="aspect-modal">` 输入框，支持任意 W:H 数值）。锁定比例时角落拖动按等比保持，边中点针自动隐藏避免歧义。
+- **边距模式**：照片四边的胶囊推条生效；推条向内 / 向外移动，改变对应边的 padding 值。
+- **旋转模式**：照片上所有手柄消失，舞台下方出现 **360° 拖拽条**（参照原有 crop modal 的 rotate-bar 范式但配色调到暗房调色板）：`-180° ~ +180°` range slider + 两侧 ↶ ↷ 90° 快捷按钮 + 实时角度读数 + 「归零」按钮。**任意角度都可以**，<0.4° 时自动吸附到 0°。
+- **每边可独立的边距**：`paddingTop / paddingRight / paddingBottom / paddingLeft` 加入 cfg + LOOK_KEYS，preset / share-code 自动覆盖（v:1 schema 保持向后兼容，老 preset 全部 null = 不影响）。
+- **frame.minPadding 软提醒**：film-35 / film-mf / slide-mount / instax 各自声明了"画框正常运作所需的最小边距"。拖拽低于该阈值时画框对应边出现淡红警示带 + 工作台数字变红 —— **不阻止**，只提醒。
+- **拖动期低分辨率渲染**：拖动期画布从 customScale=0.5 降到 0.2，像素量 1/6，帧时延从 ~50-80ms 降到 ~10ms 量级；松手后 120ms settle timer 自动恢复高清渲染。`cfg` 是分辨率无关的（crop 0..1、padding base-1440 px、rotation 度），所以同一份 cfg 在两种 scale 下几何完全一致。
+- **手柄走 GPU compositor**：所有手柄 / 中心十字定位从 `style.left/top` 切到 `transform: translate3d()` —— 提升到合成器层，定位更新跳过 layout + paint。`will-change: transform` 在所有相关元素上提示合成器。
+- **工作台数字可编辑**：CROP W/H、PAD T/R/B/L、ROT 度数全部是 `<input type="number">`，对追求精确的用户友好。
+- **测量 HUD**：拖动手柄时跟随光标的小琥珀牌子实时显示当前数值 + 推荐下限 + warn 状态。
+- **键盘**：`1`/`2`/`3` 切换模式、`R` 全部重置、`Esc` 退出。
+- **移动端平权**：触屏手柄拉到 ≥ 44×44，工作台栏 2×2 + 操作行布局，rot bar 在小屏紧凑化。
+
+### 🛠 工程改动
+
+- `R.computeLayout` 新增 `opts.paddingTop / Right / Bottom / Left` 接口；非 null 的边覆盖 `padding` 标量 + 帧的 `topPaddingBoost` / `bottomPaddingBoost`（按上一节"用户最终决定权"的策略）。
+- `CR.renderPreview` 新增可选 `args.customScale` 覆盖（默认仍是 PREVIEW_SCALE = 0.5）。Compose 模式拖动期注入 0.2。
+- `frame.minPadding` 字段加在 `R.registerFrame` 的 def 上，base-1440 单位。
+- 顶栏「构图」入口按钮：未导入照片时禁用。已有 crop / rotation / padding 调整时，按钮的副标题摘要为 `裁 · 旋 30° · 距` 一目了然。
+
 ## 1.0.1 · 2026-05-17
 
 云相册两个 1.0 后才发现的 bug。

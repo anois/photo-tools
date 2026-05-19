@@ -217,6 +217,9 @@
     // top than the previous fresh-paper version because aged prints
     // sit in deeper mats.
     layout: { topPaddingBoost: 100, bottomPaddingBoost: 120 },
+    // Compose-mode soft minimum — aged paper margin, deckle hairline,
+    // library notation, foxing speck zone all need the wide border.
+    minPadding: { top: 100, right: 70, bottom: 120, left: 70 },
     // Subtle soft drop — old prints under non-reflective glass have a
     // gentle floating shadow, not a heavy modern pop.
     shadowDefault: { blur: 40, offsetY: 12, opacity: 0.16 },

@@ -507,6 +507,12 @@
     if (cfg.radiusOverride != null)   layoutOpts.radiusOverride     = cfg.radiusOverride;
     if (cfg.captionForceOverlay)      layoutOpts.captionForceOverlay = true;
     if (cfg.captionOverlayTextLift != null) layoutOpts.captionOverlayTextLift = cfg.captionOverlayTextLift;
+    // Per-edge padding overrides — Compose-mode user dialing. Each null
+    // falls through to scalar `padding` + frame boosts; non-null wins.
+    if (cfg.paddingTop != null)    layoutOpts.paddingTop    = cfg.paddingTop;
+    if (cfg.paddingRight != null)  layoutOpts.paddingRight  = cfg.paddingRight;
+    if (cfg.paddingBottom != null) layoutOpts.paddingBottom = cfg.paddingBottom;
+    if (cfg.paddingLeft != null)   layoutOpts.paddingLeft   = cfg.paddingLeft;
     if (opts.customScale != null) layoutOpts.customScale = opts.customScale;
     if (opts.quality)             layoutOpts.quality     = opts.quality;
     // Rotation + crop pre-image: cfg.crop is normalized in the rotation-
@@ -568,8 +574,16 @@
       return;
     }
     const bitmap = await loadBitmap(file, PREVIEW_MAX_EDGE);
+    // customScale override — Compose-mode dragging passes a smaller value
+    // (0.2-ish) so the canvas is ~1/6 the pixel area, drops render time
+    // from ~50-80ms to ~10ms for smooth 60fps drag feedback. cfg values
+    // are resolution-independent (crop normalized 0..1, padding in base-
+    // 1440 px), so the same cfg produces the right geometry at any scale.
+    const useScale = (args.customScale != null && isFinite(args.customScale))
+      ? Math.max(0.05, Math.min(2, Number(args.customScale)))
+      : PREVIEW_SCALE;
     const built = buildLayoutAndCaption(bitmap, cfg, normExif, {
-      customScale: PREVIEW_SCALE, fontFaceCss, logos, cacheCaption: true
+      customScale: useScale, fontFaceCss, logos, cacheCaption: true
     });
     let bitmaps = null;
     if (built.collage && Array.isArray(partnerFiles) && partnerFiles.length) {

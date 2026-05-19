@@ -80,6 +80,16 @@ The product model is **engine + community look library**, not "fixed frames + a 
   </tr>
 </table>
 
+## Compose mode — direct manipulation (1.1+)
+
+Crop, rotation, and per-edge padding live in a single full-bleed surface — a darkroom-aesthetic instrument that unifies the three operations under one language. Open it from the lookbar's **Compose** entry (the 6th independent block, sibling of LOOK + the four lookchips). Three modes, strictly exclusive — click the bottom bench module to activate the tool you want, then operate on the photo with that tool only:
+
+- **Crop** — corner brackets on the photo's edges tighten the visible area; drag inside the photo to pan the crop window. A floating aspect chip bar at the bottom locks the rect to common ratios (Free / Frame / 1:1 / 3:4 / 4:3 / 9:16 / 16:9 / **Custom W:H**) — exact same input UX as the outer aspect picker.
+- **Padding** — four push-bar capsules in the margin between photo and frame edge. Each adjusts one edge independently (`paddingTop/Right/Bottom/Left`).
+- **Rotation** — a horizontal 360° slider bar slides in below the photo. Range −180° to +180°, step 0.5°, plus ±90° quick buttons and a zero reset. Engine has always supported arbitrary angles; this just exposes them.
+
+The cropped-out part of the source stays visible at 30% opacity as a "ghost layer" behind the rendered preview during crop and rotation modes — you always see what's getting clipped. Each frame declares a `minPadding` recommendation (e.g. film-35 wants ≥ 70 px top + ≥ 90 px bottom for the sprocket rows); when you cross it, a soft red warning band appears on that edge, but the engine never clamps your input. A bench across the bottom always shows the live numbers (`W × H`, `T / R / B / L`, angle) and every value is a typeable input for precise composition. Drag is rendered at 1/6 pixel resolution for 60fps feedback, then snaps back to full quality on release.
+
 ## Share by URL, not by file
 
 A LOOK is a base64url-encoded JSON snapshot. Copy `#p=<code>`, send it as a chat message, the recipient's app applies it on boot. If you want to share *photos* (not just the look), the S3 cloud module signs SigV4 directly from the browser against your own bucket: upload the rail, copy a `#s3=<code>` URL, the recipient sees your gallery with a thumbnail grid + lightbox preview + per-image or bulk-ZIP download. Pure-frontend signing (vendored aws4fetch, ~12 KB, lazy-loaded only on first cloud-panel open), three providers handled (AWS S3 / Cloudflare R2 / Aliyun OSS).
@@ -104,7 +114,7 @@ A LOOK is a base64url-encoded JSON snapshot. Copy `#p=<code>`, send it as a chat
 | **Engine** | Every render parameter UI-reachable + preset-capturable · LOOK seeds as first-class entries · `#p=<code>` share-link round-trip |
 | **Input** | JPEG / PNG / HEIC (libheif lazy-loaded) · auto EXIF · `LensInfo` → lens-model fallback · per-photo manual override |
 | **Output** | Single + batch (web-worker pool) · JPEG / PNG · EXIF round-trip preserved · RAW pass-through from cloud gallery |
-| **Composition** | Collage 2 / 3 / 4 cells · 90° rotation · free-form crop (render-time, source untouched) · GPS auto-parse + manual + map picker (Leaflet + AutoNavi, GCJ-02 ↔ WGS-84) |
+| **Composition** | Collage 2 / 3 / 4 cells · **Compose mode** with crop + arbitrary-angle rotation + per-edge padding · aspect-ratio chips (Free / Frame / 1:1 / 3:4 / 4:3 / 9:16 / 16:9 / Custom W:H) · render-time only, source untouched · GPS auto-parse + manual + map picker (Leaflet + AutoNavi, GCJ-02 ↔ WGS-84) |
 | **Cloud** | Direct-from-browser SigV4 against your bucket (AWS S3 / Cloudflare R2 / Aliyun OSS) · `#s3=<code>` share-link · upload / gallery / lightbox / bulk download |
 | **Platform** | Installable PWA · offline shell · Chinese / English UI · brand logos for Fujifilm · Sony · Leica · Nikon · Canon · Apple · Xiaomi · OPPO · Vivo · DJI · … |
 | **Surface** | Desktop and mobile speak their own gesture grammar — sidebar + keyboard shortcuts on desktop, bottom sheets + thumb-zone CTA + swipe on mobile |

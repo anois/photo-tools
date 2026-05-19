@@ -302,6 +302,18 @@
     if (!isFinite(basePadding)) basePadding = base.padding;
     basePadding = Math.max(0, Math.min(300, basePadding));
 
+    // Per-edge padding overrides (Compose mode). Each is in base-1440 units.
+    // null = "fall through" — that edge gets basePadding + frame's boost +
+    // aspect's bias (legacy behavior). A concrete number WINS outright: the
+    // user explicitly dialed it, so frame.topPaddingBoost / aspect's
+    // bottomPaddingBias are skipped on that edge. frame.minPadding is a soft
+    // recommendation rendered as a warning in the UI; it doesn't clamp here.
+    const padOverride = (v) => (v != null && isFinite(Number(v))) ? Math.max(0, Math.min(300, Number(v))) : null;
+    const padTopOv    = padOverride(opts.paddingTop);
+    const padRightOv  = padOverride(opts.paddingRight);
+    const padBottomOv = padOverride(opts.paddingBottom);
+    const padLeftOv   = padOverride(opts.paddingLeft);
+
     const baseRadius = opts.radiusOverride != null ? opts.radiusOverride : base.radius;
     // captionHeight is a direct override of the bottom caption zone height in
     // base-1440 pixels. Otherwise we use the preset value + any frame-supplied
@@ -329,17 +341,23 @@
     const preferredBottomH = Math.round(baseCaptionH * scale);
     const fgYOffset = Math.round(baseFgYOffset * scale);
 
-    // Asymmetric vertical padding: `padding` rules the top/left/right edges,
-    // bottom is pushed in further by `bottomPaddingBias` (+ optional frame
-    // boost). This guarantees the caption zone has space even on near-square
-    // photos in the 1:1 frame, where symmetric padding used to leave the fg
-    // flush against both top and bottom. `topPaddingBoost` is a frame-level
-    // hook for symmetric vertical extension (e.g., film-35 needs room above
-    // the fg for the top sprocket row).
+    // Asymmetric vertical padding: by default `padding` rules left/right and
+    // top, while bottom adds `bottomPaddingBias` (per-aspect) plus optional
+    // frame-level `bottomPaddingBoost`, and top adds `topPaddingBoost` (e.g.
+    // film-35's sprocket-row space). Each edge can also be HARD-OVERRIDDEN
+    // via opts.padding{Top,Right,Bottom,Left} — Compose-mode user dialing.
+    // When an override is present, frame boost + aspect bias are bypassed
+    // on that edge (the override is the user's explicit final word).
     const topBoostBase = (opts.topPaddingBoost || 0);
-    const topPadding = padding + Math.round(topBoostBase * scale);
+    const topPadding = padTopOv != null
+      ? Math.round(padTopOv * scale)
+      : padding + Math.round(topBoostBase * scale);
     const bottomBiasBase = (base.bottomPaddingBias || 0) + (opts.bottomPaddingBoost || 0);
-    const bottomPadding = padding + Math.round(bottomBiasBase * scale);
+    const bottomPadding = padBottomOv != null
+      ? Math.round(padBottomOv * scale)
+      : padding + Math.round(bottomBiasBase * scale);
+    const leftPadding  = padLeftOv  != null ? Math.round(padLeftOv  * scale) : padding;
+    const rightPadding = padRightOv != null ? Math.round(padRightOv * scale) : padding;
 
     // `extraRightInset` / `extraLeftInset` are frame-level options
     // (base-1440 units) that carve an additional strip out of one side
@@ -355,7 +373,7 @@
     const extraLeftInset  = extraRightInset > 0 ? 0 : Math.round((opts.extraLeftInset || 0) * scale);
 
     const inputAspect = meta.width / meta.height;
-    let fgW = W - padding * 2 - extraRightInset - extraLeftInset;
+    let fgW = W - leftPadding - rightPadding - extraRightInset - extraLeftInset;
     let fgH = Math.round(fgW / inputAspect);
     const maxFgH = H - topPadding - bottomPadding;
     if (fgH > maxFgH) {
@@ -364,21 +382,21 @@
     }
 
     // Horizontal placement:
-    //   - extraRightInset > 0: anchor fg to the left padding (the inset
-    //     defines the right-side caption strip).
-    //   - extraLeftInset  > 0: anchor fg to the right padding (mirror).
-    //   - otherwise: center, with optional `fgXOffset` shift in
-    //     base-1440 units (negative = left, positive = right).
+    //   - extraRightInset > 0: anchor fg to leftPadding (the inset defines
+    //     the right-side caption strip).
+    //   - extraLeftInset  > 0: anchor fg to rightPadding (mirror).
+    //   - otherwise: center within the L/R padding box, with optional
+    //     fgXOffset shift in base-1440 units.
     let fgLeft;
     if (extraRightInset > 0) {
-      fgLeft = padding;
+      fgLeft = leftPadding;
     } else if (extraLeftInset > 0) {
-      fgLeft = W - padding - fgW;
+      fgLeft = W - rightPadding - fgW;
     } else {
       const fgXShift = Math.round((opts.fgXOffset || 0) * scale);
-      fgLeft = Math.round((W - fgW) / 2) + fgXShift;
-      if (fgLeft < padding) fgLeft = padding;
-      if (fgLeft + fgW > W - padding) fgLeft = Math.max(padding, W - padding - fgW);
+      fgLeft = Math.round(leftPadding + (W - leftPadding - rightPadding - fgW) / 2) + fgXShift;
+      if (fgLeft < leftPadding) fgLeft = leftPadding;
+      if (fgLeft + fgW > W - rightPadding) fgLeft = Math.max(leftPadding, W - rightPadding - fgW);
     }
     // Center within the asymmetric vertical box, then apply fgYOffset.
     let fgTop = Math.round(topPadding + (H - topPadding - bottomPadding - fgH) / 2 + fgYOffset);

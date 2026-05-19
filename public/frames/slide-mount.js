@@ -395,6 +395,11 @@
     // reads as a real mount with breathing room around the photo, with
     // caption going into the bottom margin via the standard auto-route.
     layout: { topPaddingBoost: 100, bottomPaddingBoost: 120 },
+    // Compose-mode soft minimum — leather mount aperture, pebbled
+    // texture pattern, bevel cues, and outer wine border all need the
+    // wide cardstock border on every side. Below this the aperture
+    // bevel + caption emboss collide with the photo.
+    minPadding: { top: 100, right: 80, bottom: 120, left: 80 },
     // No drop shadow — the photo is INSET into the mount (depth comes
     // from the inner-shadow gradient in decorate, not from a raised
     // pop). Anything > 0 would visually fight the recessed metaphor.
