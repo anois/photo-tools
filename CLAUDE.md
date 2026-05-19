@@ -530,7 +530,7 @@ The 6th lookbar block ("构图 / Compose", parallel to LOOK + the four lookchips
 
 **Strict-exclusive modes** (the bench at the bottom is the mode switcher; CSS `data-focus="crop|pad|rot"` on the stage drives both visibility AND `pointer-events`):
 
-- **Crop mode** (`data-focus="crop"`) — 4 corner brackets + 4 edge mid-pins on the photo are interactive. Drag inside the photo body = pan-crop (shifts crop origin without resizing).
+- **Crop mode** (`data-focus="crop"`) — 4 corner brackets + 4 edge mid-pins on the photo are interactive. Drag inside the photo body = pan-crop (shifts crop origin without resizing). A floating **aspect chip bar** sits below the photo (Free / Frame / 1:1 / 3:4 / 4:3 / 9:16 / 16:9 / **Custom**). Clicking a chip locks the crop to that pixel ratio + re-fits the rect centered + maximized. When locked, edge mid-pins fade out (only corners drive resize); corner drag maintains aspect via dominant-axis driver + reverse-anchor on the opposite corner. The "Custom" chip reuses the main UI's `<dialog id="aspect-modal">` via `openAspectModal({ onApply })` — same input UX as the outer frame-aspect picker, but the callback writes to the local `COMPOSE.cropAspect` state (not `cfg.aspect`). Lock state is ephemeral — resets to Free on every dialog open.
 - **Padding mode** (`data-focus="pad"`) — 4 push-bar capsules in the margin between photo and frame edge are interactive. Each adjusts one edge's `paddingTop/Right/Bottom/Left` in cfg.
 - **Rotation mode** (`data-focus="rot"`) — all photo-overlay handles fade out + go non-interactive; a **horizontal 360° slider bar** appears between the stage and the bench (range -180..180, step 0.5, with ↶↷ ±90 quick buttons + reset). The slider is wired to `cfg.rotation`; tiny <0.4° auto-snap to 0°.
 
