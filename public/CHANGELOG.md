@@ -30,7 +30,7 @@
 - `frame.minPadding` 字段加在 `R.registerFrame` 的 def 上，base-1440 单位。
 - 顶栏「构图」入口按钮：未导入照片时禁用。已有 crop / rotation / padding 调整时，按钮的副标题摘要为 `裁 · 旋 30° · 距` 一目了然。
 
-
+## 1.0.1 · 2026-05-17
 
 云相册两个 1.0 后才发现的 bug。
 

@@ -80,16 +80,20 @@ The product model is **engine + community look library**, not "fixed frames + a 
   </tr>
 </table>
 
-## Compose mode — direct manipulation (1.1+)
+## Compose mode — a darkroom on a single surface
 
-Crop, rotation, and per-edge padding now live in a single full-bleed surface that unifies them into one direct-manipulation language. Open it from the lookbar's **Compose** entry (the 6th independent block, sibling of LOOK + the four lookchips). The interaction model:
+Crop, rotation, and per-edge padding live on one full-bleed instrument painted in warm darkroom-amber — three tools, strictly exclusive, you click the bench module at the bottom to activate one and only then can you operate on the photo. Crop gives you seven preset ratios plus custom W:H to lock with one click; rotation is a 360° slider for any angle, with the cropped-out parts kept at 30% opacity as a "ghost layer" floating outside the frame so you always see what you're sacrificing; per-edge padding lets each side dial independently, and the frame politely tells you "film-35 wants ≥ 70 px top for the sprocket row" — warn but never block, final call is yours.
 
-- **Inside the photo** = crop. Drag the corner brackets to tighten composition.
-- **In the frame margin** = padding (independent per edge). Push the bars to reshape the frame paper around the photo.
-- **Top stem + ring** = rotation. Default 90° snap; hold `Shift` for free 1° increments.
-- **Drag inside the photo body** = pan the cropped region.
-
-The cropped-out part of the source stays visible at 30% opacity as a "ghost layer" behind the rendered preview, so you always see what's getting clipped. Each frame declares a `minPadding` recommendation (e.g. film-35 wants ≥ 70 px top + ≥ 90 px bottom for the sprocket rows) — when you cross it, a soft red warning band appears on that edge, but the engine never clamps your input. A bench across the bottom of the dialog always shows the live numbers (`W × H`, `T / R / B / L`, angle) and every value is a typeable input for precise composition.
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/07-compose-crop.png" alt="Compose — crop + aspect chips" /></td>
+    <td width="50%"><img src="docs/screenshots/08-compose-rotate.png" alt="Compose — 360° slider + arbitrary rotation" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Crop — 8 preset ratios + drag the corner brackets</sub></td>
+    <td align="center"><sub>Rotation — 360° slider + ghost layer of what gets clipped</sub></td>
+  </tr>
+</table>
 
 ## Share by URL, not by file
 
@@ -115,7 +119,7 @@ A LOOK is a base64url-encoded JSON snapshot. Copy `#p=<code>`, send it as a chat
 | **Engine** | Every render parameter UI-reachable + preset-capturable · LOOK seeds as first-class entries · `#p=<code>` share-link round-trip |
 | **Input** | JPEG / PNG / HEIC (libheif lazy-loaded) · auto EXIF · `LensInfo` → lens-model fallback · per-photo manual override |
 | **Output** | Single + batch (web-worker pool) · JPEG / PNG · EXIF round-trip preserved · RAW pass-through from cloud gallery |
-| **Composition** | Collage 2 / 3 / 4 cells · 90° rotation · free-form crop (render-time, source untouched) · GPS auto-parse + manual + map picker (Leaflet + AutoNavi, GCJ-02 ↔ WGS-84) |
+| **Composition** | Collage 2 / 3 / 4 cells · **Compose mode** with crop + arbitrary-angle rotation + per-edge padding · aspect-ratio chips (Free / Frame / 1:1 / 3:4 / 4:3 / 9:16 / 16:9 / Custom W:H) · render-time only, source untouched · GPS auto-parse + manual + map picker (Leaflet + AutoNavi, GCJ-02 ↔ WGS-84) |
 | **Cloud** | Direct-from-browser SigV4 against your bucket (AWS S3 / Cloudflare R2 / Aliyun OSS) · `#s3=<code>` share-link · upload / gallery / lightbox / bulk download |
 | **Platform** | Installable PWA · offline shell · Chinese / English UI · brand logos for Fujifilm · Sony · Leica · Nikon · Canon · Apple · Xiaomi · OPPO · Vivo · DJI · … |
 | **Surface** | Desktop and mobile speak their own gesture grammar — sidebar + keyboard shortcuts on desktop, bottom sheets + thumb-zone CTA + swipe on mobile |

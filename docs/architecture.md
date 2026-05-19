@@ -62,7 +62,7 @@ Plus two main-thread niceties: **eager prefetch** (`mergeFiles()` fires `loadBit
 
 ## cfg / LOOK / share-link data model
 
-Each `state.files[i]` carries its own complete `cfg` object — frame · aspect · template · padding · captionHeight · bg* · shadow* · radiusOverride · captionForceOverlay · captionOverlayTextLift · topTemplate · torn* · filmMfAge · showFields · customLogo · customBg · collage · rotation · crop · exifOverride. Only `format` and `quality` are global (apply to a whole batch uniformly).
+Each `state.files[i]` carries its own complete `cfg` object — frame · aspect · template · padding · **paddingTop/Right/Bottom/Left** (1.1+ per-edge overrides) · captionHeight · bg* · shadow* · radiusOverride · captionForceOverlay · captionOverlayTextLift · topTemplate · torn* · filmMfAge · showFields · customLogo · customBg · collage · rotation · crop · exifOverride. Only `format` and `quality` are global (apply to a whole batch uniformly).
 
 Switching the active photo via the rail or J/K re-syncs **all** controls to that photo's cfg via `syncControlsFromCfg(cfg)`. Editing any control writes through to `activeCfg()` only — other photos are unaffected. Newly imported photos inherit a deep-cloned cfg from the active photo (or `state.draftCfg` if nothing is loaded), with `exifOverride` reset to `{}` so each photo gets its own auto-parsed metadata.
 
@@ -74,6 +74,7 @@ Switching the active photo via the rail or J/K re-syncs **all** controls to that
 {
   v: 1,
   aspect, frame, template, padding, captionHeight,
+  paddingTop, paddingRight, paddingBottom, paddingLeft,  // 1.1+, null = follow `padding`
   bgBlur, bgBrightness, bgSaturation,
   shadowBlur, shadowOffsetY, shadowOpacity,
   radiusOverride, captionForceOverlay, captionOverlayTextLift,
@@ -139,6 +140,7 @@ User-overrideable cfg fields and their valid ranges:
 - `captionOverlayTextLift` (0–120) — when overlay is on, floats the text up within the gradient.
 - `tornJitter` / `tornStep` / `tornEdgeOpacity` — `torn` frame's procedural-tear knobs.
 - `filmMfAge` (0–1, or `null`) — `film-mf` vintage-aging composite scalar.
+- `paddingTop` / `paddingRight` / `paddingBottom` / `paddingLeft` (0–300, or `null`) — per-edge padding overrides (1.1+, set via Compose mode). When non-null, the override WINS on that edge — frame's `topPaddingBoost` / `bottomPaddingBoost` and aspect's `bottomPaddingBias` are bypassed for that edge alone. Frame switch resets all four to null. Each frame may declare a `minPadding: { top?, right?, bottom?, left? }` soft minimum (warning when violated, never clamped).
 
 ## Caption template system
 
