@@ -5256,8 +5256,9 @@ body {
 
 /* Crop corner brackets — sit on the photo's edge, inside the frame paper */
 .compose-crop-corner {
-  position: absolute; width: 22px; height: 22px;
+  position: absolute; left: 0; top: 0; width: 22px; height: 22px;
   opacity: 0; transition: opacity .25s cubic-bezier(.4,0,.2,1);
+  will-change: transform;
 }
 .compose-stage[data-focus="crop"] .compose-crop-corner,
 .compose-stage[data-focus="all"] .compose-crop-corner,
@@ -5291,17 +5292,19 @@ body {
 
 /* Crop edge mid-pins — subtle, lower priority than corners */
 .compose-crop-edge {
-  position: absolute; opacity: 0;
+  position: absolute; left: 0; top: 0; opacity: 0;
   transition: opacity .25s cubic-bezier(.4,0,.2,1);
 }
 .compose-stage[data-focus="crop"] .compose-crop-edge,
 .compose-stage[data-focus="all"] .compose-crop-edge,
 .compose-stage:hover .compose-crop-edge { opacity: 0.7; }
+/* Centering offsets baked into JS translate3d in updateHandles() — CSS
+   transforms here would compose with the inline transform and double-offset. */
 .compose-crop-edge[data-h="crop:t"], .compose-crop-edge[data-h="crop:b"] {
-  width: 22px; height: 8px; cursor: ns-resize; transform: translate(-50%, -50%);
+  width: 22px; height: 8px; cursor: ns-resize; will-change: transform;
 }
 .compose-crop-edge[data-h="crop:l"], .compose-crop-edge[data-h="crop:r"] {
-  width: 8px; height: 22px; cursor: ew-resize; transform: translate(-50%, -50%);
+  width: 8px; height: 22px; cursor: ew-resize; will-change: transform;
 }
 .compose-crop-edge::before {
   content: ""; position: absolute; background: var(--c-amber);
@@ -5326,6 +5329,7 @@ body {
 /* Padding push handles — sit in margin between photo and frame edge */
 .compose-pad-handle {
   position: absolute;
+  left: 0; top: 0;
   display: flex; align-items: center; justify-content: center;
   opacity: 0;
   transition: opacity .25s cubic-bezier(.4,0,.2,1);
@@ -5335,10 +5339,10 @@ body {
 .compose-stage[data-focus="all"] .compose-pad-handle,
 .compose-stage:hover .compose-pad-handle { opacity: 1; }
 .compose-pad-handle[data-h="pad:top"], .compose-pad-handle[data-h="pad:bottom"] {
-  width: 40px; height: 14px; cursor: ns-resize; transform: translate(-50%, -50%);
+  width: 40px; height: 14px; cursor: ns-resize; will-change: transform;
 }
 .compose-pad-handle[data-h="pad:left"], .compose-pad-handle[data-h="pad:right"] {
-  width: 14px; height: 40px; cursor: ew-resize; transform: translate(-50%, -50%);
+  width: 14px; height: 40px; cursor: ew-resize; will-change: transform;
 }
 .compose-pad-handle::before {
   content: ""; display: block; background: var(--c-amber); border-radius: 99px;
@@ -5365,14 +5369,16 @@ body {
 
 /* Rotation knob — single handle protruding above top of photo */
 .compose-rot-stem {
-  position: absolute; width: 1px; background: var(--c-amber);
+  position: absolute; left: 0; top: 0; width: 1px; background: var(--c-amber);
   box-shadow: 0 0 8px var(--c-amber-glow);
-  opacity: 0; transform: translateX(-50%);
+  opacity: 0;
   pointer-events: none;
   transition: opacity .25s cubic-bezier(.4,0,.2,1);
+  will-change: transform;
 }
 .compose-rot-knob {
   position: absolute;
+  left: 0; top: 0;
   width: 20px; height: 20px;
   border-radius: 50%;
   background: var(--c-ink-2);
@@ -5380,9 +5386,9 @@ body {
   box-shadow: 0 0 0 4px rgba(20,18,15,0.6), 0 0 14px var(--c-amber-glow);
   cursor: grab; opacity: 0;
   padding: 0;
-  transform: translate(-50%, -50%);
-  transition: opacity .25s cubic-bezier(.4,0,.2,1), background .15s cubic-bezier(.4,0,.2,1), transform .1s cubic-bezier(.4,0,.2,1);
+  transition: opacity .25s cubic-bezier(.4,0,.2,1), background .15s cubic-bezier(.4,0,.2,1);
   display: grid; place-items: center;
+  will-change: transform;
 }
 .compose-rot-knob::after {
   content: ""; width: 6px; height: 1px; background: var(--c-amber);
@@ -5393,7 +5399,9 @@ body {
 .compose-stage[data-focus="all"] .compose-rot-stem,
 .compose-stage:hover .compose-rot-knob,
 .compose-stage:hover .compose-rot-stem { opacity: 1; }
-.compose-rot-knob:hover { background: var(--c-amber); transform: translate(-50%, -50%) scale(1.1); }
+/* Hover effect via border + shadow only — transform is owned by JS for
+   GPU compositing, so we can't add a scale here without clobbering position. */
+.compose-rot-knob:hover { background: var(--c-amber); box-shadow: 0 0 0 5px rgba(20,18,15,0.6), 0 0 18px var(--c-amber-glow), 0 0 28px var(--c-amber-glow); }
 .compose-rot-knob:hover::after { background: var(--c-ink-1); }
 .compose-rot-knob.is-dragging {
   cursor: grabbing; background: var(--c-amber);
@@ -5403,10 +5411,10 @@ body {
 
 /* Center crosshair — optical-center mark, faint */
 .compose-center-cross {
-  position: absolute; width: 24px; height: 24px;
-  transform: translate(-50%, -50%);
+  position: absolute; left: 0; top: 0; width: 24px; height: 24px;
   opacity: 0; pointer-events: none;
   transition: opacity .3s cubic-bezier(.4,0,.2,1);
+  will-change: transform;
 }
 .compose-stage:hover .compose-center-cross { opacity: 0.4; }
 .compose-center-cross::before, .compose-center-cross::after {

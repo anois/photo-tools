@@ -5248,8 +5248,17 @@ function showUpdateBanner(waitingSw) {
     layout: null,         // last computed layout (R.computeLayout output)
     stageScale: 1,        // scene → stage pixel scale
     renderRAF: 0,
-    minPad: null          // current frame's minPadding (or null)
+    minPad: null,         // current frame's minPadding (or null)
+    isDragging: false,    // any handle / pan drag in flight — drives low-res render
+    settleTimer: 0        // scheduled hi-res re-render after drag ends
   };
+  // Resolution presets — at-rest preview matches main UI's PREVIEW_SCALE
+  // (0.5); during drag we drop to 0.2 so the canvas pixel area is ~1/6,
+  // bringing per-frame render cost from ~50-80ms down to ~8-12ms for
+  // smooth 60fps feedback. cfg values are resolution-independent so the
+  // geometry stays correct across scales — only sharpness changes.
+  const COMPOSE_SCALE_REST = 0.5;
+  const COMPOSE_SCALE_DRAG = 0.2;
 
   // ── elements ────────────────────────────────────────────────────────
   const el = {
@@ -5358,6 +5367,14 @@ function showUpdateBanner(waitingSw) {
     return `≈${best[0]}:${best[1]}`;
   }
 
+  // Active customScale for the current render — flips between REST and DRAG
+  // values driven by the isDragging flag. Same value is used both here for
+  // layout math AND passed to CR.renderPreview so the painted canvas and
+  // the JS-computed handle positions reference the same scale space.
+  function currentScale() {
+    return COMPOSE.isDragging ? COMPOSE_SCALE_DRAG : COMPOSE_SCALE_REST;
+  }
+
   // ── layout computation (mirrors buildLayoutAndCaption's relevant math) ─
   function computeComposeLayout(stageW, stageH) {
     const cfg = COMPOSE.cfg;
@@ -5373,7 +5390,7 @@ function showUpdateBanner(waitingSw) {
       padding: cfg.padding,
       captionHeight: cfg.captionHeight,
       ...frame.layout,
-      customScale: 0.5   // preview-scale render
+      customScale: currentScale()
     };
     if (cfg.radiusOverride != null) layoutOpts.radiusOverride = cfg.radiusOverride;
     if (cfg.captionForceOverlay) layoutOpts.captionForceOverlay = true;
@@ -5456,38 +5473,46 @@ function showUpdateBanner(waitingSw) {
     const fgW = layout.fgW * ss, fgH = layout.fgH * ss;
     const cvW = layout.canvas.W * ss, cvH = layout.canvas.H * ss;
 
-    const set = (sel, x, y) => {
+    // Position handles via `transform: translate3d()` instead of style.left/
+    // top — promotes each handle to its own compositor layer so positioning
+    // updates skip layout + paint and stay GPU-side. Pre-existing transform
+    // patterns (translate(-50%,-50%) on edge pins / pad handles) are baked
+    // into the translate3d offsets here. left/top remain 0 in CSS.
+    const set = (sel, x, y, baseAdjustX, baseAdjustY) => {
       const h = el.handles.querySelector(`[data-h="${sel}"]`);
       if (!h) return;
-      h.style.left = x + 'px'; h.style.top = y + 'px';
+      const tx = x + (baseAdjustX || 0);
+      const ty = y + (baseAdjustY || 0);
+      h.style.transform = `translate3d(${tx}px, ${ty}px, 0)`;
     };
-    // Crop corner handles — sit on fg corners (within frame)
+    // Crop corner brackets are 22×22, anchored at fg corner so subtract 11
+    // to center the corner of the bracket on the corner of fg.
     set('crop:tl', fgX - 11, fgY - 11);
     set('crop:tr', fgX + fgW - 11, fgY - 11);
     set('crop:br', fgX + fgW - 11, fgY + fgH - 11);
     set('crop:bl', fgX - 11, fgY + fgH - 11);
-    // Crop edge mid-pins
-    set('crop:t', fgX + fgW / 2, fgY);
-    set('crop:b', fgX + fgW / 2, fgY + fgH);
-    set('crop:l', fgX, fgY + fgH / 2);
-    set('crop:r', fgX + fgW, fgY + fgH / 2);
-    // Padding handles — centered in margin between fg and canvas edge
-    set('pad:top', fgX + fgW / 2, fgY / 2);
-    set('pad:bottom', fgX + fgW / 2, fgY + fgH + (cvH - fgY - fgH) / 2);
-    set('pad:left', fgX / 2, fgY + fgH / 2);
-    set('pad:right', fgX + fgW + (cvW - fgX - fgW) / 2, fgY + fgH / 2);
-    // Rotation stem + knob
+    // Crop edge mid-pins: CSS originally used translate(-50%,-50%) to center
+    // the pin on its anchor — replicated here as an 11-px offset (half of
+    // the 22-px hit area) in the transform.
+    set('crop:t', fgX + fgW / 2, fgY,            -11, -11);
+    set('crop:b', fgX + fgW / 2, fgY + fgH,      -11, -11);
+    set('crop:l', fgX,           fgY + fgH / 2,  -11, -11);
+    set('crop:r', fgX + fgW,     fgY + fgH / 2,  -11, -11);
+    // Padding handles: hit area 40×14 (horiz) or 14×40 (vert). Center on
+    // anchor by subtracting half-dim per axis.
+    set('pad:top',    fgX + fgW / 2, fgY / 2,                       -20, -7);
+    set('pad:bottom', fgX + fgW / 2, fgY + fgH + (cvH - fgY - fgH) / 2, -20, -7);
+    set('pad:left',   fgX / 2,                  fgY + fgH / 2,         -7, -20);
+    set('pad:right',  fgX + fgW + (cvW - fgX - fgW) / 2, fgY + fgH / 2, -7, -20);
+    // Rotation stem + knob (knob is 20×20 with translate(-50%,-50%) anchor)
     const stemH = 30;
-    el.rotStem.style.left = (fgX + fgW / 2) + 'px';
-    el.rotStem.style.top = (fgY - stemH) + 'px';
+    el.rotStem.style.transform = `translate3d(${fgX + fgW / 2}px, ${fgY - stemH}px, 0) translateX(-50%)`;
     el.rotStem.style.height = stemH + 'px';
-    el.rotKnob.style.left = (fgX + fgW / 2) + 'px';
-    el.rotKnob.style.top = (fgY - stemH) + 'px';
-    // Center crosshair
+    el.rotKnob.style.transform = `translate3d(${fgX + fgW / 2 - 10}px, ${fgY - stemH - 10}px, 0)`;
+    // Center crosshair (24×24, translate(-50%,-50%) anchor)
     const cc = el.handles.querySelector('.compose-center-cross');
     if (cc) {
-      cc.style.left = (fgX + fgW / 2) + 'px';
-      cc.style.top = (fgY + fgH / 2) + 'px';
+      cc.style.transform = `translate3d(${fgX + fgW / 2 - 12}px, ${fgY + fgH / 2 - 12}px, 0)`;
     }
     // min-padding warning bands per edge
     const mp = COMPOSE.minPad || {};
@@ -5550,7 +5575,8 @@ function showUpdateBanner(waitingSw) {
         cfg: cfgProjection,
         normExif: buildCurrentExif(),
         logos: state.logos,
-        fontFaceCss: state.fontFaceCss
+        fontFaceCss: state.fontFaceCss,
+        customScale: currentScale()
       });
       // Canvas's CSS sometimes gets clobbered when renderPreview internally
       // assigns canvas.width/height (the attribute resets the displayed CSS
@@ -5642,6 +5668,20 @@ function showUpdateBanner(waitingSw) {
   }
   function hideHud() { el.hud.classList.remove('is-on'); }
 
+  // Flip isDragging on/off + schedule a hi-res re-render N ms after the
+  // drag ends. The settle timer covers the case where the user releases
+  // between renders — without it the canvas would be stuck at low-res
+  // until something else triggers a re-render.
+  function beginDrag() {
+    COMPOSE.isDragging = true;
+    if (COMPOSE.settleTimer) { clearTimeout(COMPOSE.settleTimer); COMPOSE.settleTimer = 0; }
+  }
+  function endDrag() {
+    COMPOSE.isDragging = false;
+    if (COMPOSE.settleTimer) clearTimeout(COMPOSE.settleTimer);
+    COMPOSE.settleTimer = setTimeout(() => { if (COMPOSE.open) requestComposeRender(); }, 120);
+  }
+
   // ── drag helpers ────────────────────────────────────────────────────
   function bindDrag(elem, onMove, onUp) {
     elem.addEventListener('pointerdown', (e) => {
@@ -5649,6 +5689,7 @@ function showUpdateBanner(waitingSw) {
       e.preventDefault();
       try { elem.setPointerCapture(e.pointerId); } catch {}
       elem.classList.add('is-dragging');
+      beginDrag();
       const start = { x: e.clientX, y: e.clientY, cfg: snapshotCfg(COMPOSE.cfg) };
       const move = (ev) => { onMove(ev, start); requestComposeRender(); };
       const up = (ev) => {
@@ -5658,6 +5699,7 @@ function showUpdateBanner(waitingSw) {
         elem.removeEventListener('pointerup', up);
         elem.removeEventListener('pointercancel', up);
         hideHud();
+        endDrag();
         onUp && onUp(ev);
       };
       elem.addEventListener('pointermove', move);
@@ -5767,6 +5809,7 @@ function showUpdateBanner(waitingSw) {
       e.preventDefault();
       try { el.rotKnob.setPointerCapture(e.pointerId); } catch {}
       el.rotKnob.classList.add('is-dragging');
+      beginDrag();
       const rect = el.canvas.getBoundingClientRect();
       const layout = COMPOSE.layout;
       const ss = COMPOSE.stageScale;
@@ -5791,6 +5834,7 @@ function showUpdateBanner(waitingSw) {
         el.rotKnob.removeEventListener('pointerup', up);
         el.rotKnob.removeEventListener('pointercancel', up);
         hideHud();
+        endDrag();
       };
       el.rotKnob.addEventListener('pointermove', move);
       el.rotKnob.addEventListener('pointerup', up);
@@ -5975,6 +6019,7 @@ function showUpdateBanner(waitingSw) {
     if (py < layout.fgTop  || py > layout.fgTop  + layout.fgH) return;
     e.preventDefault();
     try { el.canvas.setPointerCapture(e.pointerId); } catch {}
+    beginDrag();
     const startCrop = COMPOSE.cfg.crop ? { ...COMPOSE.cfg.crop } : { x: 0, y: 0, w: 1, h: 1 };
     const start = { x: e.clientX, y: e.clientY };
     const move = (ev) => {
@@ -5996,6 +6041,7 @@ function showUpdateBanner(waitingSw) {
       el.canvas.removeEventListener('pointerup', up);
       el.canvas.removeEventListener('pointercancel', up);
       hideHud();
+      endDrag();
     };
     el.canvas.addEventListener('pointermove', move);
     el.canvas.addEventListener('pointerup', up);

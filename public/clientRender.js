@@ -574,8 +574,16 @@
       return;
     }
     const bitmap = await loadBitmap(file, PREVIEW_MAX_EDGE);
+    // customScale override — Compose-mode dragging passes a smaller value
+    // (0.2-ish) so the canvas is ~1/6 the pixel area, drops render time
+    // from ~50-80ms to ~10ms for smooth 60fps drag feedback. cfg values
+    // are resolution-independent (crop normalized 0..1, padding in base-
+    // 1440 px), so the same cfg produces the right geometry at any scale.
+    const useScale = (args.customScale != null && isFinite(args.customScale))
+      ? Math.max(0.05, Math.min(2, Number(args.customScale)))
+      : PREVIEW_SCALE;
     const built = buildLayoutAndCaption(bitmap, cfg, normExif, {
-      customScale: PREVIEW_SCALE, fontFaceCss, logos, cacheCaption: true
+      customScale: useScale, fontFaceCss, logos, cacheCaption: true
     });
     let bitmaps = null;
     if (built.collage && Array.isArray(partnerFiles) && partnerFiles.length) {

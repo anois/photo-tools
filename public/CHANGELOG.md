@@ -20,9 +20,16 @@
 - **键盘**：`1`/`2`/`3` 切换主焦点、`0` 全部高亮、`R` 全部重置、`Esc` 退出、`Shift` 旋转时自由角度。
 - **移动端平权设计**：拖拽手柄在触屏放大到 ≥ 44×44，所有手柄默认全显（无悬停依赖），工作台栏布局重排为 2×2 + 操作行。
 
+### ⚡ 性能 · 拖动 60fps
+
+- **拖动期画布降到 customScale = 0.2**（休息态保持 0.5），画布像素量从约 92 万降到约 15 万（**6.3 倍缩减**），帧时延从 ~50-80ms 降到 ~10ms 量级。`cfg` 是分辨率无关的（crop 在 [0..1]、padding 在 base-1440 px、rotation 在度数），所以同一份 cfg 在两种 scale 下都给出一致的几何 —— 只是清晰度差别。
+- **手柄定位走 `transform: translate3d()` 而非 `style.left/top`** —— 提升到合成器层，定位更新跳过 layout + paint，纯 GPU 合成。所有 12 个手柄 + 旋转旋钮 + 中心十字 + 标尺刻度都 `will-change: transform`。
+- **drag 结束后 120ms settle timer** 自动触发一次高清重渲染。
+
 ### 🛠 工程改动
 
 - `R.computeLayout` 新增 `opts.paddingTop / Right / Bottom / Left` 接口；非 null 的边覆盖 `padding` 标量 + 帧的 `topPaddingBoost` / `bottomPaddingBoost`（按上一节"用户最终决定权"的策略）。
+- `CR.renderPreview` 新增可选 `args.customScale` 覆盖（默认仍是 PREVIEW_SCALE = 0.5）。Compose 模式拖动期注入 0.2。
 - `frame.minPadding` 字段加在 `R.registerFrame` 的 def 上，base-1440 单位。
 - 顶栏「构图」入口按钮：未导入照片时禁用。已有 crop / rotation / padding 调整时，按钮的副标题摘要为 `裁 · 旋 30° · 距` 一目了然。
 
