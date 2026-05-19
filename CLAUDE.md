@@ -528,18 +528,27 @@ The 6th lookbar block ("构图 / Compose", parallel to LOOK + the four lookchips
 
 **Aesthetic**: darkroom + view-camera ground glass. Scoped warm-dark palette (`--c-ink-*` / `--c-cream-*`) + single amber safelight (`--c-amber: #d4a574`) + film-leader callout + measurement HUD that follows the cursor. The Compose dialog is the only place in the app that breaks from the main red-accent palette — justified because it reads as "a different room you've stepped into."
 
-**Spatial layering decides what each handle does** (no modal "crop mode vs pad mode" switching):
+**Strict-exclusive modes** (the bench at the bottom is the mode switcher; CSS `data-focus="crop|pad|rot"` on the stage drives both visibility AND `pointer-events`):
 
-- **Inside the photo aperture** = crop. 4 corner brackets (amber L-shapes) + 4 edge mid-pins.
-- **In the frame margin** (between photo and frame edge) = padding. 4 push-bar capsules, one per edge.
-- **Stem + ring protruding above photo top** = rotation. Default 90° snap, hold `Shift` for free / 1° increments.
-- **Drag inside the photo body** = pan-crop. Shifts crop origin without resizing.
+- **Crop mode** (`data-focus="crop"`) — 4 corner brackets + 4 edge mid-pins on the photo are interactive. Drag inside the photo body = pan-crop (shifts crop origin without resizing).
+- **Padding mode** (`data-focus="pad"`) — 4 push-bar capsules in the margin between photo and frame edge are interactive. Each adjusts one edge's `paddingTop/Right/Bottom/Left` in cfg.
+- **Rotation mode** (`data-focus="rot"`) — all photo-overlay handles fade out + go non-interactive; a **horizontal 360° slider bar** appears between the stage and the bench (range -180..180, step 0.5, with ↶↷ ±90 quick buttons + reset). The slider is wired to `cfg.rotation`; tiny <0.4° auto-snap to 0°.
 
-A right-side "dial" (CROP / PAD / ROT / ALL) sets visual focus — highlighting one handle set — but **all interactions remain enabled simultaneously**. The dial is wayfinding, not a mode lock.
+Inactive modes' handles get `opacity: 0` AND `pointer-events: none` — they can't be tab-focused or accidentally clicked. Switching modes is via clicking a bench module's chrome (not the inputs/reset button, which retain their own meaning) OR via keyboard 1/2/3. There is no "all on" mode — the v1.1.0 prototype had spatial-layering "everything visible simultaneously" but it created visual + interaction noise (pad handles overlapping crop edges, photo content competing with a knob on top); user feedback was that mode-exclusive is cleaner.
 
-**Ghost layer** (the visual signature of the redesign): the cropped portion of the source displays at 100% inside the photo aperture (the actual rendered preview canvas), while the parts of the source *outside* the aperture extend visibly at 30% opacity (a CSS-positioned `<img>` placed behind the canvas, rotated to match the photo's rotation). The user sees "everything they're cropping out" without having to imagine it. Outside the source-extent boundary, the frame chrome (paper, caption, decoration) covers the ghost at full opacity. Math is in `updateGhost()` in app.js — positions the full uncropped source so its cropped sub-rect aligns exactly with the canvas's fg rect.
+Reasons each mode looks different from the others:
 
-**Bench** at the bottom is always visible (live state readout) and **fully editable** — every number (crop W/H, padding T/R/B/L, rotation degrees) is a `<input type="number">` that writes through to the working cfg on input. Tabular-numeric monospace + tiny amber pulse rule when focused. The "Apply" button on the right commits the working cfg back to `activeCfg()`; "Cancel" discards.
+| mode | photo overlay | bench module bottom strip | hint |
+|---|---|---|---|
+| crop | corner brackets + edge pins + center cross visible | active bench mod's top hairline lights amber | "drag corners · drag inside to pan" |
+| pad | only 4 edge capsules visible | active bench mod's top hairline lights amber | "push the edge bars" |
+| rot | nothing on photo — full-width slider bar appears between stage and bench | active bench mod's top hairline lights amber | "drag the slider below · any angle" |
+
+**Ghost layer** (the visual signature of the redesign): the cropped portion of the source displays at 100% inside the photo aperture (the actual rendered preview canvas), while the parts of the source *outside* the aperture extend visibly at 30% opacity (a CSS-positioned `<img>` placed behind the canvas, rotated to match the photo's rotation). The user sees "everything they're cropping out" without having to imagine it. Outside the source-extent boundary, the frame chrome (paper, caption, decoration) covers the ghost at full opacity. Math is in `updateGhost()` in app.js — positions the full uncropped source so its cropped sub-rect aligns exactly with the canvas's fg rect. Ghost only fades in during crop and rot focus (it's noise during padding adjustments where the photo content isn't being clipped further).
+
+**Bench** at the bottom is the singular mode switcher AND live state readout AND numeric editor. Each module (crop / pad / rot) is clickable to activate. Every number (crop W/H, padding T/R/B/L, rotation degrees) is a `<input type="number">` that writes through to the working cfg on input. Tabular-numeric monospace + tiny amber pulse rule when focused. The "Apply" button on the right commits the working cfg back to `activeCfg()`; "Cancel" discards.
+
+**Performance — low-res drag rendering + GPU compositor handles**: while any handle is being dragged (or the rot slider thumb is being moved), `COMPOSE.isDragging = true` and `CR.renderPreview` is invoked with `customScale: 0.2` instead of the default `PREVIEW_SCALE: 0.5`. The canvas drawing buffer drops from ~720×1280 (922K px) to ~288×512 (147K px) — ~6.3× pixel reduction — and per-frame render time falls from 50-80ms range into the 10ms range, restoring 60fps drag feel. `cfg` is resolution-independent (crop normalized 0..1, padding in base-1440 px, rotation in degrees) so geometry stays correct across scales; only sharpness differs during drag. On `pointerup` a 120ms settle timer fires one full-scale re-render. Independently, all handle positioning uses `style.transform = translate3d(...)` (not `style.left/top`) and `will-change: transform` is set on every handle — promotes each to its own compositor layer so position updates skip layout + paint and stay GPU-side.
 
 **`frame.minPadding` soft warnings**: each frame def can declare `{ top?, right?, bottom?, left? }` in base-1440 px (e.g. film-35: `{ top: 70, bottom: 90 }` for sprocket rows; slide-mount: `{ top: 100, right: 80, bottom: 120, left: 80 }` for the leather bevel). When the user's padding on an edge dips below the recommended minimum:
 - a soft red dashed band appears on that edge of the canvas (in the warning region)
@@ -550,7 +559,7 @@ The warning **doesn't clamp** — the user can dial through anyway (the product 
 
 **Layout integration**: per-edge padding overrides flow through `R.computeLayout` via `opts.paddingTop / Right / Bottom / Left`. When any edge is non-null, the override WINS — frame.topPaddingBoost / aspect.bottomPaddingBias are bypassed on that edge (the user explicitly said `paddingTop: 0`, so no frame boost adds film-35 sprocket space anymore). Null edges fall through to legacy behavior (`padding` scalar + frame boost + aspect bias), which is also what `onFrameChange` resets all four to so a fresh frame gets its natural decoration space back.
 
-**Mobile parity**: same dialog, gestures retuned (`@media (pointer: coarse)` enlarges handles to ≥ 44×44, defaults all to fully visible — no hover-dependent affordances). Bench reshapes to 2×2 grid + full-width action row. The dial moves from right edge to bottom center as a horizontal pill. Topbar drops the keyboard-hint strip and the photo-title middle column.
+**Mobile parity**: same dialog, gestures retuned (`@media (pointer: coarse)` enlarges handles to ≥ 44×44 and rot-slider thumb to 22px). Bench reshapes to 2×2 grid + full-width action row. Topbar drops the keyboard-hint strip and the photo-title middle column. Rot bar (when visible) shrinks gap + quick-button paddings.
 
 **Arbitrary rotation**: the engine has always supported any rotation degree (`R.inscribedSafeArea(bm, rot)` returns the rotation-aware safe area + `srcRectFromCropRotation` handles arbitrary angles in `compose()`). Compose just exposes this through the rotation knob — `Shift` flips from 90° snap to 1° steps. Crop is normalized in the rotation-dependent inscribed safe area as before, so a small visual discrepancy can appear at non-90° angles between the ghost (full rotated source bbox) and the actually-croppable region (inscribed safe area) — the user gets the intuition; the engine clamps the math at render time.
 

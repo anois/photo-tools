@@ -523,9 +523,16 @@
         requirePhoto: '需要先导入一张照片',
         rotateKnob: '拖动以旋转 · 按住 Shift 自由旋转',
         kbd: { switch: '切换', free: '自由', exit: '退出' },
-        focus: { crop: '裁剪 (1)', pad: '边距 (2)', rot: '旋转 (3)', all: '全部 (0)' },
+        focus: { crop: '裁剪 (1)', pad: '边距 (2)', rot: '旋转 (3)' },
         bench: { crop: '裁剪', pad: '边距', rot: '旋转', ratio: '比例', snap: '吸附', reset: '重置' },
-        hint: { body: '角落收紧裁剪 · 边条推拉四边 · 顶部圆环旋转 · 照片内拖动平移' },
+        hint: {
+          crop: '拖角落收紧裁剪 · 拖照片内部平移裁剪框',
+          pad: '推拉胶囊条调整四边边距',
+          rot: '拖下方拖拽条调整角度 · 任意度数都可以'
+        },
+        rotateCcw: '逆时针 90°',
+        rotateCw: '顺时针 90°',
+        rotateZero: '归零',
         hud: {
           pad: '边距', crop: '裁剪', rot: '旋转', pan: '平移',
           min: '最小', below: '低于推荐',
@@ -1046,9 +1053,16 @@
         requirePhoto: 'Import a photo first',
         rotateKnob: 'Drag to rotate · hold Shift for free rotation',
         kbd: { switch: 'switch', free: 'free', exit: 'exit' },
-        focus: { crop: 'Crop (1)', pad: 'Padding (2)', rot: 'Rotate (3)', all: 'All (0)' },
+        focus: { crop: 'Crop (1)', pad: 'Padding (2)', rot: 'Rotate (3)' },
         bench: { crop: 'Crop', pad: 'Padding', rot: 'Rotate', ratio: 'Ratio', snap: 'Snap', reset: 'Reset' },
-        hint: { body: 'corners crop · edge bars push · stem rotates · drag inside to pan' },
+        hint: {
+          crop: 'drag corners to tighten · drag inside to pan',
+          pad: 'push the edge bars to adjust margins',
+          rot: 'drag the slider below · any angle'
+        },
+        rotateCcw: 'Rotate −90°',
+        rotateCw: 'Rotate +90°',
+        rotateZero: 'Zero',
         hud: {
           pad: 'PAD', crop: 'CROP', rot: 'ROT', pan: 'PAN',
           min: 'min', below: 'below min',

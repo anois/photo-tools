@@ -5260,9 +5260,12 @@ body {
   opacity: 0; transition: opacity .25s cubic-bezier(.4,0,.2,1);
   will-change: transform;
 }
-.compose-stage[data-focus="crop"] .compose-crop-corner,
-.compose-stage[data-focus="all"] .compose-crop-corner,
-.compose-stage:hover .compose-crop-corner { opacity: 1; }
+/* Strict mode-exclusive visibility — crop corners only when crop mode is
+   active. No hover-fallback, no "all" mode — the user picks ONE tool at
+   a time and operates with it cleanly. pointer-events also gates so
+   inactive handles can't accidentally catch a stray click. */
+.compose-stage[data-focus="crop"] .compose-crop-corner { opacity: 1; pointer-events: auto; }
+.compose-crop-corner { pointer-events: none; }
 .compose-crop-corner::before, .compose-crop-corner::after {
   content: ""; position: absolute; background: var(--c-amber);
   box-shadow: 0 0 8px var(--c-amber-glow);
@@ -5295,9 +5298,8 @@ body {
   position: absolute; left: 0; top: 0; opacity: 0;
   transition: opacity .25s cubic-bezier(.4,0,.2,1);
 }
-.compose-stage[data-focus="crop"] .compose-crop-edge,
-.compose-stage[data-focus="all"] .compose-crop-edge,
-.compose-stage:hover .compose-crop-edge { opacity: 0.7; }
+.compose-crop-edge { pointer-events: none; }
+.compose-stage[data-focus="crop"] .compose-crop-edge { opacity: 0.7; pointer-events: auto; }
 /* Centering offsets baked into JS translate3d in updateHandles() — CSS
    transforms here would compose with the inline transform and double-offset. */
 .compose-crop-edge[data-h="crop:t"], .compose-crop-edge[data-h="crop:b"] {
@@ -5335,9 +5337,8 @@ body {
   transition: opacity .25s cubic-bezier(.4,0,.2,1);
   z-index: 4;
 }
-.compose-stage[data-focus="pad"] .compose-pad-handle,
-.compose-stage[data-focus="all"] .compose-pad-handle,
-.compose-stage:hover .compose-pad-handle { opacity: 1; }
+.compose-pad-handle { pointer-events: none; }
+.compose-stage[data-focus="pad"] .compose-pad-handle { opacity: 1; pointer-events: auto; }
 .compose-pad-handle[data-h="pad:top"], .compose-pad-handle[data-h="pad:bottom"] {
   width: 40px; height: 14px; cursor: ns-resize; will-change: transform;
 }
@@ -5368,55 +5369,117 @@ body {
 .compose-pad-handle.is-warn::before { background: var(--c-warn); }
 
 /* Rotation knob — single handle protruding above top of photo */
-.compose-rot-stem {
-  position: absolute; left: 0; top: 0; width: 1px; background: var(--c-amber);
-  box-shadow: 0 0 8px var(--c-amber-glow);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity .25s cubic-bezier(.4,0,.2,1);
-  will-change: transform;
+/* Rotation slider bar — replaces the old photo-overlay rotation knob.
+   Sits between the stage and the bench, full-width, visible only when
+   the rot mod is active. Mirrors the existing crop modal's rotate-bar
+   range pattern but tuned to the darkroom palette (amber thumb + cream
+   ticks). Range -180..180 step 0.5; ±90 quick buttons + reset. */
+.compose-rot-bar {
+  position: relative; z-index: 5;
+  display: grid;
+  grid-template-columns: auto 1fr auto auto auto;
+  gap: 14px; align-items: center;
+  padding: 12px 24px 14px;
+  border-top: 1px solid var(--c-ink-3);
+  background: linear-gradient(to top, rgba(20,18,15,0.93), rgba(20,18,15,0.55));
+  backdrop-filter: blur(8px);
 }
-.compose-rot-knob {
-  position: absolute;
-  left: 0; top: 0;
-  width: 20px; height: 20px;
-  border-radius: 50%;
-  background: var(--c-ink-2);
-  border: 1.5px solid var(--c-amber);
-  box-shadow: 0 0 0 4px rgba(20,18,15,0.6), 0 0 14px var(--c-amber-glow);
-  cursor: grab; opacity: 0;
-  padding: 0;
-  transition: opacity .25s cubic-bezier(.4,0,.2,1), background .15s cubic-bezier(.4,0,.2,1);
+.compose-rot-bar[hidden] { display: none; }
+.compose-rot-quick {
+  width: 34px; height: 34px;
   display: grid; place-items: center;
-  will-change: transform;
+  color: var(--c-cream-mid);
+  border: 1px solid var(--c-ink-4); border-radius: 50%;
+  background: transparent; cursor: pointer; padding: 0;
+  font: 400 16px/1 ui-sans-serif, system-ui;
+  transition: all .15s cubic-bezier(.4,0,.2,1);
 }
-.compose-rot-knob::after {
-  content: ""; width: 6px; height: 1px; background: var(--c-amber);
+.compose-rot-quick:hover { color: var(--c-amber); border-color: var(--c-amber-dim); }
+.compose-rot-quick:active { transform: scale(0.94); }
+.compose-rot-track-wrap {
+  position: relative; height: 30px;
+  display: flex; align-items: center;
 }
-.compose-stage[data-focus="rot"] .compose-rot-knob,
-.compose-stage[data-focus="rot"] .compose-rot-stem,
-.compose-stage[data-focus="all"] .compose-rot-knob,
-.compose-stage[data-focus="all"] .compose-rot-stem,
-.compose-stage:hover .compose-rot-knob,
-.compose-stage:hover .compose-rot-stem { opacity: 1; }
-/* Hover effect via border + shadow only — transform is owned by JS for
-   GPU compositing, so we can't add a scale here without clobbering position. */
-.compose-rot-knob:hover { background: var(--c-amber); box-shadow: 0 0 0 5px rgba(20,18,15,0.6), 0 0 18px var(--c-amber-glow), 0 0 28px var(--c-amber-glow); }
-.compose-rot-knob:hover::after { background: var(--c-ink-1); }
-.compose-rot-knob.is-dragging {
-  cursor: grabbing; background: var(--c-amber);
-  box-shadow: 0 0 0 4px rgba(20,18,15,0.6), 0 0 22px var(--c-amber-glow), 0 0 36px var(--c-amber-glow);
+input.compose-rot-slider, .compose-rot-slider {
+  flex: 1 1 auto;
+  appearance: none; -webkit-appearance: none;
+  background: transparent;
+  height: 30px; margin: 0; padding: 0; width: 100%;
+  cursor: ew-resize;
+  border: 0;
 }
-.compose-rot-knob.is-dragging::after { background: var(--c-ink-1); }
+.compose-rot-slider::-webkit-slider-runnable-track {
+  height: 2px; border-radius: 1px;
+  background: linear-gradient(90deg,
+    rgba(212,165,116,0.18) 0%, rgba(212,165,116,0.55) 50%, rgba(212,165,116,0.18) 100%);
+}
+.compose-rot-slider::-moz-range-track {
+  height: 2px; border-radius: 1px;
+  background: linear-gradient(90deg,
+    rgba(212,165,116,0.18) 0%, rgba(212,165,116,0.55) 50%, rgba(212,165,116,0.18) 100%);
+}
+.compose-rot-slider::-webkit-slider-thumb {
+  appearance: none; -webkit-appearance: none;
+  width: 16px; height: 16px;
+  background: var(--c-amber);
+  border: 2px solid var(--c-ink-1);
+  border-radius: 50%;
+  margin-top: -7px;
+  box-shadow: 0 0 0 1px rgba(212,165,116,0.4), 0 0 12px var(--c-amber-glow);
+  cursor: ew-resize;
+}
+.compose-rot-slider::-moz-range-thumb {
+  width: 16px; height: 16px;
+  background: var(--c-amber);
+  border: 2px solid var(--c-ink-1);
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgba(212,165,116,0.4), 0 0 12px var(--c-amber-glow);
+  cursor: ew-resize;
+}
+.compose-rot-tick {
+  position: absolute; top: 100%;
+  width: 1px; height: 5px;
+  background: var(--c-cream-faint);
+  pointer-events: none;
+  transform: translateX(-50%);
+}
+.compose-rot-tick.is-center { background: var(--c-amber); height: 7px; }
+.compose-rot-tick::after {
+  content: attr(data-label);
+  position: absolute; top: 7px; left: 50%; transform: translateX(-50%);
+  font: 400 8.5px/1 var(--f-mono);
+  color: var(--c-cream-faint);
+  letter-spacing: 0.14em;
+  white-space: nowrap;
+}
+.compose-rot-tick.is-center::after { color: var(--c-amber-dim); }
+.compose-rot-bar-val {
+  font: 400 14px/1 var(--f-mono);
+  color: var(--c-amber);
+  letter-spacing: -0.005em;
+  font-variant-numeric: tabular-nums;
+  min-width: 56px; text-align: right;
+}
+.compose-rot-text-btn {
+  font: 500 10px/1 var(--f-mono);
+  letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--c-cream-mid);
+  padding: 8px 12px;
+  border: 1px solid var(--c-ink-4); border-radius: 4px;
+  background: transparent; cursor: pointer;
+  transition: all .15s cubic-bezier(.4,0,.2,1);
+}
+.compose-rot-text-btn:hover { color: var(--c-amber); border-color: var(--c-amber-dim); }
 
-/* Center crosshair — optical-center mark, faint */
+/* Center crosshair — optical-center mark, faint. Only shows when crop
+   mode is active so it doesn't clutter the padding view. */
 .compose-center-cross {
   position: absolute; left: 0; top: 0; width: 24px; height: 24px;
   opacity: 0; pointer-events: none;
   transition: opacity .3s cubic-bezier(.4,0,.2,1);
   will-change: transform;
 }
-.compose-stage:hover .compose-center-cross { opacity: 0.4; }
+.compose-stage[data-focus="crop"] .compose-center-cross { opacity: 0.4; }
 .compose-center-cross::before, .compose-center-cross::after {
   content: ""; position: absolute; background: var(--c-amber);
 }
@@ -5434,37 +5497,10 @@ body {
 }
 .compose-minwarn.is-on { opacity: 1; }
 
-/* Tool dial — secondary focus selector. Click highlights one operation's
-   handles; all interactions still work simultaneously regardless. */
-.compose-dial {
-  position: absolute; top: 50%; right: 24px; transform: translateY(-50%);
-  z-index: 5;
-  display: flex; flex-direction: column; gap: 4px;
-  padding: 8px 6px;
-  background: rgba(20,18,15,0.55);
-  backdrop-filter: blur(8px);
-  border: 1px solid var(--c-ink-3);
-  border-radius: 99px;
-}
-.compose-dial-btn {
-  width: 38px; height: 38px; border-radius: 50%;
-  display: grid; place-items: center;
-  color: var(--c-cream-mute);
-  background: transparent;
-  border: 1px solid transparent;
-  cursor: pointer;
-  padding: 0;
-  transition: all .2s cubic-bezier(.4,0,.2,1);
-  position: relative;
-}
-.compose-dial-btn:hover { color: var(--c-amber); border-color: var(--c-ink-4); }
-.compose-dial-btn.is-active {
-  color: var(--c-amber);
-  background: rgba(212,165,116,0.1);
-  border-color: var(--c-amber-dim);
-  box-shadow: inset 0 0 12px rgba(212,165,116,0.12);
-}
-.compose-dial-divider { height: 1px; background: var(--c-ink-3); margin: 2px 6px; }
+/* (Tool dial removed v1.1.1 — the three bench modules at the bottom are
+   the sole mode switcher now. Strict-exclusive: one tool active at a
+   time. Removing the dial eliminates a duplicate UI and reduces the
+   "everything is interactive simultaneously" cognitive load.) */
 
 /* Hint pill at viewport-bottom-center inside stage */
 .compose-hint {
@@ -5662,13 +5698,14 @@ input.compose-vnum, .compose-vnum {
   .compose-kbd-hint { display: none; }
   .compose-breadcrumb-sub { display: none; }
   .compose-leader { display: none; }
-  .compose-dial {
-    top: auto; bottom: 16px; left: 50%; right: auto;
-    transform: translateX(-50%);
-    flex-direction: row; padding: 6px 8px;
+  .compose-hint { font-size: 9px; padding: 6px 12px; }
+  /* Mobile rot bar: stack quick-buttons + slider tighter */
+  .compose-rot-bar {
+    grid-template-columns: auto 1fr auto auto;
+    gap: 10px; padding: 10px 14px;
   }
-  .compose-dial-divider { height: 26px; width: 1px; margin: 6px 2px; }
-  .compose-hint { bottom: 70px; font-size: 9px; padding: 6px 12px; }
+  .compose-rot-bar-val { min-width: 44px; font-size: 12px; }
+  .compose-rot-text-btn { padding: 7px 9px; font-size: 9px; }
   .compose-bench {
     grid-template-columns: 1fr 1fr;
     grid-auto-rows: auto;
@@ -5688,7 +5725,9 @@ input.compose-vnum, .compose-vnum {
   .compose-mod-tag { font-size: 8px; }
 }
 
-/* Touch-coarse devices — enlarge handles regardless of width */
+/* Touch-coarse devices — enlarge handles regardless of width. Note: with
+   v1.1.1 strict-exclusive modes, only the active mode's handles are
+   pointer-interactive, so we no longer force-show all handles. */
 @media (pointer: coarse) {
   .compose-crop-corner { width: 44px; height: 44px; }
   .compose-crop-corner::before { width: 22px; height: 2px; }
@@ -5697,15 +5736,11 @@ input.compose-vnum, .compose-vnum {
   .compose-crop-edge[data-h="crop:l"], .compose-crop-edge[data-h="crop:r"] { width: 16px; height: 44px; }
   .compose-pad-handle[data-h="pad:top"], .compose-pad-handle[data-h="pad:bottom"] { width: 56px; height: 24px; }
   .compose-pad-handle[data-h="pad:left"], .compose-pad-handle[data-h="pad:right"] { width: 24px; height: 56px; }
-  .compose-rot-knob { width: 36px; height: 36px; }
-  /* Touch users see all handles always — no hover-only chrome */
-  .compose-crop-corner, .compose-crop-edge, .compose-pad-handle,
-  .compose-rot-knob, .compose-rot-stem { opacity: 1 !important; }
-  .compose-crop-edge { opacity: 0.7 !important; }
+  .compose-rot-slider::-webkit-slider-thumb { width: 22px; height: 22px; margin-top: -10px; }
+  .compose-rot-slider::-moz-range-thumb { width: 22px; height: 22px; }
+  .compose-rot-quick { width: 40px; height: 40px; font-size: 18px; }
   /* iOS Safari :hover stickiness — neutralize transforms on touch */
   .compose-close:hover { transform: none; }
-  .compose-rot-knob:hover { transform: translate(-50%, -50%); }
-  .compose-dial-btn:hover { background: transparent; border-color: transparent; }
 }
 
 /* Reduced motion */

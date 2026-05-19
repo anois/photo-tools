@@ -5273,9 +5273,13 @@ function showUpdateBanner(waitingSw) {
     ghost: document.getElementById('compose-ghost-img'),
     canvas: document.getElementById('compose-canvas'),
     handles: document.getElementById('compose-handles'),
-    rotStem: document.getElementById('compose-rot-stem'),
-    rotKnob: document.getElementById('compose-rot-knob'),
-    dial: document.getElementById('compose-dial'),
+    // Rotation slider bar (replaces the v1.1.0 photo-overlay knob)
+    rotBar: document.getElementById('compose-rot-bar'),
+    rotSlider: document.getElementById('compose-rot-slider'),
+    rotBarVal: document.getElementById('compose-rot-bar-val'),
+    rotCcw: document.getElementById('compose-rot-ccw'),
+    rotCw: document.getElementById('compose-rot-cw'),
+    rotZero: document.getElementById('compose-rot-zero'),
     hint: document.getElementById('compose-hint'),
     hud: document.getElementById('compose-hud'),
     hudKey: document.getElementById('compose-hud-key'),
@@ -5504,11 +5508,10 @@ function showUpdateBanner(waitingSw) {
     set('pad:bottom', fgX + fgW / 2, fgY + fgH + (cvH - fgY - fgH) / 2, -20, -7);
     set('pad:left',   fgX / 2,                  fgY + fgH / 2,         -7, -20);
     set('pad:right',  fgX + fgW + (cvW - fgX - fgW) / 2, fgY + fgH / 2, -7, -20);
-    // Rotation stem + knob (knob is 20×20 with translate(-50%,-50%) anchor)
-    const stemH = 30;
-    el.rotStem.style.transform = `translate3d(${fgX + fgW / 2}px, ${fgY - stemH}px, 0) translateX(-50%)`;
-    el.rotStem.style.height = stemH + 'px';
-    el.rotKnob.style.transform = `translate3d(${fgX + fgW / 2 - 10}px, ${fgY - stemH - 10}px, 0)`;
+    // Rotation slider replaces the v1.1.0 knob — no per-render handle
+    // positioning needed; the slider is in the bottom rot-bar, not on the
+    // photo overlay.
+
     // Center crosshair (24×24, translate(-50%,-50%) anchor)
     const cc = el.handles.querySelector('.compose-center-cross');
     if (cc) {
@@ -5649,10 +5652,24 @@ function showUpdateBanner(waitingSw) {
     el.benchPadB.classList.toggle('is-warn', !!(mp.bottom && effB < mp.bottom));
     el.benchPadL.classList.toggle('is-warn', !!(mp.left   && effL < mp.left));
 
-    const deg = ((rot + 180) % 360) - 180; // -180..180 for the input
-    if (document.activeElement !== el.benchRotDeg) el.benchRotDeg.value = deg.toFixed(1).replace('.0', '');
-    const snap = Math.round(rot / 90) * 90 % 360;
+    // Normalize cfg.rotation (any number) into the -180..180 range used by
+    // both the bench number input and the slider track. Tiny snap to 0
+    // applied at write time, not here.
+    const rotRaw = Number(COMPOSE.cfg.rotation) || 0;
+    const deg = (((rotRaw + 180) % 360) + 360) % 360 - 180;
+    if (document.activeElement !== el.benchRotDeg) {
+      el.benchRotDeg.value = Math.abs(deg) < 0.05 ? '0' : deg.toFixed(1).replace(/\.0$/, '');
+    }
+    const snap = ((Math.round(deg / 90) * 90) % 360 + 360) % 360;
     el.benchRotSnap.textContent = snap + '°';
+    // Sync the rot-bar slider + readout when it's not the source of truth
+    // for this render (e.g. driven by reset / bench number / ±90 button).
+    if (el.rotSlider && document.activeElement !== el.rotSlider) {
+      el.rotSlider.value = deg;
+    }
+    if (el.rotBarVal) {
+      el.rotBarVal.textContent = (Math.abs(deg) < 0.05 ? '0' : deg.toFixed(1).replace(/\.0$/, '')) + '°';
+    }
   }
 
   // ── HUD helpers ─────────────────────────────────────────────────────
@@ -5801,45 +5818,49 @@ function showUpdateBanner(waitingSw) {
     });
   }
 
-  // ── Rotation knob drag ──────────────────────────────────────────────
-  function bindRotKnob() {
-    let cx = 0, cy = 0, startAngle = 0, startRot = 0, raf = 0;
-    el.rotKnob.addEventListener('pointerdown', (e) => {
-      if (e.button !== undefined && e.button !== 0 && e.pointerType === 'mouse') return;
-      e.preventDefault();
-      try { el.rotKnob.setPointerCapture(e.pointerId); } catch {}
-      el.rotKnob.classList.add('is-dragging');
-      beginDrag();
-      const rect = el.canvas.getBoundingClientRect();
-      const layout = COMPOSE.layout;
-      const ss = COMPOSE.stageScale;
-      cx = rect.left + (layout.fgLeft + layout.fgW / 2) * ss;
-      cy = rect.top + (layout.fgTop + layout.fgH / 2) * ss;
-      startAngle = Math.atan2(e.clientY - cy, e.clientX - cx);
-      startRot = Number(COMPOSE.cfg.rotation) || 0;
-      const move = (ev) => {
-        const a = Math.atan2(ev.clientY - cy, ev.clientX - cx);
-        let deg = (a - startAngle) * 180 / Math.PI + startRot;
-        const free = ev.shiftKey;
-        if (!free) deg = Math.round(deg / 90) * 90;
-        COMPOSE.cfg.rotation = deg;
-        const snap = ((Math.round(deg / 90) * 90) % 360 + 360) % 360;
-        showHud(T('compose.hud.rot'), Math.round(deg) + '°', '', free ? T('compose.hud.free') : T('compose.hud.snap90'), ev.clientX, ev.clientY);
-        requestComposeRender();
-      };
-      const up = () => {
-        try { el.rotKnob.releasePointerCapture(e.pointerId); } catch {}
-        el.rotKnob.classList.remove('is-dragging');
-        el.rotKnob.removeEventListener('pointermove', move);
-        el.rotKnob.removeEventListener('pointerup', up);
-        el.rotKnob.removeEventListener('pointercancel', up);
-        hideHud();
-        endDrag();
-      };
-      el.rotKnob.addEventListener('pointermove', move);
-      el.rotKnob.addEventListener('pointerup', up);
-      el.rotKnob.addEventListener('pointercancel', up);
+  // ── Rotation slider bar (replaces v1.1.0 photo-overlay knob) ────────
+  // The bar lives at the bottom of the stage, full-width, visible only
+  // when the rot mod is active. Range -180..180, step 0.5, plus ±90°
+  // quick buttons and a reset. Live preview drives requestComposeRender
+  // on every input event; beginDrag()/endDrag() flip to low-res scale
+  // during slider drag, then settle back to hi-res on release.
+  function setRotationDeg(deg, source) {
+    deg = Number(deg) || 0;
+    // Range comes in as -180..180; cfg.rotation accepts any value but we
+    // normalize for display. Tiny snap to 0 when within 0.4° (helps the
+    // user actually land "no rotation" without aim-fight).
+    if (Math.abs(deg) < 0.4) deg = 0;
+    COMPOSE.cfg.rotation = deg;
+    if (source !== 'slider' && el.rotSlider) {
+      // Slider wraps -180..180; if cfg.rotation is outside, clamp display.
+      el.rotSlider.value = Math.max(-180, Math.min(180, deg));
+    }
+    if (el.rotBarVal) {
+      const s = Math.abs(deg) < 0.05 ? '0' : deg.toFixed(1).replace(/\.0$/, '');
+      el.rotBarVal.textContent = s + '°';
+    }
+    requestComposeRender();
+  }
+  function bindRotSlider() {
+    if (!el.rotSlider) return;
+    // The slider input emits during drag; use pointerdown/pointerup on the
+    // slider itself to bracket the low-res draft mode. `change` fires
+    // after pointerup so we can also force a settle render then.
+    el.rotSlider.addEventListener('pointerdown', () => beginDrag());
+    el.rotSlider.addEventListener('pointerup',   () => endDrag());
+    el.rotSlider.addEventListener('input', () => setRotationDeg(el.rotSlider.value, 'slider'));
+    if (el.rotCcw) el.rotCcw.addEventListener('click', () => {
+      let next = (Number(COMPOSE.cfg.rotation) || 0) - 90;
+      // Keep within -180..180 for the slider display
+      if (next < -180) next += 360;
+      setRotationDeg(next);
     });
+    if (el.rotCw) el.rotCw.addEventListener('click', () => {
+      let next = (Number(COMPOSE.cfg.rotation) || 0) + 90;
+      if (next > 180) next -= 360;
+      setRotationDeg(next);
+    });
+    if (el.rotZero) el.rotZero.addEventListener('click', () => setRotationDeg(0));
   }
 
   // ── Bench numeric inputs ────────────────────────────────────────────
@@ -5873,7 +5894,7 @@ function showUpdateBanner(waitingSw) {
     el.benchPadL.addEventListener('input', onPad('paddingLeft', el.benchPadL));
     el.benchRotDeg.addEventListener('input', () => {
       const v = Number(el.benchRotDeg.value);
-      if (isFinite(v)) { COMPOSE.cfg.rotation = v; setRender(); }
+      if (isFinite(v)) setRotationDeg(v, 'bench');
     });
   }
 
@@ -5904,14 +5925,20 @@ function showUpdateBanner(waitingSw) {
 
   // ── Module / dial focus selectors ───────────────────────────────────
   function setFocus(f) {
+    // v1.1.1 — strict-exclusive: one tool active at a time. No 'all' mode.
+    // Setting `data-focus` on the stage drives all the CSS visibility +
+    // pointer-events gating. The rot-bar slider also toggles via `hidden`.
+    if (f !== 'crop' && f !== 'pad' && f !== 'rot') f = 'crop';
     COMPOSE.focus = f;
     el.stage.dataset.focus = f;
-    document.querySelectorAll('.compose-dial-btn').forEach(b => b.classList.toggle('is-active', b.dataset.focus === f));
-    document.querySelectorAll('.compose-mod').forEach(m => m.classList.toggle('is-active', m.dataset.mod === f || (f === 'all' && false)));
+    document.querySelectorAll('.compose-mod').forEach(m => m.classList.toggle('is-active', m.dataset.mod === f));
+    if (el.rotBar) el.rotBar.hidden = (f !== 'rot');
+    if (el.hint) el.hint.textContent = T('compose.hint.' + f);
   }
-  function bindDialAndModSelectors() {
-    document.querySelectorAll('.compose-dial-btn').forEach(b => b.addEventListener('click', () => setFocus(b.dataset.focus)));
+  function bindModSelectors() {
     document.querySelectorAll('.compose-mod').forEach(m => m.addEventListener('click', (e) => {
+      // Don't switch focus on input / button clicks within the module —
+      // those are bench-level edits / reset, not mode switches.
       if (e.target.closest('input, button')) return;
       setFocus(m.dataset.mod);
     }));
@@ -5925,7 +5952,6 @@ function showUpdateBanner(waitingSw) {
     if (e.key === '1') { setFocus('crop'); e.preventDefault(); }
     else if (e.key === '2') { setFocus('pad'); e.preventDefault(); }
     else if (e.key === '3') { setFocus('rot'); e.preventDefault(); }
-    else if (e.key === '0') { setFocus('all'); e.preventDefault(); }
     else if (e.key === 'r' || e.key === 'R') { el.resetAll.click(); e.preventDefault(); }
   }
 
@@ -6000,14 +6026,16 @@ function showUpdateBanner(waitingSw) {
   });
   ['tl','tr','br','bl'].forEach(bindCropCorner);
   ['t','r','b','l'].forEach(bindCropEdge);
-  bindRotKnob();
+  bindRotSlider();
   bindBenchInputs();
   bindResets();
-  bindDialAndModSelectors();
+  bindModSelectors();
 
   // Pan-crop: drag inside the photo aperture to shift crop without resizing.
   el.canvas.addEventListener('pointerdown', (e) => {
     if (!COMPOSE.open) return;
+    // Pan-crop only works when crop mode is active — strict-exclusive (1.1.1).
+    if (COMPOSE.focus !== 'crop') return;
     if (e.button !== undefined && e.button !== 0 && e.pointerType === 'mouse') return;
     const rect = el.canvas.getBoundingClientRect();
     const px = (e.clientX - rect.left) / COMPOSE.stageScale;
