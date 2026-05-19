@@ -80,6 +80,17 @@ The product model is **engine + community look library**, not "fixed frames + a 
   </tr>
 </table>
 
+## Compose mode — direct manipulation (1.1+)
+
+Crop, rotation, and per-edge padding now live in a single full-bleed surface that unifies them into one direct-manipulation language. Open it from the lookbar's **Compose** entry (the 6th independent block, sibling of LOOK + the four lookchips). The interaction model:
+
+- **Inside the photo** = crop. Drag the corner brackets to tighten composition.
+- **In the frame margin** = padding (independent per edge). Push the bars to reshape the frame paper around the photo.
+- **Top stem + ring** = rotation. Default 90° snap; hold `Shift` for free 1° increments.
+- **Drag inside the photo body** = pan the cropped region.
+
+The cropped-out part of the source stays visible at 30% opacity as a "ghost layer" behind the rendered preview, so you always see what's getting clipped. Each frame declares a `minPadding` recommendation (e.g. film-35 wants ≥ 70 px top + ≥ 90 px bottom for the sprocket rows) — when you cross it, a soft red warning band appears on that edge, but the engine never clamps your input. A bench across the bottom of the dialog always shows the live numbers (`W × H`, `T / R / B / L`, angle) and every value is a typeable input for precise composition.
+
 ## Share by URL, not by file
 
 A LOOK is a base64url-encoded JSON snapshot. Copy `#p=<code>`, send it as a chat message, the recipient's app applies it on boot. If you want to share *photos* (not just the look), the S3 cloud module signs SigV4 directly from the browser against your own bucket: upload the rail, copy a `#s3=<code>` URL, the recipient sees your gallery with a thumbnail grid + lightbox preview + per-image or bulk-ZIP download. Pure-frontend signing (vendored aws4fetch, ~12 KB, lazy-loaded only on first cloud-panel open), three providers handled (AWS S3 / Cloudflare R2 / Aliyun OSS).

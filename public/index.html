@@ -126,6 +126,26 @@
       </button>
     </div>
 
+    <!-- COMPOSE — 6th independent block, parallel to LOOK + the 4 fine-tune
+         lookchips. Opens a full-bleed direct-manipulation surface that unifies
+         crop / rotation / per-edge padding. The dialog (`#compose-modal` further
+         down) reuses the live preview pipeline and overlays a ghost layer so
+         the user sees the full source with the framed-out parts at low alpha. -->
+    <button class="lookbar-compose" id="compose-trigger" type="button" aria-haspopup="dialog" data-i18n-aria-label="compose.openTitle" data-i18n-title="compose.openTitle">
+      <span class="lookbar-compose-mark" aria-hidden="true">
+        <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round">
+          <path d="M2 5V2.5h2.5"/><path d="M11.5 2H14v2.5"/>
+          <path d="M14 11v2.5h-2.5"/><path d="M4.5 14H2v-2.5"/>
+          <circle cx="8" cy="8" r="0.6" fill="currentColor" stroke="none"/>
+        </svg>
+      </span>
+      <span class="lookbar-compose-text">
+        <span class="lookbar-compose-key" data-i18n="lookbar.compose">Compose</span>
+        <span class="lookbar-compose-value" id="lookbar-compose-value" data-i18n="compose.empty">—</span>
+      </span>
+      <span class="lookbar-compose-caret" aria-hidden="true">›</span>
+    </button>
+
     <button id="workshop-trigger" class="lookbar-workshop" type="button" data-i18n-aria-label="workshop.open" data-i18n-title="workshop.open" aria-label="Open workshop">
       <span class="lookbar-workshop-glyph" aria-hidden="true">
         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4.6 4.6 0 0 0-6.4 6.4l-5 5a1.4 1.4 0 0 0 2 2l5-5a4.6 4.6 0 0 0 6.4-6.4l-2.7 2.7-2-.4-.4-2z"/></svg>
@@ -913,6 +933,147 @@
       <button id="crop-cancel" type="button" class="btn btn-secondary" data-i18n="crop.cancel">Cancel</button>
       <button id="crop-apply" type="button" class="btn btn-primary" data-i18n="crop.apply">Apply</button>
     </div>
+  </div>
+</dialog>
+
+<!-- COMPOSE MODAL — direct manipulation of crop / rotation / per-edge padding
+     on a darkroom-aesthetic full-bleed surface. Reuses the live preview render
+     pipeline (CR.compose) on the inner canvas; layers a ghost <img> behind to
+     show the FULL source so the user can see what's getting clipped by the
+     frame at 30% opacity. Bench at the bottom is always live + editable. -->
+<dialog id="compose-modal" class="compose-modal" aria-labelledby="compose-modal-title">
+  <div class="compose-shell">
+
+    <header class="compose-topbar">
+      <div class="compose-topbar-l">
+        <button id="compose-close" type="button" class="compose-close" data-i18n-aria-label="compose.close" aria-label="Close">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+        <span class="compose-breadcrumb"><b data-i18n="compose.crumbName">Compose</b><span class="compose-breadcrumb-sub" data-i18n="compose.crumbSub">· 构图</span></span>
+      </div>
+      <div class="compose-topbar-mid">
+        <h3 id="compose-modal-title" class="compose-title" data-i18n="compose.title">Direct manipulation</h3>
+        <div class="compose-meta" id="compose-meta">—</div>
+      </div>
+      <div class="compose-topbar-r">
+        <span class="compose-kbd-hint" aria-hidden="true">
+          <span class="k">1</span><span class="k">2</span><span class="k">3</span><span data-i18n="compose.kbd.switch">switch</span>
+          <span class="compose-kbd-sep">·</span>
+          <span class="k">⇧</span><span data-i18n="compose.kbd.free">free</span>
+          <span class="compose-kbd-sep">·</span>
+          <span class="k">esc</span><span data-i18n="compose.kbd.exit">exit</span>
+        </span>
+        <button id="compose-reset-all" type="button" class="compose-reset-all" data-i18n="compose.resetAll">Reset all</button>
+      </div>
+    </header>
+
+    <main class="compose-stage" id="compose-stage">
+      <div class="compose-axis-h" aria-hidden="true"></div>
+      <div class="compose-axis-v" aria-hidden="true"></div>
+
+      <div class="compose-leader" aria-hidden="true">
+        <div class="compose-leader-corner"></div>
+        <div class="compose-leader-line">Frame · <span id="compose-leader-num">—</span></div>
+        <div class="compose-leader-line" id="compose-leader-date">—</div>
+        <div class="compose-leader-line">Negative · <span id="compose-leader-dim">—</span></div>
+      </div>
+
+      <div class="compose-stage-inner" id="compose-stage-inner">
+        <img id="compose-ghost-img" class="compose-ghost" alt="" />
+        <canvas id="compose-canvas" class="compose-canvas"></canvas>
+        <div class="compose-handles" id="compose-handles">
+          <div class="compose-handle compose-crop-corner" data-h="crop:tl"></div>
+          <div class="compose-handle compose-crop-corner" data-h="crop:tr"></div>
+          <div class="compose-handle compose-crop-corner" data-h="crop:br"></div>
+          <div class="compose-handle compose-crop-corner" data-h="crop:bl"></div>
+          <div class="compose-handle compose-crop-edge" data-h="crop:t"></div>
+          <div class="compose-handle compose-crop-edge" data-h="crop:r"></div>
+          <div class="compose-handle compose-crop-edge" data-h="crop:b"></div>
+          <div class="compose-handle compose-crop-edge" data-h="crop:l"></div>
+          <div class="compose-handle compose-pad-handle" data-h="pad:top"></div>
+          <div class="compose-handle compose-pad-handle" data-h="pad:right"></div>
+          <div class="compose-handle compose-pad-handle" data-h="pad:bottom"></div>
+          <div class="compose-handle compose-pad-handle" data-h="pad:left"></div>
+          <div class="compose-rot-stem" id="compose-rot-stem" aria-hidden="true"></div>
+          <button type="button" class="compose-rot-knob" id="compose-rot-knob" data-i18n-aria-label="compose.rotateKnob" aria-label="Rotate"></button>
+          <div class="compose-center-cross" aria-hidden="true"></div>
+          <div class="compose-minwarn" data-edge="top"></div>
+          <div class="compose-minwarn" data-edge="right"></div>
+          <div class="compose-minwarn" data-edge="bottom"></div>
+          <div class="compose-minwarn" data-edge="left"></div>
+        </div>
+      </div>
+
+      <nav class="compose-dial" id="compose-dial" aria-label="Tool focus">
+        <button class="compose-dial-btn is-active" data-focus="crop" type="button" data-i18n-title="compose.focus.crop" aria-label="Crop">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M6 2v16h16M2 6h16v16"/></svg>
+        </button>
+        <button class="compose-dial-btn" data-focus="pad" type="button" data-i18n-title="compose.focus.pad" aria-label="Padding">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18"/><rect x="8" y="8" width="8" height="8"/></svg>
+        </button>
+        <button class="compose-dial-btn" data-focus="rot" type="button" data-i18n-title="compose.focus.rot" aria-label="Rotate">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/></svg>
+        </button>
+        <span class="compose-dial-divider" aria-hidden="true"></span>
+        <button class="compose-dial-btn" data-focus="all" type="button" data-i18n-title="compose.focus.all" aria-label="All">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><circle cx="12" cy="12" r="2.5"/><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="19" r="1.5"/><circle cx="5" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg>
+        </button>
+      </nav>
+
+      <div class="compose-hint" id="compose-hint" data-i18n="compose.hint.body">corners crop · edge bars push · stem rotates</div>
+
+      <div class="compose-hud" id="compose-hud" aria-hidden="true">
+        <div class="compose-hud-card">
+          <div class="compose-hud-key" id="compose-hud-key">PAD-TOP</div>
+          <div class="compose-hud-val"><span id="compose-hud-val">80</span><span class="compose-hud-unit" id="compose-hud-unit">px</span></div>
+          <div class="compose-hud-aux" id="compose-hud-aux">min · 0</div>
+        </div>
+      </div>
+    </main>
+
+    <footer class="compose-bench" id="compose-bench">
+      <section class="compose-mod is-active" data-mod="crop">
+        <div class="compose-mod-head">
+          <span class="compose-mod-label" data-i18n="compose.bench.crop">Crop</span>
+          <span class="compose-mod-tag">01</span>
+        </div>
+        <div class="compose-mod-values">
+          <label class="compose-vp"><input type="number" class="compose-vnum" id="bench-crop-w" min="1" /><span class="compose-vk">W</span></label>
+          <label class="compose-vp"><input type="number" class="compose-vnum" id="bench-crop-h" min="1" /><span class="compose-vk">H</span></label>
+          <span class="compose-vp"><span class="compose-vnum compose-vnum-ratio" id="bench-crop-ratio">—</span><span class="compose-vk" data-i18n="compose.bench.ratio">Ratio</span></span>
+        </div>
+        <button class="compose-mod-reset" data-reset="crop" data-i18n="compose.bench.reset">Reset</button>
+      </section>
+      <section class="compose-mod" data-mod="pad">
+        <div class="compose-mod-head">
+          <span class="compose-mod-label" data-i18n="compose.bench.pad">Padding</span>
+          <span class="compose-mod-tag">02</span>
+        </div>
+        <div class="compose-mod-values">
+          <label class="compose-vp"><input type="number" class="compose-vnum" id="bench-pad-t" min="0" max="300" /><span class="compose-vk">T</span></label>
+          <label class="compose-vp"><input type="number" class="compose-vnum" id="bench-pad-r" min="0" max="300" /><span class="compose-vk">R</span></label>
+          <label class="compose-vp"><input type="number" class="compose-vnum" id="bench-pad-b" min="0" max="300" /><span class="compose-vk">B</span></label>
+          <label class="compose-vp"><input type="number" class="compose-vnum" id="bench-pad-l" min="0" max="300" /><span class="compose-vk">L</span></label>
+        </div>
+        <button class="compose-mod-reset" data-reset="pad" data-i18n="compose.bench.reset">Reset</button>
+      </section>
+      <section class="compose-mod" data-mod="rot">
+        <div class="compose-mod-head">
+          <span class="compose-mod-label" data-i18n="compose.bench.rot">Rotate</span>
+          <span class="compose-mod-tag">03</span>
+        </div>
+        <div class="compose-mod-values">
+          <label class="compose-vp"><input type="number" class="compose-vnum" id="bench-rot-deg" step="0.5" /><span class="compose-vk">°</span></label>
+          <span class="compose-vp"><span class="compose-vnum compose-vnum-snap" id="bench-rot-snap">0°</span><span class="compose-vk" data-i18n="compose.bench.snap">Snap</span></span>
+        </div>
+        <button class="compose-mod-reset" data-reset="rot" data-i18n="compose.bench.reset">Reset</button>
+      </section>
+      <div class="compose-bench-actions">
+        <button id="compose-cancel" type="button" class="btn btn-secondary compose-cancel" data-i18n="compose.cancel">Cancel</button>
+        <button id="compose-apply" type="button" class="btn btn-primary compose-apply" data-i18n="compose.apply">Apply</button>
+      </div>
+    </footer>
+
   </div>
 </dialog>
 

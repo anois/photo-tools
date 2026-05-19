@@ -507,6 +507,12 @@
     if (cfg.radiusOverride != null)   layoutOpts.radiusOverride     = cfg.radiusOverride;
     if (cfg.captionForceOverlay)      layoutOpts.captionForceOverlay = true;
     if (cfg.captionOverlayTextLift != null) layoutOpts.captionOverlayTextLift = cfg.captionOverlayTextLift;
+    // Per-edge padding overrides — Compose-mode user dialing. Each null
+    // falls through to scalar `padding` + frame boosts; non-null wins.
+    if (cfg.paddingTop != null)    layoutOpts.paddingTop    = cfg.paddingTop;
+    if (cfg.paddingRight != null)  layoutOpts.paddingRight  = cfg.paddingRight;
+    if (cfg.paddingBottom != null) layoutOpts.paddingBottom = cfg.paddingBottom;
+    if (cfg.paddingLeft != null)   layoutOpts.paddingLeft   = cfg.paddingLeft;
     if (opts.customScale != null) layoutOpts.customScale = opts.customScale;
     if (opts.quality)             layoutOpts.quality     = opts.quality;
     // Rotation + crop pre-image: cfg.crop is normalized in the rotation-
