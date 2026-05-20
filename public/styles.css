@@ -4534,14 +4534,19 @@ body {
        104px (8 padding + 44 row + 8 gap + 44 row + 0) plus safe-area-inset
        for home-indicator devices. ~40px shorter than the v0.17 first-cut
        3-row design — the canvas gets that height back. */
-    /* 3-row lookbar (was 2 in 0.17): [LOOK strip] above [import + chips]
-       above [export + ZIP]. LOOK strip is the first-class entry to the
-       presets library — 44px tall same as the other rows. Total content
-       148px (8 padding + 44 + 8 gap + 44 + 8 gap + 44 + 0) plus safe-area-
-       inset for home-indicator devices. The +44px cost over 0.17 is the
-       price for putting Looks one tap from the photo (vs three taps via
-       the workshop · lib tab), which is the whole point of this change. */
-    --lookbar-h: calc(148px + max(8px, env(safe-area-inset-bottom)));
+    /* 4-row lookbar (1.1+, was 3 in 1.0 / 2 in 0.17):
+         row 1 — LOOK strip (full-width)
+         row 2 — Compose strip (full-width, 1.1+)
+         row 3 — [import + chips]
+         row 4 — [export + ZIP]
+       Each row is 44px to hit the WCAG touch-target floor. Total content
+       200px (8 padding + 4×44 + 3×8 gap + 0) plus safe-area-inset for
+       home-indicator devices. The +52px cost over 1.0 is the price for
+       putting Compose (per-photo crop / rotate / margin tool) at one
+       thumb-tap from the photo — same precedent as LOOK earned its +44
+       in 0.18. Workshop stays exiled to a topbar pill since it's
+       occasional deep-config, not per-photo. */
+    --lookbar-h: calc(200px + max(8px, env(safe-area-inset-bottom)));
   }
   body {
     /* On phones, the lookbar reverts to a bottom sheet so the workspace
@@ -4578,11 +4583,13 @@ body {
   .file-drop-hint-mobile  { display: inline; }
   .empty-sub-desktop { display: none; }
 
-  /* Lookbar becomes a bottom sheet: 2×2 grid — [import + chips] over
-     [Export + ZIP]. Grid (vs flex column) gives import + chip-group a
-     shared row without DOM restructure: import sits column 1 row 1,
-     chip-group spans column 2 row 1, export-group spans both columns
-     row 2. */
+  /* Lookbar becomes a bottom sheet: 4-row grid in 1.1+.
+     Row 1: LOOK strip (full-width)
+     Row 2: Compose strip (full-width, 1.1+)
+     Row 3: [import + chips]
+     Row 4: [export + ZIP]
+     Grid (vs flex column) gives import + chip-group a shared row 3
+     without DOM restructure. */
   .lookbar {
     /* Lift out of the workspace's left grid cell — fixed-bottom layer. */
     position: fixed;
@@ -4591,8 +4598,7 @@ body {
     height: var(--lookbar-h);
     display: grid;
     grid-template-columns: 44px 1fr;
-    /* Row 1: LOOK strip (full width) · Row 2: import + chips · Row 3: export */
-    grid-template-rows: 44px 44px 44px;
+    grid-template-rows: 44px 44px 44px 44px;
     gap: 8px;
     padding: 8px 14px;
     padding-bottom: max(8px, env(safe-area-inset-bottom));
@@ -4639,7 +4645,7 @@ body {
      the 3-row grid has no spare column. */
   .lookbar-import-group { display: contents; }
   .lookbar-import {
-    grid-row: 2; grid-column: 1;
+    grid-row: 3; grid-column: 1;
     align-self: stretch;
     width: 44px; height: 44px;
     padding: 0;
@@ -4655,8 +4661,24 @@ body {
      aspect/quality + import + export; workshop (crop / EXIF / sign /
      tile / lib) is global discovery, lives next to changelog/lang. */
   .lookbar-workshop { display: none; }
+  /* Compose strip on mobile — full-width row 2, mirrors the LOOK strip
+     pattern (key + value inline). Same "first-class per-photo entry"
+     role as LOOK is for sessions. Wrist-friendly position above the
+     4-chip row. */
+  .lookbar-compose {
+    grid-row: 2; grid-column: 1 / -1;
+    align-self: stretch;
+    height: 44px;
+    padding: 0 14px;
+    grid-template-columns: 18px 1fr auto;
+    gap: 10px;
+  }
+  .lookbar-compose-text { flex-direction: row; align-items: baseline; gap: 8px; }
+  .lookbar-compose-key { font-size: 9px; }
+  .lookbar-compose-value { font-size: 13.5px; }
+  .lookbar-compose-mark { width: 18px; height: 18px; }
   .chip-group {
-    grid-row: 2; grid-column: 2;
+    grid-row: 3; grid-column: 2;
     flex-direction: row;
     width: 100%;
     flex-shrink: 0;
@@ -4680,7 +4702,7 @@ body {
 
   .lookbar-spacer { display: none; }
   .export-group {
-    grid-row: 3; grid-column: 1 / -1;
+    grid-row: 4; grid-column: 1 / -1;
     flex-direction: row;
     gap: 6px;
     flex-shrink: 0;
