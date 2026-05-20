@@ -80,15 +80,20 @@ The product model is **engine + community look library**, not "fixed frames + a 
   </tr>
 </table>
 
-## Compose mode — direct manipulation (1.1+)
+## Compose mode — a darkroom on a single surface
 
-Crop, rotation, and per-edge padding live in a single full-bleed surface — a darkroom-aesthetic instrument that unifies the three operations under one language. Open it from the lookbar's **Compose** entry (the 6th independent block, sibling of LOOK + the four lookchips). Three modes, strictly exclusive — click the bottom bench module to activate the tool you want, then operate on the photo with that tool only:
+Crop, rotation, and per-edge padding live on one full-bleed instrument painted in warm darkroom-amber — three tools, strictly exclusive, you click the bench module at the bottom to activate one and only then can you operate on the photo. Crop gives you seven preset ratios plus custom W:H to lock with one click; rotation is a 360° slider for any angle, with the cropped-out parts kept at 30% opacity as a "ghost layer" floating outside the frame so you always see what you're sacrificing; per-edge padding lets each side dial independently, and the frame politely tells you "film-35 wants ≥ 70 px top for the sprocket row" — warn but never block, final call is yours.
 
-- **Crop** — corner brackets on the photo's edges tighten the visible area; drag inside the photo to pan the crop window. A floating aspect chip bar at the bottom locks the rect to common ratios (Free / Frame / 1:1 / 3:4 / 4:3 / 9:16 / 16:9 / **Custom W:H**) — exact same input UX as the outer aspect picker.
-- **Padding** — four push-bar capsules in the margin between photo and frame edge. Each adjusts one edge independently (`paddingTop/Right/Bottom/Left`).
-- **Rotation** — a horizontal 360° slider bar slides in below the photo. Range −180° to +180°, step 0.5°, plus ±90° quick buttons and a zero reset. Engine has always supported arbitrary angles; this just exposes them.
-
-The cropped-out part of the source stays visible at 30% opacity as a "ghost layer" behind the rendered preview during crop and rotation modes — you always see what's getting clipped. Each frame declares a `minPadding` recommendation (e.g. film-35 wants ≥ 70 px top + ≥ 90 px bottom for the sprocket rows); when you cross it, a soft red warning band appears on that edge, but the engine never clamps your input. A bench across the bottom always shows the live numbers (`W × H`, `T / R / B / L`, angle) and every value is a typeable input for precise composition. Drag is rendered at 1/6 pixel resolution for 60fps feedback, then snaps back to full quality on release.
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/07-compose-crop.png" alt="Compose — crop + aspect chips" /></td>
+    <td width="50%"><img src="docs/screenshots/08-compose-rotate.png" alt="Compose — 360° slider + arbitrary rotation" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Crop — 8 preset ratios + drag the corner brackets</sub></td>
+    <td align="center"><sub>Rotation — 360° slider + ghost layer of what gets clipped</sub></td>
+  </tr>
+</table>
 
 ## Share by URL, not by file
 
