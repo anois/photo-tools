@@ -5315,6 +5315,10 @@ function showUpdateBanner(waitingSw) {
     mobileCancel: document.getElementById('compose-mobile-cancel'),
     mobileApply: document.getElementById('compose-mobile-apply'),
     mobilePadStrip: document.getElementById('compose-mobile-pad-strip'),
+    apertureShell: document.getElementById('compose-aperture-shell'),
+    aperturePhoto: document.getElementById('compose-aperture-photo'),
+    apertureFrame: document.getElementById('compose-aperture-frame'),
+    apertureScale: document.getElementById('compose-aperture-scale'),
     numericSheet: document.getElementById('compose-numeric-sheet'),
     numericSheetBody: document.getElementById('compose-numeric-sheet-body'),
     numericSheetBackdrop: document.getElementById('compose-numeric-sheet-backdrop'),
@@ -5950,6 +5954,383 @@ function showUpdateBanner(waitingSw) {
     });
   }
 
+  // ──────────────────────────────────────────────────────────────────
+  // Mobile aperture overlay (v1.2.0) — the "Through the Aperture" crop.
+  //
+  // Replaces the corner-bracket handles on touch. Aperture is fixed in
+  // the center of the stage; photo lives behind it and is pan + pinch.
+  // What's inside the aperture IS the crop. On release we reverse-derive
+  // cfg.crop from the photo's current transform, write it back, and let
+  // the regular preview canvas pick it up on the next render.
+  //
+  // Layering: aperturePhoto <canvas> below + apertureFrame (box-shadow
+  // mask) above + brackets + grid + scale HUD. The photo canvas is
+  // pre-rendered ONCE per crop-mode entry with the bitmap rotated by
+  // cfg.rotation already baked in, so the math during interaction is
+  // just translate + scale (no rotation matrix gymnastics).
+  // ──────────────────────────────────────────────────────────────────
+  const APERTURE = {
+    active: false,
+    bmW: 0, bmH: 0,      // pre-rendered post-rotation canvas dims (CSS px)
+    tx: 0, ty: 0, scale: 1,
+    minScale: 1,         // photo at this scale just covers the aperture
+    ax: 0, ay: 0, aw: 0, ah: 0,  // aperture frame rect in shell coords
+    aspectToken: 'free', // current chip selection
+    pointers: new Map(),
+    panStart: null,
+    pinch: null,         // { dist0, midX0, midY0, photoLocalX, photoLocalY, scale0 }
+  };
+
+  function isMobileViewport() {
+    return window.matchMedia('(max-width: 700px)').matches;
+  }
+
+  // Pre-render the source bitmap into the aperture photo canvas with
+  // cfg.rotation baked in. Called once on crop-mode entry; subsequent
+  // pan/pinch only changes CSS transform (no canvas re-render).
+  function renderApertureBitmap() {
+    const bm = COMPOSE.bm;
+    const canvas = el.aperturePhoto;
+    if (!bm || !canvas) return;
+    const rot = (((Number(COMPOSE.cfg.rotation) || 0) % 360) + 360) % 360;
+    const rad = (rot * Math.PI) / 180;
+    const sinV = Math.abs(Math.sin(rad));
+    const cosV = Math.abs(Math.cos(rad));
+    const naturalW = bm.width * cosV + bm.height * sinV;
+    const naturalH = bm.width * sinV + bm.height * cosV;
+    // Cap to a reasonable backing-store size — iOS Safari hits memory
+    // pressure on bigger canvases. 1800 long-edge is plenty for crop UI.
+    const MAX_EDGE = 1800;
+    const cap = Math.min(1, MAX_EDGE / Math.max(naturalW, naturalH));
+    const cw = Math.max(1, Math.round(naturalW * cap));
+    const ch = Math.max(1, Math.round(naturalH * cap));
+    canvas.width = cw; canvas.height = ch;
+    canvas.style.width = cw + 'px';
+    canvas.style.height = ch + 'px';
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, cw, ch);
+    ctx.save();
+    ctx.translate(cw / 2, ch / 2);
+    ctx.rotate(rad);
+    ctx.drawImage(bm, -(bm.width * cap) / 2, -(bm.height * cap) / 2, bm.width * cap, bm.height * cap);
+    ctx.restore();
+    APERTURE.bmW = cw;
+    APERTURE.bmH = ch;
+  }
+
+  // Push current transform into CSS vars on the photo canvas.
+  function applyApertureTransform() {
+    const c = el.aperturePhoto;
+    if (!c) return;
+    c.style.setProperty('--ap-tx', APERTURE.tx + 'px');
+    c.style.setProperty('--ap-ty', APERTURE.ty + 'px');
+    c.style.setProperty('--ap-scale', APERTURE.scale);
+  }
+
+  // Place the aperture frame and derive photo transform from cfg.crop.
+  // Re-runs on entry, on chip change, and on viewport resize.
+  function applyApertureFromCfg(opts) {
+    if (!el.apertureShell || !APERTURE.bmW) return;
+    const shellRect = el.apertureShell.getBoundingClientRect();
+    if (shellRect.width === 0 || shellRect.height === 0) return;
+    const sw = shellRect.width, sh = shellRect.height;
+    const crop = COMPOSE.cfg.crop || { x: 0, y: 0, w: 1, h: 1 };
+    const cropWpx = crop.w * APERTURE.bmW;
+    const cropHpx = crop.h * APERTURE.bmH;
+    const aspect = cropWpx / cropHpx;
+    // Aperture rect: max area centered with tight margins. The shell sits
+    // INSIDE compose-stage-inner (whose width is already < stage width
+    // because the stage-inner is sized to canvas dims by the preview
+    // layout). The floating mode-pill column lives absolute on the stage,
+    // OUTSIDE this shell, so we don't need to reserve space for it here.
+    const MARGIN = 12;
+    const maxW = Math.max(60, sw - MARGIN * 2);
+    const maxH = Math.max(60, sh - MARGIN * 2);
+    let aw, ah;
+    if (maxW / maxH > aspect) { ah = maxH; aw = ah * aspect; }
+    else                       { aw = maxW; ah = aw / aspect; }
+    const ax = (sw - aw) / 2;
+    const ay = (sh - ah) / 2;
+    APERTURE.ax = ax; APERTURE.ay = ay;
+    APERTURE.aw = aw; APERTURE.ah = ah;
+    const f = el.apertureFrame;
+    f.style.setProperty('--ap-frame-x', (ax + aw / 2) + 'px');
+    f.style.setProperty('--ap-frame-y', (ay + ah / 2) + 'px');
+    f.style.setProperty('--ap-frame-w', aw + 'px');
+    f.style.setProperty('--ap-frame-h', ah + 'px');
+    // Photo transform so the crop sub-rect of the pre-rendered bitmap
+    // lands exactly on the aperture rect.
+    const s = aw / cropWpx;
+    APERTURE.scale = s;
+    APERTURE.tx = ax - crop.x * APERTURE.bmW * s;
+    APERTURE.ty = ay - crop.y * APERTURE.bmH * s;
+    // Compute minScale (photo must always cover the aperture).
+    APERTURE.minScale = Math.max(aw / APERTURE.bmW, ah / APERTURE.bmH);
+    applyApertureTransform();
+    if (opts && opts.pulse) {
+      f.classList.add('is-snap');
+      setTimeout(() => f.classList.remove('is-snap'), 620);
+    }
+  }
+
+  // Constrain photo transform so the photo always covers the aperture.
+  // Called after every pan / pinch update.
+  function clampApertureTransform() {
+    const { ax, ay, aw, ah, bmW, bmH } = APERTURE;
+    const s = APERTURE.scale;
+    // Photo rect on screen: (tx, ty) to (tx + bmW*s, ty + bmH*s)
+    // Must satisfy: tx ≤ ax AND tx + bmW*s ≥ ax + aw  (and same for y)
+    const minTx = ax + aw - bmW * s;
+    const maxTx = ax;
+    const minTy = ay + ah - bmH * s;
+    const maxTy = ay;
+    if (minTx > maxTx) {
+      // photo too small in W to cover aperture — scale up
+      const need = aw / bmW;
+      APERTURE.scale = Math.max(s, need);
+      return clampApertureTransform();
+    }
+    if (minTy > maxTy) {
+      const need = ah / bmH;
+      APERTURE.scale = Math.max(s, need);
+      return clampApertureTransform();
+    }
+    APERTURE.tx = Math.max(minTx, Math.min(maxTx, APERTURE.tx));
+    APERTURE.ty = Math.max(minTy, Math.min(maxTy, APERTURE.ty));
+  }
+
+  function writeCropFromTransform() {
+    if (!APERTURE.bmW) return;
+    const s = APERTURE.scale;
+    let cx = (APERTURE.ax - APERTURE.tx) / (s * APERTURE.bmW);
+    let cy = (APERTURE.ay - APERTURE.ty) / (s * APERTURE.bmH);
+    let cw = APERTURE.aw / (s * APERTURE.bmW);
+    let ch = APERTURE.ah / (s * APERTURE.bmH);
+    cx = Math.max(0, Math.min(1, cx));
+    cy = Math.max(0, Math.min(1, cy));
+    cw = Math.max(0.05, Math.min(1 - cx, cw));
+    ch = Math.max(0.05, Math.min(1 - cy, ch));
+    COMPOSE.cfg.crop = (cx === 0 && cy === 0 && cw >= 0.999 && ch >= 0.999)
+      ? null : { x: cx, y: cy, w: cw, h: ch };
+  }
+
+  // Mid-pinch update: scale around the gesture's current midpoint, keeping
+  // the photo-local point that was under the start midpoint anchored.
+  function updatePinch() {
+    const ps = Array.from(APERTURE.pointers.values());
+    if (ps.length < 2) return;
+    const [p0, p1] = ps;
+    const dist = Math.hypot(p1.x - p0.x, p1.y - p0.y);
+    const midX = (p0.x + p1.x) / 2;
+    const midY = (p0.y + p1.y) / 2;
+    const k = APERTURE.pinch;
+    if (!k) return;
+    const shellRect = el.apertureShell.getBoundingClientRect();
+    const localMidX = midX - shellRect.left;
+    const localMidY = midY - shellRect.top;
+    const ratio = dist / Math.max(1, k.dist0);
+    // Hard scale caps: down to minScale (photo just covers aperture),
+    // up to 8× of minScale (deep zoom).
+    const targetScale = Math.max(APERTURE.minScale,
+                                 Math.min(APERTURE.minScale * 8, k.scale0 * ratio));
+    APERTURE.scale = targetScale;
+    // Anchor: photo-local point under the gesture midpoint stays under it.
+    APERTURE.tx = localMidX - k.photoLocalX * targetScale;
+    APERTURE.ty = localMidY - k.photoLocalY * targetScale;
+    clampApertureTransform();
+    applyApertureTransform();
+    // Update scale HUD
+    if (el.apertureScale) {
+      const valEl = el.apertureScale.querySelector('.compose-aperture-scale-val');
+      const display = (targetScale / APERTURE.minScale).toFixed(1) + '×';
+      if (valEl) valEl.textContent = display;
+    }
+  }
+
+  function startPinch() {
+    const ps = Array.from(APERTURE.pointers.values());
+    if (ps.length < 2) return;
+    const [p0, p1] = ps;
+    const dist0 = Math.hypot(p1.x - p0.x, p1.y - p0.y);
+    const shellRect = el.apertureShell.getBoundingClientRect();
+    const localMidX = (p0.x + p1.x) / 2 - shellRect.left;
+    const localMidY = (p0.y + p1.y) / 2 - shellRect.top;
+    APERTURE.pinch = {
+      dist0,
+      photoLocalX: (localMidX - APERTURE.tx) / APERTURE.scale,
+      photoLocalY: (localMidY - APERTURE.ty) / APERTURE.scale,
+      scale0: APERTURE.scale,
+    };
+    APERTURE.panStart = null;  // pan suspended during pinch
+    el.apertureShell.classList.add('is-pinching');
+    if (el.apertureScale) {
+      const valEl = el.apertureScale.querySelector('.compose-aperture-scale-val');
+      if (valEl) valEl.textContent = (APERTURE.scale / APERTURE.minScale).toFixed(1) + '×';
+    }
+  }
+
+  function onAperturePointerDown(e) {
+    if (!APERTURE.active) return;
+    // Only catch finger / pen — let mouse fall through (desktop uses
+    // regular handles; mobile aperture is touch-primary). Capture can
+    // throw on some browsers for synthetic / non-trusted events; wrap
+    // to keep multi-pointer pinch working even when capture refuses.
+    try { el.apertureShell.setPointerCapture(e.pointerId); } catch {}
+    APERTURE.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    el.apertureShell.classList.add('is-interacting');
+    if (APERTURE.pointers.size === 1) {
+      APERTURE.panStart = {
+        x: e.clientX, y: e.clientY,
+        tx: APERTURE.tx, ty: APERTURE.ty,
+      };
+    } else if (APERTURE.pointers.size === 2) {
+      startPinch();
+    }
+    e.preventDefault();
+  }
+
+  function onAperturePointerMove(e) {
+    if (!APERTURE.pointers.has(e.pointerId)) return;
+    APERTURE.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (APERTURE.pointers.size >= 2) {
+      updatePinch();
+    } else if (APERTURE.pointers.size === 1 && APERTURE.panStart) {
+      const dx = e.clientX - APERTURE.panStart.x;
+      const dy = e.clientY - APERTURE.panStart.y;
+      APERTURE.tx = APERTURE.panStart.tx + dx;
+      APERTURE.ty = APERTURE.panStart.ty + dy;
+      clampApertureTransform();
+      applyApertureTransform();
+    }
+    e.preventDefault();
+  }
+
+  function onAperturePointerUp(e) {
+    if (!APERTURE.pointers.has(e.pointerId)) return;
+    APERTURE.pointers.delete(e.pointerId);
+    try { el.apertureShell.releasePointerCapture(e.pointerId); } catch {}
+    if (APERTURE.pointers.size < 2) {
+      APERTURE.pinch = null;
+      el.apertureShell.classList.remove('is-pinching');
+      if (APERTURE.pointers.size === 1) {
+        // One finger remains — transition to pan
+        const [first] = APERTURE.pointers.values();
+        APERTURE.panStart = {
+          x: first.x, y: first.y,
+          tx: APERTURE.tx, ty: APERTURE.ty,
+        };
+      } else {
+        APERTURE.panStart = null;
+      }
+    }
+    if (APERTURE.pointers.size === 0) {
+      el.apertureShell.classList.remove('is-interacting');
+      writeCropFromTransform();
+      // Render the regular preview canvas with the new crop so a mode
+      // switch reveals an up-to-date image. Cheap — runs once.
+      requestComposeRender();
+    }
+  }
+
+  // Aspect chip on mobile: best-fit the new aspect into the photo,
+  // centered, max area; rebuild aperture; pulse the frame.
+  function applyAspectChipMobile(token) {
+    COMPOSE.cropAspect = token;
+    APERTURE.aspectToken = token;
+    el.stage.dataset.aspectLock = (token && token !== 'free') ? '1' : '';
+    el.aspectBar?.querySelectorAll('button[data-aspect]').forEach(b => {
+      const active = b.dataset.aspect === token;
+      b.classList.toggle('is-active', active);
+      b.setAttribute('aria-checked', active ? 'true' : 'false');
+    });
+    let newAspect;
+    if (token === 'free') {
+      const c = COMPOSE.cfg.crop;
+      newAspect = c
+        ? (c.w * APERTURE.bmW) / (c.h * APERTURE.bmH)
+        : APERTURE.bmW / APERTURE.bmH;
+    } else if (token === 'frame') {
+      const p = R.parseAspectRatio(COMPOSE.cfg.aspect);
+      newAspect = p ? p.r : 1;
+    } else {
+      const p = R.parseAspectRatio(token);
+      newAspect = p ? p.r : 1;
+    }
+    const bmRatio = APERTURE.bmW / APERTURE.bmH;
+    let cw, ch;
+    if (newAspect > bmRatio) { cw = 1; ch = bmRatio / newAspect; }
+    else                      { ch = 1; cw = newAspect / bmRatio; }
+    const cx = (1 - cw) / 2;
+    const cy = (1 - ch) / 2;
+    COMPOSE.cfg.crop = (cw >= 0.999 && ch >= 0.999)
+      ? null : { x: cx, y: cy, w: cw, h: ch };
+    applyApertureFromCfg({ pulse: true });
+  }
+
+  // Wire the aspect chip buttons to the mobile path when on mobile;
+  // desktop continues to use applyAspectChip (the legacy handler).
+  function bindMobileAspectChips() {
+    if (!el.aspectBar) return;
+    el.aspectBar.querySelectorAll('button[data-aspect]').forEach(btn => {
+      btn.addEventListener('click', (ev) => {
+        if (!isMobileViewport() || !APERTURE.active) return;
+        // Stop propagation so the desktop handler doesn't also fire.
+        ev.stopImmediatePropagation();
+        const tok = btn.dataset.aspect;
+        if (tok === 'custom') {
+          openAspectModal({
+            onApply: (w, h) => applyAspectChipMobile(`${w}:${h}`),
+          });
+          return;
+        }
+        applyAspectChipMobile(tok);
+      }, true);  // capture phase — intercept before legacy handler
+    });
+  }
+
+  function activateAperture() {
+    if (!el.apertureShell || !COMPOSE.bm) return;
+    el.apertureShell.hidden = false;
+    el.stage.classList.add('aperture-active');
+    APERTURE.active = true;
+    renderApertureBitmap();
+    // After the [hidden] removal, the shell needs a layout pass before
+    // getBoundingClientRect returns its real size.
+    requestAnimationFrame(() => {
+      applyApertureFromCfg();
+      // Re-sync chip active state in case cropAspect was changed elsewhere
+      const tok = COMPOSE.cropAspect || 'free';
+      APERTURE.aspectToken = tok;
+      el.aspectBar?.querySelectorAll('button[data-aspect]').forEach(b => {
+        const active = b.dataset.aspect === tok;
+        b.classList.toggle('is-active', active);
+        b.setAttribute('aria-checked', active ? 'true' : 'false');
+      });
+    });
+  }
+
+  function deactivateAperture() {
+    if (!el.apertureShell) return;
+    el.apertureShell.hidden = true;
+    el.stage.classList.remove('aperture-active');
+    APERTURE.active = false;
+    APERTURE.pointers.clear();
+    APERTURE.panStart = null;
+    APERTURE.pinch = null;
+  }
+
+  function bindAperture() {
+    if (!el.apertureShell) return;
+    el.apertureShell.addEventListener('pointerdown',   onAperturePointerDown);
+    el.apertureShell.addEventListener('pointermove',   onAperturePointerMove);
+    el.apertureShell.addEventListener('pointerup',     onAperturePointerUp);
+    el.apertureShell.addEventListener('pointercancel', onAperturePointerUp);
+    // Re-position on viewport resize / orientation change
+    window.addEventListener('resize', () => {
+      if (APERTURE.active) applyApertureFromCfg();
+    });
+  }
+
   // ── Rotation slider bar (replaces v1.1.0 photo-overlay knob) ────────
   // The bar lives at the bottom of the stage, full-width, visible only
   // when the rot mod is active. Range -180..180, step 0.5, plus ±90°
@@ -6077,6 +6458,13 @@ function showUpdateBanner(waitingSw) {
     if (f === 'pad') updateMobilePadSteppers();
     // If the numeric sheet is open, re-render its body to match the new mode.
     if (el.numericSheet && !el.numericSheet.hidden) renderNumericSheetBody();
+    // Mobile crop mode swaps in the aperture overlay (v1.2.0+). The
+    // photo lives behind a fixed aperture and is pan + pinch; corner
+    // handles are hidden. Other modes (pad / rot) use the regular
+    // canvas + their own bottom-strip control. Desktop uses handles
+    // for all three modes — gate strictly to mobile viewport.
+    if (f === 'crop' && isMobileViewport()) activateAperture();
+    else deactivateAperture();
   }
   function bindModSelectors() {
     document.querySelectorAll('.compose-mod').forEach(m => m.addEventListener('click', (e) => {
@@ -6417,9 +6805,18 @@ function showUpdateBanner(waitingSw) {
     // Belt-and-suspenders: also fire at 60ms + 200ms so a slow-laying-out
     // dialog (Safari, big bitmap decode) doesn't strand the user on a
     // tiny initial canvas. ResizeObserver below also catches it.
-    requestAnimationFrame(() => requestAnimationFrame(requestComposeRender));
-    setTimeout(() => { if (COMPOSE.open) requestComposeRender(); }, 60);
-    setTimeout(() => { if (COMPOSE.open) requestComposeRender(); }, 200);
+    const settle = () => {
+      if (!COMPOSE.open) return;
+      requestComposeRender();
+      // Aperture overlay (mobile crop mode) needs the shell's
+      // bounding rect to be non-zero before sizing the frame. The
+      // dialog open animation often leaves it at 0×0 on the first
+      // frame, so re-apply after each settle tick.
+      if (APERTURE.active) applyApertureFromCfg();
+    };
+    requestAnimationFrame(() => requestAnimationFrame(settle));
+    setTimeout(settle, 60);
+    setTimeout(settle, 200);
   }
   function closeCompose(commit) {
     if (commit) {
@@ -6465,6 +6862,8 @@ function showUpdateBanner(waitingSw) {
   bindMobileActions();
   bindMobilePadStepper();
   bindNumericSheet();
+  bindAperture();
+  bindMobileAspectChips();
 
   // Pan-crop: drag inside the photo aperture to shift crop without resizing.
   el.canvas.addEventListener('pointerdown', (e) => {
