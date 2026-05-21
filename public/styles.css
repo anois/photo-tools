@@ -5784,40 +5784,491 @@ input.compose-vnum, .compose-vnum {
 .compose-apply:hover { background: var(--c-amber-hot); box-shadow: 0 0 18px rgba(212,165,116,0.45); }
 
 /* ── Mobile parity ───────────────────────────────────────────────────── */
+/* ──────────────────────────────────────────────────────────────────────
+ * Compose mode mobile redesign (1.1.2)
+ *
+ * 1.1.0 shipped the Compose dialog with the desktop bench layout reused
+ * on mobile via responsive reflow — 3 stacked module cards + Apply/Cancel
+ * actions ate 60%+ of the viewport, leaving the photo squeezed into <40%.
+ * 1.1.2 keeps the desktop bench untouched and adds parallel mobile-only
+ * UI: floating right-side mode pills + contextual tool strip (already-
+ * existing aspect bar / rot bar / new pad stepper strip) + single-row
+ * bottom actions + a collapsed numeric sheet behind a ≡ icon.
+ *
+ * Photo gets ≥ 70% of viewport. Mode switching is one tap. Numeric
+ * editing is opt-in. Tactile drag is the primary interaction.
+ * ──────────────────────────────────────────────────────────────────── */
+
 @media (max-width: 700px), (max-height: 500px) and (orientation: landscape) {
   .compose-topbar {
-    grid-template-columns: auto 1fr auto;
-    padding: 12px 14px; gap: 12px;
+    /* Switch from desktop's 3-col grid to flex on mobile. The 3-col grid
+       (`auto 1fr auto`) breaks when `topbar-mid` is `display: none` because
+       the remaining 2 children auto-place into cols 1 & 2, so the "right"
+       block falls into the 1fr column and grows to ~75% of viewport. Flex
+       with justify-content: space-between keeps the L/R blocks tight to
+       their edges regardless of mid visibility. */
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 14px;
+    gap: 12px;
   }
   .compose-topbar-mid { display: none; }
   .compose-kbd-hint { display: none; }
   .compose-breadcrumb-sub { display: none; }
   .compose-leader { display: none; }
-  .compose-hint { font-size: 9px; padding: 6px 12px; }
-  /* Mobile rot bar: stack quick-buttons + slider tighter */
+  .compose-hint { display: none; }
+
+  /* Desktop bench: hide entirely on mobile. Cancel/Apply move into the
+     new .compose-mobile-actions row; mode-switching moves into the new
+     .compose-mode-pills column. */
+  .compose-bench { display: none; }
+
+  /* Mobile-only elements unhide. The [hidden] attribute is on the HTML;
+     we override it with display: flex via the [data-focus] gating below
+     where appropriate. */
+  .compose-mode-pills[hidden]      { display: flex; }
+  .compose-mobile-actions[hidden]  { display: flex; }
+
+  /* Reshape the dialog grid so the photo stage fills 1fr and the new
+     mobile UI rows sit below it. Topbar 48 + stage 1fr + context strip
+     (aspect bar OR rot bar OR pad stepper, all 54px) + actions 60 +
+     safe-area-inset = chrome ~166px on a 390×844 phone → photo gets
+     ~680px = ~80% viewport.
+
+     `minmax(0, 1fr)` on the column is critical: shell uses an implicit
+     single grid column which defaults to auto-sized = max(min-content
+     of all children). When the bench is `display: none` and the mobile
+     pad-stepper / mobile-actions kicks in, the stepper's `grid-template-
+     columns: 28px 1fr 28px` × 4 has a min-content that exceeds the
+     viewport, dragging the shell's column past 100vw. minmax(0, 1fr)
+     forces the column to never exceed its parent. */
+  .compose-shell {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto 1fr auto;
+  }
+  .compose-stage {
+    position: relative;  /* parent for the floating mode pill column */
+    overflow: visible;   /* let the pill column draw on top of the stage */
+    /* Desktop's `place-items: center` centers all stage children which
+       leaves the new mobile context strips + actions row at their natural
+       content width (visually floating in middle of viewport). On mobile
+       we want them to stretch full-width and stack vertically. Switch
+       from grid to flex column. The photo (.compose-stage-inner) grows
+       to fill via flex: 1, the strips below it are auto-sized. */
+    display: flex;
+    flex-direction: column;
+    place-items: stretch;
+  }
+  .compose-stage-inner {
+    flex: 1 1 0;
+    align-self: center;  /* photo stays centered horizontally */
+    min-height: 0;
+  }
+  /* Stack order inside the stage's flex column: photo on top, then mode-
+     specific tool strip (aspect chip bar OR rot slider OR pad stepper),
+     then bottom actions. Without these orders, DOM order would put
+     mobile-actions ABOVE aspect-bar visually. */
+  .compose-stage-inner       { order: 1; }
+  .compose-aspect-bar,
+  .compose-rot-bar,
+  .compose-mobile-pad-strip  { order: 2; flex-shrink: 0; }
+  .compose-mobile-actions    { order: 3; flex-shrink: 0; }
+
+  /* ── Mode pill column — floats over the photo's right side ───────── */
+  .compose-mode-pills {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 6;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 8px 6px;
+    background: rgba(20, 18, 15, 0.72);
+    border: 1px solid var(--c-ink-3);
+    border-radius: 14px;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+  }
+  .compose-mode-pill {
+    width: 48px; min-height: 56px;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 2px;
+    padding: 4px 0;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--c-cream-mid);
+    cursor: pointer;
+    transition: color .15s, background .15s, border-color .15s;
+  }
+  .compose-mode-pill:active { transform: scale(0.95); }
+  .compose-mode-pill.is-active {
+    color: var(--c-ink-0);
+    background: var(--c-amber);
+    border-color: var(--c-amber);
+    box-shadow: 0 0 12px var(--c-amber-glow);
+  }
+  .compose-mode-pill-label {
+    font: 500 9.5px/1 var(--f-mono);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  /* Numeric ≡ pill sits separated from the 3 mode pills by a subtle
+     divider — visually telegraphs "this is a different kind of control". */
+  .compose-mode-pill-numeric {
+    margin-top: 6px;
+    padding-top: 10px;
+    border-top: 1px solid var(--c-ink-3);
+    border-radius: 0 0 10px 10px;
+    min-height: 44px;
+  }
+  .compose-mode-pill-numeric.is-active {
+    /* numeric pill can't be persistently active — it just opens a sheet.
+       Override the .is-active glow if anyone toggles it by mistake. */
+    background: transparent; color: var(--c-amber); border-color: var(--c-amber-dim);
+    box-shadow: none;
+  }
+
+  /* ── Context strip — host for aspect bar / rot bar / pad stepper ── */
+  /* These three are mutually exclusive via [data-focus] on the stage. */
+  .compose-aspect-bar,
+  .compose-rot-bar,
+  .compose-mobile-pad-strip {
+    padding: 10px 14px;
+    border-top: 1px solid var(--c-ink-3);
+    background: linear-gradient(to top, rgba(20,18,15,0.93), rgba(20,18,15,0.55));
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+
+  /* Aspect chip bar: horizontal scroll instead of flex-wrap. All 8 chips
+     stay on one line; user swipes to see the rest. Right-edge fade mask
+     telegraphs that there's more content out of view.
+
+     NB: do NOT unconditionally `display: flex` here — the desktop base
+     rule sets `display: none` and the conditional `[data-focus="crop"]`
+     selector flips to flex only in crop mode. An unconditional flex
+     declaration here would leave the bar visible in pad / rot modes too. */
+  .compose-aspect-bar {
+    align-items: center;
+    gap: 10px;
+    /* hide "比例" label on mobile — the chips themselves are the affordance */
+  }
+  .compose-stage[data-focus="crop"] .compose-aspect-bar { display: flex; }
+  .compose-aspect-label { display: none; }
+  .compose-aspect-seg {
+    flex: 1 1 0;
+    /* min-width: 0 is critical — a flex item defaults to `min-width: auto`
+       which uses the content size (= sum of all 8 chip widths) and would
+       push the aspect-bar past viewport width. Setting it to 0 lets the
+       seg shrink to whatever the flex layout assigns, and overflow-x: auto
+       kicks in to scroll the chips. */
+    min-width: 0;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding: 2px 24px 2px 2px;  /* right padding leaves room for the fade */
+    /* Right-edge fade mask hints at scroll-overflow. */
+    mask-image: linear-gradient(to right, black 0, black calc(100% - 24px), transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, black 0, black calc(100% - 24px), transparent 100%);
+  }
+  .compose-aspect-seg::-webkit-scrollbar { display: none; }
+  .compose-aspect-seg button {
+    flex: 0 0 auto;
+    scroll-snap-align: start;
+    padding: 9px 14px;
+    min-height: 36px;
+  }
+
+  /* Rot bar: tighten on mobile. The slider gets a bigger thumb via the
+     pointer:coarse media query elsewhere. */
   .compose-rot-bar {
     grid-template-columns: auto 1fr auto auto;
-    gap: 10px; padding: 10px 14px;
+    gap: 10px;
   }
   .compose-rot-bar-val { min-width: 44px; font-size: 12px; }
   .compose-rot-text-btn { padding: 7px 9px; font-size: 9px; }
-  .compose-bench {
-    grid-template-columns: 1fr 1fr;
-    grid-auto-rows: auto;
+
+  /* Padding slider strip: 4 horizontal sliders (T/R/B/L) stacked, each
+     row is [label] [slider] [value]. Same `<input type="range">` pattern
+     as the rotation slider. A floating sync toggle above the stack
+     keeps left/right symmetric by default — toggle off for asymmetric. */
+  .compose-mobile-pad-strip {
+    display: none;  /* shown only when data-focus="pad" */
+    flex-direction: column;
+    gap: 6px;
+    padding: 10px 14px 12px;
   }
-  .compose-mod { padding: 12px 14px 10px; }
-  .compose-mod[data-mod="pad"] { grid-column: span 2; border-right: 0; border-bottom: 1px solid var(--c-ink-3); }
-  .compose-mod[data-mod="crop"] { border-right: 1px solid var(--c-ink-3); }
-  .compose-mod[data-mod="rot"] { grid-column: 2; border-right: 0; }
-  .compose-bench-actions { grid-column: span 2; padding: 10px 14px; border-top: 1px solid var(--c-ink-3); justify-content: flex-end; }
-  /* Mobile keeps the desktop-calibrated min-widths — clipped 4160/6240/70
-     was the v1 bug; per-id overrides defined in the desktop block already
-     handle this correctly. */
-  .compose-vnum { font-size: 14px; }
-  .compose-mod-reset { top: 12px; right: 14px; }
-  /* Reset tag + section tag were overlapping in narrow modules. Move the
-     section tag to the values row's right edge so they don't collide. */
-  .compose-mod-tag { font-size: 8px; }
+  .compose-stage[data-focus="pad"] .compose-mobile-pad-strip {
+    display: flex;
+  }
+  /* On mobile pad mode, hide the on-photo capsule handles entirely. */
+  .compose-stage[data-focus="pad"] .compose-pad-handle {
+    opacity: 0 !important;
+    pointer-events: none !important;
+  }
+
+  /* Sync toggle row — floats above the 4 sliders. Real <input
+     type="checkbox"> for native screen-reader / a11y semantics; the
+     visible chip is the styled <span> sibling that the input is hidden
+     behind via opacity:0. Default is checked (LR synced). */
+  .compose-pad-sync {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 2px;
+  }
+  .compose-pad-sync-toggle {
+    position: relative;
+    display: inline-flex;
+    cursor: pointer;
+    user-select: none;
+  }
+  .compose-pad-sync-toggle input[type="checkbox"] {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    margin: 0;
+    cursor: pointer;
+  }
+  .compose-pad-sync-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border: 1px solid var(--c-ink-4);
+    border-radius: 99px;
+    background: rgba(20,18,15,0.65);
+    color: var(--c-cream-mid);
+    font: 500 10px/1 var(--f-mono);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    transition: color .12s, border-color .12s, background .12s;
+  }
+  .compose-pad-sync-toggle input:checked + .compose-pad-sync-chip {
+    color: var(--c-amber);
+    border-color: var(--c-amber-dim);
+    background: rgba(212,165,116,0.12);
+  }
+  .compose-pad-sync-toggle input:focus-visible + .compose-pad-sync-chip {
+    box-shadow: 0 0 0 2px rgba(212,165,116,0.45);
+  }
+
+  .compose-pad-sliders {
+    display: grid;
+    gap: 4px;
+  }
+  .pad-slider-row {
+    display: grid;
+    grid-template-columns: 18px 1fr 32px;
+    align-items: center;
+    gap: 10px;
+    height: 32px;
+  }
+  .pad-slider-row .pad-slider-label {
+    font: 500 11px/1 var(--f-mono);
+    letter-spacing: 0.18em;
+    color: var(--c-cream-faint);
+    text-transform: uppercase;
+    text-align: center;
+  }
+  .pad-slider-row .pad-slider-val {
+    font: 500 13px/1 var(--f-mono);
+    color: var(--c-cream);
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+  .pad-slider-row.is-warn .pad-slider-val { color: var(--c-warn); }
+  /* When sync is on, the L/R rows show a small link glyph on their label
+     side as a visual reminder that dragging one moves the other too. */
+  .compose-mobile-pad-strip[data-sync="on"] .pad-slider-row[data-edge="left"] .pad-slider-label::after,
+  .compose-mobile-pad-strip[data-sync="on"] .pad-slider-row[data-edge="right"] .pad-slider-label::after {
+    content: "·";
+    color: var(--c-amber);
+    margin-left: 1px;
+  }
+
+  /* Range input styling — mirror the rot-slider track + thumb so the
+     two mobile sliders feel like part of the same instrument family. */
+  input.pad-slider {
+    appearance: none; -webkit-appearance: none;
+    background: transparent;
+    width: 100%;
+    height: 32px;
+    margin: 0;
+    padding: 0;
+    cursor: ew-resize;
+    border: 0;
+  }
+  .pad-slider::-webkit-slider-runnable-track {
+    height: 2px; border-radius: 1px;
+    background: linear-gradient(90deg,
+      rgba(212,165,116,0.18) 0%, rgba(212,165,116,0.55) 50%, rgba(212,165,116,0.18) 100%);
+  }
+  .pad-slider::-moz-range-track {
+    height: 2px; border-radius: 1px;
+    background: linear-gradient(90deg,
+      rgba(212,165,116,0.18) 0%, rgba(212,165,116,0.55) 50%, rgba(212,165,116,0.18) 100%);
+  }
+  .pad-slider::-webkit-slider-thumb {
+    appearance: none; -webkit-appearance: none;
+    width: 18px; height: 18px;
+    background: var(--c-amber);
+    border: 2px solid var(--c-ink-1);
+    border-radius: 50%;
+    margin-top: -8px;
+    box-shadow: 0 0 0 1px rgba(212,165,116,0.4), 0 0 10px var(--c-amber-glow);
+    cursor: ew-resize;
+  }
+  .pad-slider::-moz-range-thumb {
+    width: 18px; height: 18px;
+    background: var(--c-amber);
+    border: 2px solid var(--c-ink-1);
+    border-radius: 50%;
+    box-shadow: 0 0 0 1px rgba(212,165,116,0.4), 0 0 10px var(--c-amber-glow);
+    cursor: ew-resize;
+  }
+
+  /* ── Mobile bottom actions row ──────────────────────────────────── */
+  .compose-mobile-actions {
+    display: flex;
+    gap: 10px;
+    padding: 10px 14px max(10px, env(safe-area-inset-bottom)) 14px;
+    border-top: 1px solid var(--c-ink-3);
+    background: linear-gradient(to top, rgba(20,18,15,0.95), rgba(20,18,15,0.7));
+  }
+  .compose-mobile-actions .btn-secondary {
+    flex: 1 1 30%;
+    background: transparent;
+    color: var(--c-cream-mid);
+    border: 1px solid var(--c-ink-4);
+    border-radius: 8px;
+    padding: 12px;
+    font: 500 13px/1 var(--f-mono);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  .compose-mobile-actions .btn-primary {
+    flex: 1 1 70%;
+    background: var(--c-amber);
+    color: var(--c-ink-0);
+    border: 1px solid var(--c-amber);
+    border-radius: 8px;
+    padding: 12px;
+    font: 600 13px/1 var(--f-mono);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    box-shadow: 0 0 12px var(--c-amber-glow);
+  }
+
+  /* ── Numeric sheet: bottom-sliding dialog for precise typed input ─ */
+  .compose-numeric-sheet {
+    position: fixed;
+    inset: 0;
+    z-index: 10;
+    display: none;
+  }
+  .compose-numeric-sheet:not([hidden]) { display: block; }
+  .compose-numeric-sheet-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+  }
+  .compose-numeric-sheet-card {
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    max-height: 45vh;
+    background: var(--c-ink-1);
+    border-top-left-radius: 18px;
+    border-top-right-radius: 18px;
+    border-top: 1px solid var(--c-ink-3);
+    box-shadow: 0 -10px 40px rgba(0,0,0,0.7);
+    padding: 18px 18px max(18px, env(safe-area-inset-bottom)) 18px;
+    animation: composeSheetSlideUp .22s cubic-bezier(.22,.61,.36,1);
+  }
+  @keyframes composeSheetSlideUp {
+    from { transform: translateY(100%); }
+    to   { transform: translateY(0); }
+  }
+  .compose-numeric-sheet-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+  }
+  .compose-numeric-sheet-title {
+    margin: 0;
+    font: 500 13px/1 var(--f-mono);
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--c-cream);
+  }
+  .compose-numeric-sheet-close {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    border: 1px solid var(--c-ink-4);
+    background: transparent;
+    color: var(--c-cream-mid);
+    display: grid; place-items: center;
+    cursor: pointer;
+  }
+  .compose-numeric-sheet-body {
+    display: grid;
+    gap: 12px;
+  }
+  .compose-numeric-sheet-body .row {
+    display: grid;
+    grid-template-columns: 60px 1fr;
+    gap: 12px;
+    align-items: center;
+  }
+  .compose-numeric-sheet-body .row label {
+    font: 500 11px/1 var(--f-mono);
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--c-cream-mid);
+  }
+  .compose-numeric-sheet-body input[type="number"] {
+    width: 100%;
+    background: var(--c-ink-2);
+    border: 1px solid var(--c-ink-4);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font: 500 16px/1.2 var(--f-mono);
+    color: var(--c-cream);
+    outline: none;
+    font-variant-numeric: tabular-nums;
+  }
+  .compose-numeric-sheet-body input[type="number"]:focus {
+    border-color: var(--c-amber);
+    box-shadow: 0 0 0 3px rgba(212,165,116,0.18);
+  }
+  .compose-numeric-sheet-body .quick-row {
+    display: flex; gap: 8px;
+  }
+  .compose-numeric-sheet-body .quick-row button {
+    flex: 1;
+    padding: 10px;
+    border: 1px solid var(--c-ink-4);
+    border-radius: 8px;
+    background: transparent;
+    color: var(--c-cream-mid);
+    font: 500 11px/1 var(--f-mono);
+    letter-spacing: 0.16em;
+    cursor: pointer;
+  }
+  .compose-numeric-sheet-body .quick-row button:active {
+    background: var(--c-amber); color: var(--c-ink-0); border-color: var(--c-amber);
+  }
 }
 
 /* Touch-coarse devices — enlarge handles regardless of width. Note: with

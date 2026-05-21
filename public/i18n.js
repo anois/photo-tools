@@ -533,6 +533,12 @@
         rotateCcw: '逆时针 90°',
         rotateCw: '顺时针 90°',
         rotateZero: '归零',
+        mobile: {
+          numeric: '精确数值',
+          numericTitle: '精确数值',
+          padSync: '左右同步',
+          padSyncTitle: '同步调整左右边距'
+        },
         crop: {
           aspect: '比例',
           aspectFree: '自由',
@@ -1069,6 +1075,12 @@
         rotateCcw: 'Rotate −90°',
         rotateCw: 'Rotate +90°',
         rotateZero: 'Zero',
+        mobile: {
+          numeric: 'Numeric input',
+          numericTitle: 'Precise values',
+          padSync: 'Sync L/R',
+          padSyncTitle: 'Mirror left/right padding'
+        },
         crop: {
           aspect: 'Aspect',
           aspectFree: 'Free',
