@@ -4,7 +4,26 @@
 
 每次有意义的功能 / 修复 / 优化都记到这里 —— 同一份文件既给开发者看，也通过顶栏 ✦ 按钮在应用内展示给用户。
 
-## 1.1.1 · 2026-05-20
+## 1.1.2 · 2026-05-21
+
+进入 Compose dialog 之后的**移动端交互重做**。1.1.0 把桌面 3-stack bench 布局原样塞进小屏，照片只占 viewport ~30%，工具栏吃掉 70%；1.1.1 修了入口可见但没解决进去之后的拥挤。这次把 mobile Compose 重排成 native 范式 —— 照片占 ≥ 70%，模式切换悬浮，数字编辑折叠。
+
+### ✨ 移动端 Compose dialog 完全重做
+
+- **模式切换悬浮在照片右侧**：4 个 pill（裁剪 / 边距 / 旋转 / 数值）垂直叠在照片右上方，`position: absolute` 不挤压照片宽度。激活 pill 琥珀色填充，48×56px 触摸目标。取代了之前把 3 个 mode "藏" 在 bench module 卡片里的隐式切换。
+- **数字调整默认折叠**：W/H/T/R/B/L/° 这些 input 在 mobile 默认不显示，点 `≡` 数值 pill 弹一个底部 sheet 输入精确值。**95% 的 mobile 操作通过手感拖动完成**，5% 需要精确的用户走 sheet 走 numeric pad。
+- **裁剪 chip 横向滚动**：8 个比例 chip 不再 wrap 到 2 行，改 `overflow-x: auto` + `scroll-snap-type: x mandatory`，全部摆一行可 swipe 浏览；右侧渐隐 mask 提示「还有更多」。
+- **边距改 4 条滑块 + 左右同步**：四边胶囊推条 14×40px 在 touch 下根本拖不动。改成跟桌面端一致的 **4 条水平滑块**（T / R / B / L 各一条 0–300），HUD 跟手 bubble 实时显示数值；**默认左右同步** —— 左右两条滑块 ① 共用一个值，② 顶部带「🔗 左右同步」浮动勾选框可一键解锁独立调整。需要精确数值时仍可点 `≡` 弹底部 sheet 输入。同时 photo 上的 capsule handle 在 mobile pad mode 下完全隐藏（视觉不再拥挤）。
+- **旋转保留 360° slider**：mobile 下 slider thumb 22×22 加大、quick 按钮 40×40。
+- **HUD 跟手 bubble 在 mobile 避开手指**：拖动期间 bubble 默认偏移到手指 **右上方 30/60px**，越界自动翻转到左下，避免被手指挡住读数。
+- **底部 Cancel/Apply 行**：取代桌面 bench 的 Cancel/Apply 列，单行紧凑布局。Apply 是 amber CTA 70% 宽，Cancel 30% 描边按钮。
+
+### 🛠 工程改动
+
+- 移动端断点（`max-width: 700px` + `max-height: 500px and landscape`）独立 markup —— 新增 `<nav id="compose-mode-pills">` / `<div id="compose-mobile-pad-strip">` / `<div id="compose-mobile-actions">` / `<div id="compose-numeric-sheet">`，桌面 bench 原样保留（`display: none` on mobile）。两套 UI 共享同一份 cfg state 和 setFocus / applyAspectChip / setRotationDeg 等 JS handler，零代码逻辑分叉。
+- service-worker `CACHE_VERSION` v42 → v43。CSS shell 大变需要推给老用户。
+
+
 
 1.1.0 发版后立刻发现的移动端入口问题修复。
 

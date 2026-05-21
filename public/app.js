@@ -5306,6 +5306,19 @@ function showUpdateBanner(waitingSw) {
     rotCw: document.getElementById('compose-rot-cw'),
     rotZero: document.getElementById('compose-rot-zero'),
     hint: document.getElementById('compose-hint'),
+    // Mobile UI (1.1.2) — surfaced only ≤ 700px via CSS, but the JS refs
+    // are unconditional so we don't pay an `if (mobile)` branch on every
+    // setFocus / drag call.
+    modePills: document.getElementById('compose-mode-pills'),
+    numericToggle: document.getElementById('compose-numeric-toggle'),
+    mobileActions: document.getElementById('compose-mobile-actions'),
+    mobileCancel: document.getElementById('compose-mobile-cancel'),
+    mobileApply: document.getElementById('compose-mobile-apply'),
+    mobilePadStrip: document.getElementById('compose-mobile-pad-strip'),
+    numericSheet: document.getElementById('compose-numeric-sheet'),
+    numericSheetBody: document.getElementById('compose-numeric-sheet-body'),
+    numericSheetBackdrop: document.getElementById('compose-numeric-sheet-backdrop'),
+    numericSheetClose: document.getElementById('compose-numeric-sheet-close'),
     hud: document.getElementById('compose-hud'),
     hudKey: document.getElementById('compose-hud-key'),
     hudVal: document.getElementById('compose-hud-val'),
@@ -5698,14 +5711,35 @@ function showUpdateBanner(waitingSw) {
   }
 
   // ── HUD helpers ─────────────────────────────────────────────────────
+  // Mobile breakpoint check matches the CSS media query so the HUD
+  // positioning math knows whether the user's touching with a finger
+  // (offset bubble away from contact point) or pointing with a mouse
+  // (bubble centered on cursor).
+  function isMobileViewport() {
+    return window.matchMedia('(max-width: 700px), (max-height: 500px) and (orientation: landscape)').matches;
+  }
   function showHud(key, val, unit, aux, x, y, warn) {
     el.hudKey.textContent = key;
     el.hudVal.textContent = val;
     el.hudUnit.textContent = unit || '';
     el.hudAux.textContent = aux || '';
     el.hudAux.classList.toggle('is-warn', !!warn);
-    el.hud.style.left = x + 'px';
-    el.hud.style.top = y + 'px';
+    // On touch, the finger covers ~44×44 around the contact point. Push
+    // the HUD bubble up-right by 30/60 so it stays visible. Auto-flip
+    // when too close to viewport top / right edges.
+    let useX = x, useY = y;
+    if (isMobileViewport()) {
+      const vw = window.innerWidth, vh = window.innerHeight;
+      useX = x + 30;
+      useY = y - 60;
+      // The bubble's transform is translate(-50%, calc(-100% - 14px)),
+      // so the visible top-left ends up ~76px above useY and ~half-width
+      // left of useX. Edge-avoidance is approximate.
+      if (useX > vw - 80) useX = x - 30;          // too close to right edge
+      if (useY < 90)      useY = y + 80;           // too close to top
+    }
+    el.hud.style.left = useX + 'px';
+    el.hud.style.top  = useY + 'px';
     el.hud.classList.add('is-on');
   }
   function hideHud() { el.hud.classList.remove('is-on'); }
@@ -6022,17 +6056,27 @@ function showUpdateBanner(waitingSw) {
     });
   }
 
-  // ── Module / dial focus selectors ───────────────────────────────────
+  // ── Module / mode-pill focus selectors ──────────────────────────────
   function setFocus(f) {
-    // v1.1.1 — strict-exclusive: one tool active at a time. No 'all' mode.
+    // v1.1.1+ — strict-exclusive: one tool active at a time. No 'all' mode.
     // Setting `data-focus` on the stage drives all the CSS visibility +
     // pointer-events gating. The rot-bar slider also toggles via `hidden`.
     if (f !== 'crop' && f !== 'pad' && f !== 'rot') f = 'crop';
     COMPOSE.focus = f;
     el.stage.dataset.focus = f;
     document.querySelectorAll('.compose-mod').forEach(m => m.classList.toggle('is-active', m.dataset.mod === f));
+    // Mobile mode pills mirror the focus state.
+    document.querySelectorAll('.compose-mode-pill[data-focus]').forEach(p => {
+      const active = p.dataset.focus === f;
+      p.classList.toggle('is-active', active);
+      p.setAttribute('aria-pressed', active ? 'true' : 'false');
+    });
     if (el.rotBar) el.rotBar.hidden = (f !== 'rot');
     if (el.hint) el.hint.textContent = T('compose.hint.' + f);
+    // Refresh mobile pad steppers' displayed values when entering pad mode.
+    if (f === 'pad') updateMobilePadSteppers();
+    // If the numeric sheet is open, re-render its body to match the new mode.
+    if (el.numericSheet && !el.numericSheet.hidden) renderNumericSheetBody();
   }
   function bindModSelectors() {
     document.querySelectorAll('.compose-mod').forEach(m => m.addEventListener('click', (e) => {
@@ -6041,6 +6085,241 @@ function showUpdateBanner(waitingSw) {
       if (e.target.closest('input, button')) return;
       setFocus(m.dataset.mod);
     }));
+  }
+
+  // ── Mobile mode pills (1.1.2) ──────────────────────────────────────
+  // Right-side floating column on mobile, mirrors the desktop bench's
+  // mode-switch role but with bigger touch targets. The numeric ≡ pill
+  // opens the bottom sheet for precise typed input.
+  function bindMobileModePills() {
+    if (!el.modePills) return;
+    el.modePills.querySelectorAll('.compose-mode-pill[data-focus]').forEach(p => {
+      p.addEventListener('click', () => setFocus(p.dataset.focus));
+    });
+    if (el.numericToggle) {
+      el.numericToggle.addEventListener('click', () => openNumericSheet());
+    }
+  }
+  function bindMobileActions() {
+    // Mirror the desktop Cancel/Apply buttons. closeCompose's commit
+    // flag handles both the save-and-render and discard paths.
+    if (el.mobileCancel) el.mobileCancel.addEventListener('click', () => closeCompose(false));
+    if (el.mobileApply)  el.mobileApply .addEventListener('click', () => closeCompose(true));
+  }
+
+  // ── Padding slider strip (mobile only) ─────────────────────────────
+  // 4 horizontal `<input type="range">` sliders for T/R/B/L. Same range
+  // pattern as the rotation slider so the two mobile sliders feel like
+  // part of one instrument family. Direct manipulation only — precise
+  // typed values live behind the ≡ numeric sheet.
+  //
+  // Default behavior: left/right padding stay in sync (the most common
+  // photo composition pattern wants symmetric horizontal margins). A
+  // floating checkbox above the sliders releases the sync.
+  function effectivePadding(edge) {
+    const cfg = COMPOSE.cfg;
+    if (!cfg) return 70;
+    const key = 'padding' + edge.charAt(0).toUpperCase() + edge.slice(1);
+    if (cfg[key] != null) return cfg[key];
+    const frameLayout = R.resolveFrame(cfg.frame).layout || {};
+    if (edge === 'top')    return (cfg.padding || 70) + (frameLayout.topPaddingBoost || 0);
+    if (edge === 'bottom') return (cfg.padding || 70) + (frameLayout.bottomPaddingBoost || 0);
+    return cfg.padding || 70;
+  }
+  // Sync state — UI is the checkbox; this mirrors it so the slider drag
+  // handler doesn't have to query the DOM on every input event.
+  let padSyncLR = true;
+  function writePadding(edge, value) {
+    const v = Math.max(0, Math.min(300, Math.round(Number(value) || 0)));
+    const key = 'padding' + edge.charAt(0).toUpperCase() + edge.slice(1);
+    COMPOSE.cfg[key] = v;
+    // L/R sync: when a left or right slider changes and sync is on,
+    // mirror the value to the opposite edge.
+    if (padSyncLR && (edge === 'left' || edge === 'right')) {
+      const mirror = edge === 'left' ? 'right' : 'left';
+      const mKey = 'padding' + mirror.charAt(0).toUpperCase() + mirror.slice(1);
+      COMPOSE.cfg[mKey] = v;
+    }
+    return v;
+  }
+  function updateMobilePadSliders() {
+    if (!el.mobilePadStrip) return;
+    const mp = COMPOSE.minPad || {};
+    ['top','right','bottom','left'].forEach((edge) => {
+      const eff = Math.round(effectivePadding(edge));
+      const valEl = document.getElementById('pad-val-' + edge);
+      if (valEl) valEl.textContent = eff;
+      const sliderEl = document.getElementById('pad-slider-' + edge);
+      // Only write to the slider when it isn't the one the user is
+      // dragging — otherwise the displayed thumb position fights the
+      // pointer position. document.activeElement covers keyboard focus
+      // too. For sync-mirror writes (R updates while user drags L) we
+      // still want the mirror slider to reflect the new value, so the
+      // check applies per-element.
+      if (sliderEl && document.activeElement !== sliderEl) sliderEl.value = eff;
+      const row = el.mobilePadStrip.querySelector(`.pad-slider-row[data-edge="${edge}"]`);
+      if (row) row.classList.toggle('is-warn', !!(mp[edge] && eff < mp[edge]));
+    });
+    el.mobilePadStrip.dataset.sync = padSyncLR ? 'on' : 'off';
+  }
+  function bindMobilePadStepper() {
+    if (!el.mobilePadStrip) return;
+    // Sync toggle
+    const syncCheckbox = document.getElementById('compose-pad-sync-checkbox');
+    if (syncCheckbox) {
+      syncCheckbox.addEventListener('change', () => {
+        padSyncLR = !!syncCheckbox.checked;
+        el.mobilePadStrip.dataset.sync = padSyncLR ? 'on' : 'off';
+        // Snap R to L (or L to R) immediately on enabling sync so the
+        // two edges are in lockstep before the next drag.
+        if (padSyncLR) {
+          const l = effectivePadding('left');
+          writePadding('right', l);
+          updateMobilePadSliders();
+          requestComposeRender();
+        }
+      });
+      // Initial sync state from markup `checked` attr
+      padSyncLR = !!syncCheckbox.checked;
+      el.mobilePadStrip.dataset.sync = padSyncLR ? 'on' : 'off';
+    }
+    // Per-slider drag → cfg + HUD bubble + render
+    ['top','right','bottom','left'].forEach((edge) => {
+      const sliderEl = document.getElementById('pad-slider-' + edge);
+      if (!sliderEl) return;
+      sliderEl.addEventListener('pointerdown', () => beginDrag());
+      sliderEl.addEventListener('pointerup',   () => { endDrag(); hideHud(); });
+      sliderEl.addEventListener('pointercancel',() => { endDrag(); hideHud(); });
+      sliderEl.addEventListener('input', () => {
+        const v = writePadding(edge, sliderEl.value);
+        updateMobilePadSliders();
+        requestComposeRender();
+        // Live HUD bubble above the slider thumb
+        const rect = sliderEl.getBoundingClientRect();
+        const frac = (Number(sliderEl.value) - Number(sliderEl.min)) / (Number(sliderEl.max) - Number(sliderEl.min));
+        const thumbX = rect.left + rect.width * frac;
+        const mp = COMPOSE.minPad || {};
+        const minV = mp[edge] || 0;
+        const isWarn = v < minV;
+        showHud(
+          T('compose.hud.pad') + ' · ' + edge.toUpperCase(),
+          Math.round(v), 'PX',
+          T('compose.hud.min') + ' · ' + minV + (isWarn ? ' · ' + T('compose.hud.below') : ''),
+          thumbX, rect.top, isWarn
+        );
+      });
+    });
+  }
+  // Renamed for the new slider UI but `setFocus` still calls the old
+  // name in its `if (f === 'pad') updateMobilePadSteppers();` path —
+  // alias so we don't have to touch setFocus.
+  function updateMobilePadSteppers() { updateMobilePadSliders(); }
+
+  // ── Numeric sheet (mobile only) ────────────────────────────────────
+  // Bottom-sliding dialog for precise typed input. Renders one of three
+  // form layouts based on COMPOSE.focus. Inputs share the same event
+  // wiring as the desktop bench — applyAspectChip / setRotationDeg are
+  // reused, so no parallel cfg-mutation path.
+  function renderNumericSheetBody() {
+    if (!el.numericSheetBody) return;
+    const f = COMPOSE.focus;
+    const cfg = COMPOSE.cfg;
+    if (!cfg) { el.numericSheetBody.innerHTML = ''; return; }
+    let html = '';
+    if (f === 'crop') {
+      const rot = ((Number(cfg.rotation) || 0) % 360 + 360) % 360;
+      const safe = COMPOSE.bm ? R.inscribedSafeArea(COMPOSE.bm, rot) : { w: COMPOSE.sourceW || 1, h: COMPOSE.sourceH || 1 };
+      const crop = cfg.crop || { x: 0, y: 0, w: 1, h: 1 };
+      const w = Math.round(safe.w * crop.w);
+      const h = Math.round(safe.h * crop.h);
+      html = `
+        <div class="row"><label for="ns-crop-w">W</label><input id="ns-crop-w" type="number" inputmode="numeric" min="1" value="${w}" /></div>
+        <div class="row"><label for="ns-crop-h">H</label><input id="ns-crop-h" type="number" inputmode="numeric" min="1" value="${h}" /></div>
+      `;
+    } else if (f === 'pad') {
+      const t = Math.round(effectivePadding('top'));
+      const r = Math.round(effectivePadding('right'));
+      const b = Math.round(effectivePadding('bottom'));
+      const l = Math.round(effectivePadding('left'));
+      html = `
+        <div class="row"><label for="ns-pad-t">T</label><input id="ns-pad-t" type="number" inputmode="numeric" min="0" max="300" value="${t}" /></div>
+        <div class="row"><label for="ns-pad-r">R</label><input id="ns-pad-r" type="number" inputmode="numeric" min="0" max="300" value="${r}" /></div>
+        <div class="row"><label for="ns-pad-b">B</label><input id="ns-pad-b" type="number" inputmode="numeric" min="0" max="300" value="${b}" /></div>
+        <div class="row"><label for="ns-pad-l">L</label><input id="ns-pad-l" type="number" inputmode="numeric" min="0" max="300" value="${l}" /></div>
+      `;
+    } else if (f === 'rot') {
+      const rotRaw = Number(cfg.rotation) || 0;
+      const deg = (((rotRaw + 180) % 360) + 360) % 360 - 180;
+      const display = Math.abs(deg) < 0.05 ? '0' : deg.toFixed(1).replace(/\.0$/, '');
+      html = `
+        <div class="row"><label for="ns-rot-deg">°</label><input id="ns-rot-deg" type="number" inputmode="decimal" step="0.5" value="${display}" /></div>
+        <div class="quick-row">
+          <button type="button" data-rot="-90">−90°</button>
+          <button type="button" data-rot="0">0°</button>
+          <button type="button" data-rot="90">+90°</button>
+        </div>
+      `;
+    }
+    el.numericSheetBody.innerHTML = html;
+    // Wire input events
+    if (f === 'crop') {
+      const wIn = document.getElementById('ns-crop-w');
+      const hIn = document.getElementById('ns-crop-h');
+      const applyCropPx = () => {
+        const rot = ((Number(cfg.rotation) || 0) % 360 + 360) % 360;
+        const safe = COMPOSE.bm ? R.inscribedSafeArea(COMPOSE.bm, rot) : { w: 1, h: 1 };
+        const newW = Math.max(1, Math.min(safe.w, Number(wIn.value) || safe.w)) / safe.w;
+        const newH = Math.max(1, Math.min(safe.h, Number(hIn.value) || safe.h)) / safe.h;
+        const cur = cfg.crop || { x: 0, y: 0, w: 1, h: 1 };
+        const cxN = cur.x + cur.w / 2;
+        const cyN = cur.y + cur.h / 2;
+        const nx = Math.max(0, Math.min(1 - newW, cxN - newW / 2));
+        const ny = Math.max(0, Math.min(1 - newH, cyN - newH / 2));
+        cfg.crop = (nx === 0 && ny === 0 && newW >= 0.999 && newH >= 0.999) ? null : { x: nx, y: ny, w: newW, h: newH };
+        requestComposeRender();
+      };
+      wIn && wIn.addEventListener('input', applyCropPx);
+      hIn && hIn.addEventListener('input', applyCropPx);
+    } else if (f === 'pad') {
+      ['t','r','b','l'].forEach((short) => {
+        const edge = short === 't' ? 'top' : short === 'r' ? 'right' : short === 'b' ? 'bottom' : 'left';
+        const key = 'padding' + edge.charAt(0).toUpperCase() + edge.slice(1);
+        const input = document.getElementById('ns-pad-' + short);
+        if (!input) return;
+        input.addEventListener('input', () => {
+          const v = Math.max(0, Math.min(300, Number(input.value) || 0));
+          COMPOSE.cfg[key] = v;
+          updateMobilePadSteppers();
+          requestComposeRender();
+        });
+      });
+    } else if (f === 'rot') {
+      const degIn = document.getElementById('ns-rot-deg');
+      degIn && degIn.addEventListener('input', () => {
+        const v = Number(degIn.value);
+        if (isFinite(v)) setRotationDeg(v, 'sheet');
+      });
+      el.numericSheetBody.querySelectorAll('button[data-rot]').forEach((b) => {
+        b.addEventListener('click', () => setRotationDeg(Number(b.dataset.rot)));
+      });
+    }
+  }
+  function openNumericSheet() {
+    if (!el.numericSheet) return;
+    renderNumericSheetBody();
+    el.numericSheet.hidden = false;
+    // Focus the first input for immediate typing
+    setTimeout(() => {
+      const first = el.numericSheetBody.querySelector('input');
+      if (first) { first.focus(); first.select(); }
+    }, 60);
+  }
+  function closeNumericSheet() {
+    if (el.numericSheet) el.numericSheet.hidden = true;
+  }
+  function bindNumericSheet() {
+    if (el.numericSheetClose) el.numericSheetClose.addEventListener('click', closeNumericSheet);
+    if (el.numericSheetBackdrop) el.numericSheetBackdrop.addEventListener('click', closeNumericSheet);
   }
 
   // ── Crop aspect chip bar ───────────────────────────────────────────
@@ -6179,6 +6458,13 @@ function showUpdateBanner(waitingSw) {
   bindResets();
   bindModSelectors();
   bindAspectChips();
+  // Mobile-only UI (1.1.2). The CSS hides these elements above 700px so
+  // the bindings are harmless on desktop; users never see / interact with
+  // them.
+  bindMobileModePills();
+  bindMobileActions();
+  bindMobilePadStepper();
+  bindNumericSheet();
 
   // Pan-crop: drag inside the photo aperture to shift crop without resizing.
   el.canvas.addEventListener('pointerdown', (e) => {
