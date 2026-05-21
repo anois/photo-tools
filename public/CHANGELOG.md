@@ -4,6 +4,27 @@
 
 每次有意义的功能 / 修复 / 优化都记到这里 —— 同一份文件既给开发者看，也通过顶栏 ✦ 按钮在应用内展示给用户。
 
+## 1.2.0 · 2026-05-21
+
+**移动端裁切交互整个推倒重做** —— 从「拖拽角的 handle」模型换成 iPhone 原生 Photos / Instagram / Lightroom Mobile 那种 **「Through the Aperture」（取景器后面拖照片）** 模型。1.1.x 的 handle UX 在 mobile 完全不可用：手指比 28px 的 bracket 粗，触摸后手指还把那个 bracket 完全挡住；「拽手柄=resize」vs「拽内部=pan」靠 hover 试探的判定在 touch 下根本无法运作。这一版抛掉历史包袱重新设计。
+
+### ✂️ Compose · 移动端裁切完全重做
+
+- **「Through the Aperture」交互范式**：aperture（裁切窗口）固定在屏幕中央，**照片在 aperture 后面被单指平移 + 双指捏合缩放**。aperture 是什么形状，裁出来就是什么形状。**完全没有需要捏住的 handle**，触摸任何地方都是 pan，不存在模式判定错乱。
+- **暗罩 + 取景器边框**：aperture 外侧 `rgba(8,6,4,0.78)` 半透明暗罩通过 frame 元素的 `box-shadow: 0 0 0 9999px` 实现，无额外 DOM。4 个角加琥珀色 L 形小 bracket（大画幅取景器既视感）。
+- **黄金分割辅助线**：拽动期间 aperture 内部叠加 rule-of-thirds 网格，松手 250ms 内淡出，专注构图。
+- **捏合 HUD**：双指缩放时屏幕右侧浮现一个 amber 小牌子显示当前倍率（如「1.4×」），松手即隐。
+- **比例 chip 改为黄铜小标牌**：每个 chip 内部画一个小填充矩形预览那个比例的实际形状（1:1 是正方形，9:16 是细高条，16:9 是矮宽条等），琥珀色激活，黄铜质感渐变 + 内嵌高光。Free 是虚线框；Custom 是省略号。切换比例时 aperture 边框琥珀脉冲 1 次锚定操作。
+- **GPU 合成层渲染**：照片用 `transform: translate3d() scale()` 跑在合成层，pan + pinch 全程 60fps；松手时才把 transform 反算回归一化的 `cfg.crop` 并触发一次正常 render（不在每帧重画 canvas）。
+- **照片占可见 ≥ 75%**：aperture 居中且偏左以避开右侧模式 pill 列。
+
+### 🛠 工程改动
+
+- **桌面端零改动** —— `@media (max-width: 700px)` 内的独立 markup（`<div id="compose-aperture-shell">`）+ CSS gating，桌面 handle 交互完全不动。
+- aperture 模块约 400 行 JS（`APERTURE` 状态 + transform↔cfg.crop 数学 + Pointer Events 多指追踪 + 比例 chip 改写）。
+- 预渲染 rotated bitmap 一次到 aperture 内部 canvas（rotation 已 bake，pan/pinch 数学只是 2D），随后 pan/pinch 只动 CSS vars。
+- service-worker `CACHE_VERSION` v43 → v44。
+
 ## 1.1.2 · 2026-05-21
 
 进入 Compose dialog 之后的**移动端交互重做**。1.1.0 把桌面 3-stack bench 布局原样塞进小屏，照片只占 viewport ~30%，工具栏吃掉 70%；1.1.1 修了入口可见但没解决进去之后的拥挤。这次把 mobile Compose 重排成 native 范式 —— 照片占 ≥ 70%，模式切换悬浮，数字编辑折叠。

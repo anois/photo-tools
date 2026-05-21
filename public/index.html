@@ -981,6 +981,34 @@
       <div class="compose-stage-inner" id="compose-stage-inner">
         <img id="compose-ghost-img" class="compose-ghost" alt="" />
         <canvas id="compose-canvas" class="compose-canvas"></canvas>
+
+        <!-- ──────────────────────────────────────────────────────────────
+             Mobile aperture overlay (≤ 700px) — replaces the corner-bracket
+             handle UX with a pan + pinch "look-through-the-viewfinder"
+             model. The photo lives behind a fixed aperture; user pans
+             with one finger, pinches to zoom. Outside the aperture is a
+             dark mask painted via box-shadow on the frame element (no
+             extra DOM). cfg.crop is reverse-derived from the photo's
+             transform on pointerup. Shell is `hidden` by default and
+             only un-hidden when both (a) compose-stage has data-focus=crop
+             AND (b) viewport is mobile (CSS media query handles the gate).
+             ────────────────────────────────────────────────────────────── -->
+        <div class="compose-aperture-shell" id="compose-aperture-shell" hidden>
+          <canvas class="compose-aperture-photo" id="compose-aperture-photo"></canvas>
+          <div class="compose-aperture-frame" id="compose-aperture-frame">
+            <div class="compose-aperture-grid" aria-hidden="true">
+              <span></span><span></span><span></span><span></span>
+            </div>
+            <span class="compose-aperture-bracket tl" aria-hidden="true"></span>
+            <span class="compose-aperture-bracket tr" aria-hidden="true"></span>
+            <span class="compose-aperture-bracket bl" aria-hidden="true"></span>
+            <span class="compose-aperture-bracket br" aria-hidden="true"></span>
+          </div>
+          <div class="compose-aperture-scale" id="compose-aperture-scale" aria-hidden="true">
+            <span class="compose-aperture-scale-val">1.0×</span>
+          </div>
+        </div>
+
         <div class="compose-handles" id="compose-handles">
           <div class="compose-handle compose-crop-corner" data-h="crop:tl"></div>
           <div class="compose-handle compose-crop-corner" data-h="crop:tr"></div>
@@ -1089,14 +1117,38 @@
       <div class="compose-aspect-bar" id="compose-aspect-bar">
         <span class="compose-aspect-label" data-i18n="compose.crop.aspect">比例</span>
         <div class="compose-aspect-seg" role="radiogroup">
-          <button type="button" data-aspect="free"  class="is-active" role="radio" aria-checked="true"  data-i18n="compose.crop.aspectFree">自由</button>
-          <button type="button" data-aspect="frame" role="radio" aria-checked="false" data-i18n="compose.crop.aspectFrame">当前画幅</button>
-          <button type="button" data-aspect="1:1"   role="radio" aria-checked="false">1<span class="compose-aspect-sep">:</span>1</button>
-          <button type="button" data-aspect="3:4"   role="radio" aria-checked="false">3<span class="compose-aspect-sep">:</span>4</button>
-          <button type="button" data-aspect="4:3"   role="radio" aria-checked="false">4<span class="compose-aspect-sep">:</span>3</button>
-          <button type="button" data-aspect="9:16"  role="radio" aria-checked="false">9<span class="compose-aspect-sep">:</span>16</button>
-          <button type="button" data-aspect="16:9"  role="radio" aria-checked="false">16<span class="compose-aspect-sep">:</span>9</button>
-          <button type="button" data-aspect="custom" id="compose-aspect-custom" role="radio" aria-checked="false"><span id="compose-aspect-custom-label" data-i18n="compose.crop.aspectCustom">⋯</span></button>
+          <button type="button" data-aspect="free"  class="is-active" role="radio" aria-checked="true">
+            <span class="compose-aspect-glyph" data-glyph="free" aria-hidden="true"></span>
+            <span class="compose-aspect-text" data-i18n="compose.crop.aspectFree">自由</span>
+          </button>
+          <button type="button" data-aspect="frame" role="radio" aria-checked="false">
+            <span class="compose-aspect-glyph" data-glyph="frame" aria-hidden="true"></span>
+            <span class="compose-aspect-text" data-i18n="compose.crop.aspectFrame">画幅</span>
+          </button>
+          <button type="button" data-aspect="1:1"   role="radio" aria-checked="false">
+            <span class="compose-aspect-glyph" data-glyph="1-1" aria-hidden="true"></span>
+            <span class="compose-aspect-text">1:1</span>
+          </button>
+          <button type="button" data-aspect="3:4"   role="radio" aria-checked="false">
+            <span class="compose-aspect-glyph" data-glyph="3-4" aria-hidden="true"></span>
+            <span class="compose-aspect-text">3:4</span>
+          </button>
+          <button type="button" data-aspect="4:3"   role="radio" aria-checked="false">
+            <span class="compose-aspect-glyph" data-glyph="4-3" aria-hidden="true"></span>
+            <span class="compose-aspect-text">4:3</span>
+          </button>
+          <button type="button" data-aspect="9:16"  role="radio" aria-checked="false">
+            <span class="compose-aspect-glyph" data-glyph="9-16" aria-hidden="true"></span>
+            <span class="compose-aspect-text">9:16</span>
+          </button>
+          <button type="button" data-aspect="16:9"  role="radio" aria-checked="false">
+            <span class="compose-aspect-glyph" data-glyph="16-9" aria-hidden="true"></span>
+            <span class="compose-aspect-text">16:9</span>
+          </button>
+          <button type="button" data-aspect="custom" id="compose-aspect-custom" role="radio" aria-checked="false">
+            <span class="compose-aspect-glyph" data-glyph="custom" aria-hidden="true"></span>
+            <span class="compose-aspect-text" id="compose-aspect-custom-label" data-i18n="compose.crop.aspectCustom">自定</span>
+          </button>
         </div>
       </div>
 

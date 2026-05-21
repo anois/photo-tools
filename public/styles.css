@@ -5997,6 +5997,280 @@ input.compose-vnum, .compose-vnum {
   .compose-rot-bar-val { min-width: 44px; font-size: 12px; }
   .compose-rot-text-btn { padding: 7px 9px; font-size: 9px; }
 
+  /* ──────────────────────────────────────────────────────────────────
+     Aperture overlay — the mobile crop interaction (v1.2.0+).
+     Replaces the corner-bracket handles with a "look through the
+     viewfinder" model: aperture is fixed in stage center, photo is
+     pan + pinch behind it.
+
+     Layering inside `.compose-aperture-shell`:
+       1. .compose-aperture-photo — <canvas> drawn once with the rotated
+          bitmap, transformed via CSS vars on every pointer event.
+       2. .compose-aperture-frame — the visible aperture rectangle. Its
+          box-shadow with a 9999px spread paints a dark mask over
+          everything outside the frame, with no extra DOM.
+       3. .compose-aperture-bracket × 4 — corner L brackets, amber,
+          purely visual.
+       4. .compose-aperture-grid — rule-of-thirds, fades in during
+          interaction, fades out 400ms after pointerup.
+       5. .compose-aperture-scale — HUD scale readout during pinch.
+
+     Gating: the shell has `hidden` attr in markup (UA's display:none).
+     Outside this media query → shell stays hidden. Inside → only the
+     `[data-focus="crop"]` selector below flips it to display:block,
+     overriding the UA `[hidden]` rule (rule wins on specificity).
+     ──────────────────────────────────────────────────────────────── */
+  .compose-aperture-shell {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    /* When in crop mode on mobile, the stage's canvas + handles vanish
+       (rules further below) and this shell is the entire interaction
+       surface. */
+  }
+  /* The [hidden] attribute would normally hide the element via UA css;
+     we need to keep it hidden on desktop AND in non-crop mobile modes.
+     The class rule below has higher specificity than UA [hidden], so
+     we re-declare display:none explicitly when [hidden] is set. */
+  .compose-aperture-shell[hidden] { display: none; }
+  .compose-stage[data-focus="crop"] .compose-aperture-shell:not([hidden]) {
+    display: block;
+  }
+  /* Hide the regular canvas + handles when aperture is active (mobile
+     crop mode). They keep computing in the background but are visually
+     suppressed. Once user applies, the regular render path takes over
+     for the next preview cycle. */
+  .compose-stage[data-focus="crop"] .compose-aperture-shell:not([hidden]) ~ .compose-handles,
+  .compose-stage[data-focus="crop"] .compose-canvas:has(~ .compose-aperture-shell:not([hidden])) {
+    /* `:has` not universally supported on older WebKit, but the handles
+       always have the `.compose-handles` class so this rule pair degrades
+       gracefully: handles hidden via the first selector even when canvas
+       stays visible. The canvas under the photo layer is fine — the dark
+       mask + photo overlay completely cover it. */
+    display: none;
+  }
+  /* Stronger fallback: when aperture is shown, just hide canvas via
+     a class JS toggles. */
+  .compose-stage.aperture-active .compose-canvas,
+  .compose-stage.aperture-active .compose-handles,
+  .compose-stage.aperture-active .compose-ghost { visibility: hidden; }
+
+  .compose-aperture-photo {
+    position: absolute;
+    left: 0; top: 0;
+    transform-origin: 0 0;
+    /* All transform updates come from JS via these CSS vars, written on
+       every pointer event. GPU compositor handles them. */
+    transform: translate3d(var(--ap-tx, 0px), var(--ap-ty, 0px), 0)
+               scale(var(--ap-scale, 1));
+    will-change: transform;
+    image-rendering: -webkit-optimize-contrast;
+    pointer-events: none;  /* the shell catches all pointer events */
+  }
+
+  /* Aperture frame — a transparent rectangle whose huge outer box-shadow
+     paints the dark mask. The amber border is the visible aperture edge. */
+  .compose-aperture-frame {
+    position: absolute;
+    left: var(--ap-frame-x, 50%);
+    top: var(--ap-frame-y, 50%);
+    width: var(--ap-frame-w, 280px);
+    height: var(--ap-frame-h, 280px);
+    transform: translate(-50%, -50%);
+    border: 1px solid rgba(212, 165, 116, 0.85);
+    box-shadow:
+      0 0 0 9999px rgba(8, 6, 4, 0.78),
+      inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+    pointer-events: none;  /* clicks pass through to the shell beneath */
+    transition: width .22s cubic-bezier(.4,0,.2,1),
+                height .22s cubic-bezier(.4,0,.2,1);
+  }
+  /* Pulse the aperture border briefly when aspect snaps to a chip — JS
+     adds .is-snap, autoremoves after 600ms. */
+  .compose-aperture-frame.is-snap {
+    animation: aperturePulse 600ms cubic-bezier(.4,0,.2,1);
+  }
+  @keyframes aperturePulse {
+    0%, 100% { border-color: rgba(212, 165, 116, 0.85); }
+    35%      { border-color: rgba(245, 200, 145, 1);
+               box-shadow: 0 0 0 9999px rgba(8,6,4,0.78),
+                           inset 0 0 24px rgba(212,165,116,0.25); }
+  }
+
+  /* Corner brackets — small L shapes in amber. Purely visual, not handles.
+     Two pseudo-elements per corner make the L without extra markup. */
+  .compose-aperture-bracket {
+    position: absolute;
+    width: 18px; height: 18px;
+    pointer-events: none;
+  }
+  .compose-aperture-bracket::before,
+  .compose-aperture-bracket::after {
+    content: "";
+    position: absolute;
+    background: var(--c-amber);
+    box-shadow: 0 0 6px rgba(212,165,116,0.55);
+  }
+  .compose-aperture-bracket::before { /* horizontal arm */
+    width: 18px; height: 2px; left: 0;
+  }
+  .compose-aperture-bracket::after  { /* vertical arm */
+    width: 2px; height: 18px; top: 0;
+  }
+  .compose-aperture-bracket.tl { left: -1px; top: -1px; }
+  .compose-aperture-bracket.tl::before { top: 0; }
+  .compose-aperture-bracket.tl::after  { left: 0; }
+  .compose-aperture-bracket.tr { right: -1px; top: -1px; }
+  .compose-aperture-bracket.tr::before { top: 0; right: 0; left: auto; }
+  .compose-aperture-bracket.tr::after  { right: 0; }
+  .compose-aperture-bracket.bl { left: -1px; bottom: -1px; }
+  .compose-aperture-bracket.bl::before { bottom: 0; }
+  .compose-aperture-bracket.bl::after  { left: 0; bottom: 0; top: auto; }
+  .compose-aperture-bracket.br { right: -1px; bottom: -1px; }
+  .compose-aperture-bracket.br::before { bottom: 0; right: 0; left: auto; }
+  .compose-aperture-bracket.br::after  { right: 0; bottom: 0; top: auto; }
+
+  /* Rule-of-thirds grid — 4 absolute lines forming a 3×3 inside the
+     aperture. Hidden by default; .is-interacting on the shell fades in. */
+  .compose-aperture-grid {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity .25s ease-out;
+  }
+  .compose-aperture-grid span {
+    position: absolute;
+    background: rgba(212, 165, 116, 0.32);
+  }
+  .compose-aperture-grid span:nth-child(1) { /* vertical 1/3 */
+    left: 33.333%; top: 0; bottom: 0; width: 1px;
+  }
+  .compose-aperture-grid span:nth-child(2) { /* vertical 2/3 */
+    left: 66.666%; top: 0; bottom: 0; width: 1px;
+  }
+  .compose-aperture-grid span:nth-child(3) { /* horizontal 1/3 */
+    top: 33.333%; left: 0; right: 0; height: 1px;
+  }
+  .compose-aperture-grid span:nth-child(4) { /* horizontal 2/3 */
+    top: 66.666%; left: 0; right: 0; height: 1px;
+  }
+  .compose-aperture-shell.is-interacting .compose-aperture-grid {
+    opacity: 1;
+  }
+
+  /* Scale HUD — small floating readout on the right edge of the stage.
+     Only visible during pinch (.is-pinching class on shell). */
+  .compose-aperture-scale {
+    position: absolute;
+    top: 50%;
+    right: 78px;  /* offset to clear the mode-pill column */
+    transform: translateY(-50%);
+    background: rgba(20, 18, 15, 0.92);
+    border: 1px solid var(--c-amber-dim);
+    border-radius: 4px;
+    padding: 6px 9px;
+    color: var(--c-amber);
+    font: 600 13px/1 var(--f-mono);
+    letter-spacing: 0.04em;
+    box-shadow: 0 0 14px rgba(212,165,116,0.35);
+    opacity: 0;
+    transition: opacity .15s ease-out;
+    pointer-events: none;
+  }
+  .compose-aperture-shell.is-pinching .compose-aperture-scale {
+    opacity: 1;
+  }
+
+  /* ──────────────────────────────────────────────────────────────────
+     Brass-style aspect chips (v1.2.0+). Each chip is a small brass-tone
+     plate with a shape glyph (filled mini-rect showing the aspect ratio)
+     above a label. Active chip lights amber.
+     ──────────────────────────────────────────────────────────────── */
+  .compose-aspect-seg button {
+    /* Reshape the chip into a vertical card: glyph on top, label below. */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    min-width: 52px;
+    min-height: 52px;
+    padding: 6px 8px;
+    border: 1px solid var(--c-ink-3);
+    border-radius: 7px;
+    background:
+      linear-gradient(160deg, rgba(60,46,30,0.42) 0%, rgba(35,27,18,0.42) 100%);
+    color: var(--c-cream-mid);
+    box-shadow:
+      inset 0 1px 0 rgba(212,165,116,0.08),
+      0 1px 2px rgba(0,0,0,0.4);
+  }
+  .compose-aspect-seg button.is-active {
+    color: var(--c-ink-0);
+    background:
+      linear-gradient(160deg, #e0b985 0%, #c79764 100%);
+    border-color: #b9874e;
+    box-shadow:
+      inset 0 1px 0 rgba(255,222,180,0.7),
+      0 0 12px rgba(212,165,116,0.5);
+  }
+  .compose-aspect-text {
+    font: 600 9.5px/1 var(--f-mono);
+    letter-spacing: 0.06em;
+  }
+  /* Glyph: a small filled rectangle drawn with width/height to encode
+     the aspect ratio. We use background-color + computed width/height
+     to draw the shape; "free" is a dashed outline, "custom" is a tiny
+     ellipsis. */
+  .compose-aspect-glyph {
+    display: block;
+    width: 22px; height: 18px;
+    position: relative;
+  }
+  .compose-aspect-glyph::before {
+    content: "";
+    position: absolute;
+    left: 50%; top: 50%;
+    transform: translate(-50%, -50%);
+    background: currentColor;
+    border-radius: 1.5px;
+    opacity: 0.85;
+  }
+  /* Per-aspect glyph dims — pre-computed so the shapes read at a glance.
+     1:1 = 14×14 square; 3:4 = 12×16; 4:3 = 16×12; 9:16 = 9×16;
+     16:9 = 18×10. */
+  .compose-aspect-glyph[data-glyph="1-1"]::before  { width: 14px; height: 14px; }
+  .compose-aspect-glyph[data-glyph="3-4"]::before  { width: 12px; height: 16px; }
+  .compose-aspect-glyph[data-glyph="4-3"]::before  { width: 16px; height: 12px; }
+  .compose-aspect-glyph[data-glyph="9-16"]::before { width: 9px;  height: 16px; }
+  .compose-aspect-glyph[data-glyph="16-9"]::before { width: 18px; height: 10px; }
+  /* Free = dashed outline rectangle, no fill */
+  .compose-aspect-glyph[data-glyph="free"]::before {
+    width: 18px; height: 14px;
+    background: transparent;
+    border: 1.5px dashed currentColor;
+    opacity: 1;
+  }
+  /* Frame = a mini "picture frame" — outer outline with inset hole */
+  .compose-aspect-glyph[data-glyph="frame"]::before {
+    width: 18px; height: 14px;
+    background: transparent;
+    border: 2px solid currentColor;
+    opacity: 1;
+  }
+  /* Custom = tiny ellipsis dots */
+  .compose-aspect-glyph[data-glyph="custom"]::before {
+    width: 14px; height: 4px;
+    background: transparent;
+    border: 0;
+    box-shadow:
+      -5px 0 0 0 currentColor,
+       0px 0 0 0 currentColor,
+       5px 0 0 0 currentColor;
+    border-radius: 50%;
+    opacity: 1;
+  }
+
   /* Padding slider strip: 4 horizontal sliders (T/R/B/L) stacked, each
      row is [label] [slider] [value]. Same `<input type="range">` pattern
      as the rotation slider. A floating sync toggle above the stack
