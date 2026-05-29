@@ -227,6 +227,10 @@
     // via R.resolveRenderParams. 1.0 = full vintage (current default);
     // 0 = clean print (paper + deckle + library notation only).
     filmMf: { age: 1.0 },
+    // ─── 1.7.x harness · cfg schema (1 knob) ──────────────────────────
+    cfg: {
+      filmMfAge: { kind: 'slider', min: 0, max: 1, step: 0.05, default: null, frameDefault: 1.0 }
+    },
     decorate: decorate
   });
 })();

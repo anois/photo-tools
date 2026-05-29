@@ -356,6 +356,8 @@ async function renderJob(msg) {
     if (cfg.radiusOverride != null)   layoutOpts.radiusOverride     = cfg.radiusOverride;
     if (cfg.captionForceOverlay)      layoutOpts.captionForceOverlay = true;
     if (cfg.captionOverlayTextLift != null) layoutOpts.captionOverlayTextLift = cfg.captionOverlayTextLift;
+    // Instax slab (1.6.0+) — see clientRender.js mirror.
+    if (cfg.instaxSlab != null && cfg.frame === 'instax') layoutOpts.extraBottom = Math.max(60, Math.min(360, Number(cfg.instaxSlab)));
     // Per-edge padding overrides — see clientRender.js mirror.
     if (cfg.paddingTop != null)    layoutOpts.paddingTop    = cfg.paddingTop;
     if (cfg.paddingRight != null)  layoutOpts.paddingRight  = cfg.paddingRight;

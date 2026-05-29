@@ -59,7 +59,27 @@
   // sequential photos from the same shoot get plausible-looking
   // sequential frame numbers. The 'A' suffix mimics real motion-
   // picture half-frame numbering (24, 24A, 25, 25A …).
-  function bottomFrameNumber(exif) {
+  //
+  // 1.5.0+ — `style` chooses the numbering grammar:
+  //   '1-36'  → "· 24A ·"  (motion-picture half-frame numbering, default)
+  //   'xx'    → "· XX ·"   (anonymous · unprocessed roll)
+  //   'a-z'   → "· R ·"    (uppercase letter from date — A/B/C... cycle)
+  function bottomFrameNumber(exif, style) {
+    const s = style || '1-36';
+    if (s === 'xx') return '· XX ·';
+    if (s === 'a-z') {
+      // Cycle A..Z from the date day (or arbitrary fallback). Keeps two
+      // photos shot the same day on the same letter — same as the
+      // half-frame default's behaviour with respect to date-day.
+      let day = 0;
+      if (exif && exif.date) {
+        const m = String(exif.date).match(/(\d{1,2})$/);
+        day = m ? (parseInt(m[1], 10) | 0) : 0;
+      }
+      const ch = String.fromCharCode(65 + ((day - 1 + 26) % 26));
+      return '· ' + ch + ' ·';
+    }
+    // Default · '1-36'
     if (!exif || !exif.date) return '· 24A ·';
     const m = String(exif.date).match(/(\d{2})$/);
     return m ? '· ' + m[1] + 'A ·' : '· 24A ·';
@@ -97,12 +117,23 @@
     const H = layout.canvas.H;
     const fgL = layout.fgLeft, fgT = layout.fgTop, fgW = layout.fgW, fgH = layout.fgH;
 
+    // 1.5.0+ — user-controllable knobs resolved by shared/render.js's
+    // resolveRenderParams. Legacy callers (no params) fall back to the
+    // pre-1.5 hardcoded values, so smoke baselines stay green.
+    const p = (args && args.params && args.params.film35) || null;
+    const sprocketScale = p ? p.sprocketScale : 1.0;
+    const grainAmt      = p ? p.grain         : 0;
+    const showEdgePrint = p ? p.edgePrint     : true;
+    const frameNoStyle  = p ? p.frameNo       : '1-36';
+
     // ── Perforation geometry ──────────────────────────────────────────
     // Density adapts to photo width so all aspect ratios get similar
     // visual rhythm. Bounded at [8, 32] so extreme aspect ratios don't
     // give us 6 sparse perfs (looks cheap) or 60 cramped perfs (loses
-    // individual readability).
-    const numHoles = Math.max(8, Math.min(32, Math.round((fgW / s) / HOLE_PITCH_BASE)));
+    // individual readability). User can scale density via cfg.f35Sprocket
+    // (0.5 = sparser / 2.0 = denser); pitch shrinks/grows inversely.
+    const pitch = HOLE_PITCH_BASE / sprocketScale;
+    const numHoles = Math.max(8, Math.min(32, Math.round((fgW / s) / pitch)));
     const holeW = Math.round(HOLE_W_BASE * s);
     const holeH = Math.round(HOLE_H_BASE * s);
     const holeR = Math.max(1, Math.round(HOLE_R_BASE * s));
@@ -134,16 +165,20 @@
     // compress that into one line: stock label flush-left, arrow
     // flush-right. Color matches the perforation cream so they read
     // as "same emulsion layer".
-    const stamp = topEdgePrint(args && args.normExif);
-    const stampPx = Math.max(10, Math.round(13 * s));
-    const stampY = Math.max(stampPx + 2, Math.round((topRowCY - holeH / 2) / 2));
-    ctx.font = 'bold ' + stampPx + 'px ui-monospace, "SF Mono", "Menlo", monospace';
-    ctx.fillStyle = 'rgba(235, 220, 184, 0.78)';   // FILM_CREAM at 78% alpha
-    ctx.textBaseline = 'middle';
-    ctx.textAlign = 'left';
-    ctx.fillText(stamp, fgL, stampY);
-    ctx.textAlign = 'right';
-    ctx.fillText('→', fgL + fgW, stampY);
+    // 1.5.0+ — user can hide the edge print via cfg.f35EdgePrint=false
+    // for a stripped-leader aesthetic.
+    if (showEdgePrint) {
+      const stamp = topEdgePrint(args && args.normExif);
+      const stampPx = Math.max(10, Math.round(13 * s));
+      const stampY = Math.max(stampPx + 2, Math.round((topRowCY - holeH / 2) / 2));
+      ctx.font = 'bold ' + stampPx + 'px ui-monospace, "SF Mono", "Menlo", monospace';
+      ctx.fillStyle = 'rgba(235, 220, 184, 0.78)';   // FILM_CREAM at 78% alpha
+      ctx.textBaseline = 'middle';
+      ctx.textAlign = 'left';
+      ctx.fillText(stamp, fgL, stampY);
+      ctx.textAlign = 'right';
+      ctx.fillText('→', fgL + fgW, stampY);
+    }
 
     // ── Bottom frame number (in gutter between bottom perf row and
     //    caption zone) ────────────────────────────────────────────────
@@ -155,7 +190,7 @@
     // caption (a problem in 4:3 / 16:9 aspects where the bottom strip
     // is short). Bumped to 12px / 0.74 alpha so it stays legible on
     // warm dark at standard quality.
-    const frameNum = bottomFrameNumber(args && args.normExif);
+    const frameNum = bottomFrameNumber(args && args.normExif, frameNoStyle);
     const fnPx = Math.max(10, Math.round(12 * s));
     const perfBot = botRowCY + holeH / 2;
     const captionTop = (layout.caption && layout.caption.placement === 'bottom')
@@ -178,6 +213,17 @@
     ctx.lineWidth = Math.max(1, 0.8 * op);
     R.pathRoundRect(ctx, fgL, fgT, fgW, fgH, layout.radius);
     ctx.stroke();
+
+    // ── Border grain — emulsion noise (1.5.0+) ────────────────────────
+    // Painted LAST so the noise reads as a chemical layer over the
+    // entire processed print (perforations + body + photo). Overlay
+    // blend keeps light cream perfs perceptible while subtly tinting
+    // the dark body with grain. cfg.f35Grain ∈ [0,1] is scaled to a
+    // max ~0.32 alpha so even 100% stays a "subtle film stock", not a
+    // "TV static" overwhelm.
+    if (grainAmt > 0) {
+      R.fillGrain(ctx, 0, 0, W, H, grainAmt * 0.32);
+    }
   }
 
   R.registerFrame('film-35', {
@@ -193,6 +239,16 @@
     // user-controllable). Values in base-1440 px.
     minPadding: { top: 70, bottom: 90 },
     shadowDefault: { blur: 0, offsetY: 0, opacity: 0 },
+    // Frame default values for the 1.5.0+ user-controllable cine knobs.
+    // resolveRenderParams reads these when cfg.f35* fields are null.
+    film35: { sprocketScale: 1.0, grain: 0, edgePrint: true, frameNo: '1-36' },
+    // ─── 1.7.x harness · cfg schema (4 knobs) ─────────────────────────
+    cfg: {
+      f35Sprocket:  { kind: 'slider',  min: 0.5, max: 2,   step: 0.05, default: null, frameDefault: 1.0    },
+      f35Grain:     { kind: 'slider',  min: 0,   max: 1,   step: 0.02, default: null, frameDefault: 0      },
+      f35EdgePrint: { kind: 'toggle',                                  default: null, frameDefault: true   },
+      f35FrameNo:   { kind: 'stepper', options: ['xx', '1-36', 'a-z'], default: null, frameDefault: '1-36' }
+    },
     decorate: decorate
   });
 })();

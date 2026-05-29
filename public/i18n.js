@@ -68,19 +68,50 @@
       },
       workshop: {
         title: '工作台',
+        subtitle: '编辑师的桌面',
         open: '打开工作台',
         close: '关闭工作台',
         hint: '裁剪 · EXIF · 签名 · 拼贴',
-        padding: '边距 + 文字带',
-        topBadge: '顶部标记',
         exifOverride: '按图覆盖',
-        signature: '签名',
-        tabs: {
-          tweak: '微调',
-          exif: 'EXIF',
-          sign: '签名',
-          tile: '拼贴'
-        }
+        // ─── rev.2 「The Bench」 (1.9.0+) · 5 tools ───
+        tool: {
+          instrument: '仪器',
+          instrumentTitle: '仪器 · 跟着当前相框',
+          instrumentHint: '每张相框是一台仪器 · 切换相框看到对应的物质化面板',
+          caliper: '测量',
+          caliperTitle: '测量 · 画幅几何',
+          notation: '笔记',
+          notationTitle: '笔记 · 字幕 + EXIF',
+          notationHint: '照片在说什么 · 字幕带尺寸 + 自动 EXIF 字段（可逐张覆盖）',
+          arrange: '排版',
+          arrangeTitle: '排版 · 多张拼贴',
+          arrangeHint: '把多张照片夹在同一相框内 · 选布局后绑定伙伴照片',
+          seal: '印记',
+          sealTitle: '印记 · 签名',
+          sealHint: '盖在照片画框内的蜡印水印'
+        },
+        topBadgeRow: '顶部标记 ▸',
+        instrument: {
+          lighting: '▾ 光影 · shadow'
+        },
+        caliper: {
+          frameGeom: '画幅几何'
+        },
+        notebook: {
+          field: '字段',
+          auto: '自动 · DETECTED',
+          hand: '手写 · OVERRIDE',
+          captionStripZone: '字幕带'
+        },
+        seal: {
+          waxZone: '蜡印 · 签名',
+          clampZone: '纸夹 · 拼贴',
+          pressTitle: '按下印章'
+        },
+        footerSummaryFmt: '{total} 件工具 · {n} 处修改',
+        footerSummaryNone: '{total} 件工具 · 全部默认',
+        resetAll: '全部重置',
+        resetAllTitle: '本张照片的全部设置回到当前相框出厂默认'
       },
       topTemplate: {
         none: '关闭',
@@ -142,14 +173,6 @@
         padding: '边距',
         captionH: '文字带高度',
         captionAuto: '自动',
-        rotate: '旋转',
-        rotateCcw: '逆时针 90°',
-        rotateCw: '顺时针 90°',
-        crop: '裁剪…',
-        cropAndRotate: '裁剪 & 旋转…',
-        geometry: '几何调整',
-        geometryClean: '原图',
-        geometryCropped: '已裁剪',
         customBg: '自定义背景图',
         customBgHint: 'JPEG / PNG · 替换默认的自我磨砂背景源',
         customBgClear: '移除',
@@ -166,6 +189,31 @@
         blur: '模糊',
         brightness: '亮度',
         saturation: '饱和度',
+        bgDarken: '压暗',
+        bgGrain: '颗粒',
+        galMatWidth: '衬纸宽度',
+        galLineSpacing: '双线间距',
+        galLineWeight: '线条粗细',
+        galLineColor: '线条颜色',
+        galColor: { ink: '墨色', charcoal: '炭灰', warm: '暖棕' },
+        f35Sprocket: '齿孔密度',
+        f35Grain: '颗粒强度',
+        f35EdgePrint: '胶片边印',
+        f35FrameNo: '帧号样式',
+        f35FrameNoOpt: { 'xx': '匿名 XX', '1-36': '半帧 24A', 'a-z': '字母 A–Z' },
+        instaxSlab: '底部留白',
+        instaxTint: '相纸色调',
+        instaxTintOpt: { pure: '纯白', cream: '奶油', aged: '陈旧' },
+        instaxStamp: '日期戳',
+        instaxRainbow: '彩虹标',
+        slideMountColor: '卡纸色',
+        slideMountColorOpt: { cream: '奶油', leather: '皮革棕', black: '档案黑' },
+        slideOuterRing: '外框色',
+        slideOuterRingOpt: { wine: '酒红', brass: '黄铜', charcoal: '炭黑' },
+        slidePebble: '颗粒密度',
+        slideBevel: '凹陷深度',
+        toggleOn: '开',
+        toggleOff: '关',
         defaultReadout: '默认',
         resetDefault: '恢复默认',
         radius: '圆角',
@@ -496,19 +544,6 @@
         refresh: '刷新使用',
         dismiss: '关闭'
       },
-      crop: {
-        title: '裁剪 & 旋转',
-        close: '关闭',
-        reset: '重置',
-        cancel: '取消',
-        apply: '应用',
-        readout: '{w}% × {h}%',
-        aspect: '比例',
-        aspectFree: '自由',
-        aspectFrame: '当前画幅',
-        rotate: '旋转',
-        rotateReset: '归零'
-      },
       compose: {
         openTitle: '构图 · 直接拖拽调整裁剪、旋转与四边距',
         title: '直接操控',
@@ -610,19 +645,50 @@
       },
       workshop: {
         title: 'Workshop',
+        subtitle: "Editor's desk",
         open: 'Open workshop',
         close: 'Close workshop',
         hint: 'crop · exif · sign · tile',
-        padding: 'Padding & caption',
-        topBadge: 'Top badge',
         exifOverride: 'Override (per photo)',
-        signature: 'Signature',
-        tabs: {
-          tweak: 'Tweak',
-          exif: 'EXIF',
-          sign: 'Sign',
-          tile: 'Tile'
-        }
+        // ─── rev.2 「The Bench」 (1.9.0+) · 5 tools ───
+        tool: {
+          instrument: 'Instrument',
+          instrumentTitle: 'Instrument · follows the active frame',
+          instrumentHint: 'Each frame is its own instrument — switch frames to see the matching material panel',
+          caliper: 'Caliper',
+          caliperTitle: 'Caliper · frame geometry',
+          notation: 'Notation',
+          notationTitle: 'Notation · caption + EXIF',
+          notationHint: "What the photo says · caption strip sizing + auto-detected EXIF fields (overridable per photo)",
+          arrange: 'Arrange',
+          arrangeTitle: 'Arrange · multi-photo collage',
+          arrangeHint: 'Clamp multiple photos into the same frame · pick a layout, then bind partner files',
+          seal: 'Seal',
+          sealTitle: 'Seal · signature',
+          sealHint: 'Wax-stamped watermark on the photo aperture'
+        },
+        topBadgeRow: 'Top badge ▸',
+        instrument: {
+          lighting: '▾ LIGHTING · shadow'
+        },
+        caliper: {
+          frameGeom: 'Frame geometry'
+        },
+        notebook: {
+          field: 'Field',
+          auto: 'Auto · detected',
+          hand: 'Hand · override',
+          captionStripZone: 'Caption strip'
+        },
+        seal: {
+          waxZone: 'Wax seal · signature',
+          clampZone: 'Paper clamps · collage',
+          pressTitle: 'Press your seal'
+        },
+        footerSummaryFmt: '{total} tools · {n} modified',
+        footerSummaryNone: '{total} tools · clean',
+        resetAll: 'Reset all',
+        resetAllTitle: "Revert this photo's everything to the active frame's factory defaults"
       },
       topTemplate: {
         none: 'None',
@@ -684,14 +750,6 @@
         padding: 'Padding',
         captionH: 'Caption height',
         captionAuto: 'auto',
-        rotate: 'Rotate',
-        rotateCcw: 'Rotate 90° counter-clockwise',
-        rotateCw: 'Rotate 90° clockwise',
-        crop: 'Crop…',
-        cropAndRotate: 'Crop & rotate…',
-        geometry: 'Geometry',
-        geometryClean: 'untouched',
-        geometryCropped: 'cropped',
         customBg: 'Custom bg image',
         customBgHint: 'JPEG / PNG · replaces the self-bg blur source',
         customBgClear: 'Remove',
@@ -708,6 +766,31 @@
         blur: 'Blur',
         brightness: 'Brightness',
         saturation: 'Saturation',
+        bgDarken: 'Darken',
+        bgGrain: 'Grain',
+        galMatWidth: 'Mat width',
+        galLineSpacing: 'Line spacing',
+        galLineWeight: 'Line weight',
+        galLineColor: 'Line color',
+        galColor: { ink: 'Ink', charcoal: 'Charcoal', warm: 'Warm' },
+        f35Sprocket: 'Sprocket density',
+        f35Grain: 'Border grain',
+        f35EdgePrint: 'DX edge print',
+        f35FrameNo: 'Frame №',
+        f35FrameNoOpt: { 'xx': 'XX (anon)', '1-36': '24A (half)', 'a-z': 'A–Z (letter)' },
+        instaxSlab: 'Bottom slab',
+        instaxTint: 'Paper tint',
+        instaxTintOpt: { pure: 'Pure', cream: 'Cream', aged: 'Aged' },
+        instaxStamp: 'Date stamp',
+        instaxRainbow: 'Rainbow stripe',
+        slideMountColor: 'Mount color',
+        slideMountColorOpt: { cream: 'Cream', leather: 'Leather', black: 'Archival' },
+        slideOuterRing: 'Outer ring',
+        slideOuterRingOpt: { wine: 'Wine', brass: 'Brass', charcoal: 'Charcoal' },
+        slidePebble: 'Pebble density',
+        slideBevel: 'Bevel depth',
+        toggleOn: 'ON',
+        toggleOff: 'OFF',
         defaultReadout: 'preset',
         resetDefault: 'Reset to default',
         radius: 'Corner radius',
@@ -1037,19 +1120,6 @@
         available: 'New version available',
         refresh: 'Refresh',
         dismiss: 'Dismiss'
-      },
-      crop: {
-        title: 'Crop & rotate',
-        close: 'Close',
-        reset: 'Reset',
-        cancel: 'Cancel',
-        apply: 'Apply',
-        readout: '{w}% × {h}%',
-        aspect: 'Aspect',
-        aspectFree: 'Free',
-        aspectFrame: 'Frame',
-        rotate: 'Rotate',
-        rotateReset: 'Zero'
       },
       compose: {
         openTitle: 'Compose — drag crop / rotation / per-edge padding directly',

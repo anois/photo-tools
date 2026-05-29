@@ -507,6 +507,10 @@
     if (cfg.radiusOverride != null)   layoutOpts.radiusOverride     = cfg.radiusOverride;
     if (cfg.captionForceOverlay)      layoutOpts.captionForceOverlay = true;
     if (cfg.captionOverlayTextLift != null) layoutOpts.captionOverlayTextLift = cfg.captionOverlayTextLift;
+    // Instax slab (1.6.0+) — overrides frame.layout.extraBottom when the
+    // user has dialed cfg.instaxSlab. Only meaningful for instax frame
+    // (other frames don't read extraBottom from this path).
+    if (cfg.instaxSlab != null && cfg.frame === 'instax') layoutOpts.extraBottom = Math.max(60, Math.min(360, Number(cfg.instaxSlab)));
     // Per-edge padding overrides — Compose-mode user dialing. Each null
     // falls through to scalar `padding` + frame boosts; non-null wins.
     if (cfg.paddingTop != null)    layoutOpts.paddingTop    = cfg.paddingTop;
