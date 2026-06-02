@@ -596,7 +596,7 @@
           <span class="bench-tool-dot" aria-hidden="true"></span>
         </button>
         <button type="button" class="bench-tool-btn" data-tool="seal" role="tab" aria-selected="false" aria-controls="bench-tool-seal">
-          <span class="bench-tool-glyph" aria-hidden="true">✦</span>
+          <span class="bench-tool-glyph" aria-hidden="true">❖</span>
           <span class="bench-tool-name" data-i18n="workshop.tool.seal">Seal</span>
           <span class="bench-tool-dot" aria-hidden="true"></span>
         </button>
@@ -1278,18 +1278,19 @@
           </div>
         </section><!-- /▦ Arrange -->
 
-        <!-- ═════════════════════ ✦ SEAL · 印记 ═════════════════════
-             1.10.1 — narrowed to signature-only after collage moved to
-             the Arrange tool. Single zone: wax-press signature upload +
-             9-position photo footprint + size/opacity meters. All input
-             ids preserved (#signature-input / -drop / -preview / -clear-btn
-             / -pos-grid / -scale / -opacity). -->
+        <!-- ═════════════════════ ❖ SEAL · 印记 ═════════════════════
+             1.11.0 — the "seal maker's desk": upload + ink settings (blend /
+             flip / opacity) + a "Place on canvas…" CTA that opens #seal-modal
+             for free drag/scale/rotate placement (photo OR frame margin). The
+             old 9-anchor grid + size meter were retired (placement is now
+             direct manipulation). Kept ids: #signature-input / -drop /
+             -preview / -clear-btn / -opacity. -->
         <section class="bench-tool-panel" data-tool="seal" id="bench-tool-seal" role="tabpanel" hidden>
           <header class="bench-tool-panel-head">
-            <span class="bench-tool-panel-eyebrow">✦ SEAL</span>
+            <span class="bench-tool-panel-eyebrow">❖ SEAL</span>
             <span class="bench-tool-panel-title" data-i18n="workshop.tool.sealTitle">印记 · 签名</span>
           </header>
-          <p class="bench-tool-panel-hint" data-i18n="workshop.tool.sealHint">盖在照片画框内的蜡印水印</p>
+          <p class="bench-tool-panel-hint" data-i18n="workshop.tool.sealHint">可拖放到画面任意位置的蜡印水印</p>
 
           <div class="sealcard">
             <div class="sealcard-zone sealcard-zone--seal">
@@ -1297,7 +1298,7 @@
                 <input id="signature-input" type="file" accept="image/svg+xml,image/png" />
                 <span class="sealcard-wax" aria-hidden="true">
                   <span class="sealcard-wax-blob"></span>
-                  <span class="sealcard-wax-glyph">✦</span>
+                  <span class="sealcard-wax-glyph">❖</span>
                 </span>
                 <span class="sealcard-press-stack">
                   <strong data-i18n="workshop.seal.pressTitle">Press your seal</strong>
@@ -1311,28 +1312,33 @@
                 <button id="signature-clear-btn" type="button" class="sealcard-imprint-clear" data-i18n="signature.clear">Remove seal</button>
               </div>
 
-              <div class="sealcard-positions">
-                <div class="sealcard-positions-label" data-i18n="signature.position">Where to stamp</div>
-                <div class="sealcard-frame" aria-hidden="false">
-                  <div class="pos-grid sealcard-frame-grid" id="signature-pos-grid" role="radiogroup" aria-label="Signature position">
-                    <button type="button" data-anchor="tl" role="radio" aria-checked="false" aria-label="Top-left"></button>
-                    <button type="button" data-anchor="tc" role="radio" aria-checked="false" aria-label="Top-center"></button>
-                    <button type="button" data-anchor="tr" role="radio" aria-checked="false" aria-label="Top-right"></button>
-                    <button type="button" data-anchor="cl" role="radio" aria-checked="false" aria-label="Center-left"></button>
-                    <button type="button" data-anchor="cc" role="radio" aria-checked="false" aria-label="Center"></button>
-                    <button type="button" data-anchor="cr" role="radio" aria-checked="false" aria-label="Center-right"></button>
-                    <button type="button" data-anchor="bl" role="radio" aria-checked="false" aria-label="Bottom-left"></button>
-                    <button type="button" data-anchor="bc" role="radio" aria-checked="false" aria-label="Bottom-center"></button>
-                    <button type="button" data-anchor="br" class="active" role="radio" aria-checked="true" aria-label="Bottom-right"></button>
-                  </div>
+              <!-- Place on canvas — opens #seal-modal for drag / scale /
+                   rotate. Disabled until a seal is uploaded. -->
+              <button id="seal-place-btn" type="button" class="sealcard-place" data-i18n-title="workshop.seal.placeTitle" disabled>
+                <span class="sealcard-place-glyph" aria-hidden="true">✛</span>
+                <span class="sealcard-place-label" data-i18n="workshop.seal.place">Place on canvas…</span>
+              </button>
+
+              <!-- Ink settings — blend mode + flip + opacity (non-spatial,
+                   live on the cardstock; position/scale/rotation are direct-
+                   manipulation in #seal-modal). -->
+              <div class="sealcard-ink-row">
+                <span class="sealcard-ink-label" data-i18n="workshop.seal.blendLabel">Blend</span>
+                <div class="sealcard-blend-seg" id="seal-blend-seg" role="radiogroup" aria-label="Blend mode">
+                  <button type="button" class="sealcard-blend-chip active" data-val="normal" role="radio" aria-checked="true" data-i18n="workshop.seal.blend.normal">Normal</button>
+                  <button type="button" class="sealcard-blend-chip" data-val="multiply" role="radio" aria-checked="false" data-i18n="workshop.seal.blend.multiply">Multiply</button>
+                  <button type="button" class="sealcard-blend-chip" data-val="screen" role="radio" aria-checked="false" data-i18n="workshop.seal.blend.screen">Screen</button>
+                  <button type="button" class="sealcard-blend-chip" data-val="overlay" role="radio" aria-checked="false" data-i18n="workshop.seal.blend.overlay">Overlay</button>
+                  <button type="button" class="sealcard-blend-chip" data-val="darken" role="radio" aria-checked="false" data-i18n="workshop.seal.blend.darken">Darken</button>
+                  <button type="button" class="sealcard-blend-chip" data-val="lighten" role="radio" aria-checked="false" data-i18n="workshop.seal.blend.lighten">Lighten</button>
                 </div>
               </div>
 
-              <div class="sealcard-meter-row">
-                <span class="sealcard-meter-label" data-i18n="signature.size">Size</span>
-                <input id="signature-scale" type="range" min="3" max="20" step="1" value="6" class="sealcard-meter" />
-                <span class="sealcard-meter-readout" id="signature-scale-val">6<span class="ru">%</span></span>
-              </div>
+              <button id="seal-flip-toggle" type="button" class="sealcard-flip-toggle" aria-pressed="false" data-i18n-title="workshop.seal.flipTitle">
+                <span class="sealcard-flip-glyph" aria-hidden="true">⇋</span>
+                <span data-i18n="workshop.seal.flip">Flip horizontal</span>
+              </button>
+
               <div class="sealcard-meter-row">
                 <span class="sealcard-meter-label" data-i18n="signature.opacity">Opacity</span>
                 <input id="signature-opacity" type="range" min="0.2" max="1" step="0.05" value="1" class="sealcard-meter" />
@@ -1340,7 +1346,7 @@
               </div>
             </div>
           </div>
-        </section><!-- /✦ Seal -->
+        </section><!-- /❖ Seal -->
 
       </div><!-- /.bench-stage -->
     </div><!-- /.bench-body -->
@@ -1710,6 +1716,106 @@
       </div>
     </div>
 
+  </div>
+</dialog>
+
+<!-- SEAL MODAL — direct-manipulation placement of the seal/signature over the
+     WHOLE composition (photo OR frame margin / caption). Reuses the Compose
+     darkroom aesthetic + live render pipeline (CR.renderPreview on the inner
+     canvas draws the seal in place); the overlay below is just selection
+     chrome — a bounding box with 4 corner scale handles + a rotation knob.
+     Drag the body to move (cx/cy), corners/pinch to scale, knob/twist/rot-bar
+     to rotate. Apply cascades globally via applyCustomLogoEverywhere. -->
+<dialog id="seal-modal" class="compose-modal seal-modal" aria-labelledby="seal-modal-title">
+  <div class="compose-shell">
+
+    <header class="compose-topbar">
+      <div class="compose-topbar-l">
+        <button id="seal-close" type="button" class="compose-close" data-i18n-aria-label="sealPlace.close" aria-label="Close">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+        <span class="compose-breadcrumb"><b data-i18n="sealPlace.crumbName">Seal</b><span class="compose-breadcrumb-sub" data-i18n="sealPlace.crumbSub">· 印记</span></span>
+      </div>
+      <div class="compose-topbar-mid">
+        <h3 id="seal-modal-title" class="compose-title" data-i18n="sealPlace.title">Place your seal</h3>
+        <div class="compose-meta" id="seal-meta">—</div>
+      </div>
+      <div class="compose-topbar-r">
+        <span class="compose-kbd-hint" aria-hidden="true">
+          <span class="k">↑</span><span class="k">↓</span><span data-i18n="sealPlace.kbd.nudge">nudge</span>
+          <span class="compose-kbd-sep">·</span>
+          <span class="k">⇧</span><span data-i18n="sealPlace.kbd.free">free</span>
+          <span class="compose-kbd-sep">·</span>
+          <span class="k">esc</span><span data-i18n="sealPlace.kbd.exit">exit</span>
+        </span>
+        <button id="seal-reset-place" type="button" class="compose-reset-all" data-i18n="sealPlace.resetPlacement">Reset placement</button>
+      </div>
+    </header>
+
+    <main class="compose-stage seal-stage" id="seal-stage" data-focus="seal">
+      <div class="compose-axis-h" aria-hidden="true"></div>
+      <div class="compose-axis-v" aria-hidden="true"></div>
+
+      <div class="compose-stage-inner" id="seal-stage-inner">
+        <canvas id="seal-canvas" class="compose-canvas"></canvas>
+
+        <!-- Seal selection chrome — positioned/rotated over the seal by JS via
+             translate3d + rotate. Body is the drag target; corners scale;
+             the knob (on a stem above top-center) rotates. -->
+        <div class="seal-box" id="seal-box" hidden>
+          <div class="seal-handle seal-corner" data-h="nw" aria-hidden="true"></div>
+          <div class="seal-handle seal-corner" data-h="ne" aria-hidden="true"></div>
+          <div class="seal-handle seal-corner" data-h="se" aria-hidden="true"></div>
+          <div class="seal-handle seal-corner" data-h="sw" aria-hidden="true"></div>
+          <div class="seal-rot-stem" aria-hidden="true"></div>
+          <div class="seal-handle seal-rot-knob" data-h="rot" aria-hidden="true"></div>
+        </div>
+      </div>
+
+      <!-- Rotation slider bar — always available in the seal modal (precise /
+           accessible path; the on-canvas knob + two-finger twist are primary). -->
+      <div class="compose-rot-bar seal-rot-bar" id="seal-rot-bar">
+        <button id="seal-rot-ccw" type="button" class="compose-rot-quick" data-i18n-aria-label="sealPlace.rotateCcw" aria-label="Rotate −90°">↶</button>
+        <div class="compose-rot-track-wrap">
+          <input id="seal-rot-slider" type="range" min="-180" max="180" step="0.5" value="0" class="compose-rot-slider" aria-label="Seal rotation degrees" />
+          <span class="compose-rot-tick" style="left:0%"   data-label="-180°"></span>
+          <span class="compose-rot-tick" style="left:25%"  data-label="-90°"></span>
+          <span class="compose-rot-tick is-center" style="left:50%" data-label="0°"></span>
+          <span class="compose-rot-tick" style="left:75%"  data-label="90°"></span>
+          <span class="compose-rot-tick" style="left:100%" data-label="180°"></span>
+        </div>
+        <button id="seal-rot-cw" type="button" class="compose-rot-quick" data-i18n-aria-label="sealPlace.rotateCw" aria-label="Rotate +90°">↷</button>
+        <span id="seal-rot-bar-val" class="compose-rot-bar-val">0.0°</span>
+        <button id="seal-rot-zero" type="button" class="compose-rot-text-btn" data-i18n="sealPlace.rotateZero">归零</button>
+      </div>
+
+      <div class="compose-hint" id="seal-hint" data-i18n="sealPlace.hint.move">drag to move · corners scale · knob rotates</div>
+
+      <div class="compose-hud seal-hud" id="seal-hud" aria-hidden="true">
+        <div class="compose-hud-card">
+          <div class="compose-hud-key" id="seal-hud-key">POS</div>
+          <div class="compose-hud-val"><span id="seal-hud-val">—</span><span class="compose-hud-unit" id="seal-hud-unit"></span></div>
+        </div>
+      </div>
+
+      <!-- Mobile bottom actions — mirrors Compose's mobile pattern. -->
+      <div class="compose-mobile-actions seal-mobile-actions" id="seal-mobile-actions" hidden>
+        <button id="seal-mobile-cancel" type="button" class="btn btn-secondary" data-i18n="sealPlace.cancel">取消</button>
+        <button id="seal-mobile-apply"  type="button" class="btn btn-primary"   data-i18n="sealPlace.apply">应用</button>
+      </div>
+    </main>
+
+    <footer class="compose-bench seal-bench" id="seal-bench">
+      <div class="seal-bench-readout">
+        <span class="seal-bench-item"><span class="seal-bench-num" id="seal-bench-pos">—</span><span class="seal-bench-k" data-i18n="sealPlace.bench.pos">Position</span></span>
+        <span class="seal-bench-item"><span class="seal-bench-num" id="seal-bench-size">—</span><span class="seal-bench-k" data-i18n="sealPlace.bench.size">Size</span></span>
+        <span class="seal-bench-item"><span class="seal-bench-num" id="seal-bench-rot">—</span><span class="seal-bench-k" data-i18n="sealPlace.bench.rot">Angle</span></span>
+      </div>
+      <div class="compose-bench-actions">
+        <button id="seal-cancel" type="button" class="btn btn-secondary" data-i18n="sealPlace.cancel">Cancel</button>
+        <button id="seal-apply"  type="button" class="btn btn-primary"   data-i18n="sealPlace.apply">Apply</button>
+      </div>
+    </footer>
   </div>
 </dialog>
 

@@ -410,25 +410,38 @@ All bottom-strip templates support a **flash indicator** (small ⚡ glyph) when 
 
 (There is no longer a backend allow-list to update — `app.js` passes `cfg.template` straight through to `R.buildCaptionSvg`, which falls back to the default if unknown.)
 
-### Custom signature overlay (`public/shared/render.js → customLogoRect`)
+### Custom seal / signature overlay (`public/shared/render.js → customLogoRect`, v2 since 1.11.0)
 
-Users can upload one signature image (SVG or PNG) which gets drawn as the very last layer of `compose()`, clipped to the rounded foreground rect so it never escapes into the frame area.
+Users upload one seal image (SVG or PNG) drawn as the very last layer of `compose()`. **It is NOT clipped to the photo** — it floats freely over the WHOLE canvas, so it can sit on the photo OR in the frame margin / border / caption band. Placement is direct-manipulation (drag / scale / rotate) in the `#seal-modal` surface, not a 9-anchor grid.
+
+**v2 schema** (`cfg.customLogo`, one object — all fields ride the existing preset/cascade plumbing via `{...customLogo}` spread, so nothing structural changed there):
 
 | field | type | meaning |
 |---|---|---|
-| `customLogo.data` | dataURL | the uploaded SVG/PNG, base64-inlined |
-| `customLogo.type` | `'svg'` / `'png'` | source format (decided at upload from MIME prefix) |
-| `customLogo.position` | `'br'` / `'bl'` / `'bc'` | bottom-right / bottom-left / bottom-center anchor |
-| `customLogo.scale` | 0.03–0.20 | width relative to fg width (UI exposes 3–20%) |
-| `customLogo.opacity` | 0.2–1.0 | global alpha multiplier |
+| `data` | dataURL | the uploaded SVG/PNG, base64-inlined |
+| `type` | `'svg'` / `'png'` | source format (MIME prefix at upload) |
+| `cx` / `cy` | 0–1 | normalized **center** position relative to the full canvas (`layout.canvas.W/H`) |
+| `scale` | 0.02–0.60 | width as a fraction of **canvas width** (was fg width in v1) |
+| `rotation` | deg | clockwise; applied around the seal center |
+| `flipH` | bool | horizontal mirror (applied after rotation in the seal's local x-axis) |
+| `blend` | enum | `'normal'\|'multiply'\|'screen'\|'overlay'\|'darken'\|'lighten'` → `customLogoRect` returns it pre-translated to a `globalCompositeOperation` string |
+| `opacity` | 0.2–1.0 | global alpha multiplier |
 
-`customLogo` lives on each per-photo `cfg` (or `null` when no signature), but **upload always cascades**: a new image writes to `draftCfg`, every loaded photo, and `localStorage['phototools.customLogo']`. Per-photo position/scale/opacity edits stay local; "Apply frame to all" propagates them along with the frame settings. Re-uploading the same image while one is already loaded preserves the active photo's position/scale/opacity.
+**Render**: `customLogoRect(layout, customLogo, imgAspect)` returns `{x,y,w,h,rotation,flipH,blend,opacity}` (x/y = top-left of the UNROTATED box; longer edge capped at `0.8·max(canvasW,canvasH)`). Both compose paths (`clientRender.js` preview + `worker.js` export) consume the rect identically: `save → globalAlpha → globalCompositeOperation=blend → translate(center) → rotate → flipH ? scale(-1,1) → drawImage(-w/2,-h/2) → restore`. **The two blocks must stay byte-mirrored** — `restore()` resets the blend so it can't leak into later draws. No clip.
+
+**Global identity model** (1.11.0 — unified the old "upload global / position per-photo" split): the entire seal object is ONE global identity. `applyCustomLogoEverywhere(payload)` is the single commit path — used by upload, clear, the panel blend/flip/opacity controls, and the `#seal-modal` Apply — writing to `draftCfg` + every loaded photo + `localStorage['phototools.customLogo']`. `patchSeal(partial)` merges a field change and re-commits globally. "Apply frame to all" also carries `customLogo`.
+
+**UI split**: the ❖ Seal workshop tool ("seal maker's desk") holds upload + the non-spatial *ink settings* (blend seg `#seal-blend-seg`, flip toggle `#seal-flip-toggle`, opacity `#signature-opacity`) + a "Place on canvas…" CTA (`#seal-place-btn`, disabled until a seal is loaded). Spatial properties (cx/cy/scale/rotation) are edited only in `#seal-modal` via the `SEAL_PLACE` IIFE (drag body to move, corner handles / pinch to scale, rotation knob / two-finger twist / rot-bar to rotate; arrows nudge, Shift = free-rotate; ±3° snap to 0/90/180/270). `SEAL_PLACE` reuses the Compose darkroom shell CSS + `snapshotCfgForRender` projection (overriding `customLogo` with the working seal); because cx/cy/scale are canvas-normalized, the displayed canvas CSS box IS the coordinate space — no layout coupling needed for the overlay box.
+
+**Migration** (`migrateCustomLogo` in app.js): v0 string-anchor / v1 `{position:{anchor,dx,dy}, scale(fg-rel)}` → v2. 9 anchors map to a normalized canvas-center table (mirrored in render.js's `legacyAnchorCenter` defensive fallback); dx/dy fold into cx/cy as canvas fractions; `scale × 0.85` (fg ≈ 0.85 of canvas width); rotation/flipH/blend default; `position` deleted. Runs at every persistence boundary (localStorage hydrate, preset apply).
 
 Decoding:
-- Main thread: `customLogoCache` (Map, max 3) in `public/clientRender.js`, keyed by dataURL → `Promise<ImageBitmap>`. Same dataURL hits the cache, so dragging the size slider doesn't re-decode.
-- Workers: each worker decodes on every job (no cache); cheap because PNG/SVG decode is fast and batch jobs typically share one signature.
+- Main thread: `customLogoCache` (Map, max 3) in `public/clientRender.js`, keyed by dataURL → `Promise<ImageBitmap>`.
+- Workers: each worker decodes on every job (no cache).
 
-Storage: 2MB upload cap (pre-encoding); SVG dataURLs are usually <50KB, PNG can reach the cap. Larger files surface `status.signatureTooBig` and are rejected. The clear button (`#signature-clear-btn`) wipes the signature from every loaded photo + draftCfg + localStorage in one shot — there is no per-photo remove.
+SVG note: `ensureSvgDimensions` (app.js) still required at upload — `createImageBitmap` rejects dimensionless SVGs and workers have no `HTMLImageElement` fallback.
+
+Storage: 2MB upload cap (pre-encoding). The clear button (`#signature-clear-btn`) wipes the seal from every loaded photo + draftCfg + localStorage in one shot.
 
 ### LOOK system — preset library as first-class entry (0.20+)
 
@@ -615,7 +628,7 @@ A photo entry can pair with up to three additional photos to render as a multi-c
 | `v3` | 3×1 column | 2 |
 | `2x2` | 2×2 grid | 3 |
 
-When `cfg.collage.layout` is set AND the active entry has the right number of partner files, `compose()` swaps the single-bitmap fg pass for a cell loop using `R.collageCellRects(collage, layout)`. Each cell uses the same rounded radius as the full fg, so the visual reads as one rounded panel split by 12-px gutters (scaled). Caption + frame + signature still treat the collage as one unit — caption uses the primary photo's EXIF, signature pins to the global fg corner, shadow renders under the full envelope.
+When `cfg.collage.layout` is set AND the active entry has the right number of partner files, `compose()` swaps the single-bitmap fg pass for a cell loop using `R.collageCellRects(collage, layout)`. Each cell uses the same rounded radius as the full fg, so the visual reads as one rounded panel split by 12-px gutters (scaled). Caption + frame + seal still treat the collage as one unit — caption uses the primary photo's EXIF, the seal is canvas-normalized (cx/cy over the whole canvas) so it just works regardless of cell layout, shadow renders under the full envelope.
 
 HEIC partner files are transcoded via `HeicTools.transcode` at upload time (in the per-slot file input handler in `app.js`), same as primaries, so `entry.partnerFiles[i]` is always JPEG/PNG by the time it reaches the worker.
 

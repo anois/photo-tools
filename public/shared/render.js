@@ -2115,59 +2115,78 @@
   // Custom signature / logo overlay
   // ======================================================================
 
-  // Compute the destination rect for a user-supplied signature image overlaid
-  // on the foreground photo. Returns null when customLogo is missing or has
-  // an invalid scale. The rect is in canvas-px (already scaled), positioned
-  // inside the foreground bounds with a small margin so the signature sits
-  // visually away from the fg edge.
+  // Blend-mode enum → Canvas2D globalCompositeOperation. 'normal' maps to
+  // the default 'source-over'; the rest are valid GCO strings 1:1. Any
+  // unknown value falls back to 'source-over'. Single source of truth so
+  // clientRender (preview) and worker (export) never re-derive it.
+  const SEAL_BLEND_GCO = {
+    normal: 'source-over', multiply: 'multiply', screen: 'screen',
+    overlay: 'overlay', darken: 'darken', lighten: 'lighten'
+  };
+  // Legacy 9-anchor → normalized canvas center, for defensive fallback when
+  // a customLogo slipped past app.js's migrateCustomLogo (e.g. an un-migrated
+  // worker job). Mirrors the migration table; biased slightly inward to
+  // approximate the old "inside the photo with a 20px margin" placement.
+  function legacyAnchorCenter(pos) {
+    let anchor = 'br';
+    if (typeof pos === 'string') anchor = pos;
+    else if (pos && typeof pos === 'object' && pos.anchor) anchor = pos.anchor;
+    const ay = anchor.charAt(0) || 'b', ax = anchor.charAt(1) || 'r';
+    const cx = ax === 'l' ? 0.18 : ax === 'c' ? 0.50 : 0.82;
+    const cy = ay === 't' ? 0.16 : ay === 'c' ? 0.50 : 0.84;
+    return { cx: cx, cy: cy };
+  }
+
+  // Compute the destination rect for a user-supplied signature/seal image,
+  // overlaid as the last compose layer. Returns null when customLogo is
+  // missing or has an invalid scale.
   //
-  // Position model — accepts both legacy and new schemas:
-  //   - Legacy: `position: 'br' | 'bl' | 'bc'` (3 corner anchors)
-  //   - New:    `position: { anchor, dx, dy }` where anchor is a 2-letter
-  //             code in the 9-cell grid (tl/tc/tr/cl/cc/cr/bl/bc/br) and
-  //             dx / dy are optional fine offsets in base-1440 px.
-  // Migration in app.js upgrades persisted cfg, but we also tolerate the
-  // legacy form here so worker / SVG round-trips don't have to migrate.
+  // Coordinate model (v2, 1.11.0): the seal floats freely over the WHOLE
+  // canvas — it can sit on the photo OR in the frame margin / border /
+  // caption band (the compose callers no longer clip it to the fg).
+  //   - cx / cy : normalized center [0..1] relative to layout.canvas.W / H
+  //   - scale   : fraction of canvas WIDTH (UI 2%–60%)
+  //   - rotation: degrees clockwise; flipH: horizontal mirror
+  //   - blend   : enum → returned pre-translated to a globalCompositeOperation
+  // The returned rect's x/y is the top-left of the UNROTATED drawImage box;
+  // the caller applies rotation + flipH around the box center, identically
+  // in clientRender.js and worker.js. A legacy { position } object is still
+  // tolerated (mapped via legacyAnchorCenter) for un-migrated round-trips.
   function customLogoRect(layout, customLogo, imgAspect) {
     if (!customLogo || !customLogo.data || !(customLogo.scale > 0)) return null;
     const ar = (imgAspect && isFinite(imgAspect) && imgAspect > 0) ? imgAspect : 1;
-    const margin = Math.round(20 * (layout.scale || 1));
-    let dw = Math.max(1, Math.round(layout.fgW * Number(customLogo.scale)));
-    let dh = Math.max(1, Math.round(dw / ar));
-    const maxH = Math.round(layout.fgH * 0.5);
-    if (dh > maxH) { dh = maxH; dw = Math.round(dh * ar); }
-
-    // Decode the position into a 2-letter anchor + optional dx/dy. Both
-    // legacy (string) and new (object) schemas land here.
-    let anchor = 'br', dx = 0, dy = 0;
-    const pos = customLogo.position;
-    if (typeof pos === 'string') {
-      anchor = pos;   // legacy 'br' / 'bl' / 'bc'
-    } else if (pos && typeof pos === 'object') {
-      anchor = pos.anchor || 'br';
-      dx = Number(pos.dx) || 0;
-      dy = Number(pos.dy) || 0;
+    const CW = layout.canvas.W, CH = layout.canvas.H;
+    const scale = Math.max(0.02, Math.min(0.60, Number(customLogo.scale)));
+    let w = Math.max(1, Math.round(CW * scale));
+    let h = Math.max(1, Math.round(w / ar));
+    // Cap the longer edge so a runaway scale/aspect can't make a multi-canvas
+    // bitmap. Soft UI cap is 60% width; this is the hard safety net.
+    const maxEdge = Math.round(0.8 * Math.max(CW, CH));
+    if (w > maxEdge || h > maxEdge) {
+      const k = maxEdge / Math.max(w, h);
+      w = Math.max(1, Math.round(w * k));
+      h = Math.max(1, Math.round(h * k));
     }
-    // Each anchor is "<row><col>" — row in {t, c, b}, col in {l, c, r}.
-    const ay = anchor.charAt(0) || 'b';
-    const ax = anchor.charAt(1) || 'r';
-    let x, y;
-    if (ax === 'l')      x = layout.fgLeft + margin;
-    else if (ax === 'c') x = layout.fgLeft + Math.round((layout.fgW - dw) / 2);
-    else                 x = layout.fgLeft + layout.fgW - dw - margin;
-    if (ay === 't')      y = layout.fgTop + margin;
-    else if (ay === 'c') y = layout.fgTop + Math.round((layout.fgH - dh) / 2);
-    else                 y = layout.fgTop + layout.fgH - dh - margin;
+    // Center: prefer v2 cx/cy; fall back to legacy anchor for un-migrated cfg.
+    let cx, cy;
+    if (customLogo.cx != null && customLogo.cy != null) {
+      cx = Number(customLogo.cx); cy = Number(customLogo.cy);
+    } else {
+      const t = legacyAnchorCenter(customLogo.position);
+      cx = t.cx; cy = t.cy;
+    }
+    cx = Math.max(0, Math.min(1, isFinite(cx) ? cx : 0.85));
+    cy = Math.max(0, Math.min(1, isFinite(cy) ? cy : 0.90));
+    const x = Math.round(cx * CW - w / 2);
+    const y = Math.round(cy * CH - h / 2);
 
-    // dx/dy are in base-1440 units; scale into canvas px before applying.
-    const s = layout.scale || 1;
-    if (dx) x += Math.round(dx * s);
-    if (dy) y += Math.round(dy * s);
-
+    const rotation = ((Number(customLogo.rotation) || 0) % 360 + 360) % 360;
+    const flipH = !!customLogo.flipH;
+    const blend = SEAL_BLEND_GCO[customLogo.blend] || 'source-over';
     const opacity = customLogo.opacity != null && isFinite(Number(customLogo.opacity))
       ? Math.max(0, Math.min(1, Number(customLogo.opacity)))
       : 1;
-    return { x: x, y: y, w: dw, h: dh, opacity: opacity };
+    return { x: x, y: y, w: w, h: h, rotation: rotation, flipH: flipH, blend: blend, opacity: opacity };
   }
 
   // Convenience: build the final full-canvas caption SVG in one call.

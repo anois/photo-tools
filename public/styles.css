@@ -67,34 +67,30 @@ body {
    on the same selectors. Inactive thumbs barely register; active/hover
    thumbs glow accent-line so the user knows the bar is interactive.
    ========================================================= */
-.workshop-body,
 .picker-body,
 .cmdk-results,
 .rail-items,
-.export-errors {
+.export-errors{
   scrollbar-width: thin;
   scrollbar-color: var(--line-strong) transparent;
 }
-.workshop-body::-webkit-scrollbar,
 .picker-body::-webkit-scrollbar,
 .cmdk-results::-webkit-scrollbar,
 .rail-items::-webkit-scrollbar,
-.export-errors::-webkit-scrollbar {
+.export-errors::-webkit-scrollbar{
   width: 10px;
   height: 10px;
 }
-.workshop-body::-webkit-scrollbar-track,
 .picker-body::-webkit-scrollbar-track,
 .cmdk-results::-webkit-scrollbar-track,
 .rail-items::-webkit-scrollbar-track,
-.export-errors::-webkit-scrollbar-track {
+.export-errors::-webkit-scrollbar-track{
   background: transparent;
 }
-.workshop-body::-webkit-scrollbar-thumb,
 .picker-body::-webkit-scrollbar-thumb,
 .cmdk-results::-webkit-scrollbar-thumb,
 .rail-items::-webkit-scrollbar-thumb,
-.export-errors::-webkit-scrollbar-thumb {
+.export-errors::-webkit-scrollbar-thumb{
   /* line-strong (rgba 0.13) reads as a faint pill on dark bg without
      looking like a default OS scrollbar. 2px transparent border + clip
      makes the visible thumb 6px wide inside a 10px gutter. */
@@ -104,11 +100,10 @@ body {
   background-clip: padding-box;
   transition: background-color 160ms;
 }
-.workshop-body::-webkit-scrollbar-thumb:hover,
 .picker-body::-webkit-scrollbar-thumb:hover,
 .cmdk-results::-webkit-scrollbar-thumb:hover,
 .rail-items::-webkit-scrollbar-thumb:hover,
-.export-errors::-webkit-scrollbar-thumb:hover {
+.export-errors::-webkit-scrollbar-thumb:hover{
   background: var(--accent-line);
 }
 .rail-items::-webkit-scrollbar { width: 6px; }
@@ -205,7 +200,6 @@ body {
   font-size: 10px;
   margin-left: 8px;
 }
-.meta-kbd { display: flex; gap: 6px; align-items: center; }
 
 .topbar-pill {
   display: inline-flex;
@@ -314,9 +308,8 @@ kbd {
   overflow: hidden;
 }
 
-
 .row { display: flex; flex-direction: column; gap: 14px; margin-bottom: 12px; }
-.row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
 .row:last-child { margin-bottom: 0; }
 
 .field { display: flex; flex-direction: column; gap: 7px; min-width: 0; }
@@ -329,20 +322,6 @@ kbd {
   display: flex;
   align-items: center;
   justify-content: space-between;
-}
-
-.field-readout {
-  font: 500 11px/1 var(--f-mono);
-  color: var(--text);
-  letter-spacing: 0.04em;
-}
-.field-readout .ru {
-  color: var(--text-dim);
-  font-weight: 400;
-  font-size: 9px;
-  margin-left: 3px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
 }
 
 /* Soft compatibility-warning row, used under the template picker when a
@@ -506,73 +485,10 @@ input[type="range"]::-moz-range-thumb {
 .seg .seg-sep { color: var(--text-dim); margin: 0 1px; font-weight: 400; }
 
 /* Frame seg wraps on narrow screens */
-.seg-frames {
-  grid-auto-columns: minmax(0, 1fr);
-}
-.seg-frames button {
-  padding: 10px 2px;
-  font-size: 11px;
-  font-family: var(--f-ui);
-  letter-spacing: 0.02em;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  min-width: 0;
-}
 
 /* Two-tier seg picker — top row is family/grammar tabs, bottom row is
    variants. Only variants whose data-family matches the active tab are
    un-hidden (toggled via JS). Both rows render as .seg buttons. */
-.seg-stack {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.seg-family {
-  /* Family tabs are quieter than primary segs — slightly smaller text,
-     less visual weight, since picking a family is intermediate (the
-     real commit happens at the variant level). */
-  background: transparent;
-  border: 1px solid var(--line);
-  padding: 2px;
-}
-.seg-family button {
-  padding: 7px 4px;
-  font-size: 10px;
-  font-family: var(--f-mono);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-.seg-family button.active {
-  background: var(--bg-elev);
-  color: var(--text);
-  font-weight: 600;
-  /* No underline accent on family — keep it visually subordinate to
-     the variant row, which carries the active accent. */
-  box-shadow: inset 0 0 0 1px var(--line-strong);
-}
-.seg-variants {
-  grid-auto-columns: minmax(0, 1fr);
-}
-.seg-variants button {
-  padding: 11px 4px;
-  font-size: 12px;
-  font-family: var(--f-ui);
-  letter-spacing: 0.02em;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  min-width: 0;
-}
-.seg-variants button[hidden] {
-  /* `hidden` inside a grid layout is normalized to `display: none` via
-     the UA stylesheet, but only at specificity 0,0,0,1 — any later
-     button rule with class selector would override. Pin it explicitly
-     so the variant filter is bulletproof (CLAUDE.md "hidden attribute"
-     pitfall). */
-  display: none !important;
-}
 
 /* 3×3 anchor grid for signature placement. Replaces the old 3-button
    br/bl/bc seg — gives the user the full 9-cell anchor matrix that
@@ -732,7 +648,6 @@ input[type="range"]::-moz-range-thumb {
 }
 .warn[hidden] { display: none; }
 .warn strong { color: #ffdca3; }
-
 
 /* ──────────────────────────────────────────────────────────────────────────
    Frosted-bg channel rack — Phase 2 of the per-frame instrument language
@@ -2439,23 +2354,6 @@ input[type="range"]::-moz-range-thumb {
 }
 
 /* ── DIY caption-overlay toggle ───────────────────────────────────────── */
-.chip-label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 4px;
-  cursor: pointer;
-  font-size: 12px;
-  color: var(--text);
-  flex-wrap: wrap;
-}
-.chip-label .chip-hint {
-  flex: 1 1 100%;
-  font-size: 10.5px;
-  color: var(--text-dim);
-  margin-left: 26px;
-  letter-spacing: 0.01em;
-}
 
 /* ── Signature preview ─────────────────────────────────────────────────── */
 .signature-preview {
@@ -2682,14 +2580,6 @@ input[type="range"]::-moz-range-thumb {
 }
 
 /* ── EXIF GPS row (lat/lon + pick-on-map) ─────────────────────────────── */
-.exif-gps-actions {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: -4px;
-}
-.exif-gps-actions .btn-ghost {
-  font-size: 12px;
-}
 
 /* ── GPS picker modal ─────────────────────────────────────────────────── */
 .geo-modal {
@@ -3557,24 +3447,6 @@ input[type="range"]::-moz-range-thumb {
   .lightbox-nav { width: 32px; height: 32px; }
 }
 
-.grid-2 {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  margin-top: 10px;
-}
-.grid-2 label {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  font: 500 10px/1 var(--f-mono);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--text-muted);
-}
-.grid-2 input { font-size: 12px; padding: 7px 9px; }
-.grid-2 label.span-2 { grid-column: 1 / -1; }
-
 /* =========================================================
    BUTTONS
    ========================================================= */
@@ -3975,11 +3847,6 @@ input[type="range"]::-moz-range-thumb {
   box-shadow: 0 0 12px var(--accent-glow);
 }
 
-.rail-item.keyfocus {
-  outline: 1px solid var(--line-strong);
-  outline-offset: 2px;
-}
-
 .rail-empty {
   display: flex;
   flex-direction: column;
@@ -4031,28 +3898,6 @@ input[type="range"]::-moz-range-thumb {
   color: var(--text-muted);
 }
 
-.status-dot {
-  width: 6px; height: 6px;
-  border-radius: 50%;
-  background: var(--text-dim);
-  transition: background 200ms;
-}
-.statusbar.busy .status-dot {
-  background: var(--accent);
-  animation: pulse 900ms ease-in-out infinite;
-}
-
-.status-text {
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.14em;
-}
-[lang="zh-CN"] .status-text {
-  text-transform: none;
-  letter-spacing: 0.04em;
-}
-.statusbar.busy .status-text { color: var(--text); }
-
 /* Error state — visible enough that a user can't miss it.
    - Top border switches to accent red (was --line)
    - Subtle red wash on the left edge so the bar reads as "alarm strip"
@@ -4069,25 +3914,6 @@ input[type="range"]::-moz-range-thumb {
 @keyframes status-err-flash {
   0%   { background-color: rgba(229, 73, 58, 0.32); }
   100% { background-color: var(--bg-chrome); }
-}
-.statusbar.err .status-dot {
-  background: #ff7a6c;
-  border-radius: 1px;
-  width: 7px; height: 7px;
-  box-shadow: 0 0 8px var(--accent-glow);
-  animation: pulse 900ms ease-in-out infinite;
-}
-.statusbar.err .status-text {
-  color: #ff7a6c;
-  font-weight: 600;
-}
-
-.status-spacer { flex: 1; }
-
-.status-hint {
-  color: var(--text-dim);
-  letter-spacing: 0.08em;
-  font-size: 10px;
 }
 
 /* =========================================================
@@ -4704,7 +4530,7 @@ input[type="range"]::-moz-range-thumb {
   border: 1px solid var(--line);
 }
 .frame-tile-name { display: block; }
-.frame-tile-meta { display: block; }
+
 .frame-tile-photo {
   display: block;
   position: absolute;
@@ -5131,19 +4957,10 @@ input[type="range"]::-moz-range-thumb {
   flex-direction: column;
 }
 .workshop-overlay[data-open="true"] .workshop { transform: translateX(0); }
-.btn-wide { width: 100%; }
 
 /* =========================================================
    TOPBAR — small additions for cmdk trigger / topbar-pill-strong.
    ========================================================= */
-.topbar-pill-strong {
-  background: var(--accent-soft);
-  border-color: var(--accent-line);
-  color: var(--text);
-}
-.topbar-pill-strong:hover {
-  background: rgba(229,73,58,0.18);
-}
 
 /* =========================================================
    STATUSBAR — narrow strip below the lookbar with a status hint
@@ -5208,13 +5025,11 @@ body {
 
 @media (max-width: 1200px) {
   :root { --rail-w: 64px; }
-  .grid-2 { grid-template-columns: 1fr; }
-  .grid-2 label.span-2 { grid-column: auto; }
+
   .frame-tile-grid { grid-template-columns: repeat(3, 1fr); }
 }
 
 /* Mobile-only / desktop-only utility toggles (used by HTML twin spans) */
-.file-drop-hint-mobile { display: none; }
 
 /* =========================================================
    RESPONSIVE — phone (≤700px portrait OR landscape ≤500px tall):
@@ -5281,10 +5096,8 @@ body {
   }
   .pane-rail { display: none; }
 
-  .canvas-area, .pane-canvas { padding: 12px; }
+  .pane-canvas{ padding: 12px; }
   .file-drop-hint-desktop { display: none; }
-  .file-drop-hint-mobile  { display: inline; }
-  .empty-sub-desktop { display: none; }
 
   /* Lookbar becomes a bottom sheet: 4-row grid in 1.1+.
      Row 1: LOOK strip (full-width)
@@ -5485,7 +5298,6 @@ body {
     padding: 10px 12px;
     min-height: 44px;
   }
-  .grid-2 input, .grid-2 select { font-size: 15px; padding: 9px 10px; min-height: 42px; }
 
   input[type="range"] { height: 32px; }
   input[type="range"]::-webkit-slider-thumb {
@@ -5582,7 +5394,7 @@ body {
      through unchanged. Chip-group has less horizontal space (390px −
      44 import − 28 padding − 8 gap = 310px / 4 chips = ~77px each), so
      icon + text get tighter. */
-  .canvas-area, .pane-canvas { padding: 8px; }
+  .pane-canvas{ padding: 8px; }
   .lookbar { padding: 8px 10px; padding-bottom: max(8px, env(safe-area-inset-bottom)); }
   .lookbar-import-glyph { width: 18px; height: 18px; }
   .lookchip { padding: 10px 6px; gap: 6px; }
@@ -5641,7 +5453,7 @@ body {
     font-size: 16px;
     min-height: 44px;
   }
-  .grid-2 input, .grid-2 select { font-size: 15px; min-height: 42px; }
+  
   input[type="range"] { height: 32px; }
   input[type="range"]::-webkit-slider-thumb { width: 22px; height: 22px; margin-top: -10px; }
   input[type="range"]::-moz-range-thumb { width: 22px; height: 22px; }
@@ -5669,16 +5481,15 @@ body {
    ========================================================= */
 @media (hover: none) {
   .topbar-pill:hover,
-  .topbar-pill-strong:hover,
-  .lookbar-import:hover,
-  .lookbar-workshop:hover,
-  .btn:hover:not(:disabled),
-  .btn-primary:hover:not(:disabled),
-  .btn-secondary:hover:not(:disabled),
-  .frame-tile:hover,
-  .tmpl-tile:hover,
-  .file-drop:hover,
-  .update-banner-btn:hover {
+.lookbar-import:hover,
+.lookbar-workshop:hover,
+.btn:hover:not(:disabled),
+.btn-primary:hover:not(:disabled),
+.btn-secondary:hover:not(:disabled),
+.frame-tile:hover,
+.tmpl-tile:hover,
+.file-drop:hover,
+.update-banner-btn:hover{
     transform: none;
   }
   /* Workshop entry hover dashes→solid on desktop — undo on touch so the
@@ -6136,13 +5947,6 @@ body {
   border-color: var(--c-amber);
   box-shadow: 0 0 12px var(--c-amber-glow);
 }
-.compose-aspect-sep {
-  color: var(--c-cream-faint);
-  margin: 0 2px;
-}
-.compose-aspect-seg button.is-active .compose-aspect-sep {
-  color: rgba(20,18,15,0.55);
-}
 
 /* When aspect is locked (non-free), crop edge mid-pins lose their resize
    affordance — only corners drive the aspect-constrained resize. Keeping
@@ -6268,6 +6072,53 @@ input.compose-rot-slider, .compose-rot-slider {
 }
 .compose-center-cross::before { left: 50%; top: 0; width: 1px; height: 24px; transform: translateX(-50%); }
 .compose-center-cross::after  { top: 50%; left: 0; height: 1px; width: 24px; transform: translateY(-50%); }
+
+/* ── Seal placement overlay (#seal-modal, 1.11.0) ──────────────────────────
+   The modal reuses the compose darkroom shell (.compose-shell/-topbar/-stage/
+   -stage-inner/-canvas/-rot-bar/-hud/-mobile-actions; .seal-bench inherits the
+   .compose-bench mobile hide). These are the seal-specific bits: a selection
+   box rotated over the seal + 4 corner scale handles + a rotation knob on a
+   stem. The box outline is pointer-transparent so dragging anywhere on the
+   stage moves the seal; only the handles intercept. */
+.seal-box {
+  position: absolute; left: 0; top: 0;
+  border: 1.5px dashed rgba(212, 165, 116, 0.9);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.3);
+  transform-origin: center center;
+  pointer-events: none;
+  z-index: 6;
+}
+.seal-handle { position: absolute; pointer-events: auto; }
+.seal-corner {
+  width: 16px; height: 16px;
+  background: radial-gradient(circle at 32% 28%, #f4d99a 0%, #c43d2c 55%, #8a2a1a 100%);
+  border: 1px solid #5a1810; border-radius: 3px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+.seal-corner[data-h="nw"] { left: -8px;  top: -8px;    cursor: nwse-resize; }
+.seal-corner[data-h="ne"] { right: -8px; top: -8px;    cursor: nesw-resize; }
+.seal-corner[data-h="se"] { right: -8px; bottom: -8px; cursor: nwse-resize; }
+.seal-corner[data-h="sw"] { left: -8px;  bottom: -8px; cursor: nesw-resize; }
+.seal-rot-stem {
+  position: absolute; left: 50%; top: -30px; width: 1.5px; height: 30px;
+  background: rgba(212, 165, 116, 0.8); transform: translateX(-50%); pointer-events: none;
+}
+.seal-rot-knob {
+  left: 50%; top: -38px; transform: translateX(-50%);
+  width: 18px; height: 18px; border-radius: 50%;
+  background: radial-gradient(circle at 32% 28%, #f4d99a 0%, #c43d2c 55%, #8a2a1a 100%);
+  border: 1px solid #5a1810; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+  cursor: grab;
+}
+.seal-bench-readout { display: flex; gap: 22px; align-items: center; }
+.seal-bench-item { display: flex; flex-direction: column; gap: 2px; }
+.seal-bench-num { font: 600 14px/1 var(--f-mono); color: #efe8db; font-variant-numeric: tabular-nums; }
+.seal-bench-k { font: 500 8.5px/1 var(--f-mono); letter-spacing: 0.16em; text-transform: uppercase; color: #8a8078; }
+/* coarse pointers: expand handle hit areas to ≥44px (rule 13) via a
+   transparent ::before, keeping the visual dot small. */
+@media (pointer: coarse) {
+  .seal-handle::before { content: ""; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); }
+}
 
 /* min-padding warning bands — soft red wash on edges that violate frame's
    recommended minimum. Not a clamp, just a "you've crossed the line" cue. */
@@ -7640,16 +7491,6 @@ input.compose-vnum, .compose-vnum {
   text-transform: uppercase;
   color: rgba(212, 165, 116, 0.75);
 }
-.workshop--bench .caliper-zone-num {
-  display: grid;
-  place-items: center;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  border: 1px solid rgba(184, 148, 92, 0.55);
-  font: 600 9px/1 var(--f-mono);
-  color: #d4a574;
-}
 
 .workshop--bench .caliper-row {
   display: grid;
@@ -7980,12 +7821,6 @@ input.compose-vnum, .compose-vnum {
   color: #5a4530;
   background: rgba(240, 232, 212, 0.6);
 }
-.workshop--bench .notebook-zone-hint {
-  margin: 6px 0 0;
-  font: 400 11px/1.45 var(--f-stamp);
-  color: rgba(80, 60, 30, 0.65);
-  letter-spacing: 0.02em;
-}
 
 /* paper sticker · Top badge picker · 4 slightly-rotated rectangles */
 /* ── Caption strip · brass rows on notebook page ──
@@ -8209,26 +8044,6 @@ input.compose-vnum, .compose-vnum {
 .workshop--bench .arrangecard-clamps {
   margin-bottom: 12px;
 }
-.workshop--bench .sealcard-zone-label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 14px;
-  font: 500 12.5px/1.2 var(--f-stamp);
-  letter-spacing: 0.06em;
-  color: #5a4530;
-}
-.workshop--bench .sealcard-zone-num {
-  display: grid;
-  place-items: center;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  border: 1.5px solid #5a4530;
-  font: 600 10px/1 var(--f-stamp);
-  color: #5a4530;
-  background: rgba(240, 232, 212, 0.55);
-}
 
 /* ─── Wax seal press button (signature upload) ─── */
 .workshop--bench .sealcard-press {
@@ -8266,30 +8081,33 @@ input.compose-vnum, .compose-vnum {
   width: 52px;
   height: 52px;
 }
+/* Refined sealing-wax (1.11.0) — a clean domed red-wax disc, no jagged
+   clip-path. The dome comes from an off-center highlight gradient + inner
+   top-highlight / bottom-shadow; a hairline rim + faint inner ring read as
+   the raised edge of a pressed wax seal. */
 .workshop--bench .sealcard-wax-blob {
   position: absolute;
   inset: 0;
   border-radius: 50%;
   background:
-    radial-gradient(circle at 32% 28%, #d44a2a 0%, #8a2a1a 60%, #5a1810 100%);
+    radial-gradient(circle at 38% 30%,
+      #e3593c 0%, #c43a23 40%, #94270f 76%, #611708 100%);
   box-shadow:
-    inset 0 2px 2px rgba(255, 200, 180, 0.4),
-    inset 0 -3px 3px rgba(20, 8, 4, 0.4),
-    0 2px 6px rgba(90, 24, 16, 0.45);
-  /* irregular wax-drip edges */
-  clip-path: polygon(
-    50% 0%, 62% 4%, 72% 12%, 84% 18%, 94% 32%, 98% 50%,
-    96% 68%, 88% 80%, 76% 90%, 60% 96%, 44% 98%, 28% 94%,
-    14% 86%, 4% 72%, 0% 54%, 4% 36%, 14% 22%, 28% 10%, 40% 4%
-  );
+    inset 0 3px 4px rgba(255, 200, 170, 0.5),
+    inset 0 -5px 7px rgba(40, 10, 4, 0.55),
+    inset 0 0 0 1.5px rgba(255, 190, 160, 0.12),
+    0 3px 7px rgba(80, 20, 10, 0.5),
+    0 0 0 1px rgba(70, 16, 8, 0.55);
 }
+/* The insignia is debossed — pressed INTO the wax: a recessed dark mark
+   (semi-transparent so the wax gradient shows through) with a thin light
+   catch on its lower lip. Upright (a stamped emblem isn't italic). */
 .workshop--bench .sealcard-wax-glyph {
   position: relative;
   z-index: 1;
-  font: 500 22px/1 var(--f-display);
-  color: rgba(255, 245, 220, 0.85);
-  font-style: italic;
-  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.35);
+  font: 500 20px/1 var(--f-display);
+  color: rgba(66, 16, 7, 0.6);
+  text-shadow: 0 1px 0.5px rgba(255, 198, 168, 0.4);
 }
 .workshop--bench .sealcard-press-stack {
   display: flex;
@@ -8321,13 +8139,21 @@ input.compose-vnum, .compose-vnum {
   border-radius: 3px;
   margin-top: 8px;
 }
+/* The `display: grid` above (0,2,0) ties + out-orders the global
+   `.signature-preview[hidden]{display:none}`, so the hidden imprint preview
+   leaked through as a broken <img> when no seal is loaded. Re-assert the
+   hidden guard at matching scope (0,2,1) so it wins. (CLAUDE.md: any author
+   `display:` rule on a [hidden]-toggled element needs a sibling [hidden] rule.) */
+.workshop--bench .sealcard-imprint[hidden] { display: none; }
 .workshop--bench .sealcard-imprint-wax {
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: radial-gradient(circle at 32% 28%, #d44a2a 0%, #8a2a1a 60%, #5a1810 100%);
-  box-shadow: inset 0 -2px 2px rgba(20, 8, 4, 0.4);
-  opacity: 0.55;
+  background: radial-gradient(circle at 38% 30%, #e3593c 0%, #c43a23 40%, #94270f 76%, #611708 100%);
+  box-shadow:
+    inset 0 2px 3px rgba(255, 200, 170, 0.45),
+    inset 0 -3px 4px rgba(40, 10, 4, 0.5);
+  opacity: 0.7;
 }
 .workshop--bench .sealcard-imprint img {
   max-width: 100%;
@@ -8353,74 +8179,65 @@ input.compose-vnum, .compose-vnum {
   background: rgba(138, 42, 26, 0.1);
 }
 
-/* sealcard-positions · 9-point grid drawn as photo frame outline */
-.workshop--bench .sealcard-positions { margin-top: 14px; }
-.workshop--bench .sealcard-positions-label {
-  font: 500 10px/1.2 var(--f-stamp);
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: rgba(80, 60, 30, 0.65);
-  margin-bottom: 8px;
+/* Place-on-canvas CTA — wax-red primary (mirrors Caliper's Compose CTA),
+   opens #seal-modal for direct-manipulation placement. */
+.workshop--bench .sealcard-place {
+  display: flex; align-items: center; justify-content: center; gap: 9px;
+  width: 100%; margin-top: 14px; padding: 11px 14px;
+  appearance: none; -webkit-appearance: none; cursor: pointer;
+  font: 600 11px/1 var(--f-stamp); letter-spacing: 0.1em; text-transform: uppercase;
+  color: #fdf6e0;
+  background: linear-gradient(180deg, #c43d2c 0%, #8a2a1a 100%);
+  border: 1px solid #5a1810; border-radius: 3px;
+  box-shadow: inset 0 1px 0 rgba(255, 220, 200, 0.35), 0 2px 6px rgba(138, 42, 26, 0.4);
+  transition: filter 180ms, transform 180ms, opacity 180ms;
 }
-.workshop--bench .sealcard-frame {
-  position: relative;
-  width: 100%;
-  max-width: 168px;
-  margin: 0 auto;
-  aspect-ratio: 4 / 3;
-  border: 1.5px solid #5a4530;
-  border-radius: 2px;
-  background:
-    linear-gradient(180deg, rgba(255, 250, 235, 0.55) 0%, rgba(220, 205, 175, 0.35) 100%);
-  box-shadow:
-    inset 0 0 0 1px rgba(255, 250, 235, 0.4),
-    0 1px 2px rgba(80, 60, 30, 0.15);
-  padding: 8px;
-}
-.workshop--bench .sealcard-frame-grid {
-  width: 100%;
-  height: 100%;
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  grid-template-rows: 1fr 1fr 1fr;
-  gap: 0;
-}
-.workshop--bench .sealcard-frame-grid button {
-  appearance: none;
-  -webkit-appearance: none;
-  display: grid;
-  place-items: center;
-  background: transparent;
-  border: 0;
-  cursor: pointer;
-  position: relative;
-}
-.workshop--bench .sealcard-frame-grid button::after {
-  content: "";
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background: rgba(80, 60, 30, 0.2);
-  border: 1px solid rgba(80, 60, 30, 0.35);
-  transition: background 180ms, border-color 180ms, transform 180ms, box-shadow 180ms;
-}
-.workshop--bench .sealcard-frame-grid button:hover::after {
-  background: rgba(138, 42, 26, 0.3);
-  border-color: rgba(138, 42, 26, 0.55);
-  transform: scale(1.15);
-}
-.workshop--bench .sealcard-frame-grid button.active::after {
-  width: 14px;
-  height: 14px;
-  background: radial-gradient(circle at 32% 28%, #d44a2a 0%, #8a2a1a 60%, #5a1810 100%);
-  border-color: #5a1810;
-  box-shadow:
-    inset 0 1px 1px rgba(255, 200, 180, 0.3),
-    0 1px 4px rgba(138, 42, 26, 0.45);
-  transform: scale(1);
-}
+.workshop--bench .sealcard-place:hover:not(:disabled) { filter: brightness(1.08); transform: translateY(-1px); }
+.workshop--bench .sealcard-place:active:not(:disabled) { transform: translateY(0); }
+.workshop--bench .sealcard-place:disabled { opacity: 0.4; cursor: default; }
+.workshop--bench .sealcard-place-glyph { font-size: 14px; }
 
-/* hairline meter sliders (size + opacity) — thin wax-line styling */
+/* Ink settings — blend-mode seg + flip toggle, on the cardstock */
+.workshop--bench .sealcard-ink-row { margin-top: 14px; }
+.workshop--bench .sealcard-ink-label {
+  display: block; font: 500 10px/1.2 var(--f-stamp); letter-spacing: 0.14em;
+  text-transform: uppercase; color: rgba(80, 60, 30, 0.65); margin-bottom: 7px;
+}
+.workshop--bench .sealcard-blend-seg { display: flex; flex-wrap: wrap; gap: 5px; }
+.workshop--bench .sealcard-blend-chip {
+  appearance: none; -webkit-appearance: none; cursor: pointer;
+  padding: 5px 9px; font: 500 10.5px/1 var(--f-ui); color: #2b1f17;
+  background: linear-gradient(180deg, #fdf6e0 0%, #ead9b8 100%);
+  border: 1px solid rgba(80, 60, 30, 0.35); border-radius: 2px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45);
+  transition: background 160ms, color 160ms, border-color 160ms;
+}
+@media (hover: hover) and (pointer: fine) {
+  .workshop--bench .sealcard-blend-chip:hover:not(:disabled) { border-color: rgba(138, 42, 26, 0.55); }
+}
+.workshop--bench .sealcard-blend-chip.active {
+  background: linear-gradient(180deg, #c43d2c 0%, #8a2a1a 100%);
+  color: #fdf6e0; border-color: #5a1810;
+}
+.workshop--bench .sealcard-blend-chip:disabled { opacity: 0.4; cursor: default; }
+
+.workshop--bench .sealcard-flip-toggle {
+  display: inline-flex; align-items: center; gap: 8px; margin-top: 12px;
+  appearance: none; -webkit-appearance: none; cursor: pointer;
+  padding: 7px 12px; font: 500 11px/1 var(--f-ui); color: #2b1f17;
+  background: linear-gradient(180deg, #fdf6e0 0%, #ead9b8 100%);
+  border: 1px solid rgba(80, 60, 30, 0.35); border-radius: 999px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45);
+  transition: background 160ms, color 160ms, border-color 160ms;
+}
+.workshop--bench .sealcard-flip-toggle.active {
+  background: linear-gradient(180deg, #c43d2c 0%, #8a2a1a 100%);
+  color: #fdf6e0; border-color: #5a1810;
+}
+.workshop--bench .sealcard-flip-toggle:disabled { opacity: 0.4; cursor: default; }
+.workshop--bench .sealcard-flip-glyph { font-size: 14px; }
+
+/* hairline meter sliders (opacity) — thin wax-line styling */
 .workshop--bench .sealcard-meter-row {
   display: grid;
   grid-template-columns: 64px 1fr 56px;
@@ -8566,13 +8383,6 @@ input.compose-vnum, .compose-vnum {
 }
 
 /* collage-slots inside the sealcard */
-.workshop--bench .sealcard-slots {
-  margin-top: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.workshop--bench .sealcard-slots:empty { display: none; }
 
 /* Mobile · tighten grids */
 @media (max-width: 700px) {

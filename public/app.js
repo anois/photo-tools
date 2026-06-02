@@ -68,9 +68,12 @@ function defaultCfg() {
     // this image (blurred + tinted with the frame's saturation/brightness/
     // darken) replaces the self-image bg. null = use the photo itself.
     customBg: null,
-    // User-uploaded signature image overlaid on the foreground photo. null means
-    // no signature; otherwise { data: dataURL, type: 'svg'|'png',
-    // position: 'br'|'bl'|'bc', scale: 0.06, opacity: 1 }.
+    // User-uploaded seal/signature image, freely placed over the whole canvas
+    // (photo OR frame margin/caption) as the last compose layer. null = none;
+    // otherwise v2 shape { data: dataURL, type: 'svg'|'png', cx, cy (norm
+    // canvas center 0..1), scale (frac of canvas width 0.02–0.60), rotation
+    // (deg), flipH (bool), blend ('normal'|'multiply'|'screen'|'overlay'|
+    // 'darken'|'lighten'), opacity 0.2–1 }. Placement edited in #seal-modal.
     customLogo: null,
     // Collage mode. null = single photo; otherwise { layout: 'h2'|'v2'|
     // 'h3'|'v3'|'2x2' }. Partner Files themselves aren't part of cfg
@@ -254,11 +257,11 @@ const els = {
   signaturePreview: document.getElementById('signature-preview'),
   signaturePreviewImg: document.getElementById('signature-preview-img'),
   signatureClearBtn: document.getElementById('signature-clear-btn'),
-  signaturePosGrid: document.getElementById('signature-pos-grid'),
-  signatureScale: document.getElementById('signature-scale'),
-  signatureScaleVal: document.getElementById('signature-scale-val'),
   signatureOpacity: document.getElementById('signature-opacity'),
   signatureOpacityVal: document.getElementById('signature-opacity-val'),
+  sealBlendSeg: document.getElementById('seal-blend-seg'),
+  sealFlipToggle: document.getElementById('seal-flip-toggle'),
+  sealPlaceBtn: document.getElementById('seal-place-btn'),
   collageLayout: document.getElementById('collage-layout'),
   collageSlots: document.getElementById('collage-slots'),
   canvasFrameBadge: document.getElementById('canvas-frame-badge'),
@@ -1017,64 +1020,86 @@ function renderCollageSlots(layout, active) {
   }
 }
 
-// Resolve the active anchor letter ('br' / 'tl' / etc.) regardless of
-// whether cfg.customLogo.position is the legacy string form or the new
-// { anchor, dx, dy } object. Single source of truth so UI sync and
-// migration stay in lockstep.
-function customLogoAnchor(cl) {
-  if (!cl) return 'br';
-  const pos = cl.position;
-  if (typeof pos === 'string') return pos;
-  if (pos && typeof pos === 'object' && pos.anchor) return pos.anchor;
-  return 'br';
-}
-
-function setPosGridActive(grid, anchor) {
-  grid.querySelectorAll('button').forEach((b) => {
-    const on = b.dataset.anchor === anchor;
-    b.classList.toggle('active', on);
-    b.setAttribute('aria-checked', on ? 'true' : 'false');
-  });
-}
-
+// Sync the ❖ Seal tool panel (imprint preview + blend seg + flip toggle +
+// opacity + Place CTA) from cfg.customLogo. Position / scale / rotation are
+// NOT shown here — they're edited by direct manipulation in #seal-modal.
 function syncSignatureFromCfg(cfg) {
   const cl = cfg.customLogo;
   const has = !!(cl && cl.data);
   els.signaturePreview.hidden = !has;
   els.signaturePreviewImg.src = has ? cl.data : '';
-  setPosGridActive(els.signaturePosGrid, has ? customLogoAnchor(cl) : 'br');
-  const scalePct = Math.round((has ? (cl.scale != null ? cl.scale : 0.06) : 0.06) * 100);
+  // Blend seg
+  const blend = has && cl.blend ? cl.blend : 'normal';
+  if (els.sealBlendSeg) {
+    els.sealBlendSeg.querySelectorAll('button').forEach((b) => {
+      const on = b.dataset.val === blend;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-checked', on ? 'true' : 'false');
+      b.disabled = !has;
+    });
+  }
+  // Flip toggle
+  if (els.sealFlipToggle) {
+    const flipped = !!(has && cl.flipH);
+    els.sealFlipToggle.classList.toggle('active', flipped);
+    els.sealFlipToggle.setAttribute('aria-pressed', flipped ? 'true' : 'false');
+    els.sealFlipToggle.disabled = !has;
+  }
+  // Opacity meter
   const opacity = has ? (cl.opacity != null ? cl.opacity : 1) : 1;
-  els.signatureScale.value = scalePct;
-  setReadoutNum(els.signatureScaleVal, scalePct, '%');
   els.signatureOpacity.value = opacity;
   setReadoutNum(els.signatureOpacityVal, Math.round(opacity * 100), '%');
-  els.signaturePosGrid.querySelectorAll('button').forEach((b) => { b.disabled = !has; });
-  els.signatureScale.disabled = !has;
   els.signatureOpacity.disabled = !has;
+  // Place CTA — only usable once a seal is loaded.
+  if (els.sealPlaceBtn) els.sealPlaceBtn.disabled = !has;
 }
 
-// Migrate persisted customLogo schemas to the current shape:
-//   v0 (legacy): { data, type, position: 'br'|'bl'|'bc', scale, opacity }
-//   v1 (now):    { data, type, position: { anchor, dx, dy }, scale, opacity }
+// Migrate persisted customLogo schemas to the current v2 shape (1.11.0):
+//   v0: { data, type, position: 'br'|'bl'|'bc', scale(fg-rel), opacity }
+//   v1: { data, type, position: { anchor, dx, dy }, scale(fg-rel), opacity }
+//   v2: { data, type, cx, cy (norm canvas center), scale(canvas-rel),
+//         rotation, flipH, blend, opacity }
+// The seal moved from a 9-anchor, fg-clipped overlay to a freely-placed,
+// whole-canvas watermark. Migration maps the old anchor → a normalized
+// canvas center (table mirrors render.js legacyAnchorCenter, biased inward
+// to approximate the old ~20px margin), folds dx/dy (base-1440 px) into
+// cx/cy as canvas fractions, and rescales: old scale was fg-width-relative
+// and fg ≈ 0.85 of canvas width, so ×0.85 keeps the seal visually the same
+// size. New fields default rotation:0 / flipH:false / blend:'normal'.
 // Run at every persistence boundary (localStorage load, preset apply,
-// share-code decode) so future code paths only see the new shape.
-// `customLogoRect` itself still tolerates both for safety, but this
-// function is what gradually upgrades the user's stored data.
+// share-code decode); customLogoRect also tolerates un-migrated cfg.
 function migrateCustomLogo(cl) {
   if (!cl || typeof cl !== 'object') return cl;
-  const out = { ...cl };
-  if (typeof out.position === 'string') {
-    out.position = { anchor: out.position, dx: 0, dy: 0 };
-  } else if (!out.position || typeof out.position !== 'object') {
-    out.position = { anchor: 'br', dx: 0, dy: 0 };
-  } else {
-    out.position = {
-      anchor: out.position.anchor || 'br',
-      dx: Number(out.position.dx) || 0,
-      dy: Number(out.position.dy) || 0
-    };
+  // Already v2 — just backfill any missing additive fields.
+  if (cl.cx != null && cl.cy != null && cl.position == null) {
+    const out = { ...cl };
+    if (out.rotation == null) out.rotation = 0;
+    if (out.flipH == null) out.flipH = false;
+    if (!out.blend) out.blend = 'normal';
+    return out;
   }
+  // v0 / v1 → v2.
+  const out = { ...cl };
+  const pos = out.position;
+  let anchor = 'br', dx = 0, dy = 0;
+  if (typeof pos === 'string') {
+    anchor = pos;
+  } else if (pos && typeof pos === 'object') {
+    anchor = pos.anchor || 'br';
+    dx = Number(pos.dx) || 0;
+    dy = Number(pos.dy) || 0;
+  }
+  const ay = anchor.charAt(0) || 'b', ax = anchor.charAt(1) || 'r';
+  let cx = ax === 'l' ? 0.18 : ax === 'c' ? 0.50 : 0.82;
+  let cy = ay === 't' ? 0.16 : ay === 'c' ? 0.50 : 0.84;
+  cx += dx / 1440; cy += dy / 1440;
+  out.cx = Math.max(0, Math.min(1, cx));
+  out.cy = Math.max(0, Math.min(1, cy));
+  out.scale = Math.max(0.02, Math.min(0.60, (Number(out.scale) || 0.06) * 0.85));
+  out.rotation = 0;
+  out.flipH = false;
+  out.blend = 'normal';
+  delete out.position;
   return out;
 }
 
@@ -2083,19 +2108,18 @@ els.signatureInput.addEventListener('change', async () => {
     const raw = await readSignatureFile(file);
     const data = ensureSvgDimensions(raw);
     const type = /^data:image\/svg/i.test(data) ? 'svg' : 'png';
-    // Carry over the active photo's position/size/opacity if a signature was
-    // already there — re-uploading should swap the image but keep the look.
-    // New uploads always write the v1 schema (object position).
+    // Re-uploading swaps the image but keeps the existing placement/look
+    // (v2 fields). A fresh upload defaults to a modest bottom-right seal.
     const prev = activeCfg().customLogo;
-    const prevPos = prev && prev.position;
-    const positionObj = (prevPos && typeof prevPos === 'object' && prevPos.anchor)
-      ? { anchor: prevPos.anchor, dx: Number(prevPos.dx) || 0, dy: Number(prevPos.dy) || 0 }
-      : { anchor: (typeof prevPos === 'string' ? prevPos : 'br'), dx: 0, dy: 0 };
     const payload = {
       data: data,
       type: type,
-      position: positionObj,
-      scale:    prev && prev.scale != null ? prev.scale : 0.06,
+      cx:       prev && prev.cx != null ? prev.cx : 0.85,
+      cy:       prev && prev.cy != null ? prev.cy : 0.88,
+      scale:    prev && prev.scale != null ? prev.scale : 0.10,
+      rotation: prev && prev.rotation != null ? prev.rotation : 0,
+      flipH:    prev ? !!prev.flipH : false,
+      blend:    prev && prev.blend ? prev.blend : 'normal',
       opacity:  prev && prev.opacity != null ? prev.opacity : 1
     };
     applyCustomLogoEverywhere(payload);
@@ -2115,42 +2139,46 @@ els.signatureClearBtn.addEventListener('click', () => {
   requestRender();
 });
 
-els.signaturePosGrid.querySelectorAll('button').forEach((btn) => {
+// The seal is a single GLOBAL identity (1.11.0): any field edit cascades to
+// every photo + draftCfg + localStorage. patchSeal merges a partial change
+// into the current seal object and re-commits it globally.
+function patchSeal(patch) {
+  const cur = activeCfg().customLogo;
+  if (!cur || !cur.data) return;
+  applyCustomLogoEverywhere({ ...cur, ...patch });
+}
+
+// Blend-mode seg (normal / multiply / screen / overlay / darken / lighten).
+els.sealBlendSeg.querySelectorAll('button').forEach((btn) => {
   btn.addEventListener('click', () => {
-    const cfg = activeCfg();
-    if (!cfg.customLogo) return;
-    const anchor = btn.dataset.anchor;
-    setPosGridActive(els.signaturePosGrid, anchor);
-    // Always write the new schema (object). dx/dy preserved if the user
-    // had custom offsets from a future microadjust UI; defaults to 0/0
-    // for the legacy "just pick a corner" path.
-    const prev = (cfg.customLogo.position && typeof cfg.customLogo.position === 'object')
-      ? cfg.customLogo.position
-      : { dx: 0, dy: 0 };
-    cfg.customLogo = {
-      ...cfg.customLogo,
-      position: { anchor, dx: prev.dx || 0, dy: prev.dy || 0 }
-    };
+    if (!activeCfg().customLogo) return;
+    patchSeal({ blend: btn.dataset.val });
+    syncSignatureFromCfg(activeCfg());
     requestRender();
   });
 });
 
-els.signatureScale.addEventListener('input', () => {
-  const cfg = activeCfg();
-  if (!cfg.customLogo) return;
-  const pct = Number(els.signatureScale.value);
-  cfg.customLogo = { ...cfg.customLogo, scale: pct / 100 };
-  setReadoutNum(els.signatureScaleVal, pct, '%');
+// Flip-horizontal toggle.
+els.sealFlipToggle.addEventListener('click', () => {
+  const cur = activeCfg().customLogo;
+  if (!cur || !cur.data) return;
+  patchSeal({ flipH: !cur.flipH });
+  syncSignatureFromCfg(activeCfg());
   requestRender();
 });
 
 els.signatureOpacity.addEventListener('input', () => {
-  const cfg = activeCfg();
-  if (!cfg.customLogo) return;
+  if (!activeCfg().customLogo) return;
   const v = Number(els.signatureOpacity.value);
-  cfg.customLogo = { ...cfg.customLogo, opacity: v };
+  patchSeal({ opacity: v });
   setReadoutNum(els.signatureOpacityVal, Math.round(v * 100), '%');
   requestRender();
+});
+
+// "Place on canvas…" CTA → opens the direct-manipulation #seal-modal.
+els.sealPlaceBtn.addEventListener('click', () => {
+  if (els.sealPlaceBtn.disabled) return;
+  if (window.SealPlace) window.SealPlace.open();
 });
 
 
@@ -3401,23 +3429,9 @@ function applyPresetByName(preset, label, opts) {
   if (target !== state.draftCfg) applyPresetToCfg(preset, state.draftCfg);
   syncControlsFromCfg(target);
   // customLogo lives outside syncControlsFromCfg's bg/shadow/showFields scope.
-  // Sync the visible preview here when present (mirrors prior select-change
-  // logic); this is per-active-photo, not cascaded — user hits "Apply frame
-  // to all" to propagate.
-  if (preset.customLogo) {
-    els.signaturePreview.hidden = false;
-    els.signaturePreviewImg.src = preset.customLogo.data;
-    setPosGridActive(els.signaturePosGrid, customLogoAnchor(preset.customLogo));
-    const sc = Math.round((preset.customLogo.scale != null ? preset.customLogo.scale : 0.06) * 100);
-    const op = preset.customLogo.opacity != null ? preset.customLogo.opacity : 1;
-    els.signatureScale.value = sc;
-    setReadoutNum(els.signatureScaleVal, sc, '%');
-    els.signatureOpacity.value = op;
-    setReadoutNum(els.signatureOpacityVal, Math.round(op * 100), '%');
-    els.signaturePosGrid.querySelectorAll('button').forEach((b) => { b.disabled = false; });
-    els.signatureScale.disabled = false;
-    els.signatureOpacity.disabled = false;
-  }
+  // applyPresetToCfg already migrated target.customLogo to v2, so the Seal
+  // panel just re-syncs from cfg (preview + blend + flip + opacity + Place CTA).
+  syncSignatureFromCfg(target);
   setLookActive({
     baseline: captureLookBaseline(preset),
     label: label,
@@ -7101,4 +7115,320 @@ function showUpdateBanner(waitingSw) {
 
   // Initial enable check
   setTimeout(refreshTriggerEnabled, 100);
+})();
+
+// ── SEAL_PLACE — direct-manipulation seal placement (#seal-modal, 1.11.0) ──
+// The seal is canvas-normalized (cx/cy/scale over the WHOLE canvas), so the
+// displayed canvas CSS box IS the coordinate space — positioning needs no
+// layout coupling (unlike Compose's fg-relative handles). Drag the body to
+// move, corners/pinch to scale, knob/twist/rot-bar to rotate. Apply cascades
+// the working seal GLOBALLY via applyCustomLogoEverywhere. Reuses the Compose
+// darkroom shell CSS + the canonical snapshotCfgForRender projection.
+(function () {
+  'use strict';
+  const dlg = document.getElementById('seal-modal');
+  if (!dlg) return;
+  const el = {
+    stage: document.getElementById('seal-stage'),
+    stageInner: document.getElementById('seal-stage-inner'),
+    canvas: document.getElementById('seal-canvas'),
+    box: document.getElementById('seal-box'),
+    hint: document.getElementById('seal-hint'),
+    hud: document.getElementById('seal-hud'),
+    hudKey: document.getElementById('seal-hud-key'),
+    hudVal: document.getElementById('seal-hud-val'),
+    hudUnit: document.getElementById('seal-hud-unit'),
+    rotSlider: document.getElementById('seal-rot-slider'),
+    rotBarVal: document.getElementById('seal-rot-bar-val'),
+    rotCcw: document.getElementById('seal-rot-ccw'),
+    rotCw: document.getElementById('seal-rot-cw'),
+    rotZero: document.getElementById('seal-rot-zero'),
+    benchPos: document.getElementById('seal-bench-pos'),
+    benchSize: document.getElementById('seal-bench-size'),
+    benchRot: document.getElementById('seal-bench-rot'),
+    close: document.getElementById('seal-close'),
+    cancel: document.getElementById('seal-cancel'),
+    apply: document.getElementById('seal-apply'),
+    mobileActions: document.getElementById('seal-mobile-actions'),
+    mobileCancel: document.getElementById('seal-mobile-cancel'),
+    mobileApply: document.getElementById('seal-mobile-apply'),
+    resetPlace: document.getElementById('seal-reset-place')
+  };
+  const SEAL = { open: false, working: null, imgAspect: 1, renderRAF: 0,
+                 dragging: false, settleTimer: 0, cssW: 0, cssH: 0, freeRotate: false };
+  const SCALE_REST = 0.5, SCALE_DRAG = 0.2;
+  let rendering = false, pending = false;
+
+  const clamp = (v, lo, hi) => v < lo ? lo : v > hi ? hi : v;
+  const isMobile = () => window.matchMedia('(max-width: 700px), (max-height: 500px) and (orientation: landscape)').matches;
+
+  // ── render the live composition (with the working seal) onto the stage ──
+  function requestSealRender() {
+    if (!SEAL.open) return;
+    if (SEAL.renderRAF) return;
+    SEAL.renderRAF = requestAnimationFrame(() => { SEAL.renderRAF = 0; doRenderStage(); });
+  }
+  async function doRenderStage() {
+    if (rendering) { pending = true; return; }
+    rendering = true;
+    try {
+      const active = state.files[state.activeIdx];
+      if (!active) return;
+      const proj = snapshotCfgForRender(activeCfg());
+      proj.customLogo = SEAL.working;   // show the seal in place as we edit it
+      await CR.renderPreview(el.canvas, {
+        file: active.file,
+        partnerFiles: active.partnerFiles || [],
+        cfg: proj,
+        normExif: buildCurrentExif(),
+        logos: state.logos,
+        fontFaceCss: state.fontFaceCss,
+        customScale: SEAL.dragging ? SCALE_DRAG : SCALE_REST
+      });
+      fitCanvas();
+      updateBox();
+    } catch (err) {
+      console.error('[seal render]', err);
+    } finally {
+      rendering = false;
+      if (pending) { pending = false; requestSealRender(); }
+    }
+  }
+
+  // Fit the rendered canvas (drawing buffer aspect) into the stage with margin.
+  function fitCanvas() {
+    const bw = el.canvas.width, bh = el.canvas.height;
+    if (!bw || !bh) return;
+    const sw = el.stage.clientWidth || window.innerWidth || 1200;
+    const sh = el.stage.clientHeight || window.innerHeight || 800;
+    const margin = isMobile() ? 26 : 84;
+    const fit = Math.min((sw - margin * 2) / bw, (sh - margin * 2) / bh);
+    const cssW = Math.max(40, bw * fit), cssH = Math.max(40, bh * fit);
+    SEAL.cssW = cssW; SEAL.cssH = cssH;
+    el.canvas.style.width = cssW + 'px';
+    el.canvas.style.height = cssH + 'px';
+    el.stageInner.style.width = cssW + 'px';
+    el.stageInner.style.height = cssH + 'px';
+  }
+
+  // ── selection-box overlay (mirrors customLogoRect but in display px) ──
+  function updateBox() {
+    const s = SEAL.working;
+    if (!s || !s.data || !SEAL.cssW) { el.box.hidden = true; return; }
+    el.box.hidden = false;
+    const ar = SEAL.imgAspect || 1;
+    const wpx = Math.max(10, clamp(Number(s.scale) || 0.1, 0.02, 0.60) * SEAL.cssW);
+    const hpx = wpx / ar;
+    const cx = clamp(Number(s.cx), 0, 1) * SEAL.cssW;
+    const cy = clamp(Number(s.cy), 0, 1) * SEAL.cssH;
+    el.box.style.width = wpx + 'px';
+    el.box.style.height = hpx + 'px';
+    el.box.style.left = (cx - wpx / 2) + 'px';
+    el.box.style.top = (cy - hpx / 2) + 'px';
+    el.box.style.transform = 'rotate(' + (Number(s.rotation) || 0) + 'deg)';
+    el.benchPos.textContent = Math.round(clamp(s.cx, 0, 1) * 100) + '% · ' + Math.round(clamp(s.cy, 0, 1) * 100) + '%';
+    el.benchSize.textContent = Math.round((Number(s.scale) || 0) * 100) + '%';
+    el.benchRot.textContent = Math.round(Number(s.rotation) || 0) + '°';
+    el.rotSlider.value = String(normRotSlider(s.rotation));
+    el.rotBarVal.textContent = normRotSlider(s.rotation).toFixed(1) + '°';
+  }
+  function normRotSlider(r) {
+    const n = ((Number(r) || 0) % 360 + 360) % 360;
+    return n > 180 ? n - 360 : n;
+  }
+  function showHud(key, val, unit) {
+    el.hudKey.textContent = key;
+    el.hudVal.textContent = val;
+    el.hudUnit.textContent = unit || '';
+    el.hud.setAttribute('aria-hidden', 'false');
+  }
+  function hideHud() { el.hud.setAttribute('aria-hidden', 'true'); }
+
+  // ── pointer geometry helpers (relative to the displayed canvas) ──
+  function canvasRect() { return el.canvas.getBoundingClientRect(); }
+  function ptNorm(e) { const r = canvasRect(); return { x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height }; }
+  function ptCss(e) { const r = canvasRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; }
+  function centerCss() { return { x: clamp(SEAL.working.cx, 0, 1) * SEAL.cssW, y: clamp(SEAL.working.cy, 0, 1) * SEAL.cssH }; }
+
+  function beginDrag() {
+    if (!SEAL.dragging) { SEAL.dragging = true; requestSealRender(); }
+    if (SEAL.settleTimer) { clearTimeout(SEAL.settleTimer); SEAL.settleTimer = 0; }
+  }
+  function endDrag() {
+    if (SEAL.settleTimer) clearTimeout(SEAL.settleTimer);
+    SEAL.settleTimer = setTimeout(() => {
+      SEAL.dragging = false; SEAL.settleTimer = 0; requestSealRender();
+    }, 120);
+    hideHud();
+  }
+
+  // ── gesture state ──
+  const pointers = new Map();   // pointerId → {x,y}
+  let gesture = null;           // { mode, ... }
+
+  function gestureStart(e) {
+    if (!SEAL.working || !SEAL.working.data) return;
+    const isRot = e.target.closest && e.target.closest('[data-h="rot"]');
+    const isCorner = e.target.closest && e.target.closest('.seal-corner');
+    let mode = 'move';
+    if (isRot) mode = 'rotate';
+    else if (isCorner) mode = 'scale';
+    if (mode === 'move') {
+      const p = ptNorm(e);
+      gesture = { mode: 'move', grabX: p.x - clamp(SEAL.working.cx, 0, 1), grabY: p.y - clamp(SEAL.working.cy, 0, 1) };
+    } else if (mode === 'scale') {
+      const p = ptCss(e), c = centerCss();
+      gesture = { mode: 'scale', startDist: Math.max(4, Math.hypot(p.x - c.x, p.y - c.y)), startScale: Number(SEAL.working.scale) || 0.1 };
+    } else {
+      gesture = { mode: 'rotate' };
+    }
+    beginDrag();
+  }
+  function gestureMove(e) {
+    if (!gesture) return;
+    const s = SEAL.working;
+    if (pointers.size >= 2) { pinchMove(); return; }
+    if (gesture.mode === 'move') {
+      const p = ptNorm(e);
+      s.cx = clamp(p.x - gesture.grabX, 0, 1);
+      s.cy = clamp(p.y - gesture.grabY, 0, 1);
+      // soft snap to center lines (within ~1.5%)
+      if (Math.abs(s.cx - 0.5) < 0.015) s.cx = 0.5;
+      if (Math.abs(s.cy - 0.5) < 0.015) s.cy = 0.5;
+      showHud('POS', Math.round(s.cx * 100) + '·' + Math.round(s.cy * 100), '%');
+    } else if (gesture.mode === 'scale') {
+      const p = ptCss(e), c = centerCss();
+      const d = Math.hypot(p.x - c.x, p.y - c.y);
+      s.scale = clamp(gesture.startScale * (d / gesture.startDist), 0.02, 0.60);
+      showHud('SIZE', Math.round(s.scale * 100), '%');
+    } else if (gesture.mode === 'rotate') {
+      const p = ptCss(e), c = centerCss();
+      let ang = Math.atan2(p.y - c.y, p.x - c.x) * 180 / Math.PI + 90;
+      ang = ((ang % 360) + 360) % 360; if (ang > 180) ang -= 360;
+      if (!SEAL.freeRotate) {
+        for (const snap of [0, 90, 180, -90, -180]) { if (Math.abs(ang - snap) < 3) { ang = snap; break; } }
+      }
+      s.rotation = ang;
+      showHud('ANGLE', ang.toFixed(0), '°');
+    }
+    requestSealRender();
+  }
+  function pinchMove() {
+    const pts = Array.from(pointers.values());
+    if (pts.length < 2 || !gesture) return;
+    const r = canvasRect();
+    const a = pts[0], b = pts[1];
+    const dist = Math.max(4, Math.hypot(b.x - a.x, b.y - a.y));
+    const angle = Math.atan2(b.y - a.y, b.x - a.x) * 180 / Math.PI;
+    const midNorm = { x: ((a.x + b.x) / 2 - r.left) / r.width, y: ((a.y + b.y) / 2 - r.top) / r.height };
+    if (!gesture.pinch) {
+      gesture.pinch = { startDist: dist, startAngle: angle, startScale: Number(SEAL.working.scale) || 0.1,
+                        startRot: Number(SEAL.working.rotation) || 0,
+                        offX: clamp(SEAL.working.cx, 0, 1) - midNorm.x, offY: clamp(SEAL.working.cy, 0, 1) - midNorm.y };
+    }
+    const g = gesture.pinch;
+    const s = SEAL.working;
+    s.scale = clamp(g.startScale * (dist / g.startDist), 0.02, 0.60);
+    let rot = g.startRot + (angle - g.startAngle);
+    rot = ((rot % 360) + 360) % 360; if (rot > 180) rot -= 360;
+    s.rotation = rot;
+    s.cx = clamp(midNorm.x + g.offX, 0, 1);
+    s.cy = clamp(midNorm.y + g.offY, 0, 1);
+    requestSealRender();
+  }
+
+  el.stageInner.addEventListener('pointerdown', (e) => {
+    if (!SEAL.open || !SEAL.working) return;
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    try { el.stageInner.setPointerCapture(e.pointerId); } catch (_) { /* synthetic events */ }
+    if (pointers.size === 1) gestureStart(e);
+    else if (pointers.size === 2 && gesture) gesture.pinch = null;   // (re)seed pinch on next move
+    e.preventDefault();
+  });
+  el.stageInner.addEventListener('pointermove', (e) => {
+    if (!pointers.has(e.pointerId)) return;
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    gestureMove(e);
+  });
+  function pointerEnd(e) {
+    if (!pointers.has(e.pointerId)) return;
+    pointers.delete(e.pointerId);
+    try { el.stageInner.releasePointerCapture(e.pointerId); } catch (_) {}
+    if (pointers.size < 2 && gesture) gesture.pinch = null;
+    if (pointers.size === 0) { gesture = null; endDrag(); }
+  }
+  el.stageInner.addEventListener('pointerup', pointerEnd);
+  el.stageInner.addEventListener('pointercancel', pointerEnd);
+
+  // ── rotation bar ──
+  el.rotSlider.addEventListener('input', () => {
+    if (!SEAL.working) return;
+    beginDrag();
+    SEAL.working.rotation = Number(el.rotSlider.value) || 0;
+    el.rotBarVal.textContent = (Number(el.rotSlider.value) || 0).toFixed(1) + '°';
+    requestSealRender();
+    endDrag();
+  });
+  const bumpRot = (d) => { if (!SEAL.working) return; let r = (Number(SEAL.working.rotation) || 0) + d; r = ((r % 360) + 360) % 360; if (r > 180) r -= 360; SEAL.working.rotation = r; requestSealRender(); };
+  el.rotCcw.addEventListener('click', () => bumpRot(-90));
+  el.rotCw.addEventListener('click', () => bumpRot(90));
+  el.rotZero.addEventListener('click', () => { if (SEAL.working) { SEAL.working.rotation = 0; requestSealRender(); } });
+  el.resetPlace.addEventListener('click', () => {
+    if (!SEAL.working) return;
+    SEAL.working.cx = 0.85; SEAL.working.cy = 0.88; SEAL.working.scale = 0.10; SEAL.working.rotation = 0;
+    requestSealRender();
+  });
+
+  // ── keyboard (desktop) ──
+  dlg.addEventListener('keydown', (e) => {
+    if (!SEAL.open || !SEAL.working) return;
+    if (e.key === 'Shift') { SEAL.freeRotate = true; return; }
+    const step = e.shiftKey ? 0.02 : 0.005;
+    if (e.key === 'ArrowLeft')  { SEAL.working.cx = clamp(SEAL.working.cx - step, 0, 1); requestSealRender(); e.preventDefault(); }
+    else if (e.key === 'ArrowRight') { SEAL.working.cx = clamp(SEAL.working.cx + step, 0, 1); requestSealRender(); e.preventDefault(); }
+    else if (e.key === 'ArrowUp')    { SEAL.working.cy = clamp(SEAL.working.cy - step, 0, 1); requestSealRender(); e.preventDefault(); }
+    else if (e.key === 'ArrowDown')  { SEAL.working.cy = clamp(SEAL.working.cy + step, 0, 1); requestSealRender(); e.preventDefault(); }
+  });
+  dlg.addEventListener('keyup', (e) => { if (e.key === 'Shift') SEAL.freeRotate = false; });
+
+  // ── open / close / commit ──
+  function open() {
+    const active = state.files[state.activeIdx];
+    const cur = activeCfg().customLogo;
+    if (!cur || !cur.data) return;
+    if (!active) { setStatus('sealPlace.requirePhoto', 'err'); setTimeout(() => setStatus('status.ready'), 1800); return; }
+    SEAL.working = migrateCustomLogo({ ...cur });
+    // decode aspect for the selection box
+    SEAL.imgAspect = 1;
+    const probe = new Image();
+    probe.onload = () => { if (probe.naturalWidth && probe.naturalHeight) { SEAL.imgAspect = probe.naturalWidth / probe.naturalHeight; updateBox(); } };
+    probe.src = SEAL.working.data;
+    SEAL.open = true; SEAL.dragging = false;
+    el.mobileActions.hidden = !isMobile();
+    if (typeof dlg.showModal === 'function') dlg.showModal(); else dlg.setAttribute('open', '');
+    requestSealRender();
+  }
+  function close() { SEAL.open = false; SEAL.working = null; pointers.clear(); gesture = null; if (dlg.open) dlg.close(); }
+  function commit() {
+    if (SEAL.working) {
+      applyCustomLogoEverywhere(SEAL.working);
+      syncSignatureFromCfg(activeCfg());
+      requestRender();
+    }
+    close();
+  }
+  el.close.addEventListener('click', close);
+  el.cancel.addEventListener('click', close);
+  el.mobileCancel.addEventListener('click', close);
+  el.apply.addEventListener('click', commit);
+  el.mobileApply.addEventListener('click', commit);
+  // Esc → cancel (native dialog 'cancel'); backdrop tap → cancel.
+  dlg.addEventListener('cancel', (e) => { e.preventDefault(); close(); });
+  dlg.addEventListener('click', (e) => { if (e.target === dlg) close(); });
+  window.addEventListener('resize', () => { if (SEAL.open) requestSealRender(); });
+  if (typeof ResizeObserver !== 'undefined' && el.stage) {
+    new ResizeObserver(() => { if (SEAL.open) requestSealRender(); }).observe(el.stage);
+  }
+
+  window.SealPlace = { open: open };
 })();
