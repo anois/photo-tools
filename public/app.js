@@ -1,6 +1,5 @@
 'use strict';
 
-const FIELD_KEYS = ['brand', 'model', 'focal', 'aperture', 'shutter', 'iso', 'lens', 'date', 'author', 'flash', 'gps'];
 const R = window.PhotoRender;
 const CR = window.ClientRender;
 const T = (k, vars) => window.I18N.t(k, vars);
@@ -13,7 +12,7 @@ const DEFAULT_FRAME = 'frosted-noir';
 // because they apply uniformly to a batch.
 function defaultCfg() {
   const sd = R.FRAMES[DEFAULT_FRAME].shadowDefault;
-  return {
+  const base = {
     aspect: '9:16',
     frame: DEFAULT_FRAME,
     template: 'minimal-text',
@@ -29,7 +28,11 @@ function defaultCfg() {
     paddingBottom: null,
     paddingLeft: null,
     captionHeight: null,
-    bgBlur: null, bgBrightness: null, bgSaturation: null,   // null → use frame preset
+    // bg.*  · torn*  · filmMfAge  · gal*  · f35*  · instax*  · slide*  —
+    // all 25 frame-specific cfg keys are now harnessed from each frame's
+    // `cfg` schema declaration (see public/frames/*.js). Object.assign
+    // below merges them in. Frame-specific keys default to null = "use
+    // frame's frameDefault" (the legacy fall-through behavior).
     shadowBlur: sd.blur, shadowOffsetY: sd.offsetY, shadowOpacity: sd.opacity,
     // null = use frame.layout.radiusOverride or aspect base.radius (default 36).
     // Exposed in B · Frame so any user can dial it down to 0 (35mm authentic
@@ -39,17 +42,7 @@ function defaultCfg() {
     // true = force overlay placement regardless of available padding,
     // for "watermark stamped inside the photo" looks (e.g. authentic film).
     captionForceOverlay: false,
-    // Torn-paper knobs (only meaningful when frame === 'torn'). null = use
-    // frame.torn defaults (jitter 6 / step 7 / edgeOpacity 0.22). The
-    // "Advanced · torn paper" panel in B · Frame exposes them as 3 sliders,
-    // mirroring the frosted bg's blur/brightness/saturation triplet.
-    tornJitter: null,
-    tornStep: null,
-    tornEdgeOpacity: null,
-    // Film-mf vintage-aging strength (0..1). null = use frame default
-    // (1.0 = full vintage). Scales sepia / fade / vignette / foxing
-    // alphas uniformly. Only meaningful when frame === 'film-mf'.
-    filmMfAge: null,
+    // [frame-specific cfg keys harnessed below via R.collectFrameCfgDefaults]
     // Top-of-frame badge (cfg.topTemplate). Independent of bottom caption —
     // stamps brand identity into the frame's top padding. 'none' = no badge.
     // 'brand-model' = logo + " · " + model. 'brand-only' = logo alone.
@@ -75,9 +68,12 @@ function defaultCfg() {
     // this image (blurred + tinted with the frame's saturation/brightness/
     // darken) replaces the self-image bg. null = use the photo itself.
     customBg: null,
-    // User-uploaded signature image overlaid on the foreground photo. null means
-    // no signature; otherwise { data: dataURL, type: 'svg'|'png',
-    // position: 'br'|'bl'|'bc', scale: 0.06, opacity: 1 }.
+    // User-uploaded seal/signature image, freely placed over the whole canvas
+    // (photo OR frame margin/caption) as the last compose layer. null = none;
+    // otherwise v2 shape { data: dataURL, type: 'svg'|'png', cx, cy (norm
+    // canvas center 0..1), scale (frac of canvas width 0.02–0.60), rotation
+    // (deg), flipH (bool), blend ('normal'|'multiply'|'screen'|'overlay'|
+    // 'darken'|'lighten'), opacity 0.2–1 }. Placement edited in #seal-modal.
     customLogo: null,
     // Collage mode. null = single photo; otherwise { layout: 'h2'|'v2'|
     // 'h3'|'v3'|'2x2' }. Partner Files themselves aren't part of cfg
@@ -88,6 +84,11 @@ function defaultCfg() {
     // raw string from the form. Backend applies formatters via formatBrand etc.
     exifOverride: {}
   };
+  // Merge in frame-specific cfg defaults from each registered frame's
+  // `cfg` schema declaration. Each frame's keys land flat on cfg (e.g.
+  // cfg.bgBlur, cfg.tornJitter, cfg.f35Sprocket, ...) with default = null,
+  // i.e. "fall through to frameDefault" — the legacy behavior preserved.
+  return Object.assign(base, R.collectFrameCfgDefaults());
 }
 
 function cloneCfg(c) {
@@ -169,6 +170,10 @@ const els = {
   bgBrightnessVal: document.getElementById('bg-brightness-val'),
   bgSaturation: document.getElementById('bg-saturation'),
   bgSaturationVal: document.getElementById('bg-saturation-val'),
+  bgDarken: document.getElementById('bg-darken'),
+  bgDarkenVal: document.getElementById('bg-darken-val'),
+  bgGrain: document.getElementById('bg-grain'),
+  bgGrainVal: document.getElementById('bg-grain-val'),
   resetBgBtn: document.getElementById('reset-bg-btn'),
   // Torn-paper advanced — same details-panel pattern, gated on frame === 'torn'
   tornAdvanced: document.getElementById('torn-advanced'),
@@ -184,6 +189,50 @@ const els = {
   filmMfAge: document.getElementById('film-mf-age'),
   filmMfAgeVal: document.getElementById('film-mf-age-val'),
   resetFilmMfBtn: document.getElementById('reset-film-mf-btn'),
+  // Gallery-white advanced — passe-partout 4 knobs, gated on frame === 'gallery-white'
+  galleryAdvanced: document.getElementById('gallery-white-advanced'),
+  galMatWidth: document.getElementById('gal-mat-width'),
+  galMatWidthVal: document.getElementById('gal-mat-width-val'),
+  galLineSpacing: document.getElementById('gal-line-spacing'),
+  galLineSpacingVal: document.getElementById('gal-line-spacing-val'),
+  galLineWeight: document.getElementById('gal-line-weight'),
+  galLineWeightVal: document.getElementById('gal-line-weight-val'),
+  galLineColor: document.getElementById('gal-line-color'),
+  galLineColorVal: document.getElementById('gal-line-color-val'),
+  resetGalleryBtn: document.getElementById('reset-gallery-btn'),
+  // Film-35 advanced — cine 4-knob panel, gated on frame === 'film-35'
+  film35Advanced: document.getElementById('film-35-advanced'),
+  f35Sprocket: document.getElementById('f35-sprocket'),
+  f35SprocketVal: document.getElementById('f35-sprocket-val'),
+  f35Grain: document.getElementById('f35-grain'),
+  f35GrainVal: document.getElementById('f35-grain-val'),
+  f35EdgePrint: document.getElementById('f35-edge-print'),
+  f35EdgePrintVal: document.getElementById('f35-edge-print-val'),
+  f35FrameNo: document.getElementById('f35-frame-no'),
+  f35FrameNoVal: document.getElementById('f35-frame-no-val'),
+  resetFilm35Btn: document.getElementById('reset-film-35-btn'),
+  // Instax advanced — 4-knob panel, gated on frame === 'instax'
+  instaxAdvanced: document.getElementById('instax-advanced'),
+  instaxSlab: document.getElementById('instax-slab'),
+  instaxSlabVal: document.getElementById('instax-slab-val'),
+  instaxTint: document.getElementById('instax-tint'),
+  instaxTintVal: document.getElementById('instax-tint-val'),
+  instaxStamp: document.getElementById('instax-stamp'),
+  instaxStampVal: document.getElementById('instax-stamp-val'),
+  instaxRainbow: document.getElementById('instax-rainbow'),
+  instaxRainbowVal: document.getElementById('instax-rainbow-val'),
+  resetInstaxBtn: document.getElementById('reset-instax-btn'),
+  // Slide-mount advanced — 4-knob panel, gated on frame === 'slide-mount'
+  slideAdvanced: document.getElementById('slide-mount-advanced'),
+  slideMountColor: document.getElementById('slide-mount-color'),
+  slideMountColorVal: document.getElementById('slide-mount-color-val'),
+  slideOuterRing: document.getElementById('slide-outer-ring'),
+  slideOuterRingVal: document.getElementById('slide-outer-ring-val'),
+  slidePebble: document.getElementById('slide-pebble'),
+  slidePebbleVal: document.getElementById('slide-pebble-val'),
+  slideBevel: document.getElementById('slide-bevel'),
+  slideBevelVal: document.getElementById('slide-bevel-val'),
+  resetSlideBtn: document.getElementById('reset-slide-btn'),
   applyFrameAllBtn: document.getElementById('apply-frame-all-btn'),
   // ── LOOK system (presets library — promoted to lookbar first-class) ──
   lookbarLook: document.querySelector('.lookbar-look'),
@@ -205,53 +254,27 @@ const els = {
   shadowOpacityVal: document.getElementById('shadow-opacity-val'),
   showFields: document.getElementById('show-fields'),
   signatureInput: document.getElementById('signature-input'),
-  signatureDrop: document.getElementById('signature-drop'),
   signaturePreview: document.getElementById('signature-preview'),
   signaturePreviewImg: document.getElementById('signature-preview-img'),
   signatureClearBtn: document.getElementById('signature-clear-btn'),
-  signaturePosGrid: document.getElementById('signature-pos-grid'),
-  signatureScale: document.getElementById('signature-scale'),
-  signatureScaleVal: document.getElementById('signature-scale-val'),
   signatureOpacity: document.getElementById('signature-opacity'),
   signatureOpacityVal: document.getElementById('signature-opacity-val'),
+  sealBlendSeg: document.getElementById('seal-blend-seg'),
+  sealFlipToggle: document.getElementById('seal-flip-toggle'),
+  sealPlaceBtn: document.getElementById('seal-place-btn'),
   collageLayout: document.getElementById('collage-layout'),
   collageSlots: document.getElementById('collage-slots'),
-  geometryReadout: document.getElementById('geometry-readout'),
-  cropRotCcw: document.getElementById('crop-rot-ccw'),
-  cropRotCw: document.getElementById('crop-rot-cw'),
-  cropAngle: document.getElementById('crop-angle'),
-  cropAngleVal: document.getElementById('crop-angle-val'),
-  cropRotReset: document.getElementById('crop-rot-reset'),
-  cropOpenBtn: document.getElementById('crop-open-btn'),
-  cropModal: document.getElementById('crop-modal'),
-  cropModalCloseBtn: document.getElementById('crop-modal-close'),
-  cropStage: document.getElementById('crop-stage'),
-  cropCanvas: document.getElementById('crop-canvas'),
-  cropRect: document.getElementById('crop-rect'),
-  cropReadout: document.getElementById('crop-readout'),
-  cropResetBtn: document.getElementById('crop-reset'),
-  cropCancelBtn: document.getElementById('crop-cancel'),
-  cropApplyBtn: document.getElementById('crop-apply'),
-  cropAspectSeg: document.getElementById('crop-aspect-seg'),
-  cropPctW: document.getElementById('crop-pct-w'),
-  cropPctH: document.getElementById('crop-pct-h'),
-  cropReadoutPx: document.getElementById('crop-readout-px'),
-  cropReadoutRatio: document.getElementById('crop-readout-ratio'),
   canvasFrameBadge: document.getElementById('canvas-frame-badge'),
   canvasBadgeFrame: document.getElementById('canvas-badge-frame'),
   canvasBadgeTemplate: document.getElementById('canvas-badge-template'),
   canvasBadgeRot: document.getElementById('canvas-badge-rot'),
   canvasBadgeRotVal: document.getElementById('canvas-badge-rot-val'),
-  rotationFlash: document.getElementById('rotation-flash'),
-  rotationFlashArrow: document.getElementById('rotation-flash-arrow'),
-  rotationFlashVal: document.getElementById('rotation-flash-val'),
   changelogBtn: document.getElementById('changelog-btn'),
   changelogBadge: document.getElementById('changelog-badge'),
   changelogModal: document.getElementById('changelog-modal'),
   changelogModalCloseBtn: document.getElementById('changelog-modal-close'),
   changelogBody: document.getElementById('changelog-body'),
   customBgInput: document.getElementById('custom-bg-input'),
-  customBgDrop: document.getElementById('custom-bg-drop'),
   customBgReadout: document.getElementById('custom-bg-readout'),
   customBgPreview: document.getElementById('custom-bg-preview'),
   customBgName: document.getElementById('custom-bg-name'),
@@ -331,6 +354,8 @@ function refreshLocaleSensitive() {
     if (cfg.bgBlur == null)       els.bgBlurVal.textContent       = T('frame.defaultReadout');
     if (cfg.bgBrightness == null) els.bgBrightnessVal.textContent = T('frame.defaultReadout');
     if (cfg.bgSaturation == null) els.bgSaturationVal.textContent = T('frame.defaultReadout');
+    if (cfg.bgDarken == null)     els.bgDarkenVal.textContent     = T('frame.defaultReadout');
+    if (cfg.bgGrain == null)      els.bgGrainVal.textContent      = T('frame.defaultReadout');
   }
   // Aspect seg's Custom button label is either i18n'd ("自定义"/"⋯") or the
   // active custom W:H literal — repaint it through the same sync path.
@@ -375,26 +400,63 @@ function updateExifWarn(normalized) {
   if (showWarn) els.exifDetails.open = true;
 }
 
-// Push auto-parsed values into the EXIF inputs. Then any user override stored
-// in cfg.exifOverride is layered on top. Auto-parsed comes from the file's
-// own metadata; override is the user-edited form value persisted per photo.
+// Phase 13 (1.9.1) — Notebook double-column. The EXIF inputs now hold
+// ONLY the user's override (or empty when unset); the AUTO column is a
+// separate read-only display populated from `normalized` here. This
+// makes "what's detected" vs "what you wrote" visually clear, replacing
+// the old single-column merged input where the two values commingled.
+//
+// Call sites haven't changed; populateExifInputs(normalized) still does
+// what it always did (refresh display after EXIF parse / photo switch),
+// it just LOCATES the auto-detected values in the AUTO column now.
 function populateExifInputs(normalized) {
   if (!normalized) normalized = {};
-  const setIf = (el, v) => { el.value = v != null && v !== '' ? String(v) : ''; };
-  setIf(els.exif.make, normalized.make);
-  setIf(els.exif.model, normalized.model);
-  setIf(els.exif.focalLength, normalized.focalLength ? parseFloat(normalized.focalLength) || '' : '');
-  setIf(els.exif.fNumber, normalized.fNumber ? parseFloat(String(normalized.fNumber).replace(/^F/, '')) || '' : '');
-  setIf(els.exif.exposureTime, normalized.exposureTime ? String(normalized.exposureTime).replace(/s$/, '') : '');
-  setIf(els.exif.iso, normalized.iso ? parseInt(String(normalized.iso).replace(/^ISO/, ''), 10) || '' : '');
-  setIf(els.exif.lensModel, normalized.lensModel);
-  setIf(els.exif.dateTimeOriginal, normalized.date);
-  setIf(els.exif.author, normalized.author);
-  setIf(els.exif.latitude, typeof normalized.latitude === 'number' ? normalized.latitude.toFixed(6) : '');
-  setIf(els.exif.longitude, typeof normalized.longitude === 'number' ? normalized.longitude.toFixed(6) : '');
-  // Flash select reflects the auto-parsed boolean so the user can see what
-  // exifr detected; an empty string preserves "auto" semantics on save.
-  els.exif.flash.value = normalized.flashFired ? 'fired' : (normalized.flash ? 'off' : '');
+  // Clear inputs — they only carry override values from this point.
+  for (const el of Object.values(els.exif)) el.value = '';
+  // Populate the AUTO column with the formatted auto-detected values.
+  populateExifAutoDisplay(normalized);
+}
+
+// Fills the .notebook-auto spans with each detected EXIF field's value.
+// Field-name mapping below matches the data-auto-field attributes on
+// the notebook rows in index.html.
+function populateExifAutoDisplay(normalized) {
+  normalized = normalized || {};
+  const set = (field, raw) => {
+    const el = document.querySelector('.notebook-auto[data-auto-field="' + field + '"]');
+    if (!el) return;
+    let v = raw;
+    if (v == null || v === '' || (typeof v === 'number' && !isFinite(v))) {
+      el.textContent = '—';
+    } else {
+      el.textContent = String(v);
+    }
+  };
+  set('make', normalized.make);
+  set('model', normalized.model);
+  set('focal', normalized.focalLength ? (parseFloat(normalized.focalLength) || normalized.focalLength) : '');
+  set('aperture', normalized.fNumber ? String(normalized.fNumber).replace(/^F/, '') : '');
+  set('shutter', normalized.exposureTime ? String(normalized.exposureTime).replace(/s$/, '') : '');
+  set('iso', normalized.iso ? String(normalized.iso).replace(/^ISO/, '') : '');
+  set('lens', normalized.lensModel);
+  set('date', normalized.date);
+  set('author', normalized.author);
+  set('flash', normalized.flashFired ? 'Fired' : (normalized.flash ? 'Off' : ''));
+  set('latitude', typeof normalized.latitude === 'number' ? normalized.latitude.toFixed(4) : '');
+  set('longitude', typeof normalized.longitude === 'number' ? normalized.longitude.toFixed(4) : '');
+}
+
+// Mark .notebook-row[data-overridden="true"] when its input holds a value,
+// so CSS strikes through the AUTO column for that row. Called after every
+// cfg sync + EXIF input event.
+function refreshNotebookOverriddenState() {
+  const inputs = document.querySelectorAll('.notebook-row .notebook-handwriting');
+  inputs.forEach((inp) => {
+    const row = inp.closest('.notebook-row');
+    if (!row) return;
+    const v = inp.value ? String(inp.value).trim() : '';
+    row.dataset.overridden = v ? 'true' : 'false';
+  });
 }
 
 function applyOverrideToInputs(override) {
@@ -481,41 +543,16 @@ async function doRender() {
   els.previewLoading.hidden = false;
   updateFrameBadge(active.cfg);
   try {
-    const c = active.cfg;
+    // cfg snapshot for the preview render. snapshotCfgForRender (defined
+    // near LOOK_KEYS, lower in file) iterates the canonical look whitelist
+    // plus the per-photo extras (showFields / customLogo / customBg /
+    // collage / rotation / crop) — same drift-proofing pattern as 1.10.4's
+    // applyFrameToAll. Adding a new frame.cfg knob to a frame file now
+    // propagates to the preview path automatically.
     await CR.renderPreview(els.canvas, {
       file: active.file,
       partnerFiles: active.partnerFiles || [],
-      cfg: {
-        aspect: c.aspect,
-        frame: c.frame,
-        template: c.template,
-        padding: c.padding,
-        paddingTop: c.paddingTop,
-        paddingRight: c.paddingRight,
-        paddingBottom: c.paddingBottom,
-        paddingLeft: c.paddingLeft,
-        captionHeight: c.captionHeight,
-        bgBlur: c.bgBlur,
-        bgBrightness: c.bgBrightness,
-        bgSaturation: c.bgSaturation,
-        shadowBlur: c.shadowBlur,
-        shadowOffsetY: c.shadowOffsetY,
-        shadowOpacity: c.shadowOpacity,
-        radiusOverride: c.radiusOverride,
-        captionForceOverlay: c.captionForceOverlay,
-        captionOverlayTextLift: c.captionOverlayTextLift,
-        topTemplate: c.topTemplate,
-        tornJitter: c.tornJitter,
-        tornStep: c.tornStep,
-        tornEdgeOpacity: c.tornEdgeOpacity,
-        filmMfAge: c.filmMfAge,
-        showFields: c.showFields,
-        customLogo: c.customLogo,
-        customBg: c.customBg,
-        collage: c.collage,
-        rotation: c.rotation || 0,
-        crop: c.crop || null
-      },
+      cfg: snapshotCfgForRender(active.cfg),
       normExif: buildCurrentExif(),
       logos: state.logos,
       fontFaceCss: state.fontFaceCss
@@ -599,10 +636,14 @@ function syncControlsFromCfg(cfg) {
     els.bgBlur.value = cfg.bgBlur != null ? cfg.bgBlur : frame.bg.blurSigma;
     els.bgBrightness.value = cfg.bgBrightness != null ? cfg.bgBrightness : frame.bg.brightness;
     els.bgSaturation.value = cfg.bgSaturation != null ? cfg.bgSaturation : frame.bg.saturation;
+    els.bgDarken.value = cfg.bgDarken != null ? cfg.bgDarken : (frame.bg.darken || 0);
+    els.bgGrain.value = cfg.bgGrain != null ? cfg.bgGrain : (frame.bg.grainOpacity || 0);
     if (cfg.bgBlur != null) setReadoutNum(els.bgBlurVal, cfg.bgBlur, 'px');
     else els.bgBlurVal.textContent = T('frame.defaultReadout');
     els.bgBrightnessVal.textContent = cfg.bgBrightness != null ? Number(cfg.bgBrightness).toFixed(2) : T('frame.defaultReadout');
     els.bgSaturationVal.textContent = cfg.bgSaturation != null ? Number(cfg.bgSaturation).toFixed(2) : T('frame.defaultReadout');
+    els.bgDarkenVal.textContent = cfg.bgDarken != null ? Number(cfg.bgDarken).toFixed(2) : T('frame.defaultReadout');
+    els.bgGrainVal.textContent = cfg.bgGrain != null ? Number(cfg.bgGrain).toFixed(2) : T('frame.defaultReadout');
   }
   els.frostedAdvanced.hidden = frame.bg.type !== 'frosted';
   if (els.frostedAdvanced.open && frame.bg.type !== 'frosted') els.frostedAdvanced.open = false;
@@ -636,6 +677,85 @@ function syncControlsFromCfg(cfg) {
     els.filmMfAdvanced.hidden = cfg.frame !== 'film-mf';
     if (els.filmMfAdvanced.open && cfg.frame !== 'film-mf') els.filmMfAdvanced.open = false;
   }
+  // Gallery-white passe-partout panel — gated on frame === 'gallery-white'.
+  // Defaults mirror the legacy hardcoded values in frames/gallery-white.js
+  // (mat 26 / spacing 18 / weight 1.0 / color 'ink') so first-time users
+  // see the frame's familiar look before they dial.
+  if (cfg.frame === 'gallery-white' && els.galleryAdvanced) {
+    const gd = { matWidth: 26, lineSpacing: 18, lineWeight: 1.0, lineColor: 'ink' };
+    els.galMatWidth.value = cfg.galMatWidth != null ? cfg.galMatWidth : gd.matWidth;
+    els.galLineSpacing.value = cfg.galLineSpacing != null ? cfg.galLineSpacing : gd.lineSpacing;
+    els.galLineWeight.value = cfg.galLineWeight != null ? cfg.galLineWeight : gd.lineWeight;
+    els.galMatWidthVal.textContent = cfg.galMatWidth != null ? Math.round(cfg.galMatWidth) + 'px' : T('frame.defaultReadout');
+    els.galLineSpacingVal.textContent = cfg.galLineSpacing != null ? Math.round(cfg.galLineSpacing) + 'px' : T('frame.defaultReadout');
+    els.galLineWeightVal.textContent = cfg.galLineWeight != null ? Number(cfg.galLineWeight).toFixed(2) + '×' : T('frame.defaultReadout');
+    const activeColor = cfg.galLineColor || gd.lineColor;
+    els.galLineColor.querySelectorAll('.gallery-sw').forEach(s => {
+      s.classList.toggle('on', s.dataset.val === activeColor);
+    });
+    els.galLineColorVal.textContent = cfg.galLineColor != null ? T('frame.galColor.' + cfg.galLineColor) : T('frame.defaultReadout');
+  }
+  if (els.galleryAdvanced) {
+    els.galleryAdvanced.hidden = cfg.frame !== 'gallery-white';
+  }
+  // Film-35 cine panel — gated on frame === 'film-35'. 4 knobs: sprocket
+  // scale slider / grain slider / edge-print toggle / frame № stepper.
+  // Defaults mirror the frame.film35 block so first-time switches show
+  // the familiar cine look.
+  if (cfg.frame === 'film-35' && els.film35Advanced) {
+    const fd = (frame.film35) || { sprocketScale: 1.0, grain: 0, edgePrint: true, frameNo: '1-36' };
+    els.f35Sprocket.value = cfg.f35Sprocket != null ? cfg.f35Sprocket : fd.sprocketScale;
+    els.f35Grain.value = cfg.f35Grain != null ? cfg.f35Grain : fd.grain;
+    els.f35SprocketVal.textContent = cfg.f35Sprocket != null ? Number(cfg.f35Sprocket).toFixed(2) + '×' : T('frame.defaultReadout');
+    els.f35GrainVal.textContent = cfg.f35Grain != null ? Number(cfg.f35Grain).toFixed(2) : T('frame.defaultReadout');
+    const activeEdge = cfg.f35EdgePrint != null ? !!cfg.f35EdgePrint : fd.edgePrint;
+    els.f35EdgePrint.classList.toggle('on', activeEdge);
+    els.f35EdgePrintVal.textContent = cfg.f35EdgePrint != null ? (activeEdge ? T('frame.toggleOn') : T('frame.toggleOff')) : T('frame.defaultReadout');
+    const activeFn = cfg.f35FrameNo || fd.frameNo;
+    els.f35FrameNo.querySelectorAll('[data-val]').forEach(b => b.classList.toggle('on', b.dataset.val === activeFn));
+    els.f35FrameNoVal.textContent = cfg.f35FrameNo != null ? T('frame.f35FrameNoOpt.' +cfg.f35FrameNo) : T('frame.defaultReadout');
+  }
+  if (els.film35Advanced) {
+    els.film35Advanced.hidden = cfg.frame !== 'film-35';
+  }
+  // Instax panel — gated on frame === 'instax'. 4 knobs: slab slider /
+  // tint swatches / stamp toggle / rainbow toggle.
+  if (cfg.frame === 'instax' && els.instaxAdvanced) {
+    const id = (frame.instax) || { slab: 240, tint: 'pure', dateStamp: false, rainbow: false };
+    els.instaxSlab.value = cfg.instaxSlab != null ? cfg.instaxSlab : id.slab;
+    els.instaxSlabVal.textContent = cfg.instaxSlab != null ? Math.round(cfg.instaxSlab) + 'px' : T('frame.defaultReadout');
+    const activeTint = cfg.instaxTint || id.tint;
+    els.instaxTint.querySelectorAll('[data-val]').forEach(b => b.classList.toggle('on', b.dataset.val === activeTint));
+    els.instaxTintVal.textContent = cfg.instaxTint != null ? T('frame.instaxTintOpt.' + cfg.instaxTint) : T('frame.defaultReadout');
+    const activeStamp = cfg.instaxStamp != null ? !!cfg.instaxStamp : id.dateStamp;
+    els.instaxStamp.classList.toggle('on', activeStamp);
+    els.instaxStampVal.textContent = cfg.instaxStamp != null ? (activeStamp ? T('frame.toggleOn') : T('frame.toggleOff')) : T('frame.defaultReadout');
+    const activeRainbow = cfg.instaxRainbow != null ? !!cfg.instaxRainbow : id.rainbow;
+    els.instaxRainbow.classList.toggle('on', activeRainbow);
+    els.instaxRainbowVal.textContent = cfg.instaxRainbow != null ? (activeRainbow ? T('frame.toggleOn') : T('frame.toggleOff')) : T('frame.defaultReadout');
+  }
+  if (els.instaxAdvanced) {
+    els.instaxAdvanced.hidden = cfg.frame !== 'instax';
+  }
+  // Slide-mount panel — gated on frame === 'slide-mount'. 4 knobs:
+  // mount color swatches / outer ring swatches / pebble density slider /
+  // bevel depth slider. Defaults mirror the frame.slideMount block.
+  if (cfg.frame === 'slide-mount' && els.slideAdvanced) {
+    const sd = (frame.slideMount) || { mountColor: 'cream', outerRing: 'wine', pebbleScale: 1.0, bevelDepth: 8 };
+    const activeMount = cfg.slideMountColor || sd.mountColor;
+    const activeRing  = cfg.slideOuterRing  || sd.outerRing;
+    els.slideMountColor.querySelectorAll('[data-val]').forEach(b => b.classList.toggle('on', b.dataset.val === activeMount));
+    els.slideMountColorVal.textContent = cfg.slideMountColor != null ? T('frame.slideMountColorOpt.' + cfg.slideMountColor) : T('frame.defaultReadout');
+    els.slideOuterRing.querySelectorAll('[data-val]').forEach(b => b.classList.toggle('on', b.dataset.val === activeRing));
+    els.slideOuterRingVal.textContent = cfg.slideOuterRing != null ? T('frame.slideOuterRingOpt.' + cfg.slideOuterRing) : T('frame.defaultReadout');
+    els.slidePebble.value = cfg.slidePebble != null ? cfg.slidePebble : sd.pebbleScale;
+    els.slideBevel.value = cfg.slideBevel != null ? cfg.slideBevel : sd.bevelDepth;
+    els.slidePebbleVal.textContent = cfg.slidePebble != null ? Number(cfg.slidePebble).toFixed(2) + '×' : T('frame.defaultReadout');
+    els.slideBevelVal.textContent = cfg.slideBevel != null ? Math.round(cfg.slideBevel) + 'px' : T('frame.defaultReadout');
+  }
+  if (els.slideAdvanced) {
+    els.slideAdvanced.hidden = cfg.frame !== 'slide-mount';
+  }
   els.shadowBlur.value = cfg.shadowBlur;
   els.shadowOffset.value = cfg.shadowOffsetY;
   els.shadowOpacity.value = cfg.shadowOpacity;
@@ -647,11 +767,131 @@ function syncControlsFromCfg(cfg) {
   });
   syncSignatureFromCfg(cfg);
   syncCollageFromActive();
-  syncRotateFromCfg(cfg);
   syncCustomBgFromCfg(cfg);
   // Repaint the lookbar chips (frame swatch / value text) — wireToolbarShell
   // exposes the sync helper on window and is loaded after this function.
   if (window.PhotoToolsShell) window.PhotoToolsShell.syncLookchips();
+  // Phase 11 (1.8.1) — workshop rail dots + footer modified count.
+  refreshWorkshopModifiedState(cfg);
+}
+
+// ─── Phase 12 (1.9.0) · Workshop modified detection (per-tool) ──────────
+// Phase 11's IntersectionObserver scroll-spy is RETIRED — workshop rev.2
+//「The Bench」 shows one tool panel at a time via the tool dock, so
+// scroll position doesn't index sections anymore. The tool dock click
+// is the single source of truth for active tool.
+//
+// What remains from Phase 11: refreshWorkshopModifiedState walks each
+// tool and decides whether ANY cfg field it governs differs from
+// defaultCfg's fresh-photo baseline. Modified tools get a red dot on
+// their dock button; footer count tallies them.
+const WORKSHOP_TOOLS = ['instrument', 'caliper', 'notation', 'arrange', 'seal'];
+
+// Baseline = a snapshot of defaultCfg() captured once at module load.
+// Excluded from baseline comparison: aspect/frame/template (lookbar's
+// concern, not a workshop tool's).
+let _wsBaseline = null;
+function wsBaseline() {
+  if (!_wsBaseline) _wsBaseline = defaultCfg();
+  return _wsBaseline;
+}
+
+// Per-tool "is anything modified" check.
+//   Instrument  · frame.cfg knobs + universal topTemplate + customBg + shadow trio
+//   Caliper     · padding / radius / per-edge / rotation / crop  (pure geometry)
+//   Notation    · caption strip (captionH / overlay / lift) + EXIF + showFields
+//   Arrange     · collage layout (collage non-null)
+//   Seal        · customLogo (signature only)
+// 1.10.0: caption strip moved Caliper→Notation; topTemplate moved Notation→
+// Instrument. 1.10.1: collage moved Seal→Arrange (new 5th tool); customBg
+// attribution corrected to Instrument. 1.10.2: shadow trio moved Caliper→
+// Instrument (shadow defaults are frame-bound — film-35 is 0/0/0, instax
+// has a soft drop — so they belong with frame identity, not the ruler).
+function isWorkshopToolModified(toolId, cfg) {
+  const frame = R.FRAMES[cfg.frame];
+  const base = wsBaseline();
+  switch (toolId) {
+    case 'instrument': {
+      // Universal frame decoration: top-of-frame badge
+      if (cfg.topTemplate && cfg.topTemplate !== 'none') return true;
+      // Custom bg (frosted-noir's instrument card)
+      if (cfg.customBg != null) return true;
+      // Shadow trio (vs active frame's shadowDefault)
+      const sd = (frame && frame.shadowDefault) || { blur: 0, offsetY: 0, opacity: 0 };
+      if ((Number(cfg.shadowBlur) !== sd.blur) ||
+          (Number(cfg.shadowOffsetY) !== sd.offsetY) ||
+          (Number(cfg.shadowOpacity) !== sd.opacity)) return true;
+      // Per-frame instrument knobs (frame.cfg schema)
+      if (!frame || !frame.cfg) return false;
+      for (const key of Object.keys(frame.cfg)) {
+        if (cfg[key] != null) return true;
+      }
+      return false;
+    }
+    case 'caliper': {
+      // Frame geometry only (padding / radius / per-edge / rotation / crop)
+      return (cfg.padding !== base.padding) ||
+             (cfg.radiusOverride !== base.radiusOverride) ||
+             (cfg.paddingTop != null) ||
+             (cfg.paddingRight != null) ||
+             (cfg.paddingBottom != null) ||
+             (cfg.paddingLeft != null) ||
+             (cfg.rotation !== 0) ||
+             (cfg.crop != null);
+    }
+    case 'notation': {
+      // Caption strip (height / overlay routing / lift)
+      if ((cfg.captionHeight !== base.captionHeight) ||
+          (cfg.captionForceOverlay !== base.captionForceOverlay) ||
+          (Number(cfg.captionOverlayTextLift) !== base.captionOverlayTextLift)) return true;
+      // EXIF overrides
+      if (cfg.exifOverride && Object.keys(cfg.exifOverride).length > 0) return true;
+      // showFields
+      const sf = cfg.showFields || {};
+      const def = base.showFields || {};
+      for (const k of Object.keys(def)) {
+        if (!!sf[k] !== !!def[k]) return true;
+      }
+      for (const k of Object.keys(sf)) {
+        if (!(k in def) && sf[k]) return true;
+      }
+      return false;
+    }
+    case 'arrange':
+      return (cfg.collage != null);
+    case 'seal':
+      return (cfg.customLogo != null);
+  }
+  return false;
+}
+
+function refreshWorkshopModifiedState(cfg) {
+  cfg = cfg || activeCfg();
+  if (!cfg) return;
+  // Phase 13 — refresh notebook row overridden state too. Cheap (12 inputs).
+  refreshNotebookOverriddenState();
+  let modifiedCount = 0;
+  for (const tool of WORKSHOP_TOOLS) {
+    const btn = document.querySelector('.bench-tool-btn[data-tool="' + tool + '"]');
+    if (!btn) continue;
+    const isMod = isWorkshopToolModified(tool, cfg);
+    btn.classList.toggle('modified', isMod);
+    if (isMod) modifiedCount++;
+  }
+  const footerLabel = document.querySelector('.ws-footer-label');
+  if (footerLabel) {
+    const total = WORKSHOP_TOOLS.length;
+    const key = modifiedCount > 0 ? 'workshop.footerSummaryFmt' : 'workshop.footerSummaryNone';
+    footerLabel.textContent = T(key, { n: modifiedCount, total: total });
+  }
+  // Identity strip readout: filename only (1.10.3 — spec row removed; the
+  // lookbar carries frame/aspect/template and the footer carries the
+  // modified-count).
+  const identityFn = document.getElementById('bench-identity-filename');
+  if (identityFn) {
+    const active = state.files && state.activeIdx >= 0 ? state.files[state.activeIdx] : null;
+    identityFn.textContent = active && active.file ? active.file.name : '—';
+  }
 }
 
 function syncCustomBgFromCfg(cfg) {
@@ -660,32 +900,6 @@ function syncCustomBgFromCfg(cfg) {
   els.customBgReadout.hidden = !has;
   els.customBgPreview.src = has ? cb.data : '';
   els.customBgName.textContent = has ? (cb.name || 'image') : '—';
-}
-
-// Update only the readouts (modal angle text + B · Frame geometry hint)
-// from the active rotation/crop. Used when the slider is itself the source
-// of the change — writing back to slider.value mid-drag can snap the
-// thumb between +180 and -180 (geometrically equivalent but visually
-// jarring).
-function syncRotationReadouts(cfg) {
-  const r = ((Number(cfg.rotation) || 0) % 360 + 360) % 360;
-  const sliderV = r > 180 ? r - 360 : r;
-  if (els.cropAngleVal) els.cropAngleVal.textContent = sliderV.toFixed(1) + '°';
-  if (els.geometryReadout) {
-    const parts = [];
-    if (Math.abs(sliderV) >= 0.05) parts.push('<em>' + sliderV.toFixed(1) + '°</em>');
-    if (cfg.crop) parts.push(T('frame.geometryCropped'));
-    els.geometryReadout.innerHTML = parts.length ? parts.join(' · ') : T('frame.geometryClean');
-  }
-}
-
-function syncRotateFromCfg(cfg) {
-  // Full sync: slider position + readouts. Used when source ≠ slider
-  // (modal open, photo switch, ↶ ↷ click, reset click).
-  const r = ((Number(cfg.rotation) || 0) % 360 + 360) % 360;
-  const sliderV = r > 180 ? r - 360 : r;
-  if (els.cropAngle) els.cropAngle.value = String(sliderV);
-  syncRotationReadouts(cfg);
 }
 
 // Floating canvas badge: a discreet pill hovering top-left of the
@@ -729,6 +943,8 @@ function syncCollageFromActive() {
   const layout = (cfg.collage && cfg.collage.layout) || 'off';
   els.collageLayout.value = COLLAGE_PARTNERS[layout] ? layout : 'off';
   renderCollageSlots(layout, active);
+  // Phase 14 — sync the visible paper-clamp .active state from cfg.
+  if (typeof refreshArrangeClampActive === 'function') refreshArrangeClampActive();
 }
 
 // Render N-1 file slots for the active layout. Each slot owns a hidden file
@@ -804,64 +1020,86 @@ function renderCollageSlots(layout, active) {
   }
 }
 
-// Resolve the active anchor letter ('br' / 'tl' / etc.) regardless of
-// whether cfg.customLogo.position is the legacy string form or the new
-// { anchor, dx, dy } object. Single source of truth so UI sync and
-// migration stay in lockstep.
-function customLogoAnchor(cl) {
-  if (!cl) return 'br';
-  const pos = cl.position;
-  if (typeof pos === 'string') return pos;
-  if (pos && typeof pos === 'object' && pos.anchor) return pos.anchor;
-  return 'br';
-}
-
-function setPosGridActive(grid, anchor) {
-  grid.querySelectorAll('button').forEach((b) => {
-    const on = b.dataset.anchor === anchor;
-    b.classList.toggle('active', on);
-    b.setAttribute('aria-checked', on ? 'true' : 'false');
-  });
-}
-
+// Sync the ❖ Seal tool panel (imprint preview + blend seg + flip toggle +
+// opacity + Place CTA) from cfg.customLogo. Position / scale / rotation are
+// NOT shown here — they're edited by direct manipulation in #seal-modal.
 function syncSignatureFromCfg(cfg) {
   const cl = cfg.customLogo;
   const has = !!(cl && cl.data);
   els.signaturePreview.hidden = !has;
   els.signaturePreviewImg.src = has ? cl.data : '';
-  setPosGridActive(els.signaturePosGrid, has ? customLogoAnchor(cl) : 'br');
-  const scalePct = Math.round((has ? (cl.scale != null ? cl.scale : 0.06) : 0.06) * 100);
+  // Blend seg
+  const blend = has && cl.blend ? cl.blend : 'normal';
+  if (els.sealBlendSeg) {
+    els.sealBlendSeg.querySelectorAll('button').forEach((b) => {
+      const on = b.dataset.val === blend;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-checked', on ? 'true' : 'false');
+      b.disabled = !has;
+    });
+  }
+  // Flip toggle
+  if (els.sealFlipToggle) {
+    const flipped = !!(has && cl.flipH);
+    els.sealFlipToggle.classList.toggle('active', flipped);
+    els.sealFlipToggle.setAttribute('aria-pressed', flipped ? 'true' : 'false');
+    els.sealFlipToggle.disabled = !has;
+  }
+  // Opacity meter
   const opacity = has ? (cl.opacity != null ? cl.opacity : 1) : 1;
-  els.signatureScale.value = scalePct;
-  setReadoutNum(els.signatureScaleVal, scalePct, '%');
   els.signatureOpacity.value = opacity;
   setReadoutNum(els.signatureOpacityVal, Math.round(opacity * 100), '%');
-  els.signaturePosGrid.querySelectorAll('button').forEach((b) => { b.disabled = !has; });
-  els.signatureScale.disabled = !has;
   els.signatureOpacity.disabled = !has;
+  // Place CTA — only usable once a seal is loaded.
+  if (els.sealPlaceBtn) els.sealPlaceBtn.disabled = !has;
 }
 
-// Migrate persisted customLogo schemas to the current shape:
-//   v0 (legacy): { data, type, position: 'br'|'bl'|'bc', scale, opacity }
-//   v1 (now):    { data, type, position: { anchor, dx, dy }, scale, opacity }
+// Migrate persisted customLogo schemas to the current v2 shape (1.11.0):
+//   v0: { data, type, position: 'br'|'bl'|'bc', scale(fg-rel), opacity }
+//   v1: { data, type, position: { anchor, dx, dy }, scale(fg-rel), opacity }
+//   v2: { data, type, cx, cy (norm canvas center), scale(canvas-rel),
+//         rotation, flipH, blend, opacity }
+// The seal moved from a 9-anchor, fg-clipped overlay to a freely-placed,
+// whole-canvas watermark. Migration maps the old anchor → a normalized
+// canvas center (table mirrors render.js legacyAnchorCenter, biased inward
+// to approximate the old ~20px margin), folds dx/dy (base-1440 px) into
+// cx/cy as canvas fractions, and rescales: old scale was fg-width-relative
+// and fg ≈ 0.85 of canvas width, so ×0.85 keeps the seal visually the same
+// size. New fields default rotation:0 / flipH:false / blend:'normal'.
 // Run at every persistence boundary (localStorage load, preset apply,
-// share-code decode) so future code paths only see the new shape.
-// `customLogoRect` itself still tolerates both for safety, but this
-// function is what gradually upgrades the user's stored data.
+// share-code decode); customLogoRect also tolerates un-migrated cfg.
 function migrateCustomLogo(cl) {
   if (!cl || typeof cl !== 'object') return cl;
-  const out = { ...cl };
-  if (typeof out.position === 'string') {
-    out.position = { anchor: out.position, dx: 0, dy: 0 };
-  } else if (!out.position || typeof out.position !== 'object') {
-    out.position = { anchor: 'br', dx: 0, dy: 0 };
-  } else {
-    out.position = {
-      anchor: out.position.anchor || 'br',
-      dx: Number(out.position.dx) || 0,
-      dy: Number(out.position.dy) || 0
-    };
+  // Already v2 — just backfill any missing additive fields.
+  if (cl.cx != null && cl.cy != null && cl.position == null) {
+    const out = { ...cl };
+    if (out.rotation == null) out.rotation = 0;
+    if (out.flipH == null) out.flipH = false;
+    if (!out.blend) out.blend = 'normal';
+    return out;
   }
+  // v0 / v1 → v2.
+  const out = { ...cl };
+  const pos = out.position;
+  let anchor = 'br', dx = 0, dy = 0;
+  if (typeof pos === 'string') {
+    anchor = pos;
+  } else if (pos && typeof pos === 'object') {
+    anchor = pos.anchor || 'br';
+    dx = Number(pos.dx) || 0;
+    dy = Number(pos.dy) || 0;
+  }
+  const ay = anchor.charAt(0) || 'b', ax = anchor.charAt(1) || 'r';
+  let cx = ax === 'l' ? 0.18 : ax === 'c' ? 0.50 : 0.82;
+  let cy = ay === 't' ? 0.16 : ay === 'c' ? 0.50 : 0.84;
+  cx += dx / 1440; cy += dy / 1440;
+  out.cx = Math.max(0, Math.min(1, cx));
+  out.cy = Math.max(0, Math.min(1, cy));
+  out.scale = Math.max(0.02, Math.min(0.60, (Number(out.scale) || 0.06) * 0.85));
+  out.rotation = 0;
+  out.flipH = false;
+  out.blend = 'normal';
+  delete out.position;
   return out;
 }
 
@@ -1301,6 +1539,8 @@ function onFrameChange(frameName) {
   cfg.bgBlur = null;
   cfg.bgBrightness = null;
   cfg.bgSaturation = null;
+  cfg.bgDarken = null;
+  cfg.bgGrain = null;
   // Per-edge padding overrides reset on frame switch — film-35's sprocket
   // boost should kick in on switch even if previous frame had paddingTop:0.
   cfg.paddingTop = null;
@@ -1310,10 +1550,14 @@ function onFrameChange(frameName) {
   els.bgBlurVal.textContent = T('frame.defaultReadout');
   els.bgBrightnessVal.textContent = T('frame.defaultReadout');
   els.bgSaturationVal.textContent = T('frame.defaultReadout');
+  els.bgDarkenVal.textContent = T('frame.defaultReadout');
+  els.bgGrainVal.textContent = T('frame.defaultReadout');
   if (frame.bg.type === 'frosted') {
     els.bgBlur.value = frame.bg.blurSigma;
     els.bgBrightness.value = frame.bg.brightness;
     els.bgSaturation.value = frame.bg.saturation;
+    els.bgDarken.value = frame.bg.darken || 0;
+    els.bgGrain.value = frame.bg.grainOpacity || 0;
   }
   els.frostedAdvanced.hidden = frame.bg.type !== 'frosted';
   if (els.frostedAdvanced.open && frame.bg.type !== 'frosted') els.frostedAdvanced.open = false;
@@ -1342,7 +1586,76 @@ function onFrameChange(frameName) {
     els.filmMfAge.value = fmd.age;
     els.filmMfAgeVal.textContent = T('frame.defaultReadout');
     els.filmMfAdvanced.hidden = frameName !== 'film-mf';
-    if (els.filmMfAdvanced.open && frameName !== 'film-mf') els.filmMfAdvanced.open = false;
+  }
+  // Gallery-white passe-partout — same reset semantic.
+  cfg.galMatWidth = null;
+  cfg.galLineSpacing = null;
+  cfg.galLineWeight = null;
+  cfg.galLineColor = null;
+  if (els.galleryAdvanced) {
+    const gd = { matWidth: 26, lineSpacing: 18, lineWeight: 1.0, lineColor: 'ink' };
+    els.galMatWidth.value = gd.matWidth;
+    els.galLineSpacing.value = gd.lineSpacing;
+    els.galLineWeight.value = gd.lineWeight;
+    els.galMatWidthVal.textContent = T('frame.defaultReadout');
+    els.galLineSpacingVal.textContent = T('frame.defaultReadout');
+    els.galLineWeightVal.textContent = T('frame.defaultReadout');
+    els.galLineColorVal.textContent = T('frame.defaultReadout');
+    els.galLineColor.querySelectorAll('.gallery-sw').forEach(s => {
+      s.classList.toggle('on', s.dataset.val === gd.lineColor);
+    });
+    els.galleryAdvanced.hidden = frameName !== 'gallery-white';
+  }
+  // Film-35 cine knobs — same reset semantic.
+  cfg.f35Sprocket = null;
+  cfg.f35Grain = null;
+  cfg.f35EdgePrint = null;
+  cfg.f35FrameNo = null;
+  // Instax knobs — same reset semantic.
+  cfg.instaxSlab = null;
+  cfg.instaxTint = null;
+  cfg.instaxStamp = null;
+  cfg.instaxRainbow = null;
+  // Slide-mount knobs — same reset semantic.
+  cfg.slideMountColor = null;
+  cfg.slideOuterRing = null;
+  cfg.slidePebble = null;
+  cfg.slideBevel = null;
+  if (els.slideAdvanced) {
+    const sd = frame.slideMount || { mountColor: 'cream', outerRing: 'wine', pebbleScale: 1.0, bevelDepth: 8 };
+    els.slidePebble.value = sd.pebbleScale;
+    els.slideBevel.value = sd.bevelDepth;
+    els.slideMountColorVal.textContent = T('frame.defaultReadout');
+    els.slideOuterRingVal.textContent = T('frame.defaultReadout');
+    els.slidePebbleVal.textContent = T('frame.defaultReadout');
+    els.slideBevelVal.textContent = T('frame.defaultReadout');
+    els.slideMountColor.querySelectorAll('[data-val]').forEach(b => b.classList.toggle('on', b.dataset.val === sd.mountColor));
+    els.slideOuterRing.querySelectorAll('[data-val]').forEach(b => b.classList.toggle('on', b.dataset.val === sd.outerRing));
+    els.slideAdvanced.hidden = frameName !== 'slide-mount';
+  }
+  if (els.instaxAdvanced) {
+    const id = frame.instax || { slab: 240, tint: 'pure', dateStamp: false, rainbow: false };
+    els.instaxSlab.value = id.slab;
+    els.instaxSlabVal.textContent = T('frame.defaultReadout');
+    els.instaxTintVal.textContent = T('frame.defaultReadout');
+    els.instaxStampVal.textContent = T('frame.defaultReadout');
+    els.instaxRainbowVal.textContent = T('frame.defaultReadout');
+    els.instaxTint.querySelectorAll('[data-val]').forEach(b => b.classList.toggle('on', b.dataset.val === id.tint));
+    els.instaxStamp.classList.toggle('on', !!id.dateStamp);
+    els.instaxRainbow.classList.toggle('on', !!id.rainbow);
+    els.instaxAdvanced.hidden = frameName !== 'instax';
+  }
+  if (els.film35Advanced) {
+    const fd = frame.film35 || { sprocketScale: 1.0, grain: 0, edgePrint: true, frameNo: '1-36' };
+    els.f35Sprocket.value = fd.sprocketScale;
+    els.f35Grain.value = fd.grain;
+    els.f35SprocketVal.textContent = T('frame.defaultReadout');
+    els.f35GrainVal.textContent = T('frame.defaultReadout');
+    els.f35EdgePrintVal.textContent = T('frame.defaultReadout');
+    els.f35FrameNoVal.textContent = T('frame.defaultReadout');
+    els.f35EdgePrint.classList.toggle('on', !!fd.edgePrint);
+    els.f35FrameNo.querySelectorAll('[data-val]').forEach(b => b.classList.toggle('on', b.dataset.val === fd.frameNo));
+    els.film35Advanced.hidden = frameName !== 'film-35';
   }
 
   const sd = frame.shadowDefault;
@@ -1389,6 +1702,18 @@ els.bgSaturation.addEventListener('input', () => {
   const v = Number(els.bgSaturation.value);
   activeCfg().bgSaturation = v;
   els.bgSaturationVal.textContent = v.toFixed(2);
+  requestRender();
+});
+els.bgDarken.addEventListener('input', () => {
+  const v = Number(els.bgDarken.value);
+  activeCfg().bgDarken = v;
+  els.bgDarkenVal.textContent = v.toFixed(2);
+  requestRender();
+});
+els.bgGrain.addEventListener('input', () => {
+  const v = Number(els.bgGrain.value);
+  activeCfg().bgGrain = v;
+  els.bgGrainVal.textContent = v.toFixed(2);
   requestRender();
 });
 els.resetBgBtn.addEventListener('click', () => {
@@ -1439,6 +1764,155 @@ if (els.filmMfAgeVal) els.filmMfAgeVal.addEventListener('dblclick', () => {
   const fr = R.FRAMES[activeCfg().frame];
   const fmd = (fr && fr.filmMf) || { age: 1.0 };
   els.filmMfAge.value = fmd.age;
+  requestRender();
+});
+
+// ─── Gallery-white passe-partout · 4 knobs ─────────────────────────
+// matWidth / lineSpacing in base-1440 px; lineWeight is a scalar
+// multiplier on the hairline stroke (1.0 = current behavior); lineColor
+// picks one of 3 ink tones consumed by the decorate hook.
+if (els.galMatWidth) els.galMatWidth.addEventListener('input', () => {
+  const v = Number(els.galMatWidth.value);
+  activeCfg().galMatWidth = v;
+  els.galMatWidthVal.textContent = Math.round(v) + 'px';
+  requestRender();
+});
+if (els.galLineSpacing) els.galLineSpacing.addEventListener('input', () => {
+  const v = Number(els.galLineSpacing.value);
+  activeCfg().galLineSpacing = v;
+  els.galLineSpacingVal.textContent = Math.round(v) + 'px';
+  requestRender();
+});
+if (els.galLineWeight) els.galLineWeight.addEventListener('input', () => {
+  const v = Number(els.galLineWeight.value);
+  activeCfg().galLineWeight = v;
+  els.galLineWeightVal.textContent = v.toFixed(2) + '×';
+  requestRender();
+});
+if (els.galLineColor) els.galLineColor.addEventListener('click', (e) => {
+  const sw = e.target.closest('.gallery-sw');
+  if (!sw) return;
+  const val = sw.dataset.val;
+  activeCfg().galLineColor = val;
+  els.galLineColor.querySelectorAll('.gallery-sw').forEach(s => s.classList.toggle('on', s === sw));
+  els.galLineColorVal.textContent = T('frame.galColor.' + val);
+  requestRender();
+});
+if (els.resetGalleryBtn) els.resetGalleryBtn.addEventListener('click', () => {
+  onFrameChange(activeCfg().frame);
+  requestRender();
+});
+
+// ─── Film-35 cine · 4 knobs ────────────────────────────────────────
+// sprocketScale slider (0.5–2.0 multiplier) / grain slider (0–1 mapped
+// to overlay alpha in decorate) / edgePrint toggle / frameNo stepper
+// (xx / 1-36 / a-z).
+if (els.f35Sprocket) els.f35Sprocket.addEventListener('input', () => {
+  const v = Number(els.f35Sprocket.value);
+  activeCfg().f35Sprocket = v;
+  els.f35SprocketVal.textContent = v.toFixed(2) + '×';
+  requestRender();
+});
+if (els.f35Grain) els.f35Grain.addEventListener('input', () => {
+  const v = Number(els.f35Grain.value);
+  activeCfg().f35Grain = v;
+  els.f35GrainVal.textContent = v.toFixed(2);
+  requestRender();
+});
+if (els.f35EdgePrint) els.f35EdgePrint.addEventListener('click', () => {
+  const next = !els.f35EdgePrint.classList.contains('on');
+  els.f35EdgePrint.classList.toggle('on', next);
+  activeCfg().f35EdgePrint = next;
+  els.f35EdgePrintVal.textContent = next ? T('frame.toggleOn') : T('frame.toggleOff');
+  requestRender();
+});
+if (els.f35FrameNo) els.f35FrameNo.addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-val]');
+  if (!btn) return;
+  const val = btn.dataset.val;
+  activeCfg().f35FrameNo = val;
+  els.f35FrameNo.querySelectorAll('[data-val]').forEach(b => b.classList.toggle('on', b === btn));
+  els.f35FrameNoVal.textContent = T('frame.f35FrameNoOpt.' +val);
+  requestRender();
+});
+if (els.resetFilm35Btn) els.resetFilm35Btn.addEventListener('click', () => {
+  onFrameChange(activeCfg().frame);
+  requestRender();
+});
+
+// ─── Instax · 4 knobs ───────────────────────────────────────────────
+// slab slider (60–360 base-1440 px, flows into layoutOpts.extraBottom) /
+// tint swatches (pure / cream / aged) / stamp toggle / rainbow toggle.
+if (els.instaxSlab) els.instaxSlab.addEventListener('input', () => {
+  const v = Number(els.instaxSlab.value);
+  activeCfg().instaxSlab = v;
+  els.instaxSlabVal.textContent = Math.round(v) + 'px';
+  requestRender();
+});
+if (els.instaxTint) els.instaxTint.addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-val]');
+  if (!btn) return;
+  const val = btn.dataset.val;
+  activeCfg().instaxTint = val;
+  els.instaxTint.querySelectorAll('[data-val]').forEach(b => b.classList.toggle('on', b === btn));
+  els.instaxTintVal.textContent = T('frame.instaxTintOpt.' + val);
+  requestRender();
+});
+if (els.instaxStamp) els.instaxStamp.addEventListener('click', () => {
+  const next = !els.instaxStamp.classList.contains('on');
+  els.instaxStamp.classList.toggle('on', next);
+  activeCfg().instaxStamp = next;
+  els.instaxStampVal.textContent = next ? T('frame.toggleOn') : T('frame.toggleOff');
+  requestRender();
+});
+if (els.instaxRainbow) els.instaxRainbow.addEventListener('click', () => {
+  const next = !els.instaxRainbow.classList.contains('on');
+  els.instaxRainbow.classList.toggle('on', next);
+  activeCfg().instaxRainbow = next;
+  els.instaxRainbowVal.textContent = next ? T('frame.toggleOn') : T('frame.toggleOff');
+  requestRender();
+});
+if (els.resetInstaxBtn) els.resetInstaxBtn.addEventListener('click', () => {
+  onFrameChange(activeCfg().frame);
+  requestRender();
+});
+
+// ─── Slide-mount · 4 knobs ──────────────────────────────────────────
+// mountColor / outerRing swatches (enum lookup → bg.color / ring fill) /
+// pebble density slider (0.5–1.5× → numBumps via params.slideMount) /
+// bevel depth slider (4–20 px → bevelW + insetDepth in decorate).
+if (els.slideMountColor) els.slideMountColor.addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-val]');
+  if (!btn) return;
+  const val = btn.dataset.val;
+  activeCfg().slideMountColor = val;
+  els.slideMountColor.querySelectorAll('[data-val]').forEach(b => b.classList.toggle('on', b === btn));
+  els.slideMountColorVal.textContent = T('frame.slideMountColorOpt.' + val);
+  requestRender();
+});
+if (els.slideOuterRing) els.slideOuterRing.addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-val]');
+  if (!btn) return;
+  const val = btn.dataset.val;
+  activeCfg().slideOuterRing = val;
+  els.slideOuterRing.querySelectorAll('[data-val]').forEach(b => b.classList.toggle('on', b === btn));
+  els.slideOuterRingVal.textContent = T('frame.slideOuterRingOpt.' + val);
+  requestRender();
+});
+if (els.slidePebble) els.slidePebble.addEventListener('input', () => {
+  const v = Number(els.slidePebble.value);
+  activeCfg().slidePebble = v;
+  els.slidePebbleVal.textContent = v.toFixed(2) + '×';
+  requestRender();
+});
+if (els.slideBevel) els.slideBevel.addEventListener('input', () => {
+  const v = Number(els.slideBevel.value);
+  activeCfg().slideBevel = v;
+  els.slideBevelVal.textContent = Math.round(v) + 'px';
+  requestRender();
+});
+if (els.resetSlideBtn) els.resetSlideBtn.addEventListener('click', () => {
+  onFrameChange(activeCfg().frame);
   requestRender();
 });
 function makeTornReadoutResetter(valueEl, sliderEl, fieldKey, frameDefaultGetter) {
@@ -1634,19 +2108,18 @@ els.signatureInput.addEventListener('change', async () => {
     const raw = await readSignatureFile(file);
     const data = ensureSvgDimensions(raw);
     const type = /^data:image\/svg/i.test(data) ? 'svg' : 'png';
-    // Carry over the active photo's position/size/opacity if a signature was
-    // already there — re-uploading should swap the image but keep the look.
-    // New uploads always write the v1 schema (object position).
+    // Re-uploading swaps the image but keeps the existing placement/look
+    // (v2 fields). A fresh upload defaults to a modest bottom-right seal.
     const prev = activeCfg().customLogo;
-    const prevPos = prev && prev.position;
-    const positionObj = (prevPos && typeof prevPos === 'object' && prevPos.anchor)
-      ? { anchor: prevPos.anchor, dx: Number(prevPos.dx) || 0, dy: Number(prevPos.dy) || 0 }
-      : { anchor: (typeof prevPos === 'string' ? prevPos : 'br'), dx: 0, dy: 0 };
     const payload = {
       data: data,
       type: type,
-      position: positionObj,
-      scale:    prev && prev.scale != null ? prev.scale : 0.06,
+      cx:       prev && prev.cx != null ? prev.cx : 0.85,
+      cy:       prev && prev.cy != null ? prev.cy : 0.88,
+      scale:    prev && prev.scale != null ? prev.scale : 0.10,
+      rotation: prev && prev.rotation != null ? prev.rotation : 0,
+      flipH:    prev ? !!prev.flipH : false,
+      blend:    prev && prev.blend ? prev.blend : 'normal',
       opacity:  prev && prev.opacity != null ? prev.opacity : 1
     };
     applyCustomLogoEverywhere(payload);
@@ -1666,502 +2139,48 @@ els.signatureClearBtn.addEventListener('click', () => {
   requestRender();
 });
 
-els.signaturePosGrid.querySelectorAll('button').forEach((btn) => {
+// The seal is a single GLOBAL identity (1.11.0): any field edit cascades to
+// every photo + draftCfg + localStorage. patchSeal merges a partial change
+// into the current seal object and re-commits it globally.
+function patchSeal(patch) {
+  const cur = activeCfg().customLogo;
+  if (!cur || !cur.data) return;
+  applyCustomLogoEverywhere({ ...cur, ...patch });
+}
+
+// Blend-mode seg (normal / multiply / screen / overlay / darken / lighten).
+els.sealBlendSeg.querySelectorAll('button').forEach((btn) => {
   btn.addEventListener('click', () => {
-    const cfg = activeCfg();
-    if (!cfg.customLogo) return;
-    const anchor = btn.dataset.anchor;
-    setPosGridActive(els.signaturePosGrid, anchor);
-    // Always write the new schema (object). dx/dy preserved if the user
-    // had custom offsets from a future microadjust UI; defaults to 0/0
-    // for the legacy "just pick a corner" path.
-    const prev = (cfg.customLogo.position && typeof cfg.customLogo.position === 'object')
-      ? cfg.customLogo.position
-      : { dx: 0, dy: 0 };
-    cfg.customLogo = {
-      ...cfg.customLogo,
-      position: { anchor, dx: prev.dx || 0, dy: prev.dy || 0 }
-    };
+    if (!activeCfg().customLogo) return;
+    patchSeal({ blend: btn.dataset.val });
+    syncSignatureFromCfg(activeCfg());
     requestRender();
   });
 });
 
-els.signatureScale.addEventListener('input', () => {
-  const cfg = activeCfg();
-  if (!cfg.customLogo) return;
-  const pct = Number(els.signatureScale.value);
-  cfg.customLogo = { ...cfg.customLogo, scale: pct / 100 };
-  setReadoutNum(els.signatureScaleVal, pct, '%');
+// Flip-horizontal toggle.
+els.sealFlipToggle.addEventListener('click', () => {
+  const cur = activeCfg().customLogo;
+  if (!cur || !cur.data) return;
+  patchSeal({ flipH: !cur.flipH });
+  syncSignatureFromCfg(activeCfg());
   requestRender();
 });
 
 els.signatureOpacity.addEventListener('input', () => {
-  const cfg = activeCfg();
-  if (!cfg.customLogo) return;
+  if (!activeCfg().customLogo) return;
   const v = Number(els.signatureOpacity.value);
-  cfg.customLogo = { ...cfg.customLogo, opacity: v };
+  patchSeal({ opacity: v });
   setReadoutNum(els.signatureOpacityVal, Math.round(v * 100), '%');
   requestRender();
 });
 
-// ─── Rotation wiring (lives inside the crop modal) ──────────────────────
-// Rotation is now a free-form float in [0, 360) — the modal hosts a slider
-// for fine angle adjustment plus ↶ ↷ buttons for ±90° quick jumps. Both
-// write through to cfg.rotation and re-render the modal canvas + the main
-// preview pane in one shot.
-function setRotation(angle, opts) {
-  const cfg = activeCfg();
-  let r = Number(angle) || 0;
-  if (Math.abs(r) < 0.05) r = 0;   // snap sub-degree dust to clean zero
-  const norm = ((r % 360) + 360) % 360;
-  cfg.rotation = norm;
-  // Skip the slider-write when the slider IS the source — would snap thumb
-  // between +180 / -180 mid-drag.
-  if (opts && opts.fromSlider) syncRotationReadouts(cfg);
-  else                          syncRotateFromCfg(cfg);
-  if (CROP.bm) {
-    CROP.rotation = norm;
-    refitCropCanvas();
-  }
-  if (opts && opts.flashDelta != null) {
-    flashRotation(opts.flashDelta, norm);
-  }
-  requestRender();
-}
-
-function bumpRotation(delta) {
-  const cur = Number(activeCfg().rotation) || 0;
-  setRotation(cur + delta, { flashDelta: delta });
-}
-els.cropRotCcw.addEventListener('click', () => bumpRotation(-90));
-els.cropRotCw.addEventListener('click', () => bumpRotation(90));
-els.cropAngle.addEventListener('input', () => {
-  setRotation(Number(els.cropAngle.value) || 0, { fromSlider: true });
-});
-els.cropRotReset.addEventListener('click', () => setRotation(0));
-
-// Transient rotation indicator — flashes for ~700ms after each rotate
-// click, showing the new total angle. Direction comes from the click
-// (CW arrow shape vs CCW = mirrored). Suppressed when no photo is loaded
-// so we don't flash over the empty state.
-let rotFlashTimer = 0;
-function flashRotation(delta, totalDeg) {
-  if (state.activeIdx < 0) return;
-  const el = els.rotationFlash;
-  if (!el) return;
-  // ↻ for CW rotation, ↺ for CCW. Driven by the click direction so the
-  // arrow always matches the action the user just took.
-  els.rotationFlashArrow.textContent = delta < 0 ? '↺' : '↻';
-  els.rotationFlashVal.textContent = totalDeg + '°';
-  // Re-trigger animation by removing class on next frame
-  el.classList.remove('flash-show');
-  void el.offsetWidth;   // force reflow so class re-add re-fires the transition
-  el.classList.add('flash-show');
-  if (rotFlashTimer) clearTimeout(rotFlashTimer);
-  rotFlashTimer = setTimeout(() => {
-    el.classList.remove('flash-show');
-    rotFlashTimer = 0;
-  }, 700);
-}
-
-// ─── Crop modal wiring ──────────────────────────────────────────────────
-// Crop is stored on cfg in normalized post-rotation [0..1] space, so that's
-// also the coordinate frame the modal works in. We render the active photo
-// pre-rotated onto the modal's canvas (so the user crops the orientation
-// they see in preview) and overlay an absolutely-positioned div whose
-// position/size is computed from the rect each pointermove tick.
-const CROP = {
-  rect: { x: 0, y: 0, w: 1, h: 1 },
-  canvasCss: { x: 0, y: 0, w: 0, h: 0 },
-  // True post-rotation source dims (used for the px readout). Distinct
-  // from the canvas's intrinsic dims, which we shrink to fit the modal.
-  trueW: 0,
-  trueH: 0,
-  // The pre-loaded bitmap + rotation we kept around so refitCropCanvas
-  // can re-render at a different size on viewport resize.
-  bm: null,
-  rotation: 0,
-  drag: null,
-  // 'free' = no aspect lock; 'frame' = current frame aspect; 'W:H' = literal
-  aspect: 'free'
-};
-const CROP_MIN = 0.05;
-// Frame aspect → numeric width/height ratio. Falls back to the shared
-// resolver so custom W:H tokens (e.g. "3:2", "2.35:1") agree with what the
-// renderer will actually paint.
-function frameAspectToRatio(aspect) {
-  const preset = R.resolveAspectPreset(aspect);
-  return preset ? preset.W / preset.H : 1;
-}
-
-function parseAspectToken(token) {
-  if (token === 'free') return null;
-  if (token === 'frame') {
-    return frameAspectToRatio(activeCfg().aspect || '9:16');
-  }
-  const m = token.match(/^(\d+(?:\.\d+)?):(\d+(?:\.\d+)?)$/);
-  if (!m) return null;
-  const w = Number(m[1]), h = Number(m[2]);
-  return (w > 0 && h > 0) ? (w / h) : null;
-}
-
-// The aspect ratio is in PIXEL space (W_px / H_px). Convert to normalized
-// coords (W_norm / H_norm) so we can compare against rect.w / rect.h.
-function pxAspectToNorm(pxRatio) {
-  if (!pxRatio || !CROP.trueW || !CROP.trueH) return null;
-  return pxRatio * CROP.trueH / CROP.trueW;
-}
-
-function gcd(a, b) { return b ? gcd(b, a % b) : a; }
-function fmtRatio(w, h) {
-  if (!w || !h) return '—';
-  const r = Math.round(w * 1000) / Math.round(h * 1000);
-  // Try a tidy integer ratio if it's close to common ones
-  const candidates = [
-    [1, 1], [4, 3], [3, 4], [16, 9], [9, 16], [3, 2], [2, 3], [16, 10], [21, 9], [5, 4]
-  ];
-  for (const [cw, ch] of candidates) {
-    if (Math.abs(r - cw / ch) < 0.012) return cw + ':' + ch;
-  }
-  // Fallback: greatest common divisor of pixel rounded values
-  const wi = Math.round(w), hi = Math.round(h);
-  if (wi > 0 && hi > 0) {
-    const g = gcd(wi, hi);
-    if (g > 1 && wi / g < 100 && hi / g < 100) return (wi / g) + ':' + (hi / g);
-  }
-  return r.toFixed(2);
-}
-
-function clamp(v, lo, hi) { return v < lo ? lo : v > hi ? hi : v; }
-
-async function openCropModal() {
-  const active = state.files[state.activeIdx];
-  if (!active) {
-    setStatus('status.noPhoto', 'err');
-    setTimeout(() => setStatus('status.ready'), 1500);
-    return;
-  }
-  const bm = await CR.loadBitmap(active.file, 1440);
-  CROP.bm = bm;
-  CROP.rotation = ((Number(active.cfg.rotation) || 0) % 360 + 360) % 360;
-  // trueW/trueH are recomputed from the rotated bbox inside
-  // refitCropCanvas, since they shift whenever the user changes rotation.
-  CROP.rect = active.cfg.crop ? { ...active.cfg.crop } : { x: 0, y: 0, w: 1, h: 1 };
-  CROP.aspect = 'free';
-  syncCropAspectSeg();
-  syncRotateFromCfg(active.cfg);    // surface current angle on the slider
-  els.cropModal.showModal();
-  // Wait one frame for the dialog to settle into its definite height, then
-  // size the canvas + draw. refitCropCanvas + drawCropModalCanvas together
-  // produce a canvas whose CSS box is the rotated bbox, scaled to exactly
-  // fit the stage — no contain-margins, no overflow.
-  requestAnimationFrame(refitCropCanvas);
-}
-
-// Recompute the canvas's intrinsic dims from the rotated bounding box at
-// the current rotation, fit to the stage, then redraw. Called on modal
-// open, on stage resize (ResizeObserver), and on every rotation change —
-// the rotated bbox grows for non-axis-aligned angles, so the canvas size
-// has to track it for the visible image to stay fitted.
-function refitCropCanvas() {
-  if (!CROP.bm || !els.cropModal.open) return;
-  const stage = els.cropStage;
-  const sRect = stage.getBoundingClientRect();
-  // Padding mirrors the .crop-stage CSS rule.
-  const PAD = 28;
-  const availW = Math.max(0, sRect.width  - PAD * 2);
-  const availH = Math.max(0, sRect.height - PAD * 2);
-  if (!availW || !availH) return;
-  // Inscribed safe-area dims at the current rotation. The canvas is
-  // sized to this rect (not the larger rotated bbox), so the modal
-  // displays a rectangular zoom-into-the-rotated-photo with no
-  // transparent corners — the bitmap content overflows past the canvas
-  // edges and gets clipped naturally. Matches the Lightroom / iOS Photos
-  // straighten preview behavior the user asked for.
-  const safe = R.inscribedSafeArea(CROP.bm, CROP.rotation || 0);
-  CROP.trueW = safe.w;
-  CROP.trueH = safe.h;
-  // Cap at 1 — never upscale a small source.
-  const ratio = Math.min(availW / safe.w, availH / safe.h, 1);
-  const dispW = Math.max(1, Math.round(safe.w * ratio));
-  const dispH = Math.max(1, Math.round(safe.h * ratio));
-  const c = els.cropCanvas;
-  if (c.width !== dispW || c.height !== dispH) {
-    c.width = dispW;
-    c.height = dispH;
-  }
-  drawCropModalCanvas();
-  updateCropRectPosition();
-}
-
-// Draw the source bitmap into the modal canvas at the current rotation.
-// Canvas's intrinsic dims = rotated bbox × fit-scale (set by the caller
-// in refitCropCanvas). The bitmap is drawn centered, rotated, scaled by
-// that same fit factor — its rotated silhouette fills the canvas
-// exactly, with transparent corners outside the silhouette for non-90°
-// angles (the typical "straighten" preview look).
-function drawCropModalCanvas() {
-  const c = els.cropCanvas;
-  const ctx = c.getContext('2d');
-  const bm = CROP.bm;
-  if (!bm || !CROP.trueW) return;
-  const W = c.width;
-  const H = c.height;
-  const rRad = ((Number(CROP.rotation) || 0) % 360 + 360) % 360 * Math.PI / 180;
-  // Same scale used by refitCropCanvas to size the canvas. Use one of
-  // the two ratios — both equal because bbox is fitted in both axes.
-  const scale = W / CROP.trueW;
-  ctx.clearRect(0, 0, W, H);
-  ctx.save();
-  ctx.translate(W / 2, H / 2);
-  ctx.scale(scale, scale);
-  ctx.rotate(rRad);
-  ctx.drawImage(bm, -bm.width / 2, -bm.height / 2);
-  ctx.restore();
-}
-
-function syncCropAspectSeg() {
-  els.cropAspectSeg.querySelectorAll('button').forEach((b) => {
-    const on = b.dataset.val === CROP.aspect;
-    b.classList.toggle('active', on);
-    b.setAttribute('aria-checked', on ? 'true' : 'false');
-  });
-}
-
-function updateCropRectPosition() {
-  if (!els.cropModal.open) return;
-  const sRect = els.cropStage.getBoundingClientRect();
-  const cRect = els.cropCanvas.getBoundingClientRect();
-  CROP.canvasCss = {
-    x: cRect.left - sRect.left,
-    y: cRect.top  - sRect.top,
-    w: cRect.width,
-    h: cRect.height
-  };
-  const r = CROP.rect;
-  const cc = CROP.canvasCss;
-  els.cropRect.style.left   = (cc.x + r.x * cc.w) + 'px';
-  els.cropRect.style.top    = (cc.y + r.y * cc.h) + 'px';
-  els.cropRect.style.width  = (r.w * cc.w) + 'px';
-  els.cropRect.style.height = (r.h * cc.h) + 'px';
-
-  // Three readouts: percent, pixel dims (against TRUE post-rotation
-  // source dims, not the modal's display canvas), aspect.
-  els.cropPctW.textContent = Math.round(r.w * 100);
-  els.cropPctH.textContent = Math.round(r.h * 100);
-  const wPx = Math.round(r.w * CROP.trueW);
-  const hPx = Math.round(r.h * CROP.trueH);
-  els.cropReadoutPx.textContent = wPx + ' × ' + hPx + ' px';
-  els.cropReadoutRatio.textContent = '≈ ' + fmtRatio(wPx, hPx);
-}
-
-function applyDrag(handle, dx, dy, start) {
-  const r = { ...start };
-  switch (handle) {
-    case 'move':
-      r.x = clamp(start.x + dx, 0, 1 - r.w);
-      r.y = clamp(start.y + dy, 0, 1 - r.h);
-      break;
-    case 'nw':
-      r.x = clamp(start.x + dx, 0, start.x + start.w - CROP_MIN);
-      r.w = start.x + start.w - r.x;
-      r.y = clamp(start.y + dy, 0, start.y + start.h - CROP_MIN);
-      r.h = start.y + start.h - r.y;
-      break;
-    case 'ne':
-      r.w = clamp(start.w + dx, CROP_MIN, 1 - start.x);
-      r.y = clamp(start.y + dy, 0, start.y + start.h - CROP_MIN);
-      r.h = start.y + start.h - r.y;
-      break;
-    case 'sw':
-      r.x = clamp(start.x + dx, 0, start.x + start.w - CROP_MIN);
-      r.w = start.x + start.w - r.x;
-      r.h = clamp(start.h + dy, CROP_MIN, 1 - start.y);
-      break;
-    case 'se':
-      r.w = clamp(start.w + dx, CROP_MIN, 1 - start.x);
-      r.h = clamp(start.h + dy, CROP_MIN, 1 - start.y);
-      break;
-    case 'n':
-      r.y = clamp(start.y + dy, 0, start.y + start.h - CROP_MIN);
-      r.h = start.y + start.h - r.y;
-      break;
-    case 's':
-      r.h = clamp(start.h + dy, CROP_MIN, 1 - start.y);
-      break;
-    case 'w':
-      r.x = clamp(start.x + dx, 0, start.x + start.w - CROP_MIN);
-      r.w = start.x + start.w - r.x;
-      break;
-    case 'e':
-      r.w = clamp(start.w + dx, CROP_MIN, 1 - start.x);
-      break;
-  }
-  return r;
-}
-
-function startCropDrag(handle, e) {
-  e.preventDefault();
-  CROP.drag = {
-    handle,
-    startMouse: { x: e.clientX, y: e.clientY },
-    startRect: { ...CROP.rect }
-  };
-  els.cropRect.classList.add('dragging');
-  document.addEventListener('pointermove', onCropDrag);
-  document.addEventListener('pointerup', endCropDrag, { once: true });
-}
-
-function onCropDrag(e) {
-  const d = CROP.drag;
-  if (!d) return;
-  const cc = CROP.canvasCss;
-  if (cc.w <= 0 || cc.h <= 0) return;
-  const dx = (e.clientX - d.startMouse.x) / cc.w;
-  const dy = (e.clientY - d.startMouse.y) / cc.h;
-  let r = applyDrag(d.handle, dx, dy, d.startRect);
-  const normRatio = pxAspectToNorm(parseAspectToken(CROP.aspect));
-  if (normRatio && d.handle !== 'move') {
-    r = snapAspect(r, d.handle, normRatio);
-  }
-  CROP.rect = r;
-  updateCropRectPosition();
-}
-
-function endCropDrag() {
-  CROP.drag = null;
-  els.cropRect.classList.remove('dragging');
-  document.removeEventListener('pointermove', onCropDrag);
-}
-
-// Anchor for each handle = the opposite point that stays fixed during drag.
-// Used by snapAspect to recompute the dragged-to side after honouring the
-// aspect lock.
-const HANDLE_ANCHOR = {
-  nw: 'se', ne: 'sw', sw: 'ne', se: 'nw',
-  n: 's',  s: 'n',  w: 'e',  e: 'w'
-};
-
-// Given a rect from applyDrag (which may not honor the aspect lock) and
-// the drag handle, snap the rect so r.w / r.h === normRatio while keeping
-// the anchor point fixed. Then clamp to canvas bounds.
-function snapAspect(r, handle, normRatio) {
-  const anchor = HANDLE_ANCHOR[handle] || 'center';
-  const currentRatio = r.w / r.h;
-  if (currentRatio > normRatio) {
-    // too wide → shrink width
-    const newW = r.h * normRatio;
-    if (anchor === 'nw' || anchor === 'sw' || anchor === 'w') {
-      r.w = newW;            // anchored on the LEFT, shrink toward the left
-    } else if (anchor === 'ne' || anchor === 'se' || anchor === 'e') {
-      r.x = r.x + (r.w - newW);
-      r.w = newW;
-    } else {
-      r.x = r.x + (r.w - newW) / 2;
-      r.w = newW;
-    }
-  } else if (currentRatio < normRatio) {
-    // too tall → shrink height
-    const newH = r.w / normRatio;
-    if (anchor === 'nw' || anchor === 'ne' || anchor === 'n') {
-      r.h = newH;
-    } else if (anchor === 'sw' || anchor === 'se' || anchor === 's') {
-      r.y = r.y + (r.h - newH);
-      r.h = newH;
-    } else {
-      r.y = r.y + (r.h - newH) / 2;
-      r.h = newH;
-    }
-  }
-  // Clamp into [0, 1]² without changing dims (slide if needed)
-  if (r.x < 0) r.x = 0;
-  if (r.y < 0) r.y = 0;
-  if (r.x + r.w > 1) r.x = 1 - r.w;
-  if (r.y + r.h > 1) r.y = 1 - r.h;
-  if (r.w > 1) r.w = 1;
-  if (r.h > 1) r.h = 1;
-  return r;
-}
-
-// Refit the rect to a new aspect lock. Always picks the LARGEST rect of
-// `normRatio` aspect that fits within the full image [0,1]², centered.
-// Crucially, this is computed against the WHOLE IMAGE, not the prior rect
-// — clicking 1:1, then 3:4, then 1:1 again should give the same maximal
-// 1:1 rect every time, not progressively shrink.
-function refitRectToAspect(normRatio) {
-  if (!normRatio) return;
-  let newW, newH;
-  if (normRatio >= 1) {
-    // Wider in normalized coords → width is the limiter, fill the image's
-    // full width and let height come out smaller.
-    newW = 1;
-    newH = 1 / normRatio;
-  } else {
-    newH = 1;
-    newW = normRatio;
-  }
-  CROP.rect = {
-    x: (1 - newW) / 2,
-    y: (1 - newH) / 2,
-    w: newW,
-    h: newH
-  };
-}
-
-els.cropOpenBtn.addEventListener('click', () => { openCropModal().catch(console.error); });
-els.cropModalCloseBtn.addEventListener('click', () => els.cropModal.close());
-els.cropCancelBtn.addEventListener('click', () => els.cropModal.close());
-els.cropResetBtn.addEventListener('click', () => {
-  CROP.rect = { x: 0, y: 0, w: 1, h: 1 };
-  // Reset honors the current aspect lock — if user has 1:1 selected, the
-  // "reset" rect is the largest 1:1 rect that fits the canvas, not 1×1.
-  const ratio = pxAspectToNorm(parseAspectToken(CROP.aspect));
-  if (ratio) refitRectToAspect(ratio);
-  updateCropRectPosition();
+// "Place on canvas…" CTA → opens the direct-manipulation #seal-modal.
+els.sealPlaceBtn.addEventListener('click', () => {
+  if (els.sealPlaceBtn.disabled) return;
+  if (window.SealPlace) window.SealPlace.open();
 });
 
-// Aspect lock segmented control — pick a constraint and the rect snaps to
-// the largest rect of that aspect that fits the previous rect's center.
-els.cropAspectSeg.querySelectorAll('button').forEach((btn) => {
-  btn.addEventListener('click', () => {
-    CROP.aspect = btn.dataset.val;
-    syncCropAspectSeg();
-    const ratio = pxAspectToNorm(parseAspectToken(CROP.aspect));
-    if (ratio) refitRectToAspect(ratio);
-    updateCropRectPosition();
-  });
-});
-els.cropApplyBtn.addEventListener('click', () => {
-  const r = CROP.rect;
-  const isFull = r.x < 0.002 && r.y < 0.002 && r.w > 0.998 && r.h > 0.998;
-  activeCfg().crop = isFull ? null : { x: r.x, y: r.y, w: r.w, h: r.h };
-  els.cropModal.close();
-  requestRender();
-});
-
-// Pointerdown handlers: rect interior moves, handles resize.
-els.cropRect.addEventListener('pointerdown', (e) => {
-  if (e.target.classList.contains('crop-handle')) {
-    startCropDrag(e.target.dataset.h, e);
-  } else {
-    startCropDrag('move', e);
-  }
-});
-
-// Re-fit the canvas (and reposition the overlay rect) on viewport resize
-// AND on stage resize. ResizeObserver on the stage catches dialog reflow
-// after showModal + browser zoom; observing the stage (not the canvas)
-// avoids the feedback loop that observing canvas would create — we set
-// canvas.width/height inside refitCropCanvas, which would re-fire on
-// canvas-watchers. The observer + listener both no-op when modal is shut.
-window.addEventListener('resize', () => {
-  if (els.cropModal.open) refitCropCanvas();
-});
-if (typeof ResizeObserver !== 'undefined') {
-  new ResizeObserver(() => {
-    if (els.cropModal.open) refitCropCanvas();
-  }).observe(els.cropStage);
-}
 
 // ─── Collage (2–4 photos in one frame) wiring ───────────────────────────
 els.collageLayout.addEventListener('change', () => {
@@ -2177,7 +2196,31 @@ els.collageLayout.addEventListener('change', () => {
     active.partnerFiles.length = want;
   }
   syncCollageFromActive();
+  refreshArrangeClampActive();
   requestRender();
+});
+
+// Visible "paper clamp" buttons drive the hidden #collage-layout <select>.
+// Click a clamp → set select.value + dispatch change event so the existing
+// handler above fires. CSS-side .active state is synced both here (on click)
+// and from syncCollageFromActive (on photo switch / preset apply) via
+// refreshArrangeClampActive below. (Markup lives in ▦ Arrange tool since
+// 1.10.1; class names .sealcard-clamp preserved to avoid touching CSS.)
+function refreshArrangeClampActive() {
+  const v = els.collageLayout.value;
+  document.querySelectorAll('.sealcard-clamp').forEach((b) => {
+    const on = b.dataset.layout === v;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-checked', on ? 'true' : 'false');
+  });
+}
+document.querySelectorAll('.sealcard-clamp').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    const v = btn.dataset.layout;
+    if (els.collageLayout.value === v) return;
+    els.collageLayout.value = v;
+    els.collageLayout.dispatchEvent(new Event('change', { bubbles: true }));
+  });
 });
 
 // Hydrate from localStorage on boot so a returning user finds their signature
@@ -2308,6 +2351,7 @@ for (const [key, el] of Object.entries(els.exif)) {
     // so drop the override entirely instead of forcing flashFired=false.
     if (key === 'flash' && v === '') delete ovr[key];
     else ovr[key] = v;
+    refreshNotebookOverriddenState();
     requestRender();
   });
 }
@@ -2387,11 +2431,17 @@ els.clearExifBtn.addEventListener('click', () => {
 });
 
 // Apply a source photo's full frame configuration (everything *except* EXIF)
-// to all OTHER loaded photos. Covers aspect, frame, template, padding,
-// captionHeight, bg overrides, shadow, and showFields. The intent: once
-// you've dialed a look on one photo, propagate it across the batch.
+// to all OTHER loaded photos. The intent: once you've dialed a look on one
+// photo, propagate it across the batch.
 //
-// Source defaults to the active photo (B-section button path) but the rail
+// LOOK_KEYS is the canonical whitelist (declared once, lower in this file,
+// and auto-extended via R.collectFrameCfgKeys for every frame's `cfg`
+// schema). We project through it directly so new knobs are propagated
+// automatically — previously this function maintained a hand-rolled
+// FRAME_KEYS list that silently drifted (1.10.3 audit caught it missing
+// topTemplate / captionOverlayTextLift / perEdge padding / filmMfAge).
+//
+// Source defaults to the active photo (footer button path) but the rail
 // context menu passes the right-clicked photo so the user doesn't have to
 // switch active first.
 function applyFrameToAll(src) {
@@ -2401,16 +2451,11 @@ function applyFrameToAll(src) {
     setTimeout(() => setStatus('status.ready'), 1500);
     return;
   }
-  const FRAME_KEYS = [
-    'aspect', 'frame', 'template', 'padding', 'captionHeight',
-    'bgBlur', 'bgBrightness', 'bgSaturation',
-    'shadowBlur', 'shadowOffsetY', 'shadowOpacity',
-    'radiusOverride', 'captionForceOverlay',
-    'tornJitter', 'tornStep', 'tornEdgeOpacity'
-  ];
   for (const f of state.files) {
     if (f === src) continue;
-    for (const k of FRAME_KEYS) f.cfg[k] = src.cfg[k];
+    for (const k of LOOK_KEYS) f.cfg[k] = src.cfg[k];
+    // showFields / customLogo / customBg aren't in LOOK_KEYS (they're
+    // tracked separately on the preset schema); copy explicitly.
     f.cfg.showFields = { ...src.cfg.showFields };
     f.cfg.customLogo = src.cfg.customLogo ? { ...src.cfg.customLogo } : null;
     f.cfg.customBg = src.cfg.customBg ? { ...src.cfg.customBg } : null;
@@ -2775,46 +2820,54 @@ els.canvasPane.addEventListener('drop', async (e) => {
 // ─── Export (single + batch) ─────────────────────────────────────────────
 // Per-photo cfg shape consumed by ClientRender + Exporter. exifOverride (raw
 // form strings) is shipped as cfg.exif so buildExifForFile can format/normalize.
+// Always-set LOOK_KEYS fields — defaultCfg gives them non-null defaults
+// (numeric or string), and the render code expects them present. Other
+// LOOK_KEYS fields are optional: when null they signal "follow frame
+// default", and we omit them entirely from the exported cfg (export
+// convention "absent = use frame default"). Centralized here so adding a
+// LOOK_KEYS field doesn't require touching buildConfigForFile.
+const EXPORT_ALWAYS_SET = new Set([
+  'aspect', 'frame', 'template', 'padding',
+  'shadowBlur', 'shadowOffsetY', 'shadowOpacity'
+]);
+
 function buildConfigForFile(f) {
   const c = f.cfg;
   const exifPayload = {};
   for (const [k, v] of Object.entries(c.exifOverride || {})) {
     if (typeof v === 'string' && v.trim() !== '') exifPayload[k] = v.trim();
   }
+  // Always-set base. format/quality come from global state, not cfg.
   const cfg = {
-    aspect: c.aspect,
-    frame: c.frame,
-    template: c.template,
     format: state.format,
     quality: state.quality,
-    padding: c.padding,
-    shadowBlur: c.shadowBlur,
-    shadowOffsetY: c.shadowOffsetY,
-    shadowOpacity: c.shadowOpacity,
     showFields: { ...c.showFields },
     exif: exifPayload
   };
-  if (c.captionHeight != null) cfg.captionHeight = c.captionHeight;
-  if (c.paddingTop != null)    cfg.paddingTop = c.paddingTop;
-  if (c.paddingRight != null)  cfg.paddingRight = c.paddingRight;
-  if (c.paddingBottom != null) cfg.paddingBottom = c.paddingBottom;
-  if (c.paddingLeft != null)   cfg.paddingLeft = c.paddingLeft;
-  if (c.bgBlur != null)        cfg.bgBlur = c.bgBlur;
-  if (c.bgBrightness != null)  cfg.bgBrightness = c.bgBrightness;
-  if (c.bgSaturation != null)  cfg.bgSaturation = c.bgSaturation;
-  if (c.radiusOverride != null) cfg.radiusOverride = c.radiusOverride;
-  if (c.captionForceOverlay)   cfg.captionForceOverlay = true;
-  if (c.captionOverlayTextLift) cfg.captionOverlayTextLift = c.captionOverlayTextLift;
-  if (c.topTemplate && c.topTemplate !== 'none') cfg.topTemplate = c.topTemplate;
-  if (c.tornJitter != null)    cfg.tornJitter = c.tornJitter;
-  if (c.tornStep != null)      cfg.tornStep = c.tornStep;
-  if (c.tornEdgeOpacity != null) cfg.tornEdgeOpacity = c.tornEdgeOpacity;
-  if (c.filmMfAge != null)     cfg.filmMfAge = c.filmMfAge;
-  if (c.customLogo)            cfg.customLogo = { ...c.customLogo };
-  if (c.customBg)              cfg.customBg = { ...c.customBg };
-  if (c.collage)               cfg.collage = { ...c.collage };
-  if (c.rotation)              cfg.rotation = c.rotation;
-  if (c.crop)                  cfg.crop = { ...c.crop };
+  // LOOK_KEYS sweep — every "look" field, harness-included frame.cfg
+  // knobs too. Always-set fields land unconditionally; the rest only
+  // when non-null. captionForceOverlay / topTemplate keep their
+  // "truthy-only" semantics (false / 'none' = absent).
+  for (const k of LOOK_KEYS) {
+    const v = c[k];
+    if (EXPORT_ALWAYS_SET.has(k)) {
+      cfg[k] = v;
+    } else if (k === 'captionForceOverlay') {
+      if (v) cfg[k] = true;
+    } else if (k === 'topTemplate') {
+      if (v && v !== 'none') cfg[k] = v;
+    } else if (v != null) {
+      cfg[k] = v;
+    }
+  }
+  // Per-photo extras (not in LOOK_KEYS — partner files / signature /
+  // alternate bg / per-shot crop / rotation are per-photo, not part of
+  // the "look" that propagates via presets/share-codes).
+  if (c.customLogo) cfg.customLogo = { ...c.customLogo };
+  if (c.customBg)   cfg.customBg = { ...c.customBg };
+  if (c.collage)    cfg.collage = { ...c.collage };
+  if (c.rotation)   cfg.rotation = c.rotation;
+  if (c.crop)       cfg.crop = { ...c.crop };
   return cfg;
 }
 
@@ -2985,26 +3038,132 @@ els.batchBtn.addEventListener('click', runBatch);
 // strip customLogo because dataURLs blow up URL length.
 const PRESET_STORAGE_KEY = 'phototools.presets';
 const PRESET_SCHEMA_VERSION = 1;
+// LOOK_KEYS = cross-frame keys (hardcoded below) + every frame's `cfg`
+// schema key (harnessed via R.collectFrameCfgKeys at module load). The
+// harnessed half currently produces 25 keys across 7 frames (bg* / torn* /
+// filmMfAge / gal* / f35* / instax* / slide*). Adding a new frame knob =
+// declaring it on the frame file's cfg block; the preset/share-code
+// snapshot automatically picks it up.
 const LOOK_KEYS = [
   'aspect', 'frame', 'template', 'padding', 'captionHeight',
   // Per-edge padding (1.1+) — additive in v:1. Old presets / share-codes
   // that don't carry these default to null = follow scalar padding.
   'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft',
-  'bgBlur', 'bgBrightness', 'bgSaturation',
   'shadowBlur', 'shadowOffsetY', 'shadowOpacity',
   // Additive in v:1 — old presets / share-codes that don't carry these
   // simply default to null / false on apply, so backwards compat holds.
   'radiusOverride', 'captionForceOverlay',
-  // Torn-paper knobs (0.21+) — null on non-torn frames, only kicked in
-  // when the active frame is torn. Same additive-default invariant.
-  'tornJitter', 'tornStep', 'tornEdgeOpacity',
   // Top-of-frame badge + overlay text-lift (0.22+) — additive in v:1.
   // Old share-codes that don't carry these default to 'none' / 0.
   'topTemplate', 'captionOverlayTextLift',
-  // Film-mf vintage-aging strength (0.22+) — null on non-film-mf frames,
-  // only kicked in when the active frame is film-mf.
-  'filmMfAge'
+  // Frame-specific cfg keys (25 across 7 frames as of 1.7.0):
+  //   bg*  · torn*  · filmMfAge  · gal*  · f35*  · instax*  · slide*
+  // Each frame declares its keys via `def.cfg = { ... }`; the harness
+  // walks all registered frames at module load. Old presets / share-codes
+  // that don't carry these keys still apply correctly (null → frame default).
+  ...R.collectFrameCfgKeys()
 ];
+
+// ─── cfg snapshot helpers ──────────────────────────────────────────────
+// Two projections feed the render pipeline:
+//   · snapshotCfgForRender(c) → preview path (doRender). All LOOK_KEYS
+//     fields included verbatim (null is fine — render code handles it).
+//     rotation/crop normalized to 0 / null when falsy.
+//   · compactCfgForExport(c) → export path (buildConfigForFile, below).
+//     Same fields but with conditional inclusion (absent = "follow frame
+//     default"), matching the export convention.
+//
+// Both iterate LOOK_KEYS (canonical + frame.cfg harnessed) so new knobs
+// declared in any frame file propagate automatically — preventing the
+// silent drift that bit applyFrameToAll for 7 fields between 0.22 and
+// 1.10.3 (caught + fixed in 1.10.4).
+function snapshotCfgForRender(c) {
+  const out = {};
+  for (const k of LOOK_KEYS) out[k] = c[k];
+  out.showFields = c.showFields;
+  out.customLogo = c.customLogo;
+  out.customBg = c.customBg;
+  out.collage = c.collage;
+  out.rotation = c.rotation || 0;
+  out.crop = c.crop || null;
+  return out;
+}
+
+// ─── Dev-only schema sanity check ──────────────────────────────────────
+// Warns if a frame with documented user-facing knobs is silent (missing
+// its `cfg` declaration), or if the harness produces an unexpectedly
+// small key set. Gated on localhost so production console stays clean.
+// Catches silent regressions when adding/refactoring frames.
+(function frameSchemaSanity() {
+  if (typeof window === 'undefined' || !window.location) return;
+  if (!/localhost|127\.0\.0\.1/.test(window.location.host)) return;
+  const harnessed = R.collectFrameCfgKeys();
+  if (harnessed.length < 20) {
+    // 7 frames × ~3.5 knobs/frame avg ≈ 25; anything under 20 means a
+    // frame regressed its schema or a new frame forgot to declare one.
+    // eslint-disable-next-line no-console
+    console.warn('[frame-cfg] harness produced only', harnessed.length, 'keys — expected ~25 across 7 frames');
+  }
+  const FRAMES_WITH_KNOBS = ['frosted-noir', 'torn', 'film-mf', 'gallery-white', 'film-35', 'instax', 'slide-mount'];
+  for (const name of FRAMES_WITH_KNOBS) {
+    const f = R.FRAMES[name];
+    if (f && !f.cfg) {
+      // eslint-disable-next-line no-console
+      console.warn('[frame-cfg]', name, 'is registered but has no cfg schema');
+    }
+  }
+
+  // ─── resolveRenderParams drift detector (1.10.6) ──────────────────────
+  // The 1.10.x audit flagged that R.resolveRenderParams still reads cfg
+  // knobs via hand-written if-chains (cfg.bgBlur, cfg.tornJitter, ...). A
+  // knob declared on a frame's `cfg` schema auto-propagates to defaultCfg /
+  // LOOK_KEYS / presets / the projection refactors (1.10.5) — but if you
+  // forget to wire it into resolveRenderParams, the user's value is
+  // silently ignored at render time (same shape as the 1.10.4 bug).
+  //
+  // A full schema-driven rewrite of resolveRenderParams (each knob declares
+  // its target params path) is bigger + render-path risk; deferred. This is
+  // the cheap, zero-production-risk detector: feed each knob a value ≠ its
+  // frameDefault, run resolveRenderParams with and without it, and warn if
+  // the output is byte-identical (→ the knob isn't read). Localhost-only,
+  // fully wrapped so it can never break boot.
+  try {
+    const probeValue = (spec) => {
+      if (!spec) return undefined;
+      if (Array.isArray(spec.options)) {
+        const alt = spec.options.find((o) => o !== spec.frameDefault);
+        return alt !== undefined ? alt : undefined;
+      }
+      if (typeof spec.frameDefault === 'boolean') return !spec.frameDefault;
+      if (typeof spec.frameDefault === 'number') {
+        const max = typeof spec.max === 'number' ? spec.max : spec.frameDefault + 1;
+        const min = typeof spec.min === 'number' ? spec.min : spec.frameDefault - 1;
+        if (spec.frameDefault !== max) return max;
+        if (spec.frameDefault !== min) return min;
+        return spec.frameDefault + 1;
+      }
+      return undefined; // unknown shape — skip (no false positive)
+    };
+    for (const [frameName, frame] of Object.entries(R.FRAMES)) {
+      if (!frame || !frame.cfg) continue;
+      let base;
+      try { base = JSON.stringify(R.resolveRenderParams(frame, {})); }
+      catch (_) { continue; }
+      for (const [key, spec] of Object.entries(frame.cfg)) {
+        const probe = probeValue(spec);
+        if (probe === undefined) continue;
+        let probed;
+        try { probed = JSON.stringify(R.resolveRenderParams(frame, { [key]: probe })); }
+        catch (_) { continue; }
+        if (probed === base) {
+          // eslint-disable-next-line no-console
+          console.warn('[frame-cfg] resolveRenderParams ignores cfg.' + key +
+            ' (declared by frame "' + frameName + '") — render-path drift: the user\'s value will silently fall back to the frame default. Wire it into resolveRenderParams.');
+        }
+      }
+    }
+  } catch (_) { /* detector must never break boot */ }
+})();
 
 // Factory ("seed") presets — curated combos shipped with the app to
 // showcase what the DIY engine can do. Read-only, never written to
@@ -3270,23 +3429,9 @@ function applyPresetByName(preset, label, opts) {
   if (target !== state.draftCfg) applyPresetToCfg(preset, state.draftCfg);
   syncControlsFromCfg(target);
   // customLogo lives outside syncControlsFromCfg's bg/shadow/showFields scope.
-  // Sync the visible preview here when present (mirrors prior select-change
-  // logic); this is per-active-photo, not cascaded — user hits "Apply frame
-  // to all" to propagate.
-  if (preset.customLogo) {
-    els.signaturePreview.hidden = false;
-    els.signaturePreviewImg.src = preset.customLogo.data;
-    setPosGridActive(els.signaturePosGrid, customLogoAnchor(preset.customLogo));
-    const sc = Math.round((preset.customLogo.scale != null ? preset.customLogo.scale : 0.06) * 100);
-    const op = preset.customLogo.opacity != null ? preset.customLogo.opacity : 1;
-    els.signatureScale.value = sc;
-    setReadoutNum(els.signatureScaleVal, sc, '%');
-    els.signatureOpacity.value = op;
-    setReadoutNum(els.signatureOpacityVal, Math.round(op * 100), '%');
-    els.signaturePosGrid.querySelectorAll('button').forEach((b) => { b.disabled = false; });
-    els.signatureScale.disabled = false;
-    els.signatureOpacity.disabled = false;
-  }
+  // applyPresetToCfg already migrated target.customLogo to v2, so the Seal
+  // panel just re-syncs from cfg (preview + blend + flip + opacity + Place CTA).
+  syncSignatureFromCfg(target);
   setLookActive({
     baseline: captureLookBaseline(preset),
     label: label,
@@ -3909,19 +4054,55 @@ checkChangelogBadge();
     wsOverlay.dataset.open = 'true';
     wsOverlay.setAttribute('aria-hidden', 'false');
     if (tab) setWorkshopTab(tab);
+    // Refresh modified state in case cfg changed while workshop was closed.
+    refreshWorkshopModifiedState();
   }
   function closeWorkshop() {
     wsOverlay.dataset.open = 'false';
     wsOverlay.setAttribute('aria-hidden', 'true');
   }
+  // Phase 12 (1.9.0) — workshop redesign rev.2 「The Bench」: 5 sections
+  // collapse into 4 tools (instrument / caliper / notation / seal). The
+  // tool dock switches the single visible bench-tool-panel via the hidden
+  // attribute. Old tab names (tweak / exif / sign / tile) and old rev.1
+  // section names (edges / instrument / shadow / caption / mark) are both
+  // mapped to the 4-tool IA so external callers (lookbar tile / picker
+  // close / cmdk action) still work without code churn.
+  //
+  // Mapping intent:
+  //   tweak / edges / shadow / instrument → instrument (workshop opens
+  //     on the most-visual tool by default; padding/captionH/radius/
+  //     shadow knobs landed in Caliper but the user's "edges" mental
+  //     model is now "open workshop, see instrument first")
+  //   exif / caption  → notation
+  //   sign / tile / mark → seal
+  const WORKSHOP_TAB_TO_TOOL = {
+    // rev.0 4-tab names
+    tweak:      'instrument',
+    exif:       'notation',
+    sign:       'seal',
+    tile:       'seal',
+    // rev.1 5-section names
+    edges:      'caliper',
+    instrument: 'instrument',
+    shadow:     'caliper',
+    caption:    'notation',
+    mark:       'seal'
+  };
   function setWorkshopTab(tab) {
-    document.querySelectorAll('.workshop-tab').forEach((t) => {
-      const on = t.dataset.tab === tab;
-      t.classList.toggle('active', on);
-      t.setAttribute('aria-selected', on ? 'true' : 'false');
+    const toolId = WORKSHOP_TAB_TO_TOOL[tab] || 'instrument';
+    setBenchTool(toolId);
+  }
+  function setBenchTool(toolId) {
+    document.querySelectorAll('.bench-tool-btn').forEach((b) => {
+      const on = b.dataset.tool === toolId;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-selected', on ? 'true' : 'false');
     });
-    document.querySelectorAll('.ws-tab').forEach((c) => {
-      c.dataset.active = (c.dataset.tab === tab) ? 'true' : 'false';
+    document.querySelectorAll('.bench-tool-panel').forEach((p) => {
+      const on = p.dataset.tool === toolId;
+      p.hidden = !on;
+      p.dataset.active = on ? 'true' : 'false';
     });
   }
   if (wsTrigger) wsTrigger.addEventListener('click', () => openWorkshop());
@@ -3934,8 +4115,21 @@ checkChangelogBadge();
   wsOverlay.addEventListener('click', (e) => {
     if (e.target === wsOverlay) closeWorkshop();
   });
-  document.querySelectorAll('.workshop-tab').forEach((t) => {
-    t.addEventListener('click', () => setWorkshopTab(t.dataset.tab));
+  // Tool dock click → switch active tool panel (rev.2「The Bench」).
+  document.querySelectorAll('.bench-tool-btn').forEach((b) => {
+    b.addEventListener('click', () => setBenchTool(b.dataset.tool));
+  });
+  // Reset-all footer button — Phase 10 stub. Wires existing reset-each-
+  // section actions in sequence (no new cfg semantics introduced). Each
+  // frame's onFrameChange handler already resets that frame's knobs;
+  // here we just trigger it on the active cfg.
+  const wsResetAllBtn = document.getElementById('ws-reset-all-btn');
+  if (wsResetAllBtn) wsResetAllBtn.addEventListener('click', () => {
+    const cfg = activeCfg();
+    if (cfg && cfg.frame) {
+      onFrameChange(cfg.frame);
+      requestRender();
+    }
   });
 
   // ── Bottom-sheet swipe-dismiss (mobile only).
@@ -4021,7 +4215,7 @@ checkChangelogBadge();
   const ACTION_ITEMS = [
     { type: 'action', key: 'export-current', i18n: 'cmdk.actions.exportCurrent', shortcut: ['⌘', 'E'], fn: () => els.exportBtn.click() },
     { type: 'action', key: 'export-batch', i18n: 'cmdk.actions.exportBatch', shortcut: ['⌘', '⇧', 'E'], fn: () => els.batchBtn.click() },
-    { type: 'action', key: 'crop', i18n: 'cmdk.actions.crop', fn: () => document.getElementById('crop-open-btn').click() },
+    { type: 'action', key: 'crop', i18n: 'cmdk.actions.crop', fn: () => { const t = document.getElementById('compose-trigger'); if (t) t.click(); } },
     { type: 'action', key: 'edit-exif', i18n: 'cmdk.actions.editExif', fn: () => openWorkshop('exif') },
     { type: 'action', key: 'upload-signature', i18n: 'cmdk.actions.uploadSignature', fn: () => openWorkshop('sign') },
     { type: 'action', key: 'collage', i18n: 'cmdk.actions.collage', fn: () => openWorkshop('tile') },
@@ -6921,4 +7115,320 @@ function showUpdateBanner(waitingSw) {
 
   // Initial enable check
   setTimeout(refreshTriggerEnabled, 100);
+})();
+
+// ── SEAL_PLACE — direct-manipulation seal placement (#seal-modal, 1.11.0) ──
+// The seal is canvas-normalized (cx/cy/scale over the WHOLE canvas), so the
+// displayed canvas CSS box IS the coordinate space — positioning needs no
+// layout coupling (unlike Compose's fg-relative handles). Drag the body to
+// move, corners/pinch to scale, knob/twist/rot-bar to rotate. Apply cascades
+// the working seal GLOBALLY via applyCustomLogoEverywhere. Reuses the Compose
+// darkroom shell CSS + the canonical snapshotCfgForRender projection.
+(function () {
+  'use strict';
+  const dlg = document.getElementById('seal-modal');
+  if (!dlg) return;
+  const el = {
+    stage: document.getElementById('seal-stage'),
+    stageInner: document.getElementById('seal-stage-inner'),
+    canvas: document.getElementById('seal-canvas'),
+    box: document.getElementById('seal-box'),
+    hint: document.getElementById('seal-hint'),
+    hud: document.getElementById('seal-hud'),
+    hudKey: document.getElementById('seal-hud-key'),
+    hudVal: document.getElementById('seal-hud-val'),
+    hudUnit: document.getElementById('seal-hud-unit'),
+    rotSlider: document.getElementById('seal-rot-slider'),
+    rotBarVal: document.getElementById('seal-rot-bar-val'),
+    rotCcw: document.getElementById('seal-rot-ccw'),
+    rotCw: document.getElementById('seal-rot-cw'),
+    rotZero: document.getElementById('seal-rot-zero'),
+    benchPos: document.getElementById('seal-bench-pos'),
+    benchSize: document.getElementById('seal-bench-size'),
+    benchRot: document.getElementById('seal-bench-rot'),
+    close: document.getElementById('seal-close'),
+    cancel: document.getElementById('seal-cancel'),
+    apply: document.getElementById('seal-apply'),
+    mobileActions: document.getElementById('seal-mobile-actions'),
+    mobileCancel: document.getElementById('seal-mobile-cancel'),
+    mobileApply: document.getElementById('seal-mobile-apply'),
+    resetPlace: document.getElementById('seal-reset-place')
+  };
+  const SEAL = { open: false, working: null, imgAspect: 1, renderRAF: 0,
+                 dragging: false, settleTimer: 0, cssW: 0, cssH: 0, freeRotate: false };
+  const SCALE_REST = 0.5, SCALE_DRAG = 0.2;
+  let rendering = false, pending = false;
+
+  const clamp = (v, lo, hi) => v < lo ? lo : v > hi ? hi : v;
+  const isMobile = () => window.matchMedia('(max-width: 700px), (max-height: 500px) and (orientation: landscape)').matches;
+
+  // ── render the live composition (with the working seal) onto the stage ──
+  function requestSealRender() {
+    if (!SEAL.open) return;
+    if (SEAL.renderRAF) return;
+    SEAL.renderRAF = requestAnimationFrame(() => { SEAL.renderRAF = 0; doRenderStage(); });
+  }
+  async function doRenderStage() {
+    if (rendering) { pending = true; return; }
+    rendering = true;
+    try {
+      const active = state.files[state.activeIdx];
+      if (!active) return;
+      const proj = snapshotCfgForRender(activeCfg());
+      proj.customLogo = SEAL.working;   // show the seal in place as we edit it
+      await CR.renderPreview(el.canvas, {
+        file: active.file,
+        partnerFiles: active.partnerFiles || [],
+        cfg: proj,
+        normExif: buildCurrentExif(),
+        logos: state.logos,
+        fontFaceCss: state.fontFaceCss,
+        customScale: SEAL.dragging ? SCALE_DRAG : SCALE_REST
+      });
+      fitCanvas();
+      updateBox();
+    } catch (err) {
+      console.error('[seal render]', err);
+    } finally {
+      rendering = false;
+      if (pending) { pending = false; requestSealRender(); }
+    }
+  }
+
+  // Fit the rendered canvas (drawing buffer aspect) into the stage with margin.
+  function fitCanvas() {
+    const bw = el.canvas.width, bh = el.canvas.height;
+    if (!bw || !bh) return;
+    const sw = el.stage.clientWidth || window.innerWidth || 1200;
+    const sh = el.stage.clientHeight || window.innerHeight || 800;
+    const margin = isMobile() ? 26 : 84;
+    const fit = Math.min((sw - margin * 2) / bw, (sh - margin * 2) / bh);
+    const cssW = Math.max(40, bw * fit), cssH = Math.max(40, bh * fit);
+    SEAL.cssW = cssW; SEAL.cssH = cssH;
+    el.canvas.style.width = cssW + 'px';
+    el.canvas.style.height = cssH + 'px';
+    el.stageInner.style.width = cssW + 'px';
+    el.stageInner.style.height = cssH + 'px';
+  }
+
+  // ── selection-box overlay (mirrors customLogoRect but in display px) ──
+  function updateBox() {
+    const s = SEAL.working;
+    if (!s || !s.data || !SEAL.cssW) { el.box.hidden = true; return; }
+    el.box.hidden = false;
+    const ar = SEAL.imgAspect || 1;
+    const wpx = Math.max(10, clamp(Number(s.scale) || 0.1, 0.02, 0.60) * SEAL.cssW);
+    const hpx = wpx / ar;
+    const cx = clamp(Number(s.cx), 0, 1) * SEAL.cssW;
+    const cy = clamp(Number(s.cy), 0, 1) * SEAL.cssH;
+    el.box.style.width = wpx + 'px';
+    el.box.style.height = hpx + 'px';
+    el.box.style.left = (cx - wpx / 2) + 'px';
+    el.box.style.top = (cy - hpx / 2) + 'px';
+    el.box.style.transform = 'rotate(' + (Number(s.rotation) || 0) + 'deg)';
+    el.benchPos.textContent = Math.round(clamp(s.cx, 0, 1) * 100) + '% · ' + Math.round(clamp(s.cy, 0, 1) * 100) + '%';
+    el.benchSize.textContent = Math.round((Number(s.scale) || 0) * 100) + '%';
+    el.benchRot.textContent = Math.round(Number(s.rotation) || 0) + '°';
+    el.rotSlider.value = String(normRotSlider(s.rotation));
+    el.rotBarVal.textContent = normRotSlider(s.rotation).toFixed(1) + '°';
+  }
+  function normRotSlider(r) {
+    const n = ((Number(r) || 0) % 360 + 360) % 360;
+    return n > 180 ? n - 360 : n;
+  }
+  function showHud(key, val, unit) {
+    el.hudKey.textContent = key;
+    el.hudVal.textContent = val;
+    el.hudUnit.textContent = unit || '';
+    el.hud.setAttribute('aria-hidden', 'false');
+  }
+  function hideHud() { el.hud.setAttribute('aria-hidden', 'true'); }
+
+  // ── pointer geometry helpers (relative to the displayed canvas) ──
+  function canvasRect() { return el.canvas.getBoundingClientRect(); }
+  function ptNorm(e) { const r = canvasRect(); return { x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height }; }
+  function ptCss(e) { const r = canvasRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; }
+  function centerCss() { return { x: clamp(SEAL.working.cx, 0, 1) * SEAL.cssW, y: clamp(SEAL.working.cy, 0, 1) * SEAL.cssH }; }
+
+  function beginDrag() {
+    if (!SEAL.dragging) { SEAL.dragging = true; requestSealRender(); }
+    if (SEAL.settleTimer) { clearTimeout(SEAL.settleTimer); SEAL.settleTimer = 0; }
+  }
+  function endDrag() {
+    if (SEAL.settleTimer) clearTimeout(SEAL.settleTimer);
+    SEAL.settleTimer = setTimeout(() => {
+      SEAL.dragging = false; SEAL.settleTimer = 0; requestSealRender();
+    }, 120);
+    hideHud();
+  }
+
+  // ── gesture state ──
+  const pointers = new Map();   // pointerId → {x,y}
+  let gesture = null;           // { mode, ... }
+
+  function gestureStart(e) {
+    if (!SEAL.working || !SEAL.working.data) return;
+    const isRot = e.target.closest && e.target.closest('[data-h="rot"]');
+    const isCorner = e.target.closest && e.target.closest('.seal-corner');
+    let mode = 'move';
+    if (isRot) mode = 'rotate';
+    else if (isCorner) mode = 'scale';
+    if (mode === 'move') {
+      const p = ptNorm(e);
+      gesture = { mode: 'move', grabX: p.x - clamp(SEAL.working.cx, 0, 1), grabY: p.y - clamp(SEAL.working.cy, 0, 1) };
+    } else if (mode === 'scale') {
+      const p = ptCss(e), c = centerCss();
+      gesture = { mode: 'scale', startDist: Math.max(4, Math.hypot(p.x - c.x, p.y - c.y)), startScale: Number(SEAL.working.scale) || 0.1 };
+    } else {
+      gesture = { mode: 'rotate' };
+    }
+    beginDrag();
+  }
+  function gestureMove(e) {
+    if (!gesture) return;
+    const s = SEAL.working;
+    if (pointers.size >= 2) { pinchMove(); return; }
+    if (gesture.mode === 'move') {
+      const p = ptNorm(e);
+      s.cx = clamp(p.x - gesture.grabX, 0, 1);
+      s.cy = clamp(p.y - gesture.grabY, 0, 1);
+      // soft snap to center lines (within ~1.5%)
+      if (Math.abs(s.cx - 0.5) < 0.015) s.cx = 0.5;
+      if (Math.abs(s.cy - 0.5) < 0.015) s.cy = 0.5;
+      showHud('POS', Math.round(s.cx * 100) + '·' + Math.round(s.cy * 100), '%');
+    } else if (gesture.mode === 'scale') {
+      const p = ptCss(e), c = centerCss();
+      const d = Math.hypot(p.x - c.x, p.y - c.y);
+      s.scale = clamp(gesture.startScale * (d / gesture.startDist), 0.02, 0.60);
+      showHud('SIZE', Math.round(s.scale * 100), '%');
+    } else if (gesture.mode === 'rotate') {
+      const p = ptCss(e), c = centerCss();
+      let ang = Math.atan2(p.y - c.y, p.x - c.x) * 180 / Math.PI + 90;
+      ang = ((ang % 360) + 360) % 360; if (ang > 180) ang -= 360;
+      if (!SEAL.freeRotate) {
+        for (const snap of [0, 90, 180, -90, -180]) { if (Math.abs(ang - snap) < 3) { ang = snap; break; } }
+      }
+      s.rotation = ang;
+      showHud('ANGLE', ang.toFixed(0), '°');
+    }
+    requestSealRender();
+  }
+  function pinchMove() {
+    const pts = Array.from(pointers.values());
+    if (pts.length < 2 || !gesture) return;
+    const r = canvasRect();
+    const a = pts[0], b = pts[1];
+    const dist = Math.max(4, Math.hypot(b.x - a.x, b.y - a.y));
+    const angle = Math.atan2(b.y - a.y, b.x - a.x) * 180 / Math.PI;
+    const midNorm = { x: ((a.x + b.x) / 2 - r.left) / r.width, y: ((a.y + b.y) / 2 - r.top) / r.height };
+    if (!gesture.pinch) {
+      gesture.pinch = { startDist: dist, startAngle: angle, startScale: Number(SEAL.working.scale) || 0.1,
+                        startRot: Number(SEAL.working.rotation) || 0,
+                        offX: clamp(SEAL.working.cx, 0, 1) - midNorm.x, offY: clamp(SEAL.working.cy, 0, 1) - midNorm.y };
+    }
+    const g = gesture.pinch;
+    const s = SEAL.working;
+    s.scale = clamp(g.startScale * (dist / g.startDist), 0.02, 0.60);
+    let rot = g.startRot + (angle - g.startAngle);
+    rot = ((rot % 360) + 360) % 360; if (rot > 180) rot -= 360;
+    s.rotation = rot;
+    s.cx = clamp(midNorm.x + g.offX, 0, 1);
+    s.cy = clamp(midNorm.y + g.offY, 0, 1);
+    requestSealRender();
+  }
+
+  el.stageInner.addEventListener('pointerdown', (e) => {
+    if (!SEAL.open || !SEAL.working) return;
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    try { el.stageInner.setPointerCapture(e.pointerId); } catch (_) { /* synthetic events */ }
+    if (pointers.size === 1) gestureStart(e);
+    else if (pointers.size === 2 && gesture) gesture.pinch = null;   // (re)seed pinch on next move
+    e.preventDefault();
+  });
+  el.stageInner.addEventListener('pointermove', (e) => {
+    if (!pointers.has(e.pointerId)) return;
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    gestureMove(e);
+  });
+  function pointerEnd(e) {
+    if (!pointers.has(e.pointerId)) return;
+    pointers.delete(e.pointerId);
+    try { el.stageInner.releasePointerCapture(e.pointerId); } catch (_) {}
+    if (pointers.size < 2 && gesture) gesture.pinch = null;
+    if (pointers.size === 0) { gesture = null; endDrag(); }
+  }
+  el.stageInner.addEventListener('pointerup', pointerEnd);
+  el.stageInner.addEventListener('pointercancel', pointerEnd);
+
+  // ── rotation bar ──
+  el.rotSlider.addEventListener('input', () => {
+    if (!SEAL.working) return;
+    beginDrag();
+    SEAL.working.rotation = Number(el.rotSlider.value) || 0;
+    el.rotBarVal.textContent = (Number(el.rotSlider.value) || 0).toFixed(1) + '°';
+    requestSealRender();
+    endDrag();
+  });
+  const bumpRot = (d) => { if (!SEAL.working) return; let r = (Number(SEAL.working.rotation) || 0) + d; r = ((r % 360) + 360) % 360; if (r > 180) r -= 360; SEAL.working.rotation = r; requestSealRender(); };
+  el.rotCcw.addEventListener('click', () => bumpRot(-90));
+  el.rotCw.addEventListener('click', () => bumpRot(90));
+  el.rotZero.addEventListener('click', () => { if (SEAL.working) { SEAL.working.rotation = 0; requestSealRender(); } });
+  el.resetPlace.addEventListener('click', () => {
+    if (!SEAL.working) return;
+    SEAL.working.cx = 0.85; SEAL.working.cy = 0.88; SEAL.working.scale = 0.10; SEAL.working.rotation = 0;
+    requestSealRender();
+  });
+
+  // ── keyboard (desktop) ──
+  dlg.addEventListener('keydown', (e) => {
+    if (!SEAL.open || !SEAL.working) return;
+    if (e.key === 'Shift') { SEAL.freeRotate = true; return; }
+    const step = e.shiftKey ? 0.02 : 0.005;
+    if (e.key === 'ArrowLeft')  { SEAL.working.cx = clamp(SEAL.working.cx - step, 0, 1); requestSealRender(); e.preventDefault(); }
+    else if (e.key === 'ArrowRight') { SEAL.working.cx = clamp(SEAL.working.cx + step, 0, 1); requestSealRender(); e.preventDefault(); }
+    else if (e.key === 'ArrowUp')    { SEAL.working.cy = clamp(SEAL.working.cy - step, 0, 1); requestSealRender(); e.preventDefault(); }
+    else if (e.key === 'ArrowDown')  { SEAL.working.cy = clamp(SEAL.working.cy + step, 0, 1); requestSealRender(); e.preventDefault(); }
+  });
+  dlg.addEventListener('keyup', (e) => { if (e.key === 'Shift') SEAL.freeRotate = false; });
+
+  // ── open / close / commit ──
+  function open() {
+    const active = state.files[state.activeIdx];
+    const cur = activeCfg().customLogo;
+    if (!cur || !cur.data) return;
+    if (!active) { setStatus('sealPlace.requirePhoto', 'err'); setTimeout(() => setStatus('status.ready'), 1800); return; }
+    SEAL.working = migrateCustomLogo({ ...cur });
+    // decode aspect for the selection box
+    SEAL.imgAspect = 1;
+    const probe = new Image();
+    probe.onload = () => { if (probe.naturalWidth && probe.naturalHeight) { SEAL.imgAspect = probe.naturalWidth / probe.naturalHeight; updateBox(); } };
+    probe.src = SEAL.working.data;
+    SEAL.open = true; SEAL.dragging = false;
+    el.mobileActions.hidden = !isMobile();
+    if (typeof dlg.showModal === 'function') dlg.showModal(); else dlg.setAttribute('open', '');
+    requestSealRender();
+  }
+  function close() { SEAL.open = false; SEAL.working = null; pointers.clear(); gesture = null; if (dlg.open) dlg.close(); }
+  function commit() {
+    if (SEAL.working) {
+      applyCustomLogoEverywhere(SEAL.working);
+      syncSignatureFromCfg(activeCfg());
+      requestRender();
+    }
+    close();
+  }
+  el.close.addEventListener('click', close);
+  el.cancel.addEventListener('click', close);
+  el.mobileCancel.addEventListener('click', close);
+  el.apply.addEventListener('click', commit);
+  el.mobileApply.addEventListener('click', commit);
+  // Esc → cancel (native dialog 'cancel'); backdrop tap → cancel.
+  dlg.addEventListener('cancel', (e) => { e.preventDefault(); close(); });
+  dlg.addEventListener('click', (e) => { if (e.target === dlg) close(); });
+  window.addEventListener('resize', () => { if (SEAL.open) requestSealRender(); });
+  if (typeof ResizeObserver !== 'undefined' && el.stage) {
+    new ResizeObserver(() => { if (SEAL.open) requestSealRender(); }).observe(el.stage);
+  }
+
+  window.SealPlace = { open: open };
 })();

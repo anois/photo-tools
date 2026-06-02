@@ -386,9 +386,10 @@
     // Frames can override the default rounded-rect clip with their own
     // path generator (`frame.clipPath(ctx, x, y, w, h, layout, args)`).
     // The override is used for: shadow casting (so the shadow tracks the
-    // actual silhouette), photo clip in `drawCellPhoto`, and signature
-    // clip below — so a torn-paper frame produces a torn shadow + torn
-    // photo edge + torn-clipped signature, all consistent.
+    // actual silhouette) and the photo clip in `drawCellPhoto` — so a
+    // torn-paper frame produces a torn shadow + torn photo edge. (The seal
+    // overlay is NOT clipped since 1.11.0 — it free-places over the whole
+    // canvas, including the frame margin.)
     const clipFn = (args.frame && typeof args.frame.clipPath === 'function')
       ? (ctx2, x, y, w, h) => args.frame.clipPath(ctx2, x, y, w, h, layout, args)
       : null;
@@ -469,7 +470,11 @@
       ctx.restore();
     }
 
-    // ─── Custom signature overlay (drawn last, clipped to fg silhouette) ─
+    // ─── Custom seal overlay (drawn last; free-placed over the WHOLE canvas —
+    //     photo OR frame margin / border / caption — so NOT clipped to fg).
+    //     Transform order: translate→rotate→flipH→draw-centered. save/restore
+    //     resets globalCompositeOperation + alpha + transform (blend can't
+    //     leak into later draws). Mirror this block byte-for-byte in worker.js. ─
     if (args.customLogo && args.customLogo.data) {
       const bm = await decodeCustomLogo(args.customLogo.data);
       if (bm) {
@@ -478,14 +483,12 @@
         const rect = R.customLogoRect(layout, args.customLogo, bw / bh);
         if (rect) {
           ctx.save();
-          if (clipFn) {
-            clipFn(ctx, layout.fgLeft, layout.fgTop, layout.fgW, layout.fgH);
-            ctx.clip();
-          } else {
-            clipRoundRect(ctx, layout.fgLeft, layout.fgTop, layout.fgW, layout.fgH, layout.radius);
-          }
           ctx.globalAlpha = rect.opacity;
-          ctx.drawImage(bm, rect.x, rect.y, rect.w, rect.h);
+          ctx.globalCompositeOperation = rect.blend;
+          ctx.translate(rect.x + rect.w / 2, rect.y + rect.h / 2);
+          if (rect.rotation) ctx.rotate(rect.rotation * Math.PI / 180);
+          if (rect.flipH) ctx.scale(-1, 1);
+          ctx.drawImage(bm, -rect.w / 2, -rect.h / 2, rect.w, rect.h);
           ctx.restore();
         }
       }
@@ -507,6 +510,10 @@
     if (cfg.radiusOverride != null)   layoutOpts.radiusOverride     = cfg.radiusOverride;
     if (cfg.captionForceOverlay)      layoutOpts.captionForceOverlay = true;
     if (cfg.captionOverlayTextLift != null) layoutOpts.captionOverlayTextLift = cfg.captionOverlayTextLift;
+    // Instax slab (1.6.0+) — overrides frame.layout.extraBottom when the
+    // user has dialed cfg.instaxSlab. Only meaningful for instax frame
+    // (other frames don't read extraBottom from this path).
+    if (cfg.instaxSlab != null && cfg.frame === 'instax') layoutOpts.extraBottom = Math.max(60, Math.min(360, Number(cfg.instaxSlab)));
     // Per-edge padding overrides — Compose-mode user dialing. Each null
     // falls through to scalar `padding` + frame boosts; non-null wins.
     if (cfg.paddingTop != null)    layoutOpts.paddingTop    = cfg.paddingTop;

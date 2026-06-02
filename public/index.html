@@ -9,7 +9,7 @@
 <title>photo-tools</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500&family=Hanken+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;1,9..144,400;1,9..144,500&family=Hanken+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Special+Elite&display=swap" rel="stylesheet">
 <link rel="icon" type="image/svg+xml" href="logo.svg" />
 <link rel="mask-icon" href="logo.svg" color="#e5493a" />
 <link rel="apple-touch-icon" href="logo.svg" />
@@ -190,10 +190,6 @@
         <span class="canvas-badge-rot" id="canvas-badge-rot" hidden>· <em id="canvas-badge-rot-val">90°</em></span>
       </div>
       <canvas id="preview-canvas" data-i18n-aria-label="canvas.emptyTitle"></canvas>
-      <div id="rotation-flash" class="rotation-flash" aria-hidden="true">
-        <span class="rotation-flash-arrow" id="rotation-flash-arrow">↻</span>
-        <span id="rotation-flash-val">90°</span>
-      </div>
       <div id="preview-loading" class="preview-loading" hidden>
         <span class="pulse-dot" aria-hidden="true"></span>
         <span data-i18n="canvas.rendering">rendering</span>
@@ -532,103 +528,159 @@
 <!-- WORKSHOP DRAWER · 4 互斥 tabs for everything off the hot path. -->
 <!-- ============================================================ -->
 <div class="workshop-overlay" id="workshop-overlay" data-open="false" aria-hidden="true">
-  <aside class="workshop" id="workshop" role="dialog" data-i18n-aria-label="workshop.title" aria-modal="true">
-    <div class="workshop-head">
-      <h2 class="workshop-title" data-i18n="workshop.title">Workshop</h2>
-      <button id="workshop-close" type="button" class="modal-x" data-i18n-aria-label="workshop.close" aria-label="Close">
-        <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
-      </button>
+  <!-- ════════════════════════════════════════════════════════════════════
+       WORKSHOP · rev.1 (1.8.0)
+       5 sections (A · Edges / B · Instrument / C · Shadow / D · Caption /
+       E · Mark) replacing the 4-tab (Tweak / EXIF / Sign / Tile) IA.
+       See docs/workshop-redesign-rev1.html. Vertical letter rail on the
+       left; scrolling content on the right; sticky footer at the bottom
+       with "Apply to all" + "Reset". Zero cfg / render pipeline changes —
+       every input id preserved so existing event listeners keep working.
+       ════════════════════════════════════════════════════════════════════ -->
+  <!-- ═════════════════════════════════════════════════════════════════════
+       WORKSHOP · rev.2 「The Bench」 (1.9.0+)
+       4 tools (Instrument / Caliper / Notation / Seal) on a darkroom workbench.
+       Tool dock left (desktop) / horizontal pill bar (mobile).
+       Identity strip at top is a read-only "photo's current state" stamp.
+       See docs/workshop-redesign-rev1.html + .claude plan steady-gliding-graham.
+       Every <input id="..."> preserved from rev.1; existing event listeners
+       carry over without changes.
+       ═════════════════════════════════════════════════════════════════════ -->
+  <aside class="workshop workshop--bench" id="workshop" role="dialog" data-i18n-aria-label="workshop.title" aria-modal="true">
+
+    <!-- ── Identity strip · always visible · filename + close ──
+         1.10.3 — second row (FRAME · ASPECT · TEMPLATE · N MODIFIED) removed;
+         Lookbar already shows frame/aspect/template via the four lookchips,
+         and the footer carries the "N modified" count. Identity strip now
+         only carries the *one* signal nothing else does: which file is
+         being edited. -->
+    <div class="bench-identity">
+      <div class="bench-identity-row bench-identity-row--filename">
+        <span class="bench-identity-icon" aria-hidden="true">▤</span>
+        <span class="bench-identity-filename" id="bench-identity-filename">—</span>
+        <button id="workshop-close" type="button" class="modal-x" data-i18n-aria-label="workshop.close" aria-label="Close">
+          <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      </div>
     </div>
-    <nav class="workshop-tabs" role="tablist">
-      <button type="button" class="workshop-tab active" data-tab="tweak" role="tab" aria-selected="true" data-i18n="workshop.tabs.tweak">Tweak</button>
-      <button type="button" class="workshop-tab" data-tab="exif" role="tab" aria-selected="false" data-i18n="workshop.tabs.exif">EXIF</button>
-      <button type="button" class="workshop-tab" data-tab="sign" role="tab" aria-selected="false" data-i18n="workshop.tabs.sign">Sign</button>
-      <button type="button" class="workshop-tab" data-tab="tile" role="tab" aria-selected="false" data-i18n="workshop.tabs.tile">Tile</button>
-    </nav>
 
-    <div class="workshop-body">
+    <div class="bench-body">
 
-      <!-- TAB · Tweak -->
-      <section class="ws-tab" data-tab="tweak" data-active="true">
-        <div class="ws-section">
-          <div class="ws-section-head" data-i18n="workshop.padding">Padding & caption</div>
-          <div class="row">
-            <div class="field">
-              <label class="field-label"><span data-i18n="frame.padding">Padding</span> <span class="field-readout" id="padding-val">70<span class="ru">px</span></span></label>
-              <input id="padding" type="range" min="0" max="200" value="70" step="2" />
-            </div>
-          </div>
-          <div class="row">
-            <div class="field">
-              <label class="field-label"><span data-i18n="frame.captionH">Caption height</span> <span class="field-readout" id="caption-h-val" data-i18n="frame.captionAuto">auto</span></label>
-              <input id="caption-h" type="range" min="60" max="360" value="140" step="4" />
-            </div>
-          </div>
-          <div class="row">
-            <div class="field">
-              <label class="field-label"><span data-i18n="frame.radius">Corner radius</span> <span class="field-readout" id="radius-val" data-i18n="frame.defaultReadout">preset</span></label>
-              <input id="radius" type="range" min="0" max="72" value="36" step="1" />
-            </div>
-          </div>
-          <div class="row">
-            <label class="chip-label">
-              <input id="caption-overlay-toggle" type="checkbox" />
-              <span data-i18n="frame.captionOverlay">Caption inside photo</span>
-              <span class="chip-hint" data-i18n="frame.captionOverlayHint">stamp on photo bottom (35mm authentic look)</span>
-            </label>
-          </div>
-          <div class="row" id="caption-overlay-lift-row" hidden>
-            <div class="field">
-              <label class="field-label"><span data-i18n="frame.captionOverlayLift">Lift from bottom</span> <span class="field-readout" id="caption-overlay-lift-val">0<span class="ru">px</span></span></label>
-              <input id="caption-overlay-lift" type="range" min="0" max="120" value="0" step="2" />
-            </div>
-          </div>
-        </div>
+      <!-- ── Tool dock · 5 tools ── -->
+      <!-- Vertical on desktop (left rail); horizontal pill bar on mobile
+           (CSS media query swaps direction). Each tool button has:
+              · glyph: ASCII material-evocative icon
+              · name: i18n'd tool name
+              · dot:  shown when that tool's section is modified
+           Arrange split from Seal in 1.10.1 — collage is "multi-photo
+           arrangement", semantically distinct from signature stamping. -->
+      <nav class="bench-dock" aria-label="Workshop tools" role="tablist">
+        <button type="button" class="bench-tool-btn active" data-tool="instrument" role="tab" aria-selected="true" aria-controls="bench-tool-instrument">
+          <span class="bench-tool-glyph" aria-hidden="true">◉</span>
+          <span class="bench-tool-name" data-i18n="workshop.tool.instrument">Instrument</span>
+          <span class="bench-tool-dot" aria-hidden="true"></span>
+        </button>
+        <button type="button" class="bench-tool-btn" data-tool="caliper" role="tab" aria-selected="false" aria-controls="bench-tool-caliper">
+          <span class="bench-tool-glyph" aria-hidden="true">┃</span>
+          <span class="bench-tool-name" data-i18n="workshop.tool.caliper">Caliper</span>
+          <span class="bench-tool-dot" aria-hidden="true"></span>
+        </button>
+        <button type="button" class="bench-tool-btn" data-tool="notation" role="tab" aria-selected="false" aria-controls="bench-tool-notation">
+          <span class="bench-tool-glyph" aria-hidden="true">✎</span>
+          <span class="bench-tool-name" data-i18n="workshop.tool.notation">Notation</span>
+          <span class="bench-tool-dot" aria-hidden="true"></span>
+        </button>
+        <button type="button" class="bench-tool-btn" data-tool="arrange" role="tab" aria-selected="false" aria-controls="bench-tool-arrange">
+          <span class="bench-tool-glyph" aria-hidden="true">▦</span>
+          <span class="bench-tool-name" data-i18n="workshop.tool.arrange">Arrange</span>
+          <span class="bench-tool-dot" aria-hidden="true"></span>
+        </button>
+        <button type="button" class="bench-tool-btn" data-tool="seal" role="tab" aria-selected="false" aria-controls="bench-tool-seal">
+          <span class="bench-tool-glyph" aria-hidden="true">❖</span>
+          <span class="bench-tool-name" data-i18n="workshop.tool.seal">Seal</span>
+          <span class="bench-tool-dot" aria-hidden="true"></span>
+        </button>
+      </nav>
 
-        <div class="ws-section">
-          <div class="ws-section-head" data-i18n="workshop.topBadge">Top badge</div>
-          <div class="row">
-            <div class="field">
-              <label class="field-label"><span data-i18n="frame.topTemplate">Style</span></label>
-              <div class="seg" id="top-template-seg" role="radiogroup">
-                <button type="button" data-val="none" class="active" role="radio" aria-checked="true" data-i18n="topTemplate.none">None</button>
-                <button type="button" data-val="brand-model" role="radio" aria-checked="false" data-i18n="topTemplate.brandModel">Brand · Model</button>
-                <button type="button" data-val="brand-only" role="radio" aria-checked="false" data-i18n="topTemplate.brandOnly">Brand</button>
-                <button type="button" data-val="wordmark" role="radio" aria-checked="false" data-i18n="topTemplate.wordmark">Wordmark</button>
+      <!-- ── Stage · one tool panel visible at a time ── -->
+      <div class="bench-stage" id="bench-stage">
+
+        <!-- ═════════════════════ ◉ INSTRUMENT · 仪器 ═════════════════════ -->
+        <!-- Default-active tool. Hosts the 7 existing frame-instrument cards
+             (frosted-noir channel-strip / torn kraft / film-mf brass / etc.)
+             from 1.3-1.7. Card content unchanged — only outer wrapper changed
+             from <section class="ws-major"> to <section class="bench-tool-panel">.
+             customBg upload stays inside frosted-noir's card. -->
+        <section class="bench-tool-panel" data-tool="instrument" id="bench-tool-instrument" data-active="true" role="tabpanel">
+          <header class="bench-tool-panel-head">
+            <span class="bench-tool-panel-eyebrow">◉ INSTRUMENT</span>
+            <span class="bench-tool-panel-title" data-i18n="workshop.tool.instrumentTitle">仪器 · follows the active frame</span>
+          </header>
+          <p class="bench-tool-panel-hint" data-i18n="workshop.tool.instrumentHint">每张相框是一台仪器 · 切换相框看到对应的物质化面板</p>
+
+          <!-- ─── Universal top-of-frame badge picker ───
+               cfg.topTemplate · independent of bottom caption · stamps brand
+               identity into the frame's top padding. Lives at the Instrument
+               panel level (not inside any one frame card) because it applies
+               across all 7 frames as a frame-level decoration. Moved here
+               from Notation in 1.10.0 — top badge is a frame decoration,
+               not a caption decision. -->
+          <div class="bench-top-badge">
+            <span class="bench-top-badge-label" data-i18n="workshop.topBadgeRow">Top badge ▸</span>
+            <div class="bench-top-badge-seg" id="top-template-seg" role="radiogroup">
+              <button type="button" class="bench-top-badge-chip active" data-val="none" role="radio" aria-checked="true" data-i18n="topTemplate.none">None</button>
+              <button type="button" class="bench-top-badge-chip" data-val="brand-model" role="radio" aria-checked="false" data-i18n="topTemplate.brandModel">Brand · Model</button>
+              <button type="button" class="bench-top-badge-chip" data-val="brand-only" role="radio" aria-checked="false" data-i18n="topTemplate.brandOnly">Brand</button>
+              <button type="button" class="bench-top-badge-chip" data-val="wordmark" role="radio" aria-checked="false" data-i18n="topTemplate.wordmark">Wordmark</button>
+            </div>
+          </div>
+
+          <!-- ─── frosted-noir · editorial console ─── -->
+          <section class="frame-instrument" id="frosted-advanced">
+          <!-- Channel-strip rack — 5 horizontal sliders styled like an
+               editorial mixing console. Each row is one bg parameter.
+               See docs/frame-instruments-design.html (rev.2) for the
+               design language this implements. -->
+          <div class="bg-rack" id="bg-channel-rack">
+            <div class="bg-channel">
+              <span class="bg-ch-num">CH·1</span>
+              <div class="bg-ch-body">
+                <span class="bg-ch-label" data-i18n="frame.blur">Blur</span>
+                <input id="bg-blur" type="range" min="0" max="120" step="2" class="bg-ch-slider" />
               </div>
+              <span class="bg-ch-value" id="bg-blur-val" data-i18n="frame.defaultReadout">preset</span>
             </div>
-          </div>
-          <div class="ws-section-hint" data-i18n="frame.topTemplateHint">Stamps brand identity into the frame's top padding. Some frames (film-35) reserve that space for their own decoration.</div>
-        </div>
-
-        <div class="ws-section">
-          <div class="ws-section-head" data-i18n="frame.geometry">Geometry</div>
-          <div class="row">
-            <div class="field">
-              <label class="field-label"><span data-i18n="frame.geometry">Geometry</span> <span class="field-readout" id="geometry-readout">—</span></label>
-              <button id="crop-open-btn" type="button" class="btn-ghost geometry-btn" data-i18n="frame.cropAndRotate">Crop & rotate…</button>
+            <div class="bg-channel">
+              <span class="bg-ch-num">CH·2</span>
+              <div class="bg-ch-body">
+                <span class="bg-ch-label" data-i18n="frame.brightness">Brightness</span>
+                <input id="bg-brightness" type="range" min="0.5" max="1.2" step="0.02" class="bg-ch-slider" />
+              </div>
+              <span class="bg-ch-value" id="bg-brightness-val" data-i18n="frame.defaultReadout">preset</span>
             </div>
-          </div>
-        </div>
-
-        <details class="frame-advanced" id="frosted-advanced">
-          <summary data-i18n="frame.advancedFrosted">Advanced · frosted bg</summary>
-          <div class="row">
-            <div class="field">
-              <label class="field-label"><span data-i18n="frame.blur">Blur</span> <span class="field-readout" id="bg-blur-val" data-i18n="frame.defaultReadout">preset</span></label>
-              <input id="bg-blur" type="range" min="0" max="120" step="2" />
+            <div class="bg-channel">
+              <span class="bg-ch-num">CH·3</span>
+              <div class="bg-ch-body">
+                <span class="bg-ch-label" data-i18n="frame.saturation">Saturation</span>
+                <input id="bg-saturation" type="range" min="0.5" max="1.6" step="0.02" class="bg-ch-slider" />
+              </div>
+              <span class="bg-ch-value" id="bg-saturation-val" data-i18n="frame.defaultReadout">preset</span>
             </div>
-          </div>
-          <div class="row">
-            <div class="field">
-              <label class="field-label"><span data-i18n="frame.brightness">Brightness</span> <span class="field-readout" id="bg-brightness-val" data-i18n="frame.defaultReadout">preset</span></label>
-              <input id="bg-brightness" type="range" min="0.5" max="1.2" step="0.02" />
+            <div class="bg-channel">
+              <span class="bg-ch-num">CH·4</span>
+              <div class="bg-ch-body">
+                <span class="bg-ch-label" data-i18n="frame.bgDarken">Darken</span>
+                <input id="bg-darken" type="range" min="0" max="0.7" step="0.02" class="bg-ch-slider" />
+              </div>
+              <span class="bg-ch-value" id="bg-darken-val" data-i18n="frame.defaultReadout">preset</span>
             </div>
-          </div>
-          <div class="row">
-            <div class="field">
-              <label class="field-label"><span data-i18n="frame.saturation">Saturation</span> <span class="field-readout" id="bg-saturation-val" data-i18n="frame.defaultReadout">preset</span></label>
-              <input id="bg-saturation" type="range" min="0.5" max="1.6" step="0.02" />
+            <div class="bg-channel">
+              <span class="bg-ch-num">CH·5</span>
+              <div class="bg-ch-body">
+                <span class="bg-ch-label" data-i18n="frame.bgGrain">Grain</span>
+                <input id="bg-grain" type="range" min="0" max="0.5" step="0.01" class="bg-ch-slider" />
+              </div>
+              <span class="bg-ch-value" id="bg-grain-val" data-i18n="frame.defaultReadout">preset</span>
             </div>
           </div>
           <button id="reset-bg-btn" type="button" class="btn-ghost" data-i18n="frame.resetDefault">Reset to default</button>
@@ -651,192 +703,672 @@
               <button id="custom-bg-clear-btn" type="button" class="btn-ghost" data-i18n="frame.customBgClear">Remove</button>
             </div>
           </div>
-        </details>
+          </section>
 
-        <!-- Torn-paper advanced — visible only when frame === 'torn'. Mirrors
-             frosted-advanced's slider triplet pattern: jitter / step /
-             edgeOpacity, each `null` when sitting on the frame default
-             (readout shows "preset"); dragging captures an explicit override.
-             Reset button blanks all three back to null. -->
-        <details class="frame-advanced" id="torn-advanced" hidden>
-          <summary data-i18n="frame.advancedTorn">Advanced · torn paper</summary>
-          <div class="row">
-            <div class="field">
-              <label class="field-label"><span data-i18n="frame.tornJitter">Tear depth</span> <span class="field-readout" id="torn-jitter-val" data-i18n="frame.defaultReadout">preset</span></label>
-              <input id="torn-jitter" type="range" min="0" max="14" step="0.5" />
-            </div>
-          </div>
-          <div class="row">
-            <div class="field">
-              <label class="field-label"><span data-i18n="frame.tornStep">Tear density</span> <span class="field-readout" id="torn-step-val" data-i18n="frame.defaultReadout">preset</span></label>
-              <input id="torn-step" type="range" min="3" max="14" step="0.5" />
-            </div>
-          </div>
-          <div class="row">
-            <div class="field">
-              <label class="field-label"><span data-i18n="frame.tornEdgeOpacity">Edge ink</span> <span class="field-readout" id="torn-edge-opacity-val" data-i18n="frame.defaultReadout">preset</span></label>
-              <input id="torn-edge-opacity" type="range" min="0" max="0.5" step="0.02" />
-            </div>
-          </div>
-          <button id="reset-torn-btn" type="button" class="btn-ghost" data-i18n="frame.resetDefault">Reset to default</button>
-        </details>
-
-        <!-- Film-mf vintage-aging — visible only when frame === 'film-mf'.
-             Single slider scales sepia / partial-fade / vignette / foxing
-             alphas uniformly. 0 = clean print, 1 = full vintage. -->
-        <details class="frame-advanced" id="film-mf-advanced" hidden>
-          <summary data-i18n="frame.advancedFilmMf">Advanced · vintage print</summary>
-          <div class="row">
-            <div class="field">
-              <label class="field-label"><span data-i18n="frame.filmMfAge">Aging</span> <span class="field-readout" id="film-mf-age-val" data-i18n="frame.defaultReadout">preset</span></label>
-              <input id="film-mf-age" type="range" min="0" max="1" step="0.05" />
-            </div>
-          </div>
-          <button id="reset-film-mf-btn" type="button" class="btn-ghost" data-i18n="frame.resetDefault">Reset to default</button>
-        </details>
-
-        <details class="frame-advanced" id="shadow-advanced">
-          <summary data-i18n="frame.advancedShadow">Advanced · shadow</summary>
-          <div class="row">
-            <div class="field">
-              <label class="field-label"><span data-i18n="frame.shadowBlur">Blur radius</span> <span class="field-readout" id="shadow-blur-val">0</span></label>
-              <input id="shadow-blur" type="range" min="0" max="160" step="2" value="80" />
-            </div>
-          </div>
-          <div class="row">
-            <div class="field">
-              <label class="field-label"><span data-i18n="frame.shadowOffset">Y offset</span> <span class="field-readout" id="shadow-offset-val">0</span></label>
-              <input id="shadow-offset" type="range" min="0" max="80" step="1" value="24" />
-            </div>
-          </div>
-          <div class="row">
-            <div class="field">
-              <label class="field-label"><span data-i18n="frame.shadowOpacity">Opacity</span> <span class="field-readout" id="shadow-opacity-val">0</span></label>
-              <input id="shadow-opacity" type="range" min="0" max="0.8" step="0.02" value="0.35" />
-            </div>
-          </div>
-        </details>
-
-        <div class="ws-section">
-          <button id="apply-frame-all-btn" type="button" class="btn-ghost btn-wide" data-i18n="frame.applyAll" data-i18n-title="frame.applyAllTitle">Apply frame to all</button>
-        </div>
-      </section>
-
-      <!-- TAB · EXIF -->
-      <section class="ws-tab" data-tab="exif">
-        <div id="exif-warn" class="warn" hidden></div>
-        <div class="ws-section">
-          <div class="ws-section-head" data-i18n="workshop.exifOverride">Override (per photo)</div>
-          <div class="grid-2">
-            <label><span data-i18n="exif.labels.make">Make</span><input id="exif-make" type="text" placeholder="FUJIFILM" /></label>
-            <label><span data-i18n="exif.labels.model">Model</span><input id="exif-model" type="text" placeholder="X-T5" /></label>
-            <label><span data-i18n="exif.labels.focalLength">Focal (mm)</span><input id="exif-focalLength" type="number" step="1" placeholder="59" /></label>
-            <label><span data-i18n="exif.labels.fNumber">ƒ-number</span><input id="exif-fNumber" type="number" step="0.1" placeholder="8" /></label>
-            <label><span data-i18n="exif.labels.exposureTime">Shutter</span><input id="exif-exposureTime" type="text" placeholder="1/180" /></label>
-            <label><span data-i18n="exif.labels.iso">ISO</span><input id="exif-iso" type="number" step="1" placeholder="80" /></label>
-            <label class="span-2"><span data-i18n="exif.labels.lensModel">Lens</span><input id="exif-lensModel" type="text" placeholder="XF 56mm F1.2 R" /></label>
-            <label class="span-2"><span data-i18n="exif.labels.date">Date</span><input id="exif-dateTimeOriginal" type="text" placeholder="2026-04-12" /></label>
-            <label class="span-2"><span data-i18n="exif.labels.author">Author</span><input id="exif-author" type="text" placeholder="your name" /></label>
-            <label class="span-2"><span data-i18n="exif.labels.flash">Flash</span>
-              <select id="exif-flash">
-                <option value="" data-i18n="exif.flashAuto">auto</option>
-                <option value="fired" data-i18n="exif.flashFired">Fired</option>
-                <option value="off" data-i18n="exif.flashOff">Off</option>
-              </select>
-            </label>
-            <label><span data-i18n="exif.labels.latitude">Latitude</span><input id="exif-latitude" type="number" step="0.0001" placeholder="39.9042" /></label>
-            <label><span data-i18n="exif.labels.longitude">Longitude</span><input id="exif-longitude" type="number" step="0.0001" placeholder="116.4074" /></label>
-            <div class="span-2 exif-gps-actions">
-              <button id="pick-on-map-btn" type="button" class="btn-ghost" data-i18n="exif.pickOnMap" data-i18n-title="exif.pickOnMapTitle">📍 Pick on map</button>
-            </div>
-          </div>
-        </div>
-        <!-- Sticky element kept in DOM so app.js's els.exifDetails ref works. -->
-        <details id="exif-details" hidden></details>
-        <div class="ws-section">
-          <div class="exif-actions">
-            <button id="clear-exif-btn" type="button" class="btn-ghost" data-i18n="exif.resetAuto">Reset to auto</button>
-            <button id="apply-exif-all-btn" type="button" class="btn-ghost" data-i18n="exif.applyAll" data-i18n-title="exif.applyAllTitle">Apply EXIF to all</button>
-            <button id="copy-raw-exif-btn" type="button" class="btn-ghost" data-i18n="exif.copyRaw" data-i18n-title="exif.copyRawTitle">Copy raw EXIF</button>
-          </div>
-        </div>
-      </section>
-
-      <!-- TAB · Sign -->
-      <section class="ws-tab" data-tab="sign">
-        <div class="ws-section">
-          <div class="ws-section-head" data-i18n="workshop.signature">Signature</div>
-          <label class="file-drop signature-drop" id="signature-drop">
-            <input id="signature-input" type="file" accept="image/svg+xml,image/png" />
-            <div class="file-drop-inner">
-              <div class="file-drop-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" width="18" height="18"><path d="M3 17l4-4 3 3 5-7 6 8M3 21h18" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <!-- ─── torn · kraft workbench ─── -->
+          <!-- Torn-paper advanced — visible only when frame === 'torn'. Mirrors
+               frosted-advanced's slider triplet pattern: jitter / step /
+               edgeOpacity, each `null` when sitting on the frame default
+               (readout shows "preset"); dragging captures an explicit override.
+               Reset button blanks all three back to null. -->
+          <section class="frame-instrument frame-instrument--torn" id="torn-advanced" hidden>
+          <!-- Kraft-paper workbench card. Torn top edge via clip-path,
+               paper-fibre noise via inline SVG bg, Special Elite typewriter
+               labels. Slider thumb is a kraft square stamped with charcoal
+               ink. See docs/frame-instruments-design.html rev.2 — torn
+               instrument. -->
+          <div class="torn-card">
+            <div class="torn-stamp" aria-hidden="true">[ scrap · workbench ]</div>
+            <div class="torn-knob">
+              <div class="torn-knob-head">
+                <span class="torn-knob-label" data-i18n="frame.tornJitter">Tear depth</span>
+                <span class="torn-knob-readout" id="torn-jitter-val" data-i18n="frame.defaultReadout">preset</span>
               </div>
-              <div class="file-drop-copy">
-                <strong data-i18n="signature.uploadTitle">Upload signature</strong>
-                <span class="file-drop-hint-desktop" data-i18n="signature.hint">SVG / PNG · transparent bg recommended</span>
+              <input class="torn-slider" id="torn-jitter" type="range" min="0" max="14" step="0.5" />
+            </div>
+            <div class="torn-knob">
+              <div class="torn-knob-head">
+                <span class="torn-knob-label" data-i18n="frame.tornStep">Tear density</span>
+                <span class="torn-knob-readout" id="torn-step-val" data-i18n="frame.defaultReadout">preset</span>
+              </div>
+              <input class="torn-slider" id="torn-step" type="range" min="3" max="14" step="0.5" />
+            </div>
+            <div class="torn-knob">
+              <div class="torn-knob-head">
+                <span class="torn-knob-label" data-i18n="frame.tornEdgeOpacity">Edge ink</span>
+                <span class="torn-knob-readout" id="torn-edge-opacity-val" data-i18n="frame.defaultReadout">preset</span>
+              </div>
+              <input class="torn-slider" id="torn-edge-opacity" type="range" min="0" max="0.5" step="0.02" />
+            </div>
+            <button id="reset-torn-btn" type="button" class="torn-reset" data-i18n="frame.resetDefault">Reset to default</button>
+          </div>
+          </section>
+
+          <!-- ─── film-mf · library archive ─── -->
+          <!-- Film-mf vintage-aging — visible only when frame === 'film-mf'.
+               Single slider scales sepia / partial-fade / vignette / foxing
+               alphas uniformly. 0 = clean print, 1 = full vintage. -->
+          <section class="frame-instrument frame-instrument--filmmf" id="film-mf-advanced" hidden>
+          <!-- Library-archive card. Aged amber paper with foxing-speck
+               radial gradients + diagonal warm overlay; Fraunces italic
+               labels; brass-bezel round-knob thumb on sepia engraved
+               channel; corner library notation stamp. See
+               docs/frame-instruments-design.html rev.2 — film-mf
+               instrument. -->
+          <div class="filmmf-card">
+            <div class="filmmf-stamp" aria-hidden="true">
+              <div class="filmmf-stamp-l1">Archive · vol. iv</div>
+              <div class="filmmf-stamp-l2">MF · 6×7 · 1974</div>
+            </div>
+            <div class="filmmf-knob">
+              <div class="filmmf-knob-head">
+                <span class="filmmf-knob-label" data-i18n="frame.filmMfAge">Aging</span>
+                <span class="filmmf-knob-readout" id="film-mf-age-val" data-i18n="frame.defaultReadout">preset</span>
+              </div>
+              <input class="filmmf-slider" id="film-mf-age" type="range" min="0" max="1" step="0.05" />
+            </div>
+            <button id="reset-film-mf-btn" type="button" class="filmmf-reset" data-i18n="frame.resetDefault">Reset to default</button>
+          </div>
+          </section>
+
+          <!-- ─── gallery-white · museum placard (NEW in 1.4.0) ─── -->
+          <!-- Curated-print look. Passe-partout 4 knobs: mat width (outer
+               inflate distance), inner line spacing (gap between the two
+               hairlines), line weight (relative stroke factor), line color
+               (ink / charcoal / warm). Visual treatment: warm cream board
+               with the double-thin border drawn around the entire card
+               chrome (mimicking what gets drawn around the photo).
+               See docs/frame-instruments-rev3.html — instrument 04.A. -->
+          <section class="frame-instrument frame-instrument--gallery" id="gallery-white-advanced" hidden>
+            <div class="gallery-card">
+              <div class="gallery-stamp" aria-hidden="true">— gallery, passe-partout —</div>
+              <div class="gallery-knob">
+                <div class="gallery-knob-head">
+                  <span class="gallery-knob-label" data-i18n="frame.galMatWidth">Mat width</span>
+                  <span class="gallery-knob-readout" id="gal-mat-width-val" data-i18n="frame.defaultReadout">preset</span>
+                </div>
+                <input class="gallery-slider" id="gal-mat-width" type="range" min="8" max="60" step="1" />
+              </div>
+              <div class="gallery-knob">
+                <div class="gallery-knob-head">
+                  <span class="gallery-knob-label" data-i18n="frame.galLineSpacing">Line spacing</span>
+                  <span class="gallery-knob-readout" id="gal-line-spacing-val" data-i18n="frame.defaultReadout">preset</span>
+                </div>
+                <input class="gallery-slider" id="gal-line-spacing" type="range" min="4" max="24" step="1" />
+              </div>
+              <div class="gallery-knob">
+                <div class="gallery-knob-head">
+                  <span class="gallery-knob-label" data-i18n="frame.galLineWeight">Line weight</span>
+                  <span class="gallery-knob-readout" id="gal-line-weight-val" data-i18n="frame.defaultReadout">preset</span>
+                </div>
+                <input class="gallery-slider" id="gal-line-weight" type="range" min="0.5" max="2.4" step="0.1" />
+              </div>
+              <div class="gallery-knob gallery-knob--swatches">
+                <div class="gallery-knob-head">
+                  <span class="gallery-knob-label" data-i18n="frame.galLineColor">Line color</span>
+                  <span class="gallery-knob-readout" id="gal-line-color-val" data-i18n="frame.defaultReadout">preset</span>
+                </div>
+                <div class="gallery-swatches" id="gal-line-color" role="radiogroup">
+                  <button type="button" class="gallery-sw" data-val="ink"      style="--c:#2a2520" data-i18n-aria-label="frame.galColor.ink"></button>
+                  <button type="button" class="gallery-sw" data-val="charcoal" style="--c:#6b6259" data-i18n-aria-label="frame.galColor.charcoal"></button>
+                  <button type="button" class="gallery-sw" data-val="warm"     style="--c:#a8987d" data-i18n-aria-label="frame.galColor.warm"></button>
+                </div>
+              </div>
+              <button id="reset-gallery-btn" type="button" class="gallery-reset" data-i18n="frame.resetDefault">Reset to default</button>
+            </div>
+          </section>
+
+          <!-- ─── film-35 · cine top plate (NEW in 1.5.0) ─── -->
+          <!-- 35mm motion-picture frame instrument. 4 knobs:
+                 · sprocket density (slider 0.5–2.0×)
+                 · border grain     (slider 0–1, scaled to overlay alpha)
+                 · DX edge print    (toggle for top "BRAND · ISO·T · DX" stamp)
+                 · frame №          (stepper 'xx' / '1-36' / 'a-z')
+               Brushed-steel card with Kodak red accent + knurled metal
+               pill thumb. See docs/frame-instruments-rev3.html — 04.C. -->
+          <section class="frame-instrument frame-instrument--film35" id="film-35-advanced" hidden>
+            <div class="film35-card">
+              <div class="film35-nameplate" aria-hidden="true">
+                <div class="film35-np-left">
+                  <span class="film35-np-dot"></span>
+                  <span class="film35-np-tag">FILM · 35MM</span>
+                </div>
+                <div class="film35-np-title">TOP PLATE</div>
+              </div>
+              <div class="film35-knob">
+                <div class="film35-knob-head">
+                  <span class="film35-knob-label" data-i18n="frame.f35Sprocket">Sprocket density</span>
+                  <span class="film35-knob-readout" id="f35-sprocket-val" data-i18n="frame.defaultReadout">preset</span>
+                </div>
+                <input class="film35-slider" id="f35-sprocket" type="range" min="0.5" max="2" step="0.05" />
+              </div>
+              <div class="film35-knob">
+                <div class="film35-knob-head">
+                  <span class="film35-knob-label" data-i18n="frame.f35Grain">Border grain</span>
+                  <span class="film35-knob-readout" id="f35-grain-val" data-i18n="frame.defaultReadout">preset</span>
+                </div>
+                <input class="film35-slider" id="f35-grain" type="range" min="0" max="1" step="0.02" />
+              </div>
+              <div class="film35-knob film35-knob--toggle">
+                <div class="film35-knob-head">
+                  <span class="film35-knob-label" data-i18n="frame.f35EdgePrint">DX edge print</span>
+                  <span class="film35-knob-readout" id="f35-edge-print-val" data-i18n="frame.defaultReadout">preset</span>
+                </div>
+                <button type="button" class="film35-toggle on" id="f35-edge-print">
+                  <span class="film35-toggle-nub"></span>
+                </button>
+              </div>
+              <div class="film35-knob film35-knob--stepper">
+                <div class="film35-knob-head">
+                  <span class="film35-knob-label" data-i18n="frame.f35FrameNo">Frame №</span>
+                  <span class="film35-knob-readout" id="f35-frame-no-val" data-i18n="frame.defaultReadout">preset</span>
+                </div>
+                <div class="film35-stepper" id="f35-frame-no" role="radiogroup">
+                  <button type="button" class="film35-step" data-val="xx" data-i18n="frame.f35FrameNoOpt.xx">XX</button>
+                  <button type="button" class="film35-step on" data-val="1-36" data-i18n="frame.f35FrameNoOpt.1-36">1–36</button>
+                  <button type="button" class="film35-step" data-val="a-z" data-i18n="frame.f35FrameNoOpt.a-z">A–Z</button>
+                </div>
+              </div>
+              <button id="reset-film-35-btn" type="button" class="film35-reset" data-i18n="frame.resetDefault">Reset to default</button>
+            </div>
+          </section>
+
+          <!-- ─── instax · polaroid front face (NEW in 1.6.0) ─── -->
+          <!-- Cream-plastic instax-mini front. 4 knobs:
+                 · slab    (slider 60–360, base-1440 px → layoutOpts.extraBottom)
+                 · tint    (swatches: pure / cream / aged → bg.color)
+                 · stamp   (toggle: date stamp on slab)
+                 · rainbow (toggle: 4-color signature stripe on slab)
+               Slab is the only knob that touches computeLayout (changes
+               fg position + caption zone); the other 3 are pure decorate
+               paints. See docs/frame-instruments-rev3.html — 04.B. -->
+          <section class="frame-instrument frame-instrument--instax" id="instax-advanced" hidden>
+            <div class="instax-card">
+              <div class="instax-nameplate" aria-hidden="true">
+                <span class="instax-np-tag">INSTANT</span>
+                <span class="instax-np-title">Instax mini</span>
+              </div>
+              <div class="instax-knob">
+                <div class="instax-knob-head">
+                  <span class="instax-knob-label" data-i18n="frame.instaxSlab">Bottom slab</span>
+                  <span class="instax-knob-readout" id="instax-slab-val" data-i18n="frame.defaultReadout">preset</span>
+                </div>
+                <input class="instax-slider" id="instax-slab" type="range" min="60" max="360" step="4" />
+              </div>
+              <div class="instax-knob instax-knob--swatches">
+                <div class="instax-knob-head">
+                  <span class="instax-knob-label" data-i18n="frame.instaxTint">Paper tint</span>
+                  <span class="instax-knob-readout" id="instax-tint-val" data-i18n="frame.defaultReadout">preset</span>
+                </div>
+                <div class="instax-swatches" id="instax-tint" role="radiogroup">
+                  <button type="button" class="instax-sw on" data-val="pure"  style="--c:#fffdf6" data-i18n-aria-label="frame.instaxTintOpt.pure"></button>
+                  <button type="button" class="instax-sw"    data-val="cream" style="--c:#f5ecd6" data-i18n-aria-label="frame.instaxTintOpt.cream"></button>
+                  <button type="button" class="instax-sw"    data-val="aged"  style="--c:#eddcb8" data-i18n-aria-label="frame.instaxTintOpt.aged"></button>
+                </div>
+              </div>
+              <div class="instax-knob instax-knob--toggle">
+                <div class="instax-knob-head">
+                  <span class="instax-knob-label" data-i18n="frame.instaxStamp">Date stamp</span>
+                  <span class="instax-knob-readout" id="instax-stamp-val" data-i18n="frame.defaultReadout">preset</span>
+                </div>
+                <button type="button" class="instax-toggle" id="instax-stamp">
+                  <span class="instax-toggle-nub"></span>
+                </button>
+              </div>
+              <div class="instax-knob instax-knob--toggle">
+                <div class="instax-knob-head">
+                  <span class="instax-knob-label" data-i18n="frame.instaxRainbow">Rainbow stripe</span>
+                  <span class="instax-knob-readout" id="instax-rainbow-val" data-i18n="frame.defaultReadout">preset</span>
+                </div>
+                <button type="button" class="instax-toggle" id="instax-rainbow">
+                  <span class="instax-toggle-nub"></span>
+                </button>
+              </div>
+              <button id="reset-instax-btn" type="button" class="instax-reset" data-i18n="frame.resetDefault">Reset to default</button>
+            </div>
+          </section>
+
+          <!-- ─── slide-mount · slide projector (NEW in 1.7.0 · 7/7 final) ─── -->
+          <!-- 35mm slide-mount mounted-transparency look. 4 knobs:
+                 · mount color  (swatches: cream / leather / black → bg.color
+                                + rebuilds pebble tile in that color)
+                 · outer ring   (swatches: wine / brass / charcoal → border)
+                 · pebble       (slider 0.5–1.5× → numBumps in tile, 5 buckets)
+                 · bevel depth  (slider 4–20 px → bevelW + insetDepth scaling)
+               The tile cache is keyed by (mountColor, numBumps) so the
+               rebuild cost is paid once per (color × density) combo, max
+               3 × 5 = 15 cached tiles per session.
+               See docs/frame-instruments-rev3.html — 04.D. -->
+          <section class="frame-instrument frame-instrument--slide" id="slide-mount-advanced" hidden>
+            <div class="slide-card">
+              <div class="slide-nameplate" aria-hidden="true">
+                <span class="slide-np-bar"></span>
+                <span class="slide-np-tag">SLIDE · MOUNT</span>
+                <span class="slide-np-title">PROJECTOR</span>
+              </div>
+              <div class="slide-knob slide-knob--swatches">
+                <div class="slide-knob-head">
+                  <span class="slide-knob-label" data-i18n="frame.slideMountColor">Mount color</span>
+                  <span class="slide-knob-readout" id="slide-mount-color-val" data-i18n="frame.defaultReadout">preset</span>
+                </div>
+                <div class="slide-swatches" id="slide-mount-color" role="radiogroup">
+                  <button type="button" class="slide-sw on" data-val="cream"   style="--c:#e6dac0" data-i18n-aria-label="frame.slideMountColorOpt.cream"></button>
+                  <button type="button" class="slide-sw"    data-val="leather" style="--c:#9c7a4a" data-i18n-aria-label="frame.slideMountColorOpt.leather"></button>
+                  <button type="button" class="slide-sw"    data-val="black"   style="--c:#2a1a14" data-i18n-aria-label="frame.slideMountColorOpt.black"></button>
+                </div>
+              </div>
+              <div class="slide-knob slide-knob--swatches">
+                <div class="slide-knob-head">
+                  <span class="slide-knob-label" data-i18n="frame.slideOuterRing">Outer ring</span>
+                  <span class="slide-knob-readout" id="slide-outer-ring-val" data-i18n="frame.defaultReadout">preset</span>
+                </div>
+                <div class="slide-swatches" id="slide-outer-ring" role="radiogroup">
+                  <button type="button" class="slide-sw on" data-val="wine"     style="--c:#3a1822" data-i18n-aria-label="frame.slideOuterRingOpt.wine"></button>
+                  <button type="button" class="slide-sw"    data-val="brass"    style="--c:#9c7a4a" data-i18n-aria-label="frame.slideOuterRingOpt.brass"></button>
+                  <button type="button" class="slide-sw"    data-val="charcoal" style="--c:#1a1410" data-i18n-aria-label="frame.slideOuterRingOpt.charcoal"></button>
+                </div>
+              </div>
+              <div class="slide-knob">
+                <div class="slide-knob-head">
+                  <span class="slide-knob-label" data-i18n="frame.slidePebble">Pebble density</span>
+                  <span class="slide-knob-readout" id="slide-pebble-val" data-i18n="frame.defaultReadout">preset</span>
+                </div>
+                <input class="slide-slider" id="slide-pebble" type="range" min="0.5" max="1.5" step="0.25" />
+              </div>
+              <div class="slide-knob">
+                <div class="slide-knob-head">
+                  <span class="slide-knob-label" data-i18n="frame.slideBevel">Bevel depth</span>
+                  <span class="slide-knob-readout" id="slide-bevel-val" data-i18n="frame.defaultReadout">preset</span>
+                </div>
+                <input class="slide-slider" id="slide-bevel" type="range" min="4" max="20" step="1" />
+              </div>
+              <button id="reset-slide-btn" type="button" class="slide-reset" data-i18n="frame.resetDefault">Reset to default</button>
+            </div>
+          </section>
+
+          <!-- ─── Lighting · universal shadow trio ───
+               1.10.2 — moved from Caliper. Each frame's `shadowDefault`
+               (blur / offsetY / opacity) populates the sliders on photo
+               switch; user override winds against the active frame's
+               default. Sits at panel level (after the 7 frame cards) so
+               it stays visible regardless of which frame is active. Reads
+               like a bench-side multimeter — steel chrome, hairline rules,
+               complementary to the frame instrument cards above. -->
+          <div class="instrument-lighting" id="shadow-advanced">
+            <div class="instrument-lighting-head">
+              <span class="instrument-lighting-eyebrow" data-i18n="workshop.instrument.lighting">▾ LIGHTING · shadow</span>
+            </div>
+            <div class="caliper-row">
+              <span class="caliper-row-label" data-i18n="frame.shadowBlur">Blur</span>
+              <input id="shadow-blur" type="range" min="0" max="160" step="2" value="80" class="caliper-slider" />
+              <span class="caliper-row-readout" id="shadow-blur-val">0</span>
+            </div>
+            <div class="caliper-row">
+              <span class="caliper-row-label" data-i18n="frame.shadowOffset">Drop</span>
+              <input id="shadow-offset" type="range" min="0" max="80" step="1" value="24" class="caliper-slider" />
+              <span class="caliper-row-readout" id="shadow-offset-val">0</span>
+            </div>
+            <div class="caliper-row">
+              <span class="caliper-row-label" data-i18n="frame.shadowOpacity">Depth</span>
+              <input id="shadow-opacity" type="range" min="0" max="0.8" step="0.02" value="0.35" class="caliper-slider" />
+              <span class="caliper-row-readout" id="shadow-opacity-val">0</span>
+            </div>
+          </div>
+        </section><!-- /◉ Instrument -->
+
+        <!-- ═════════════════════ ┃ CALIPER · 测量 ═════════════════════ -->
+        <!-- 黄铜测距尺 · 1.10.2 — geometry only: padding + radius + Compose
+             entry. Shadow trio moved to Instrument (1.10.2) — shadow defaults
+             are intimately frame-bound (film-35 prints have 0/0/0, instax has
+             a soft drop), so they belong with frame identity, not with the
+             generic ruler. Caption strip already moved to Notation in 1.10.0.
+              · Zone 1 · Frame geometry · padding / radius
+              · CTA · Compose modal entry (per-edge padding / crop / rotation) -->
+        <section class="bench-tool-panel" data-tool="caliper" id="bench-tool-caliper" role="tabpanel" hidden>
+          <header class="bench-tool-panel-head">
+            <span class="bench-tool-panel-eyebrow">┃ CALIPER</span>
+            <span class="bench-tool-panel-title" data-i18n="workshop.tool.caliperTitle">测量 · 画幅几何</span>
+          </header>
+
+          <div class="caliper">
+            <div class="caliper-rim caliper-rim--top" aria-hidden="true">
+              <span class="caliper-tick caliper-tick--major"></span>
+              <span class="caliper-tick"></span><span class="caliper-tick"></span><span class="caliper-tick"></span><span class="caliper-tick"></span>
+              <span class="caliper-tick caliper-tick--major"></span>
+              <span class="caliper-tick"></span><span class="caliper-tick"></span><span class="caliper-tick"></span><span class="caliper-tick"></span>
+              <span class="caliper-tick caliper-tick--major"></span>
+              <span class="caliper-tick"></span><span class="caliper-tick"></span><span class="caliper-tick"></span><span class="caliper-tick"></span>
+              <span class="caliper-tick caliper-tick--major"></span>
+            </div>
+
+            <!-- ── Frame geometry · padding + radius ──
+                 1.10.4 — zone-num "1" dropped since this is the only zone
+                 left (Zone 2 shadow trio moved to Instrument in 1.10.2). -->
+            <div class="caliper-zone caliper-zone--solo">
+              <div class="caliper-zone-label">
+                <span data-i18n="workshop.caliper.frameGeom">Frame geometry</span>
+              </div>
+              <div class="caliper-row">
+                <span class="caliper-row-label" data-i18n="frame.padding">Padding</span>
+                <input id="padding" type="range" min="0" max="200" value="70" step="2" class="caliper-slider" />
+                <span class="caliper-row-readout" id="padding-val">70<span class="ru">px</span></span>
+              </div>
+              <div class="caliper-row">
+                <span class="caliper-row-label" data-i18n="frame.radius">Radius</span>
+                <input id="radius" type="range" min="0" max="72" value="36" step="1" class="caliper-slider" />
+                <span class="caliper-row-readout" id="radius-val" data-i18n="frame.defaultReadout">preset</span>
               </div>
             </div>
-          </label>
-          <div class="signature-preview" id="signature-preview" hidden>
-            <img id="signature-preview-img" alt="" />
-            <button id="signature-clear-btn" type="button" class="btn-ghost" data-i18n="signature.clear">Remove signature</button>
-          </div>
-        </div>
-        <div class="ws-section">
-          <div class="ws-section-head" data-i18n="signature.position">Position</div>
-          <div class="pos-grid" id="signature-pos-grid" role="radiogroup" aria-label="Signature position">
-            <button type="button" data-anchor="tl" role="radio" aria-checked="false" aria-label="Top-left"></button>
-            <button type="button" data-anchor="tc" role="radio" aria-checked="false" aria-label="Top-center"></button>
-            <button type="button" data-anchor="tr" role="radio" aria-checked="false" aria-label="Top-right"></button>
-            <button type="button" data-anchor="cl" role="radio" aria-checked="false" aria-label="Center-left"></button>
-            <button type="button" data-anchor="cc" role="radio" aria-checked="false" aria-label="Center"></button>
-            <button type="button" data-anchor="cr" role="radio" aria-checked="false" aria-label="Center-right"></button>
-            <button type="button" data-anchor="bl" role="radio" aria-checked="false" aria-label="Bottom-left"></button>
-            <button type="button" data-anchor="bc" role="radio" aria-checked="false" aria-label="Bottom-center"></button>
-            <button type="button" data-anchor="br" class="active" role="radio" aria-checked="true" aria-label="Bottom-right"></button>
-          </div>
-        </div>
-        <div class="ws-section">
-          <div class="row">
-            <div class="field">
-              <label class="field-label"><span data-i18n="signature.size">Size</span> <span class="field-readout" id="signature-scale-val">6<span class="ru">%</span></span></label>
-              <input id="signature-scale" type="range" min="3" max="20" step="1" value="6" />
+
+            <div class="caliper-rim caliper-rim--bottom" aria-hidden="true">
+              <span class="caliper-tick caliper-tick--major"></span>
+              <span class="caliper-tick"></span><span class="caliper-tick"></span><span class="caliper-tick"></span><span class="caliper-tick"></span>
+              <span class="caliper-tick caliper-tick--major"></span>
+              <span class="caliper-tick"></span><span class="caliper-tick"></span><span class="caliper-tick"></span><span class="caliper-tick"></span>
+              <span class="caliper-tick caliper-tick--major"></span>
+              <span class="caliper-tick"></span><span class="caliper-tick"></span><span class="caliper-tick"></span><span class="caliper-tick"></span>
+              <span class="caliper-tick caliper-tick--major"></span>
             </div>
           </div>
-          <div class="row">
-            <div class="field">
-              <label class="field-label"><span data-i18n="signature.opacity">Opacity</span> <span class="field-readout" id="signature-opacity-val">100<span class="ru">%</span></span></label>
-              <input id="signature-opacity" type="range" min="0.2" max="1" step="0.05" value="1" />
+        </section><!-- /┃ Caliper -->
+
+        <!-- ═════════════════════ ✎ NOTATION · 笔记 ═════════════════════ -->
+        <!-- Phase 12 · wraps 1.8.x D · Caption content as-is. Phase 13 will
+             redesign as a photographer's notebook (typed auto-EXIF vs
+             handwritten override double-column). Top badge + EXIF override
+             grid + EXIF actions content unchanged; outer wrapper only. -->
+        <section class="bench-tool-panel" data-tool="notation" id="bench-tool-notation" role="tabpanel" hidden>
+          <header class="bench-tool-panel-head">
+            <span class="bench-tool-panel-eyebrow">✎ NOTATION</span>
+            <span class="bench-tool-panel-title" data-i18n="workshop.tool.notationTitle">笔记 · caption + EXIF</span>
+          </header>
+          <p class="bench-tool-panel-hint" data-i18n="workshop.tool.notationHint">照片在说什么 · 顶部品牌标记 + 自动 EXIF 字段（可逐张覆盖）。</p>
+
+          <!-- ─── Notebook · 1.9.1 ─────────────────────────────────────
+               Photographer's lined-paper notebook. Top section: 4 paper-
+               sticker badge picker. Below: 2-column EXIF table with
+               AUTO (typed mono · gray) vs HAND (Special Elite handwriting ·
+               sepia brown) columns. Bottom: 3 notebook actions.
+               All input ids preserved 1:1 from rev.2 Phase 12. -->
+          <div class="notebook">
+            <div class="notebook-binding" aria-hidden="true">
+              <span class="notebook-hole"></span>
+              <span class="notebook-hole"></span>
+              <span class="notebook-hole"></span>
+              <span class="notebook-hole"></span>
+            </div>
+            <div class="notebook-page">
+              <!-- ── Zone 1 · Caption strip · height / overlay / lift ──
+                   Moved from Caliper in 1.10.0 — caption physical layout
+                   belongs with the "what the photo says" decision, not the
+                   "how big the frame is" decision. -->
+              <div class="notebook-zone notebook-zone--caption">
+                <div class="notebook-zone-label">
+                  <span class="notebook-zone-num">1</span>
+                  <span data-i18n="workshop.notebook.captionStripZone">Caption strip</span>
+                </div>
+                <div class="notebook-caption-strip">
+                  <div class="caliper-row">
+                    <span class="caliper-row-label" data-i18n="frame.captionH">Caption h</span>
+                    <input id="caption-h" type="range" min="60" max="360" value="140" step="4" class="caliper-slider" />
+                    <span class="caliper-row-readout" id="caption-h-val" data-i18n="frame.captionAuto">auto</span>
+                  </div>
+                  <label class="caliper-toggle-row" for="caption-overlay-toggle">
+                    <input id="caption-overlay-toggle" type="checkbox" />
+                    <span class="caliper-toggle-knob" aria-hidden="true"></span>
+                    <span class="caliper-toggle-stack">
+                      <span class="caliper-toggle-label" data-i18n="frame.captionOverlay">Caption inside photo</span>
+                      <span class="caliper-toggle-hint" data-i18n="frame.captionOverlayHint">stamp on photo bottom (35mm authentic look)</span>
+                    </span>
+                  </label>
+                  <div class="caliper-row" id="caption-overlay-lift-row" hidden>
+                    <span class="caliper-row-label" data-i18n="frame.captionOverlayLift">Lift</span>
+                    <input id="caption-overlay-lift" type="range" min="0" max="120" value="0" step="2" class="caliper-slider" />
+                    <span class="caliper-row-readout" id="caption-overlay-lift-val">0<span class="ru">px</span></span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- ── Zone 2 · EXIF override · double-column ── -->
+              <div class="notebook-zone notebook-zone--exif">
+                <div class="notebook-zone-label">
+                  <span class="notebook-zone-num">2</span>
+                  <span data-i18n="workshop.exifOverride">EXIF override</span>
+                </div>
+                <div id="exif-warn" class="warn" hidden></div>
+                <div class="notebook-cols">
+                  <span class="notebook-col-label notebook-col-label--field" data-i18n="workshop.notebook.field">Field</span>
+                  <span class="notebook-col-label notebook-col-label--auto" data-i18n="workshop.notebook.auto">Auto · 自动识别</span>
+                  <span class="notebook-col-label notebook-col-label--hand" data-i18n="workshop.notebook.hand">Hand · 手写覆盖</span>
+                </div>
+                <label class="notebook-row">
+                  <span class="notebook-field" data-i18n="exif.labels.make">Make</span>
+                  <span class="notebook-auto" data-auto-field="make">—</span>
+                  <input id="exif-make" type="text" class="notebook-handwriting" placeholder="FUJIFILM" />
+                </label>
+                <label class="notebook-row">
+                  <span class="notebook-field" data-i18n="exif.labels.model">Model</span>
+                  <span class="notebook-auto" data-auto-field="model">—</span>
+                  <input id="exif-model" type="text" class="notebook-handwriting" placeholder="X-T5" />
+                </label>
+                <label class="notebook-row">
+                  <span class="notebook-field" data-i18n="exif.labels.focalLength">Focal</span>
+                  <span class="notebook-auto" data-auto-field="focal">—</span>
+                  <input id="exif-focalLength" type="number" step="1" class="notebook-handwriting" placeholder="59" />
+                </label>
+                <label class="notebook-row">
+                  <span class="notebook-field" data-i18n="exif.labels.fNumber">ƒ-number</span>
+                  <span class="notebook-auto" data-auto-field="aperture">—</span>
+                  <input id="exif-fNumber" type="number" step="0.1" class="notebook-handwriting" placeholder="2.8" />
+                </label>
+                <label class="notebook-row">
+                  <span class="notebook-field" data-i18n="exif.labels.exposureTime">Shutter</span>
+                  <span class="notebook-auto" data-auto-field="shutter">—</span>
+                  <input id="exif-exposureTime" type="text" class="notebook-handwriting" placeholder="1/180" />
+                </label>
+                <label class="notebook-row">
+                  <span class="notebook-field" data-i18n="exif.labels.iso">ISO</span>
+                  <span class="notebook-auto" data-auto-field="iso">—</span>
+                  <input id="exif-iso" type="number" step="1" class="notebook-handwriting" placeholder="400" />
+                </label>
+                <label class="notebook-row">
+                  <span class="notebook-field" data-i18n="exif.labels.lensModel">Lens</span>
+                  <span class="notebook-auto" data-auto-field="lens">—</span>
+                  <input id="exif-lensModel" type="text" class="notebook-handwriting" placeholder="XF 56mm F1.2 R" />
+                </label>
+                <label class="notebook-row">
+                  <span class="notebook-field" data-i18n="exif.labels.date">Date</span>
+                  <span class="notebook-auto" data-auto-field="date">—</span>
+                  <input id="exif-dateTimeOriginal" type="text" class="notebook-handwriting" placeholder="2026-04-12" />
+                </label>
+                <label class="notebook-row">
+                  <span class="notebook-field" data-i18n="exif.labels.author">Author</span>
+                  <span class="notebook-auto" data-auto-field="author">—</span>
+                  <input id="exif-author" type="text" class="notebook-handwriting" placeholder="your name" />
+                </label>
+                <label class="notebook-row notebook-row--select">
+                  <span class="notebook-field" data-i18n="exif.labels.flash">Flash</span>
+                  <span class="notebook-auto" data-auto-field="flash">—</span>
+                  <select id="exif-flash" class="notebook-handwriting notebook-select">
+                    <option value="" data-i18n="exif.flashAuto">auto</option>
+                    <option value="fired" data-i18n="exif.flashFired">Fired</option>
+                    <option value="off" data-i18n="exif.flashOff">Off</option>
+                  </select>
+                </label>
+                <label class="notebook-row">
+                  <span class="notebook-field" data-i18n="exif.labels.latitude">Lat</span>
+                  <span class="notebook-auto" data-auto-field="latitude">—</span>
+                  <input id="exif-latitude" type="number" step="0.0001" class="notebook-handwriting" placeholder="39.9042" />
+                </label>
+                <label class="notebook-row">
+                  <span class="notebook-field" data-i18n="exif.labels.longitude">Lng</span>
+                  <span class="notebook-auto" data-auto-field="longitude">—</span>
+                  <input id="exif-longitude" type="number" step="0.0001" class="notebook-handwriting" placeholder="116.4074" />
+                </label>
+                <div class="notebook-gps-actions">
+                  <button id="pick-on-map-btn" type="button" class="notebook-action notebook-action--map" data-i18n="exif.pickOnMap" data-i18n-title="exif.pickOnMapTitle">📍 Pick on map</button>
+                </div>
+              </div>
+
+              <!-- Sticky element kept in DOM so app.js's els.exifDetails ref works. -->
+              <details id="exif-details" hidden></details>
+
+              <!-- ── Notebook actions · bottom strip ── -->
+              <div class="notebook-actions">
+                <button id="clear-exif-btn" type="button" class="notebook-action" data-i18n="exif.resetAuto">Erase hand</button>
+                <button id="apply-exif-all-btn" type="button" class="notebook-action" data-i18n="exif.applyAll" data-i18n-title="exif.applyAllTitle">Copy to all</button>
+                <button id="copy-raw-exif-btn" type="button" class="notebook-action" data-i18n="exif.copyRaw" data-i18n-title="exif.copyRawTitle">Copy raw</button>
+              </div>
             </div>
           </div>
-        </div>
-      </section>
+        </section><!-- /✎ Notation -->
 
-      <!-- TAB · Tile -->
-      <section class="ws-tab" data-tab="tile">
-        <div class="ws-section">
-          <div class="ws-section-head" data-i18n="sections.collage">Collage</div>
-          <div class="row">
-            <div class="field">
-              <label class="field-label" data-i18n="collage.layout">Layout</label>
-              <select id="collage-layout">
-                <option value="off" data-i18n="collage.off">Off</option>
-                <option value="h2" data-i18n="collage.h2">Side by side (1×2)</option>
-                <option value="v2" data-i18n="collage.v2">Stacked (2×1)</option>
-                <option value="h3" data-i18n="collage.h3">3 across (1×3)</option>
-                <option value="v3" data-i18n="collage.v3">3 stacked (3×1)</option>
-                <option value="2x2" data-i18n="collage.2x2">2×2 grid</option>
-              </select>
+        <!-- ═════════════════════ ▦ ARRANGE · 排版 ═════════════════════
+             1.10.1 · split off Seal's Zone 2 (collage) into its own tool.
+             Paper-clamp metaphor preserved: 6 clamp buttons + slot grid.
+             Hidden <select id="collage-layout"> still drives the existing
+             change-event listener; clamp clicks dispatch on it. -->
+        <section class="bench-tool-panel" data-tool="arrange" id="bench-tool-arrange" role="tabpanel" hidden>
+          <header class="bench-tool-panel-head">
+            <span class="bench-tool-panel-eyebrow">▦ ARRANGE</span>
+            <span class="bench-tool-panel-title" data-i18n="workshop.tool.arrangeTitle">排版 · multi-photo collage</span>
+          </header>
+          <p class="bench-tool-panel-hint" data-i18n="workshop.tool.arrangeHint">把多张照片夹在同一相框内 · 选布局后绑定伙伴照片</p>
+
+          <div class="arrangecard">
+            <!-- Hidden select drives the existing change-event listener.
+                 Visible clamp buttons below dispatch on click. -->
+            <select id="collage-layout" class="sealcard-collage-select">
+              <option value="off" data-i18n="collage.off">Off</option>
+              <option value="h2" data-i18n="collage.h2">Side by side (1×2)</option>
+              <option value="v2" data-i18n="collage.v2">Stacked (2×1)</option>
+              <option value="h3" data-i18n="collage.h3">3 across (1×3)</option>
+              <option value="v3" data-i18n="collage.v3">3 stacked (3×1)</option>
+              <option value="2x2" data-i18n="collage.2x2">2×2 grid</option>
+            </select>
+
+            <div class="sealcard-clamps arrangecard-clamps" id="sealcard-clamps" role="radiogroup" aria-label="Collage layout">
+              <button type="button" class="sealcard-clamp active" data-layout="off" role="radio" aria-checked="true">
+                <span class="sealcard-clamp-visual sealcard-clamp-visual--off"><span></span></span>
+                <span class="sealcard-clamp-label" data-i18n="collage.off">Off</span>
+              </button>
+              <button type="button" class="sealcard-clamp" data-layout="h2" role="radio" aria-checked="false">
+                <span class="sealcard-clamp-visual sealcard-clamp-visual--h2"><span></span><span></span></span>
+                <span class="sealcard-clamp-label">1×2</span>
+              </button>
+              <button type="button" class="sealcard-clamp" data-layout="v2" role="radio" aria-checked="false">
+                <span class="sealcard-clamp-visual sealcard-clamp-visual--v2"><span></span><span></span></span>
+                <span class="sealcard-clamp-label">2×1</span>
+              </button>
+              <button type="button" class="sealcard-clamp" data-layout="h3" role="radio" aria-checked="false">
+                <span class="sealcard-clamp-visual sealcard-clamp-visual--h3"><span></span><span></span><span></span></span>
+                <span class="sealcard-clamp-label">1×3</span>
+              </button>
+              <button type="button" class="sealcard-clamp" data-layout="v3" role="radio" aria-checked="false">
+                <span class="sealcard-clamp-visual sealcard-clamp-visual--v3"><span></span><span></span><span></span></span>
+                <span class="sealcard-clamp-label">3×1</span>
+              </button>
+              <button type="button" class="sealcard-clamp" data-layout="2x2" role="radio" aria-checked="false">
+                <span class="sealcard-clamp-visual sealcard-clamp-visual--2x2"><span></span><span></span><span></span><span></span></span>
+                <span class="sealcard-clamp-label">2×2</span>
+              </button>
+            </div>
+
+            <div class="collage-slots arrangecard-slots" id="collage-slots"></div>
+          </div>
+        </section><!-- /▦ Arrange -->
+
+        <!-- ═════════════════════ ❖ SEAL · 印记 ═════════════════════
+             1.11.0 — the "seal maker's desk": upload + ink settings (blend /
+             flip / opacity) + a "Place on canvas…" CTA that opens #seal-modal
+             for free drag/scale/rotate placement (photo OR frame margin). The
+             old 9-anchor grid + size meter were retired (placement is now
+             direct manipulation). Kept ids: #signature-input / -drop /
+             -preview / -clear-btn / -opacity. -->
+        <section class="bench-tool-panel" data-tool="seal" id="bench-tool-seal" role="tabpanel" hidden>
+          <header class="bench-tool-panel-head">
+            <span class="bench-tool-panel-eyebrow">❖ SEAL</span>
+            <span class="bench-tool-panel-title" data-i18n="workshop.tool.sealTitle">印记 · 签名</span>
+          </header>
+          <p class="bench-tool-panel-hint" data-i18n="workshop.tool.sealHint">可拖放到画面任意位置的蜡印水印</p>
+
+          <div class="sealcard">
+            <div class="sealcard-zone sealcard-zone--seal">
+              <label class="sealcard-press" id="signature-drop">
+                <input id="signature-input" type="file" accept="image/svg+xml,image/png" />
+                <span class="sealcard-wax" aria-hidden="true">
+                  <span class="sealcard-wax-blob"></span>
+                  <span class="sealcard-wax-glyph">❖</span>
+                </span>
+                <span class="sealcard-press-stack">
+                  <strong data-i18n="workshop.seal.pressTitle">Press your seal</strong>
+                  <span data-i18n="signature.hint">SVG / PNG · transparent bg recommended</span>
+                </span>
+              </label>
+
+              <div class="sealcard-imprint signature-preview" id="signature-preview" hidden>
+                <span class="sealcard-imprint-wax" aria-hidden="true"></span>
+                <img id="signature-preview-img" alt="" />
+                <button id="signature-clear-btn" type="button" class="sealcard-imprint-clear" data-i18n="signature.clear">Remove seal</button>
+              </div>
+
+              <!-- Place on canvas — opens #seal-modal for drag / scale /
+                   rotate. Disabled until a seal is uploaded. -->
+              <button id="seal-place-btn" type="button" class="sealcard-place" data-i18n-title="workshop.seal.placeTitle" disabled>
+                <span class="sealcard-place-glyph" aria-hidden="true">✛</span>
+                <span class="sealcard-place-label" data-i18n="workshop.seal.place">Place on canvas…</span>
+              </button>
+
+              <!-- Ink settings — blend mode + flip + opacity (non-spatial,
+                   live on the cardstock; position/scale/rotation are direct-
+                   manipulation in #seal-modal). -->
+              <div class="sealcard-ink-row">
+                <span class="sealcard-ink-label" data-i18n="workshop.seal.blendLabel">Blend</span>
+                <div class="sealcard-blend-seg" id="seal-blend-seg" role="radiogroup" aria-label="Blend mode">
+                  <button type="button" class="sealcard-blend-chip active" data-val="normal" role="radio" aria-checked="true" data-i18n="workshop.seal.blend.normal">Normal</button>
+                  <button type="button" class="sealcard-blend-chip" data-val="multiply" role="radio" aria-checked="false" data-i18n="workshop.seal.blend.multiply">Multiply</button>
+                  <button type="button" class="sealcard-blend-chip" data-val="screen" role="radio" aria-checked="false" data-i18n="workshop.seal.blend.screen">Screen</button>
+                  <button type="button" class="sealcard-blend-chip" data-val="overlay" role="radio" aria-checked="false" data-i18n="workshop.seal.blend.overlay">Overlay</button>
+                  <button type="button" class="sealcard-blend-chip" data-val="darken" role="radio" aria-checked="false" data-i18n="workshop.seal.blend.darken">Darken</button>
+                  <button type="button" class="sealcard-blend-chip" data-val="lighten" role="radio" aria-checked="false" data-i18n="workshop.seal.blend.lighten">Lighten</button>
+                </div>
+              </div>
+
+              <button id="seal-flip-toggle" type="button" class="sealcard-flip-toggle" aria-pressed="false" data-i18n-title="workshop.seal.flipTitle">
+                <span class="sealcard-flip-glyph" aria-hidden="true">⇋</span>
+                <span data-i18n="workshop.seal.flip">Flip horizontal</span>
+              </button>
+
+              <div class="sealcard-meter-row">
+                <span class="sealcard-meter-label" data-i18n="signature.opacity">Opacity</span>
+                <input id="signature-opacity" type="range" min="0.2" max="1" step="0.05" value="1" class="sealcard-meter" />
+                <span class="sealcard-meter-readout" id="signature-opacity-val">100<span class="ru">%</span></span>
+              </div>
             </div>
           </div>
-          <div class="collage-slots" id="collage-slots"></div>
-        </div>
-      </section>
+        </section><!-- /❖ Seal -->
 
-      <!-- TAB · Library (presets) -->
+      </div><!-- /.bench-stage -->
+    </div><!-- /.bench-body -->
 
-    </div><!-- /.workshop-body -->
+    <!-- ═══════════════════════ ws-footer · sticky ═══════════════════════
+         Apply-to-all + Reset-all elevated from per-section buttons (Reset
+         bg / Reset torn / Apply frame to all in old IA) to a single sticky
+         footer. Apply is amber primary because it crosses photos (editor-
+         level action); Reset is ghost because it stays within this photo.
+         Modified-count starts as a static placeholder; Phase 11 wires the
+         live count via IntersectionObserver + section-state computation. -->
+    <footer class="ws-footer">
+      <div class="ws-footer-meta">
+        <!-- Initial placeholder replaced live by refreshWorkshopModifiedState
+             (Phase 11) — counts modified sections vs defaultCfg() baseline. -->
+        <span class="ws-footer-label">5 tools · 0 modified</span>
+      </div>
+      <div class="ws-footer-actions">
+        <button id="ws-reset-all-btn" type="button" class="ws-btn" data-i18n="workshop.resetAll" data-i18n-title="workshop.resetAllTitle">Reset all</button>
+        <button id="apply-frame-all-btn" type="button" class="ws-btn ws-btn-primary" data-i18n="frame.applyAll" data-i18n-title="frame.applyAllTitle">Apply to all photos</button>
+      </div>
+    </footer>
   </aside>
 </div>
 
@@ -869,69 +1401,6 @@
     </div>
     <div class="changelog-modal-body" id="changelog-body">
       <p data-i18n="changelog.loading">loading…</p>
-    </div>
-  </div>
-</dialog>
-
-<!-- CROP MODAL -->
-<dialog id="crop-modal" class="crop-modal" aria-labelledby="crop-modal-title">
-  <div class="crop-modal-inner">
-    <div class="crop-modal-head">
-      <div class="crop-modal-head-l">
-        <span class="crop-modal-step">01</span>
-        <h3 id="crop-modal-title" data-i18n="crop.title">Crop</h3>
-      </div>
-      <button id="crop-modal-close" type="button" class="modal-x" data-i18n-aria-label="crop.close" aria-label="Close">
-        <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
-      </button>
-    </div>
-    <div class="crop-aspect-bar">
-      <span class="crop-aspect-label" data-i18n="crop.aspect">Aspect</span>
-      <div class="crop-aspect-seg" id="crop-aspect-seg" role="radiogroup">
-        <button data-val="free" class="active" role="radio" aria-checked="true" data-i18n="crop.aspectFree">Free</button>
-        <button data-val="frame" role="radio" aria-checked="false" data-i18n="crop.aspectFrame">Frame</button>
-        <button data-val="1:1" role="radio" aria-checked="false">1<span class="crop-aspect-sep">:</span>1</button>
-        <button data-val="3:4" role="radio" aria-checked="false">3<span class="crop-aspect-sep">:</span>4</button>
-        <button data-val="4:3" role="radio" aria-checked="false">4<span class="crop-aspect-sep">:</span>3</button>
-        <button data-val="9:16" role="radio" aria-checked="false">9<span class="crop-aspect-sep">:</span>16</button>
-        <button data-val="16:9" role="radio" aria-checked="false">16<span class="crop-aspect-sep">:</span>9</button>
-      </div>
-    </div>
-    <div class="crop-rotate-bar">
-      <span class="crop-rotate-label" data-i18n="crop.rotate">Rotate</span>
-      <button id="crop-rot-ccw" type="button" class="crop-rot-btn" data-i18n-title="frame.rotateCcw" aria-label="Rotate 90° counter-clockwise">↶</button>
-      <input id="crop-angle" type="range" min="-180" max="180" step="0.5" value="0" class="crop-angle-slider" />
-      <button id="crop-rot-cw" type="button" class="crop-rot-btn" data-i18n-title="frame.rotateCw" aria-label="Rotate 90° clockwise">↷</button>
-      <span class="crop-angle-val" id="crop-angle-val">0.0°</span>
-      <button id="crop-rot-reset" type="button" class="crop-rot-text-btn" data-i18n="crop.rotateReset">Reset</button>
-    </div>
-    <div class="crop-stage" id="crop-stage">
-      <div class="crop-stage-glow" aria-hidden="true"></div>
-      <canvas id="crop-canvas"></canvas>
-      <div class="crop-rect" id="crop-rect">
-        <div class="crop-grid" aria-hidden="true">
-          <span class="crop-grid-v"></span><span class="crop-grid-v"></span>
-          <span class="crop-grid-h"></span><span class="crop-grid-h"></span>
-        </div>
-        <div class="crop-handle" data-h="nw"></div>
-        <div class="crop-handle" data-h="ne"></div>
-        <div class="crop-handle" data-h="sw"></div>
-        <div class="crop-handle" data-h="se"></div>
-        <div class="crop-handle crop-handle-edge" data-h="n"></div>
-        <div class="crop-handle crop-handle-edge" data-h="s"></div>
-        <div class="crop-handle crop-handle-edge" data-h="w"></div>
-        <div class="crop-handle crop-handle-edge" data-h="e"></div>
-      </div>
-    </div>
-    <div class="crop-modal-foot">
-      <div class="crop-readouts" id="crop-readouts">
-        <span class="crop-readout-pct"><em id="crop-pct-w">100</em>%<span class="crop-readout-x">×</span><em id="crop-pct-h">100</em>%</span>
-        <span class="crop-readout-px" id="crop-readout-px">— × — px</span>
-        <span class="crop-readout-ratio" id="crop-readout-ratio">≈ 1:1</span>
-      </div>
-      <button id="crop-reset" type="button" class="btn btn-secondary" data-i18n="crop.reset">Reset</button>
-      <button id="crop-cancel" type="button" class="btn btn-secondary" data-i18n="crop.cancel">Cancel</button>
-      <button id="crop-apply" type="button" class="btn btn-primary" data-i18n="crop.apply">Apply</button>
     </div>
   </div>
 </dialog>
@@ -1247,6 +1716,106 @@
       </div>
     </div>
 
+  </div>
+</dialog>
+
+<!-- SEAL MODAL — direct-manipulation placement of the seal/signature over the
+     WHOLE composition (photo OR frame margin / caption). Reuses the Compose
+     darkroom aesthetic + live render pipeline (CR.renderPreview on the inner
+     canvas draws the seal in place); the overlay below is just selection
+     chrome — a bounding box with 4 corner scale handles + a rotation knob.
+     Drag the body to move (cx/cy), corners/pinch to scale, knob/twist/rot-bar
+     to rotate. Apply cascades globally via applyCustomLogoEverywhere. -->
+<dialog id="seal-modal" class="compose-modal seal-modal" aria-labelledby="seal-modal-title">
+  <div class="compose-shell">
+
+    <header class="compose-topbar">
+      <div class="compose-topbar-l">
+        <button id="seal-close" type="button" class="compose-close" data-i18n-aria-label="sealPlace.close" aria-label="Close">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+        <span class="compose-breadcrumb"><b data-i18n="sealPlace.crumbName">Seal</b><span class="compose-breadcrumb-sub" data-i18n="sealPlace.crumbSub">· 印记</span></span>
+      </div>
+      <div class="compose-topbar-mid">
+        <h3 id="seal-modal-title" class="compose-title" data-i18n="sealPlace.title">Place your seal</h3>
+        <div class="compose-meta" id="seal-meta">—</div>
+      </div>
+      <div class="compose-topbar-r">
+        <span class="compose-kbd-hint" aria-hidden="true">
+          <span class="k">↑</span><span class="k">↓</span><span data-i18n="sealPlace.kbd.nudge">nudge</span>
+          <span class="compose-kbd-sep">·</span>
+          <span class="k">⇧</span><span data-i18n="sealPlace.kbd.free">free</span>
+          <span class="compose-kbd-sep">·</span>
+          <span class="k">esc</span><span data-i18n="sealPlace.kbd.exit">exit</span>
+        </span>
+        <button id="seal-reset-place" type="button" class="compose-reset-all" data-i18n="sealPlace.resetPlacement">Reset placement</button>
+      </div>
+    </header>
+
+    <main class="compose-stage seal-stage" id="seal-stage" data-focus="seal">
+      <div class="compose-axis-h" aria-hidden="true"></div>
+      <div class="compose-axis-v" aria-hidden="true"></div>
+
+      <div class="compose-stage-inner" id="seal-stage-inner">
+        <canvas id="seal-canvas" class="compose-canvas"></canvas>
+
+        <!-- Seal selection chrome — positioned/rotated over the seal by JS via
+             translate3d + rotate. Body is the drag target; corners scale;
+             the knob (on a stem above top-center) rotates. -->
+        <div class="seal-box" id="seal-box" hidden>
+          <div class="seal-handle seal-corner" data-h="nw" aria-hidden="true"></div>
+          <div class="seal-handle seal-corner" data-h="ne" aria-hidden="true"></div>
+          <div class="seal-handle seal-corner" data-h="se" aria-hidden="true"></div>
+          <div class="seal-handle seal-corner" data-h="sw" aria-hidden="true"></div>
+          <div class="seal-rot-stem" aria-hidden="true"></div>
+          <div class="seal-handle seal-rot-knob" data-h="rot" aria-hidden="true"></div>
+        </div>
+      </div>
+
+      <!-- Rotation slider bar — always available in the seal modal (precise /
+           accessible path; the on-canvas knob + two-finger twist are primary). -->
+      <div class="compose-rot-bar seal-rot-bar" id="seal-rot-bar">
+        <button id="seal-rot-ccw" type="button" class="compose-rot-quick" data-i18n-aria-label="sealPlace.rotateCcw" aria-label="Rotate −90°">↶</button>
+        <div class="compose-rot-track-wrap">
+          <input id="seal-rot-slider" type="range" min="-180" max="180" step="0.5" value="0" class="compose-rot-slider" aria-label="Seal rotation degrees" />
+          <span class="compose-rot-tick" style="left:0%"   data-label="-180°"></span>
+          <span class="compose-rot-tick" style="left:25%"  data-label="-90°"></span>
+          <span class="compose-rot-tick is-center" style="left:50%" data-label="0°"></span>
+          <span class="compose-rot-tick" style="left:75%"  data-label="90°"></span>
+          <span class="compose-rot-tick" style="left:100%" data-label="180°"></span>
+        </div>
+        <button id="seal-rot-cw" type="button" class="compose-rot-quick" data-i18n-aria-label="sealPlace.rotateCw" aria-label="Rotate +90°">↷</button>
+        <span id="seal-rot-bar-val" class="compose-rot-bar-val">0.0°</span>
+        <button id="seal-rot-zero" type="button" class="compose-rot-text-btn" data-i18n="sealPlace.rotateZero">归零</button>
+      </div>
+
+      <div class="compose-hint" id="seal-hint" data-i18n="sealPlace.hint.move">drag to move · corners scale · knob rotates</div>
+
+      <div class="compose-hud seal-hud" id="seal-hud" aria-hidden="true">
+        <div class="compose-hud-card">
+          <div class="compose-hud-key" id="seal-hud-key">POS</div>
+          <div class="compose-hud-val"><span id="seal-hud-val">—</span><span class="compose-hud-unit" id="seal-hud-unit"></span></div>
+        </div>
+      </div>
+
+      <!-- Mobile bottom actions — mirrors Compose's mobile pattern. -->
+      <div class="compose-mobile-actions seal-mobile-actions" id="seal-mobile-actions" hidden>
+        <button id="seal-mobile-cancel" type="button" class="btn btn-secondary" data-i18n="sealPlace.cancel">取消</button>
+        <button id="seal-mobile-apply"  type="button" class="btn btn-primary"   data-i18n="sealPlace.apply">应用</button>
+      </div>
+    </main>
+
+    <footer class="compose-bench seal-bench" id="seal-bench">
+      <div class="seal-bench-readout">
+        <span class="seal-bench-item"><span class="seal-bench-num" id="seal-bench-pos">—</span><span class="seal-bench-k" data-i18n="sealPlace.bench.pos">Position</span></span>
+        <span class="seal-bench-item"><span class="seal-bench-num" id="seal-bench-size">—</span><span class="seal-bench-k" data-i18n="sealPlace.bench.size">Size</span></span>
+        <span class="seal-bench-item"><span class="seal-bench-num" id="seal-bench-rot">—</span><span class="seal-bench-k" data-i18n="sealPlace.bench.rot">Angle</span></span>
+      </div>
+      <div class="compose-bench-actions">
+        <button id="seal-cancel" type="button" class="btn btn-secondary" data-i18n="sealPlace.cancel">Cancel</button>
+        <button id="seal-apply"  type="button" class="btn btn-primary"   data-i18n="sealPlace.apply">Apply</button>
+      </div>
+    </footer>
   </div>
 </dialog>
 

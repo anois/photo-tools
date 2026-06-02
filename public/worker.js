@@ -151,8 +151,8 @@ async function compose(canvas, args) {
   }
 
   // Frames can override the default rounded-rect silhouette via
-  // `frame.clipPath`. Used for shadow casting + photo clip + signature
-  // clip — see clientRender.js for the full rationale.
+  // `frame.clipPath`. Used for shadow casting + photo clip (the seal
+  // overlay is NOT clipped since 1.11.0) — see clientRender.js.
   const clipFn = (args.frame && typeof args.frame.clipPath === 'function')
     ? (ctx2, x, y, w, h) => args.frame.clipPath(ctx2, x, y, w, h, layout, args)
     : null;
@@ -226,27 +226,28 @@ async function compose(canvas, args) {
   if (captionImg && captionImg.close) captionImg.close();
   if (topBadgeImg && topBadgeImg.close) topBadgeImg.close();
 
+  // ─── Custom seal overlay — mirrors clientRender.js byte-for-byte (free-
+  //     placed over the WHOLE canvas, NOT clipped to fg; translate→rotate→
+  //     flipH→draw-centered; save/restore resets blend + alpha + transform). ─
   if (args.customLogo && args.customLogo.data) {
     let bm = null;
     try {
       const sigBlob = await fetch(args.customLogo.data).then((r) => r.blob());
       bm = await createImageBitmap(sigBlob);
     } catch (err) {
-      // Decoding a user signature should never abort the export — log and skip.
+      // Decoding a user seal should never abort the export — log and skip.
       console.warn('[worker customLogo] decode failed', err);
     }
     if (bm) {
       const rect = R.customLogoRect(layout, args.customLogo, bm.width / bm.height);
       if (rect) {
         ctx.save();
-        if (clipFn) {
-          clipFn(ctx, layout.fgLeft, layout.fgTop, layout.fgW, layout.fgH);
-          ctx.clip();
-        } else {
-          clipRoundRect(ctx, layout.fgLeft, layout.fgTop, layout.fgW, layout.fgH, layout.radius);
-        }
         ctx.globalAlpha = rect.opacity;
-        ctx.drawImage(bm, rect.x, rect.y, rect.w, rect.h);
+        ctx.globalCompositeOperation = rect.blend;
+        ctx.translate(rect.x + rect.w / 2, rect.y + rect.h / 2);
+        if (rect.rotation) ctx.rotate(rect.rotation * Math.PI / 180);
+        if (rect.flipH) ctx.scale(-1, 1);
+        ctx.drawImage(bm, -rect.w / 2, -rect.h / 2, rect.w, rect.h);
         ctx.restore();
       }
       bm.close();
@@ -356,6 +357,8 @@ async function renderJob(msg) {
     if (cfg.radiusOverride != null)   layoutOpts.radiusOverride     = cfg.radiusOverride;
     if (cfg.captionForceOverlay)      layoutOpts.captionForceOverlay = true;
     if (cfg.captionOverlayTextLift != null) layoutOpts.captionOverlayTextLift = cfg.captionOverlayTextLift;
+    // Instax slab (1.6.0+) — see clientRender.js mirror.
+    if (cfg.instaxSlab != null && cfg.frame === 'instax') layoutOpts.extraBottom = Math.max(60, Math.min(360, Number(cfg.instaxSlab)));
     // Per-edge padding overrides — see clientRender.js mirror.
     if (cfg.paddingTop != null)    layoutOpts.paddingTop    = cfg.paddingTop;
     if (cfg.paddingRight != null)  layoutOpts.paddingRight  = cfg.paddingRight;

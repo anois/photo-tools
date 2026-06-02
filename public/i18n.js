@@ -22,8 +22,6 @@
       brand: { sub: 'frame · caption · ship' },
       topbar: {
         photos: '张',
-        switch: '切换',
-        export: '导出',
         import: '导入',
         importCloud: '云端读取',
         importCloudTitle: '从配置好的 S3 / OSS / R2 云存储里挑照片加载到胶卷',
@@ -43,7 +41,6 @@
         subtitle: '点一个起点 · 微调 · 存为自己的 look',
         picker: '风格库',
         empty: '尚未选择',
-        modified: '已微调',
         factoryHead: '✦ 精选',
         userHead: '我的预设',
         userEmpty: '还没有保存预设 · 把当前调好的 look 存下来 ↓',
@@ -71,16 +68,50 @@
         open: '打开工作台',
         close: '关闭工作台',
         hint: '裁剪 · EXIF · 签名 · 拼贴',
-        padding: '边距 + 文字带',
-        topBadge: '顶部标记',
         exifOverride: '按图覆盖',
-        signature: '签名',
-        tabs: {
-          tweak: '微调',
-          exif: 'EXIF',
-          sign: '签名',
-          tile: '拼贴'
-        }
+        // ─── rev.2 「The Bench」 (1.9.0+) · 5 tools ───
+        tool: {
+          instrument: '仪器',
+          instrumentTitle: '仪器 · 跟着当前相框',
+          instrumentHint: '每张相框是一台仪器 · 切换相框看到对应的物质化面板',
+          caliper: '测量',
+          caliperTitle: '测量 · 画幅几何',
+          notation: '笔记',
+          notationTitle: '笔记 · 字幕 + EXIF',
+          notationHint: '照片在说什么 · 字幕带尺寸 + 自动 EXIF 字段（可逐张覆盖）',
+          arrange: '排版',
+          arrangeTitle: '排版 · 多张拼贴',
+          arrangeHint: '把多张照片夹在同一相框内 · 选布局后绑定伙伴照片',
+          seal: '印记',
+          sealTitle: '印记 · 签名',
+          sealHint: '可拖放到画面任意位置的蜡印水印'
+        },
+        topBadgeRow: '顶部标记 ▸',
+        instrument: {
+          lighting: '▾ 光影 · shadow'
+        },
+        caliper: {
+          frameGeom: '画幅几何'
+        },
+        notebook: {
+          field: '字段',
+          auto: '自动 · DETECTED',
+          hand: '手写 · OVERRIDE',
+          captionStripZone: '字幕带'
+        },
+        seal: {
+          pressTitle: '按下印章',
+          blendLabel: '混合',
+          blend: { normal: '正常', multiply: '正片叠底', screen: '滤色', overlay: '叠加', darken: '变暗', lighten: '变亮' },
+          flip: '水平翻转',
+          flipTitle: '左右镜像印记',
+          place: '放置到画面…',
+          placeTitle: '在画面上拖拽 / 缩放 / 旋转印记（可超出照片到相框区）'
+        },
+        footerSummaryFmt: '{total} 件工具 · {n} 处修改',
+        footerSummaryNone: '{total} 件工具 · 全部默认',
+        resetAll: '全部重置',
+        resetAllTitle: '本张照片的全部设置回到当前相框出厂默认'
       },
       topTemplate: {
         none: '关闭',
@@ -113,23 +144,10 @@
           import: '导入照片'
         }
       },
-      sections: {
-        source: '原图',
-        frame: '相框',
-        caption: '文字',
-        exif: 'EXIF',
-        collage: '拼贴',
-        signature: '签名',
-        export: '导出'
-      },
-      nav: { collapse: '收起侧栏', expand: '展开侧栏' },
       source: {
         importTitle: '导入照片',
-        hintDesktop: 'JPEG / PNG / HEIC · 可多选 · 拖到此处',
-        hintMobile: 'JPEG / PNG / HEIC · 点击选择'
       },
       frame: {
-        aspect: '画幅',
         aspectCustom: '自定义',
         aspectCustomTitle: '自定义画幅比例',
         aspectCustomWidth: '宽',
@@ -138,27 +156,14 @@
         aspectCustomCancel: '取消',
         aspectCustomPresets: '常用比例',
         aspectCustomError: '请输入 0.1 ~ 10 之间的有效比例',
-        style: '风格',
         padding: '边距',
         captionH: '文字带高度',
         captionAuto: '自动',
-        rotate: '旋转',
-        rotateCcw: '逆时针 90°',
-        rotateCw: '顺时针 90°',
-        crop: '裁剪…',
-        cropAndRotate: '裁剪 & 旋转…',
-        geometry: '几何调整',
-        geometryClean: '原图',
-        geometryCropped: '已裁剪',
         customBg: '自定义背景图',
         customBgHint: 'JPEG / PNG · 替换默认的自我磨砂背景源',
         customBgClear: '移除',
         presetSavePrompt: '为这个预设起个名字',
         presetDefaultName: '预设 {ts}',
-        advancedFrosted: '高级 · 毛玻璃参数',
-        advancedTorn: '高级 · 撕纸纸面',
-        advancedFilmMf: '高级 · 复古印品',
-        advancedShadow: '高级 · 阴影',
         tornJitter: '撕扯深度',
         tornStep: '撕扯密度',
         tornEdgeOpacity: '暗边强度',
@@ -166,14 +171,37 @@
         blur: '模糊',
         brightness: '亮度',
         saturation: '饱和度',
+        bgDarken: '压暗',
+        bgGrain: '颗粒',
+        galMatWidth: '衬纸宽度',
+        galLineSpacing: '双线间距',
+        galLineWeight: '线条粗细',
+        galLineColor: '线条颜色',
+        galColor: { ink: '墨色', charcoal: '炭灰', warm: '暖棕' },
+        f35Sprocket: '齿孔密度',
+        f35Grain: '颗粒强度',
+        f35EdgePrint: '胶片边印',
+        f35FrameNo: '帧号样式',
+        f35FrameNoOpt: { 'xx': '匿名 XX', '1-36': '半帧 24A', 'a-z': '字母 A–Z' },
+        instaxSlab: '底部留白',
+        instaxTint: '相纸色调',
+        instaxTintOpt: { pure: '纯白', cream: '奶油', aged: '陈旧' },
+        instaxStamp: '日期戳',
+        instaxRainbow: '彩虹标',
+        slideMountColor: '卡纸色',
+        slideMountColorOpt: { cream: '奶油', leather: '皮革棕', black: '档案黑' },
+        slideOuterRing: '外框色',
+        slideOuterRingOpt: { wine: '酒红', brass: '黄铜', charcoal: '炭黑' },
+        slidePebble: '颗粒密度',
+        slideBevel: '凹陷深度',
+        toggleOn: '开',
+        toggleOff: '关',
         defaultReadout: '默认',
         resetDefault: '恢复默认',
         radius: '圆角',
         captionOverlay: '水印嵌入图片',
         captionOverlayHint: '盖在照片底部渐变条上（35mm 真实底片观感）',
         captionOverlayLift: '水印离底部距离',
-        topTemplate: '风格',
-        topTemplateHint: '在照片上方留白处加一行品牌身份标记。某些相框（35mm 胶片）会用上方留白做自己的装饰。',
         shadowBlur: '模糊半径',
         shadowOffset: '纵向偏移',
         shadowOpacity: '不透明度',
@@ -205,7 +233,6 @@
         }
       },
       caption: {
-        template: '模板',
         templates: {
           'minimal-text': '极简',
           'brand-logo': '品牌·logo',
@@ -245,8 +272,6 @@
         }
       },
       exif: {
-        summary: 'EXIF',
-        summaryHint: '读取 · 编辑',
         warn: '<strong>⚠ 未在图片中读取到 EXIF</strong> — 下方输入框的灰色斜体文字只是示例占位。微信 / 社交平台上传会剥离元数据。请手动填写需要显示的字段，或改用原图。',
         labels: {
           make: '品牌',
@@ -283,18 +308,11 @@
         confirm: '使用此位置'
       },
       signature: {
-        uploadTitle: '上传签名',
         hint: 'SVG / PNG · 建议透明背景',
         clear: '移除签名',
-        position: '位置',
-        posBL: '左下',
-        posBC: '中下',
-        posBR: '右下',
-        size: '大小',
         opacity: '不透明度'
       },
       collage: {
-        layout: '布局',
         off: '关闭',
         h2: '左右（1×2）',
         v2: '上下（2×1）',
@@ -388,14 +406,12 @@
         presetHashApplied: '已应用分享预设',
         presetHashBad: '分享链接无效',
         presetEmptyName: '名字不能为空',
-        presetNonePicked: '请先选择一个预设',
         exporting: '导出中…',
         exported: '已导出',
         exportFail: '导出失败',
         batchPrefix: '批量 · {n} 张',
         batchDone: '完成 · {n} 个错误',
         batchFail: '批量失败',
-        hint: 'J/K 切换 · ⌘1-7 跳章节 · [ 折叠 · 空格 看原图 · ⌘E 导出 · Esc 关闭',
         s3Downloading: '下载中 · {name}',
         s3DownloadDone: '已下载 · {name}',
         s3DownloadFail: '下载失败：{msg}',
@@ -405,7 +421,6 @@
         s3MissingFields: '请先填好 endpoint / access key / secret',
         s3LinkCopied: '分享链接已复制（含读写凭证）',
         s3LinkFail: '复制失败，请手动选取地址栏',
-        s3Uploading: '上传中 {done}/{total} · {name}',
         s3UploadDone: '已上传 {n} 张',
         s3UploadFail: '上传失败：{msg}',
         s3Listing: '加载列表中…',
@@ -420,7 +435,6 @@
       gallery: {
         title: '云端画廊',
         back: '返回',
-        backTitle: '返回画布（Esc）',
         lightboxTitle: '大图预览',
         lightboxClose: '关闭（Esc）',
         lightboxPrev: '上一张（←）',
@@ -435,12 +449,9 @@
       },
       s3: {
         configTitle: '云存储配置',
-        title: '云相册',
         cloudEntry: '云相册（点击进入画廊）',
         open: '云相册配置',
         close: '关闭',
-        tabConfig: '配置',
-        tabGallery: '画廊',
         provider: '服务商',
         providerAws: 'AWS S3',
         providerR2: 'Cloudflare R2',
@@ -490,24 +501,10 @@
           aliyun: '<h4>① 建 OSS Bucket</h4><ol><li>登录 <a href="https://oss.console.aliyun.com" target="_blank" rel="noopener">阿里云 OSS 控制台</a> → <b>创建 Bucket</b></li><li>选 <b>Region</b>（如 <code>oss-cn-hangzhou</code>、<code>oss-cn-shenzhen</code>） —— 本面板「Region」字段填这个，<code>oss-</code> 前缀填不填都行，签名时会自动归一</li><li><b>读写权限</b> 选「私有」 —— 走签名 URL，不要公开读</li></ol><h4>② 拿 Access Key（强烈建议用 RAM 子账号）</h4><ol><li>进 <a href="https://ram.console.aliyun.com" target="_blank" rel="noopener">RAM 访问控制</a> → <b>用户</b> → <b>创建用户</b></li><li>访问方式勾选「<b>OpenAPI 调用访问</b>」（不要勾控制台登录）</li><li>创建完成那一刻就要立刻保存 <b>AccessKey ID</b> 和 <b>AccessKey Secret</b>（关闭页面后 secret 再也看不到）</li><li>给该用户授权 <code>AliyunOSSFullAccess</code>（生产建议改成针对单 bucket 的自定义 policy）</li></ol><h4>③ 配 CORS</h4><ol><li>进刚才的 bucket → <b>权限管理</b> → <b>跨域设置</b> → <b>创建规则</b></li><li>来源（AllowedOrigin）：<code>{origin}</code></li><li>方法（AllowedMethod）：勾 GET / PUT / DELETE / HEAD</li><li>HTTP header（AllowedHeader）：<code>*</code></li><li>暴露 header（ExposeHeader）：<code>ETag</code></li><li>缓存（MaxAgeSeconds）：3000</li></ol><h4>④ 字段对应</h4><ul><li><b>Region</b> → 步骤①里的 region（<code>cn-hangzhou</code> 或 <code>oss-cn-hangzhou</code> 都行）</li><li><b>Bucket</b> → 步骤①里起的名字</li><li><b>Folder / prefix</b> → 子目录，可留空</li><li><b>Access Key ID / Secret</b> → 步骤②</li><li><b>Endpoint</b> → 留默认，自动拼成 <code>https://&lt;bucket&gt;.oss-&lt;region&gt;.aliyuncs.com/</code></li></ul>'
         }
       },
-      footer: { brandShip: 'frame · caption · ship' },
       update: {
         available: '新版本已就绪',
         refresh: '刷新使用',
         dismiss: '关闭'
-      },
-      crop: {
-        title: '裁剪 & 旋转',
-        close: '关闭',
-        reset: '重置',
-        cancel: '取消',
-        apply: '应用',
-        readout: '{w}% × {h}%',
-        aspect: '比例',
-        aspectFree: '自由',
-        aspectFrame: '当前画幅',
-        rotate: '旋转',
-        rotateReset: '归零'
       },
       compose: {
         openTitle: '构图 · 直接拖拽调整裁剪、旋转与四边距',
@@ -521,7 +518,6 @@
         resetAll: '全部重置',
         session: '编排',
         requirePhoto: '需要先导入一张照片',
-        rotateKnob: '拖动以旋转 · 按住 Shift 自由旋转',
         kbd: { switch: '切换', free: '自由', exit: '退出' },
         focus: { crop: '裁剪 (1)', pad: '边距 (2)', rot: '旋转 (3)' },
         bench: { crop: '裁剪', pad: '边距', rot: '旋转', ratio: '比例', snap: '吸附', reset: '重置' },
@@ -537,7 +533,6 @@
           numeric: '精确数值',
           numericTitle: '精确数值',
           padSync: '左右同步',
-          padSyncTitle: '同步调整左右边距'
         },
         crop: {
           aspect: '比例',
@@ -548,9 +543,24 @@
         hud: {
           pad: '边距', crop: '裁剪', rot: '旋转', pan: '平移',
           min: '最小', below: '低于推荐',
-          free: '自由 · 1°', snap90: '吸附 · 90°'
         },
         tag: { crop: '裁', rot: '旋', pad: '距' }
+      },
+      sealPlace: {
+        title: '放置印记',
+        crumbName: '印记',
+        crumbSub: '· Seal',
+        close: '关闭',
+        cancel: '取消',
+        apply: '应用',
+        resetPlacement: '重置位置',
+        requirePhoto: '需要先导入一张照片',
+        rotateCcw: '逆时针 90°',
+        rotateCw: '顺时针 90°',
+        rotateZero: '归零',
+        hint: { move: '拖拽移动 · 拖角缩放 · 旋钮旋转' },
+        kbd: { nudge: '微移', free: '自由', exit: '退出' },
+        bench: { pos: '位置', size: '大小', rot: '角度' }
       },
       changelog: {
         button: '更新日志',
@@ -564,8 +574,6 @@
       brand: { sub: 'frame · caption · ship' },
       topbar: {
         photos: 'photos',
-        switch: 'switch',
-        export: 'export',
         import: 'import',
         importCloud: 'From Cloud',
         importCloudTitle: 'Pull photos from a configured S3 / OSS / R2 bucket into the rail',
@@ -585,7 +593,6 @@
         subtitle: 'apply a starting point · twist · save your own',
         picker: 'Looks',
         empty: '(none)',
-        modified: 'modified',
         factoryHead: '✦ Curated',
         userHead: 'My presets',
         userEmpty: 'No saved presets yet · save the current look below ↓',
@@ -613,16 +620,50 @@
         open: 'Open workshop',
         close: 'Close workshop',
         hint: 'crop · exif · sign · tile',
-        padding: 'Padding & caption',
-        topBadge: 'Top badge',
         exifOverride: 'Override (per photo)',
-        signature: 'Signature',
-        tabs: {
-          tweak: 'Tweak',
-          exif: 'EXIF',
-          sign: 'Sign',
-          tile: 'Tile'
-        }
+        // ─── rev.2 「The Bench」 (1.9.0+) · 5 tools ───
+        tool: {
+          instrument: 'Instrument',
+          instrumentTitle: 'Instrument · follows the active frame',
+          instrumentHint: 'Each frame is its own instrument — switch frames to see the matching material panel',
+          caliper: 'Caliper',
+          caliperTitle: 'Caliper · frame geometry',
+          notation: 'Notation',
+          notationTitle: 'Notation · caption + EXIF',
+          notationHint: "What the photo says · caption strip sizing + auto-detected EXIF fields (overridable per photo)",
+          arrange: 'Arrange',
+          arrangeTitle: 'Arrange · multi-photo collage',
+          arrangeHint: 'Clamp multiple photos into the same frame · pick a layout, then bind partner files',
+          seal: 'Seal',
+          sealTitle: 'Seal · signature',
+          sealHint: 'Wax-stamped mark — drag it anywhere on the composition'
+        },
+        topBadgeRow: 'Top badge ▸',
+        instrument: {
+          lighting: '▾ LIGHTING · shadow'
+        },
+        caliper: {
+          frameGeom: 'Frame geometry'
+        },
+        notebook: {
+          field: 'Field',
+          auto: 'Auto · detected',
+          hand: 'Hand · override',
+          captionStripZone: 'Caption strip'
+        },
+        seal: {
+          pressTitle: 'Press your seal',
+          blendLabel: 'Blend',
+          blend: { normal: 'Normal', multiply: 'Multiply', screen: 'Screen', overlay: 'Overlay', darken: 'Darken', lighten: 'Lighten' },
+          flip: 'Flip horizontal',
+          flipTitle: 'Mirror the seal left↔right',
+          place: 'Place on canvas…',
+          placeTitle: 'Drag / scale / rotate the seal on the composition (can extend into the frame margin)'
+        },
+        footerSummaryFmt: '{total} tools · {n} modified',
+        footerSummaryNone: '{total} tools · clean',
+        resetAll: 'Reset all',
+        resetAllTitle: "Revert this photo's everything to the active frame's factory defaults"
       },
       topTemplate: {
         none: 'None',
@@ -655,23 +696,10 @@
           import: 'Import photos'
         }
       },
-      sections: {
-        source: 'Source',
-        frame: 'Frame',
-        caption: 'Caption',
-        exif: 'EXIF',
-        collage: 'Collage',
-        signature: 'Signature',
-        export: 'Export'
-      },
-      nav: { collapse: 'Collapse panel', expand: 'Expand panel' },
       source: {
         importTitle: 'Import photos',
-        hintDesktop: 'JPEG / PNG / HEIC · multi-select · drag here',
-        hintMobile: 'JPEG / PNG / HEIC · tap to choose'
       },
       frame: {
-        aspect: 'Aspect',
         aspectCustom: 'Custom',
         aspectCustomTitle: 'Custom aspect ratio',
         aspectCustomWidth: 'Width',
@@ -680,27 +708,14 @@
         aspectCustomCancel: 'Cancel',
         aspectCustomPresets: 'Presets',
         aspectCustomError: 'Enter a valid ratio between 0.1 and 10',
-        style: 'Style',
         padding: 'Padding',
         captionH: 'Caption height',
         captionAuto: 'auto',
-        rotate: 'Rotate',
-        rotateCcw: 'Rotate 90° counter-clockwise',
-        rotateCw: 'Rotate 90° clockwise',
-        crop: 'Crop…',
-        cropAndRotate: 'Crop & rotate…',
-        geometry: 'Geometry',
-        geometryClean: 'untouched',
-        geometryCropped: 'cropped',
         customBg: 'Custom bg image',
         customBgHint: 'JPEG / PNG · replaces the self-bg blur source',
         customBgClear: 'Remove',
         presetSavePrompt: 'Name this preset',
         presetDefaultName: 'Preset {ts}',
-        advancedFrosted: 'Advanced · frosted bg',
-        advancedTorn: 'Advanced · torn paper',
-        advancedFilmMf: 'Advanced · vintage print',
-        advancedShadow: 'Advanced · shadow',
         tornJitter: 'Tear depth',
         tornStep: 'Tear density',
         tornEdgeOpacity: 'Edge ink',
@@ -708,14 +723,37 @@
         blur: 'Blur',
         brightness: 'Brightness',
         saturation: 'Saturation',
+        bgDarken: 'Darken',
+        bgGrain: 'Grain',
+        galMatWidth: 'Mat width',
+        galLineSpacing: 'Line spacing',
+        galLineWeight: 'Line weight',
+        galLineColor: 'Line color',
+        galColor: { ink: 'Ink', charcoal: 'Charcoal', warm: 'Warm' },
+        f35Sprocket: 'Sprocket density',
+        f35Grain: 'Border grain',
+        f35EdgePrint: 'DX edge print',
+        f35FrameNo: 'Frame №',
+        f35FrameNoOpt: { 'xx': 'XX (anon)', '1-36': '24A (half)', 'a-z': 'A–Z (letter)' },
+        instaxSlab: 'Bottom slab',
+        instaxTint: 'Paper tint',
+        instaxTintOpt: { pure: 'Pure', cream: 'Cream', aged: 'Aged' },
+        instaxStamp: 'Date stamp',
+        instaxRainbow: 'Rainbow stripe',
+        slideMountColor: 'Mount color',
+        slideMountColorOpt: { cream: 'Cream', leather: 'Leather', black: 'Archival' },
+        slideOuterRing: 'Outer ring',
+        slideOuterRingOpt: { wine: 'Wine', brass: 'Brass', charcoal: 'Charcoal' },
+        slidePebble: 'Pebble density',
+        slideBevel: 'Bevel depth',
+        toggleOn: 'ON',
+        toggleOff: 'OFF',
         defaultReadout: 'preset',
         resetDefault: 'Reset to default',
         radius: 'Corner radius',
         captionOverlay: 'Caption inside photo',
         captionOverlayHint: 'stamp on photo bottom (35mm authentic look)',
         captionOverlayLift: 'Lift from bottom',
-        topTemplate: 'Style',
-        topTemplateHint: 'Stamps brand identity into the frame’s top padding. Some frames (film-35) reserve that space for their own decoration.',
         shadowBlur: 'Blur radius',
         shadowOffset: 'Y offset',
         shadowOpacity: 'Opacity',
@@ -747,7 +785,6 @@
         }
       },
       caption: {
-        template: 'Template',
         templates: {
           'minimal-text': 'Minimal',
           'brand-logo': 'Brand · logo',
@@ -787,8 +824,6 @@
         }
       },
       exif: {
-        summary: 'EXIF',
-        summaryHint: 'read · edit',
         warn: '<strong>⚠ No EXIF in image</strong> — the gray italics in the inputs below are placeholder hints only. Social platforms (WeChat, Instagram, etc.) strip metadata on upload. Fill in the fields you want shown, or use the original file.',
         labels: {
           make: 'Make',
@@ -825,18 +860,11 @@
         confirm: 'Use this location'
       },
       signature: {
-        uploadTitle: 'Upload signature',
         hint: 'SVG / PNG · transparent bg recommended',
         clear: 'Remove signature',
-        position: 'Position',
-        posBL: 'Bottom-left',
-        posBC: 'Bottom-center',
-        posBR: 'Bottom-right',
-        size: 'Size',
         opacity: 'Opacity'
       },
       collage: {
-        layout: 'Layout',
         off: 'Off',
         h2: 'Side by side (1×2)',
         v2: 'Stacked (2×1)',
@@ -930,14 +958,12 @@
         presetHashApplied: 'applied shared preset',
         presetHashBad: 'invalid share link',
         presetEmptyName: 'name cannot be empty',
-        presetNonePicked: 'pick a preset first',
         exporting: 'exporting…',
         exported: 'exported',
         exportFail: 'export failed',
         batchPrefix: 'batch · {n} files',
         batchDone: 'done · {n} errors',
         batchFail: 'batch failed',
-        hint: 'J/K switch · ⌘1-7 jump · [ collapse · Space peek · ⌘E export · Esc close',
         s3Downloading: 'downloading · {name}',
         s3DownloadDone: 'downloaded · {name}',
         s3DownloadFail: 'download failed: {msg}',
@@ -947,7 +973,6 @@
         s3MissingFields: 'fill in endpoint / access key / secret first',
         s3LinkCopied: 'share link copied (contains read/write credentials)',
         s3LinkFail: 'copy failed — please select the URL manually',
-        s3Uploading: 'uploading {done}/{total} · {name}',
         s3UploadDone: 'uploaded {n} photo(s)',
         s3UploadFail: 'upload failed: {msg}',
         s3Listing: 'loading list…',
@@ -962,7 +987,6 @@
       gallery: {
         title: 'Cloud gallery',
         back: 'Back',
-        backTitle: 'Back to canvas (Esc)',
         lightboxTitle: 'Preview',
         lightboxClose: 'Close (Esc)',
         lightboxPrev: 'Previous (←)',
@@ -977,12 +1001,9 @@
       },
       s3: {
         configTitle: 'Cloud config',
-        title: 'Cloud gallery',
         cloudEntry: 'Cloud gallery (open)',
         open: 'Cloud config',
         close: 'Close',
-        tabConfig: 'Config',
-        tabGallery: 'Gallery',
         provider: 'Provider',
         providerAws: 'AWS S3',
         providerR2: 'Cloudflare R2',
@@ -1032,24 +1053,10 @@
           aliyun: '<h4>① Create the OSS bucket</h4><ol><li>Sign in to the <a href="https://oss.console.aliyun.com" target="_blank" rel="noopener">Aliyun OSS console</a> → <b>Create Bucket</b></li><li>Pick a <b>Region</b> (e.g. <code>oss-cn-hangzhou</code>, <code>oss-cn-shenzhen</code>). The "Region" field here accepts both <code>cn-hangzhou</code> and <code>oss-cn-hangzhou</code> — the SDK normalizes them</li><li>Choose <b>Private</b> for "read/write permission" — we use signed URLs, not public reads</li></ol><h4>② Get an access key (use a RAM sub-account, not the root key)</h4><ol><li>Open the <a href="https://ram.console.aliyun.com" target="_blank" rel="noopener">RAM access control</a> → <b>Users</b> → <b>Create user</b></li><li>Check <b>OpenAPI access</b> (do NOT enable console login)</li><li>Save the <b>AccessKey ID</b> and <b>AccessKey Secret</b> the moment they appear — the secret cannot be retrieved afterwards</li><li>Attach <code>AliyunOSSFullAccess</code> (in production, prefer a custom policy scoped to one bucket)</li></ol><h4>③ Configure CORS</h4><ol><li>Back to your bucket → <b>权限管理 (Permissions)</b> → <b>跨域设置 (CORS)</b> → <b>Create rule</b></li><li>AllowedOrigin: <code>{origin}</code></li><li>AllowedMethod: GET / PUT / DELETE / HEAD</li><li>AllowedHeader: <code>*</code></li><li>ExposeHeader: <code>ETag</code></li><li>MaxAgeSeconds: 3000</li></ol><h4>④ Fill these fields</h4><ul><li><b>Region</b> → step ① (with or without the <code>oss-</code> prefix)</li><li><b>Bucket</b> → step ①</li><li><b>Folder / prefix</b> → subdirectory, may be empty</li><li><b>Access Key ID / Secret</b> → step ②</li><li><b>Endpoint</b> → leave as auto, becomes <code>https://&lt;bucket&gt;.oss-&lt;region&gt;.aliyuncs.com/</code></li></ul>'
         }
       },
-      footer: { brandShip: 'frame · caption · ship' },
       update: {
         available: 'New version available',
         refresh: 'Refresh',
         dismiss: 'Dismiss'
-      },
-      crop: {
-        title: 'Crop & rotate',
-        close: 'Close',
-        reset: 'Reset',
-        cancel: 'Cancel',
-        apply: 'Apply',
-        readout: '{w}% × {h}%',
-        aspect: 'Aspect',
-        aspectFree: 'Free',
-        aspectFrame: 'Frame',
-        rotate: 'Rotate',
-        rotateReset: 'Zero'
       },
       compose: {
         openTitle: 'Compose — drag crop / rotation / per-edge padding directly',
@@ -1063,7 +1070,6 @@
         resetAll: 'Reset all',
         session: 'compose',
         requirePhoto: 'Import a photo first',
-        rotateKnob: 'Drag to rotate · hold Shift for free rotation',
         kbd: { switch: 'switch', free: 'free', exit: 'exit' },
         focus: { crop: 'Crop (1)', pad: 'Padding (2)', rot: 'Rotate (3)' },
         bench: { crop: 'Crop', pad: 'Padding', rot: 'Rotate', ratio: 'Ratio', snap: 'Snap', reset: 'Reset' },
@@ -1079,7 +1085,6 @@
           numeric: 'Numeric input',
           numericTitle: 'Precise values',
           padSync: 'Sync L/R',
-          padSyncTitle: 'Mirror left/right padding'
         },
         crop: {
           aspect: 'Aspect',
@@ -1090,9 +1095,24 @@
         hud: {
           pad: 'PAD', crop: 'CROP', rot: 'ROT', pan: 'PAN',
           min: 'min', below: 'below min',
-          free: 'free · 1°', snap90: 'snap · 90°'
         },
         tag: { crop: 'crop', rot: 'rot', pad: 'pad' }
+      },
+      sealPlace: {
+        title: 'Place your seal',
+        crumbName: 'Seal',
+        crumbSub: '· 印记',
+        close: 'Close',
+        cancel: 'Cancel',
+        apply: 'Apply',
+        resetPlacement: 'Reset placement',
+        requirePhoto: 'Import a photo first',
+        rotateCcw: 'Rotate −90°',
+        rotateCw: 'Rotate +90°',
+        rotateZero: 'Zero',
+        hint: { move: 'drag to move · corners scale · knob rotates' },
+        kbd: { nudge: 'nudge', free: 'free', exit: 'exit' },
+        bench: { pos: 'Position', size: 'Size', rot: 'Angle' }
       },
       changelog: {
         button: "What's new",

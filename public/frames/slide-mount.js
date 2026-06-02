@@ -5,30 +5,35 @@
  * aperture, the whole thing sitting inside a deep-wine outer tray.
  *
  * Visual stack (outside → inside):
- *   [deep wine outer border, ~28 base-px on all 4 sides]
- *   [pebbled-leather cream cardstock — tile-noise pattern + soft patches]
- *   [bevel cues on cream around photo: top+left highlight, bot+right shadow]
+ *   [outer ring (was wine, now cfg.slideRing) — ~28 base-px on all 4 sides]
+ *   [pebbled-leather cardstock (was cream, now cfg.slideMountColor) —
+ *    tile-noise pattern + soft patches]
+ *   [bevel cues on cardstock around photo: top+left highlight, bot+right shadow]
  *   [photo aperture edge: heavy dark hairline]
  *   [photo, inset with top+left two-stop inner shadow]
  *
  * Joins the film family as the third variant: film-35 is the negative,
  * film-mf is the print, slide-mount is the mounted transparency.
  *
- * Text on the mount comes from the project's native caption template
- * system — pick any caption template and it renders into the cream
- * area below the photo.
- *
- * Leather texture comes from a 128×128 tile-able value-noise canvas
- * filled via createPattern across the cream margin. This gives uniform
- * sub-pixel grain across the entire mount (vs. the earlier sparse-
- * ellipse approach, which only covered ~0.5% of the cream and read
- * as "scattered dots" not "leather"). On top of the per-pixel grain,
- * ~15 broad soft radial gradients give the surface low-frequency
- * unevenness ("this leather wears in unevenly over time").
+ * 1.7.0+ — 4 user-controllable knobs:
+ *   slideMountColor — cardstock color enum 'cream' | 'leather' | 'black'.
+ *                     Override bg.color via the frame's mountColors lookup
+ *                     AND rebuilds the pebble tile in that color (the tile
+ *                     IS the cardstock surface).
+ *   slideRing       — outer ring color enum 'wine' | 'brass' | 'charcoal'.
+ *                     Solid fill at the canvas perimeter (drawn last).
+ *   slidePebble     — pebble density multiplier 0.5–1.5× (5 buckets at
+ *                     step 0.25). Default 1.0× = 180 bumps; 0.5× = 90;
+ *                     1.5× = 270. Tile cache keyed by (mountColor, numBumps)
+ *                     so the rebuild cost is paid once per (color, density)
+ *                     combo across a session.
+ *   slideBevel      — bevel depth in base-1440 px (4–20). Default 8.
+ *                     Scales both bevelW (cream margin highlight/shadow
+ *                     width) and the inset shadow depth (capped at 36).
  *
  * Determinism: the noise tile is module-level cached using a fixed
- * seed, so the same tile is reused across every render in the same
- * worker / main-thread context. The low-frequency patches use a per-
+ * seed-per-combo, so the same tile is reused across every render in the
+ * same worker / main-thread context. The low-frequency patches use a per-
  * photo geometry seed so the same photo always shows the same patch
  * pattern across renders.
  */
@@ -37,34 +42,40 @@
   const root = (typeof self !== 'undefined' ? self : globalThis);
   const R = root.PhotoRender;
 
-  // Warm cream cardstock — slightly more saturated than gallery-white's
-  // #f4f3ee. Reads as "old leather with a hint of yellowing".
-  const PAPER = '#e6dac0';
-  // Deep wine / oxblood — the slide tray the mount sits inside. Cooler
-  // than #5a1820 (reads as brick-orange in low light), warmer than
-  // #2a1015 (would read black). #3a1822 lands as "tannic burgundy".
-  const BORDER = '#3a1822';
+  // ─── Cardstock color palette ─────────────────────────────────────────
+  // Three plausible mount stocks: 'cream' is the classic Kodachrome
+  // tan; 'leather' is a warm brown portfolio binder; 'black' is the
+  // formal black-acid-free archival mount. Same enum-lookup pattern
+  // as instax tintColors (1.6.0).
+  const MOUNT_COLORS = {
+    cream:   '#e6dac0',
+    leather: '#9c7a4a',
+    black:   '#2a1a14'
+  };
 
-  // ─── Pebbled-leather tile (module-level cache) ──────────────────────
-  // A 128×128 OffscreenCanvas filled with a hand-built pebbled texture:
-  // cream base + ~180 discrete tile-wrapping "bumps" (each painted as a
-  // light-side highlight ellipse offset upper-left and a dark-side
-  // shadow ellipse offset lower-right — fixed light direction so all
-  // bumps read 3D) + low-amplitude per-pixel noise on top for paper
-  // micro-grain. Reused across renders via createPattern('repeat').
-  //
-  // This shape gives the texture distinct pebble structure (vs. the
-  // earlier multi-octave value-noise version which was uniform and
-  // read as TV static / fabric weave). The reference is a 35mm slide
-  // mount's pressed-cardstock pebble surface.
+  // ─── Outer ring (tray) color palette ────────────────────────────────
+  // 'wine' is the original deep oxblood; 'brass' channels luxury slide-
+  // tray hardware; 'charcoal' is a sober archival border.
+  const RING_COLORS = {
+    wine:     '#3a1822',
+    brass:    '#9c7a4a',
+    charcoal: '#1a1410'
+  };
+
+  // ─── Pebbled-leather tile cache (combo-keyed) ─────────────────────────
+  // 128×128 OffscreenCanvas filled with a hand-built pebbled texture.
+  // Keyed by `${mountColor}_${numBumps}` so each (color × density) combo
+  // gets its own deterministic tile. Cache holds at most 3 colors × 5
+  // density buckets = 15 entries; each ~64 KB → ~960 KB worst case.
+  // Lazily filled — only combos the user actually picks are built.
   const TILE = 128;
-  let _leatherTile = null;
+  const _tileCache = new Map();
 
   function clampU8(v) {
     return v < 0 ? 0 : v > 255 ? 255 : (v | 0);
   }
 
-  function buildLeatherTile() {
+  function buildLeatherTile(baseColor, numBumps) {
     const canvas = (typeof OffscreenCanvas !== 'undefined')
       ? new OffscreenCanvas(TILE, TILE)
       : (function () {
@@ -74,20 +85,21 @@
         })();
     const ctx = canvas.getContext('2d');
 
-    // ── Step 1: cream base ──────────────────────────────────────────
-    ctx.fillStyle = PAPER;
+    // ── Step 1: solid base of the chosen mount color ──────────────────
+    ctx.fillStyle = baseColor;
     ctx.fillRect(0, 0, TILE, TILE);
 
     // ── Step 2: discrete pebble bumps with fixed-direction lighting ──
-    // Each bump is two overlapping radial gradients: a warm highlight
-    // at the upper-left (the lit half of the dome) and a sepia shadow
-    // at the lower-right (the shadowed side). The pair reads as a
-    // raised pebble. Drawing each bump at the 9 tile-offset positions
-    // (–TILE, 0, +TILE on both axes) handles seamless wrap; off-canvas
-    // copies are auto-clipped by the canvas.
+    // Each bump = highlight ellipse (upper-left of dome) + shadow ellipse
+    // (lower-right). Drawn at 9 tile-offset positions for seamless wrap.
+    // Highlight & shadow alphas are TUNED for the cream base; on dark
+    // bases they become subtler but still legible (additive light cream
+    // stays visible on darker substrate).
     const rng = (function () {
-      // Mulberry32 with a fixed tile seed — same tile every context.
-      let a = 0xC0FFEE15;
+      // Mulberry32 — same fixed seed per combo so tile is deterministic.
+      // Mix in numBumps so different density tiles vary slightly beyond
+      // just bump count.
+      let a = (0xC0FFEE15 ^ (numBumps * 73856093)) >>> 0;
       return function () {
         a = (a + 0x6D2B79F5) >>> 0;
         let t = a;
@@ -97,28 +109,23 @@
       };
     })();
 
-    const numBumps = 180;
     for (let i = 0; i < numBumps; i++) {
-      // Bump geometry — sample BEFORE the tile-offset loop so rng
-      // consumption stays deterministic.
       const cx = rng() * TILE;
       const cy = rng() * TILE;
-      const r = 2.2 + rng() * 2.6;          // 2.2..4.8 px radius
-      const aspect = 0.75 + rng() * 0.45;   // 0.75..1.2 (slightly ellipsoid)
+      const r = 2.2 + rng() * 2.6;
+      const aspect = 0.75 + rng() * 0.45;
       const rot = rng() * Math.PI * 2;
-      const hOff = r * 0.22;                 // highlight pushed up-left
-      const sOff = r * 0.28;                 // shadow pushed down-right
-      const sr = r * 0.82;                   // shadow gradient is tighter
+      const hOff = r * 0.22;
+      const sOff = r * 0.28;
+      const sr = r * 0.82;
 
       for (let oxi = -1; oxi <= 1; oxi++) {
         for (let oyi = -1; oyi <= 1; oyi++) {
           const ox = oxi * TILE, oy = oyi * TILE;
-          // Cull bumps fully outside the tile (their gradients won't
-          // contribute any visible pixels).
           if (cx + ox + r * 2 < 0 || cx + ox - r * 2 > TILE) continue;
           if (cy + oy + r * 2 < 0 || cy + oy - r * 2 > TILE) continue;
 
-          // Highlight (light from upper-left → highlight on upper-left)
+          // Highlight
           const hx = cx + ox - hOff;
           const hy = cy + oy - hOff;
           const hGrad = ctx.createRadialGradient(hx, hy, 0, hx, hy, r);
@@ -130,7 +137,7 @@
           ctx.ellipse(hx, hy, r, r * aspect, rot, 0, Math.PI * 2);
           ctx.fill();
 
-          // Shadow (lower-right of bump → small darker pocket)
+          // Shadow
           const sx = cx + ox + sOff;
           const sy = cy + oy + sOff;
           const sGrad = ctx.createRadialGradient(sx, sy, 0, sx, sy, sr);
@@ -146,13 +153,9 @@
     }
 
     // ── Step 3: low-amplitude per-pixel grain on top ────────────────
-    // The bumps give discrete structure; this adds paper micro-grain
-    // so the surface doesn't read as "smooth dome + smooth dome".
-    // Amplitude kept low (±7) — strong enough to break up smooth
-    // gradients, weak enough not to overwhelm the bump structure.
     const img = ctx.getImageData(0, 0, TILE, TILE);
     const data = img.data;
-    let seed2 = 0xCAFE0BA5;
+    let seed2 = (0xCAFE0BA5 ^ (numBumps * 19349663)) >>> 0;
     for (let i = 0; i < data.length; i += 4) {
       seed2 = (seed2 + 0x6D2B79F5) >>> 0;
       let t = seed2;
@@ -169,14 +172,15 @@
     return canvas;
   }
 
-  function getLeatherTile() {
-    if (!_leatherTile) _leatherTile = buildLeatherTile();
-    return _leatherTile;
+  function getLeatherTile(mountColor, numBumps) {
+    const key = mountColor + '_' + (numBumps | 0);
+    if (!_tileCache.has(key)) {
+      const base = MOUNT_COLORS[mountColor] || MOUNT_COLORS.cream;
+      _tileCache.set(key, buildLeatherTile(base, numBumps));
+    }
+    return _tileCache.get(key);
   }
 
-  // Mulberry32 + geometry-hash, same deterministic-noise pattern that
-  // torn-paper and film-mf use. Used for the LOW-frequency patches that
-  // ride on top of the tile noise.
   function mulberry32(seed) {
     let a = seed >>> 0;
     return function () {
@@ -202,20 +206,24 @@
     const W = layout.canvas.W, H = layout.canvas.H;
     const fgL = layout.fgLeft, fgT = layout.fgTop, fgW = layout.fgW, fgH = layout.fgH;
     const radius = layout.radius;
-    const borderW = Math.round(28 * s);
 
-    // ── Leather-grain tile pattern (4 strips on cream margin) ──────────
-    // Pattern is tiled at scale s so the grain feels physically constant
-    // across preview / standard / high quality renders. We apply via 4
-    // strict-no-overlap rects: top / bottom / left / right of the photo,
-    // each inside the wine border. The photo aperture stays untouched.
-    const tile = getLeatherTile();
+    // 1.7.0+ — read user-controllable knobs (resolveRenderParams gates
+    // them on cfg.slide* and ranges them safely; null falls through to
+    // frame defaults for legacy callers).
+    const p = (args && args.params && args.params.slideMount) || null;
+    const mountColor = p ? p.mountColor : 'cream';
+    const ringColor  = p ? p.outerRing  : 'wine';
+    const numBumps   = p ? p.numBumps   : 180;
+    const bevelBase  = p ? p.bevelDepth : 8;
+
+    const borderW = Math.round(28 * s);
+    const bevelW = Math.round(bevelBase * s);
+    const insetDepth = Math.round(Math.min(36, bevelBase * 3) * s);
+
+    // ── Leather-grain tile pattern (4 strips on cardstock margin) ──────
+    const tile = getLeatherTile(mountColor, numBumps);
     const pattern = ctx.createPattern(tile, 'repeat');
     if (pattern && pattern.setTransform) {
-      // Scale the pattern so each tile prints at the same physical size
-      // regardless of canvas resolution. Without this, "high quality"
-      // renders show much finer grain than preview, which is wrong —
-      // physical leather doesn't change density when you zoom in.
       const m = (typeof DOMMatrix !== 'undefined') ? new DOMMatrix() : null;
       if (m) {
         m.a = s; m.d = s;
@@ -223,27 +231,23 @@
       }
     }
     ctx.fillStyle = pattern;
-    // Top strip: between wine border and photo top
     if (fgT > borderW) {
       ctx.fillRect(borderW, borderW, W - 2 * borderW, fgT - borderW);
     }
-    // Bottom strip: between photo bottom and wine border
     if (H - borderW > fgT + fgH) {
       ctx.fillRect(borderW, fgT + fgH, W - 2 * borderW, H - borderW - (fgT + fgH));
     }
-    // Left strip: between wine border and photo left (only the band beside the photo)
     if (fgL > borderW) {
       ctx.fillRect(borderW, fgT, fgL - borderW, fgH);
     }
-    // Right strip: between photo right and wine border
     if (W - borderW > fgL + fgW) {
       ctx.fillRect(fgL + fgW, fgT, W - borderW - (fgL + fgW), fgH);
     }
 
     // ── Low-frequency unevenness (15 broad soft patches) ──────────────
-    // Seeded by photo geometry, distance-rejected from the photo so the
-    // bright/dark patches don't bleed onto the image. Adds the "old
-    // leather wears in unevenly" character that pure tile-noise misses.
+    // Light/dark patches both painted with mount-aware alphas. On dark
+    // mounts the dark patches are nearly invisible (good) and light
+    // patches add subtle reflection (also good).
     const rng = mulberry32(hashGeom(fgL, fgT, fgW, fgH));
     {
       let placed = 0, tries = 0;
@@ -270,93 +274,69 @@
       }
     }
 
-    // ── Bevel cues on cream margin (around photo aperture) ─────────────
-    // Physical depth comes from light direction (top-right). The
-    // chamfered edge of the aperture catches:
-    //   top + left edges of cream → faint highlight (light directly hits)
-    //   bottom + right edges of cream → faint shadow (cardstock receding away)
-    // All four strips strictly stay in the cream margin (no rect overlaps
-    // the photo zone), so no clipping needed.
-    const bevelW = Math.round(8 * s);
+    // ── Bevel cues on cardstock margin (around photo aperture) ─────────
+    // Strict-no-overlap rects in cream margin. bevelW scales with
+    // cfg.slideBevel; the aperture inset shadow scales 3× capped at 36.
+    if (bevelW > 0) {
+      const tHi = ctx.createLinearGradient(0, fgT - bevelW, 0, fgT);
+      tHi.addColorStop(0, 'rgba(255, 250, 225, 0)');
+      tHi.addColorStop(1, 'rgba(255, 250, 225, 0.48)');
+      ctx.fillStyle = tHi;
+      ctx.fillRect(fgL - bevelW, fgT - bevelW, fgW + bevelW * 2, bevelW);
 
-    // Top: highlight on cream just above photo top edge
-    const tHi = ctx.createLinearGradient(0, fgT - bevelW, 0, fgT);
-    tHi.addColorStop(0, 'rgba(255, 250, 225, 0)');
-    tHi.addColorStop(1, 'rgba(255, 250, 225, 0.48)');
-    ctx.fillStyle = tHi;
-    ctx.fillRect(fgL - bevelW, fgT - bevelW, fgW + bevelW * 2, bevelW);
+      const lHi = ctx.createLinearGradient(fgL - bevelW, 0, fgL, 0);
+      lHi.addColorStop(0, 'rgba(255, 250, 225, 0)');
+      lHi.addColorStop(1, 'rgba(255, 250, 225, 0.48)');
+      ctx.fillStyle = lHi;
+      ctx.fillRect(fgL - bevelW, fgT - bevelW, bevelW, fgH + bevelW * 2);
 
-    // Left: highlight on cream just left of photo left edge
-    const lHi = ctx.createLinearGradient(fgL - bevelW, 0, fgL, 0);
-    lHi.addColorStop(0, 'rgba(255, 250, 225, 0)');
-    lHi.addColorStop(1, 'rgba(255, 250, 225, 0.48)');
-    ctx.fillStyle = lHi;
-    ctx.fillRect(fgL - bevelW, fgT - bevelW, bevelW, fgH + bevelW * 2);
+      const bSh = ctx.createLinearGradient(0, fgT + fgH, 0, fgT + fgH + bevelW);
+      bSh.addColorStop(0, 'rgba(40, 25, 10, 0.38)');
+      bSh.addColorStop(1, 'rgba(40, 25, 10, 0)');
+      ctx.fillStyle = bSh;
+      ctx.fillRect(fgL - bevelW, fgT + fgH, fgW + bevelW * 2, bevelW);
 
-    // Bottom: shadow on cream just below photo bottom edge
-    const bSh = ctx.createLinearGradient(0, fgT + fgH, 0, fgT + fgH + bevelW);
-    bSh.addColorStop(0, 'rgba(40, 25, 10, 0.38)');
-    bSh.addColorStop(1, 'rgba(40, 25, 10, 0)');
-    ctx.fillStyle = bSh;
-    ctx.fillRect(fgL - bevelW, fgT + fgH, fgW + bevelW * 2, bevelW);
-
-    // Right: shadow on cream just right of photo right edge
-    const rSh = ctx.createLinearGradient(fgL + fgW, 0, fgL + fgW + bevelW, 0);
-    rSh.addColorStop(0, 'rgba(40, 25, 10, 0.38)');
-    rSh.addColorStop(1, 'rgba(40, 25, 10, 0)');
-    ctx.fillStyle = rSh;
-    ctx.fillRect(fgL + fgW, fgT - bevelW, bevelW, fgH + bevelW * 2);
+      const rSh = ctx.createLinearGradient(fgL + fgW, 0, fgL + fgW + bevelW, 0);
+      rSh.addColorStop(0, 'rgba(40, 25, 10, 0.38)');
+      rSh.addColorStop(1, 'rgba(40, 25, 10, 0)');
+      ctx.fillStyle = rSh;
+      ctx.fillRect(fgL + fgW, fgT - bevelW, bevelW, fgH + bevelW * 2);
+    }
 
     // ── Photo aperture edge: heavy dark hairline ───────────────────────
-    // Sharp cut transition. Heavier than other frames because we want
-    // the "cardstock thickness" boundary to read decisively.
     ctx.strokeStyle = 'rgba(15, 8, 4, 0.82)';
     ctx.lineWidth = Math.max(1.2, 1.4 * op);
     R.pathRoundRect(ctx, fgL, fgT, fgW, fgH, radius);
     ctx.stroke();
 
     // ── Photo aperture: inset shadow inside photo ──────────────────────
-    // Two-stop gradient so the shadow has a darker "shoulder" right at
-    // the edge fading to nothing — gives the recess more depth than a
-    // single-stop fade. Top + left only; bottom + right stay clean
-    // (light direction convention from upper-right).
-    ctx.save();
-    R.pathRoundRect(ctx, fgL, fgT, fgW, fgH, radius);
-    ctx.clip();
+    if (insetDepth > 0) {
+      ctx.save();
+      R.pathRoundRect(ctx, fgL, fgT, fgW, fgH, radius);
+      ctx.clip();
 
-    const insetDepth = Math.round(24 * s);
+      const topGrad = ctx.createLinearGradient(0, fgT, 0, fgT + insetDepth);
+      topGrad.addColorStop(0,    'rgba(0, 0, 0, 0.58)');
+      topGrad.addColorStop(0.25, 'rgba(0, 0, 0, 0.30)');
+      topGrad.addColorStop(1,    'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = topGrad;
+      ctx.fillRect(fgL, fgT, fgW, insetDepth);
 
-    const topGrad = ctx.createLinearGradient(0, fgT, 0, fgT + insetDepth);
-    topGrad.addColorStop(0,    'rgba(0, 0, 0, 0.58)');
-    topGrad.addColorStop(0.25, 'rgba(0, 0, 0, 0.30)');
-    topGrad.addColorStop(1,    'rgba(0, 0, 0, 0)');
-    ctx.fillStyle = topGrad;
-    ctx.fillRect(fgL, fgT, fgW, insetDepth);
+      const leftGrad = ctx.createLinearGradient(fgL, 0, fgL + insetDepth, 0);
+      leftGrad.addColorStop(0,    'rgba(0, 0, 0, 0.52)');
+      leftGrad.addColorStop(0.25, 'rgba(0, 0, 0, 0.28)');
+      leftGrad.addColorStop(1,    'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = leftGrad;
+      ctx.fillRect(fgL, fgT, insetDepth, fgH);
 
-    const leftGrad = ctx.createLinearGradient(fgL, 0, fgL + insetDepth, 0);
-    leftGrad.addColorStop(0,    'rgba(0, 0, 0, 0.52)');
-    leftGrad.addColorStop(0.25, 'rgba(0, 0, 0, 0.28)');
-    leftGrad.addColorStop(1,    'rgba(0, 0, 0, 0)');
-    ctx.fillStyle = leftGrad;
-    ctx.fillRect(fgL, fgT, insetDepth, fgH);
-
-    ctx.restore();
+      ctx.restore();
+    }
 
     // ── Re-stamp caption + topBadge ON TOP of the leather (emboss) ────
-    // compose() drew the caption + top-badge BEFORE our decorate ran,
-    // but the leather tile fill above just painted over the cream
-    // margin — including where they sit. Re-draw them here so they're
-    // visible on the leather. For the "stamped into leather" visual:
-    // paint a slightly-offset INVERTED (light) copy first, so each
-    // character carries a thin lit edge below it, then paint the
-    // original on top. Together they read as "pressed into the surface,
-    // lit from above".
-    //
-    // The inverted-light pass uses ctx.filter = 'brightness(0) invert(1)'
-    // — turns the rasterized dark text into white-on-transparent so
-    // we can composite it as a highlight. Available on main thread
-    // Canvas2D (Chrome 52+, Safari 15.4+) and OffscreenCanvas
-    // (workers); both render paths slide-mount runs in support it.
+    // The leather tile fill above just painted over the cream margin —
+    // including where the caption + top badge sit. Re-draw them with an
+    // embossed treatment: slight-offset INVERTED (light) copy below
+    // the dark text, so each character reads as pressed-into-leather.
     function restampEmbossed(img) {
       if (!img) return;
       const liftPx = Math.max(1, Math.round(1.5 * s));
@@ -376,12 +356,8 @@
       restampEmbossed(args.topBadgeImg);
     }
 
-    // ── Outer wine border ──────────────────────────────────────────────
-    // Four solid strips around the canvas perimeter. Drawn last so it
-    // overpaints any grain / bevel cues that landed in the border zone.
-    // Hard transition to the cream — matches how a slide sits flat
-    // against a darker tray.
-    ctx.fillStyle = BORDER;
+    // ── Outer ring (was wine, now user-choice via cfg.slideRing) ──────
+    ctx.fillStyle = RING_COLORS[ringColor] || RING_COLORS.wine;
     ctx.fillRect(0, 0, W, borderW);                 // top
     ctx.fillRect(0, H - borderW, W, borderW);       // bottom
     ctx.fillRect(0, 0, borderW, H);                 // left
@@ -389,21 +365,30 @@
   }
 
   R.registerFrame('slide-mount', {
-    bg: { type: 'solid', color: PAPER },
+    bg: { type: 'solid', color: MOUNT_COLORS.cream },
     textStyle: 'dark',
-    // Modest top/bottom padding boost — enough that the cream cardstock
-    // reads as a real mount with breathing room around the photo, with
-    // caption going into the bottom margin via the standard auto-route.
     layout: { topPaddingBoost: 100, bottomPaddingBoost: 120 },
-    // Compose-mode soft minimum — leather mount aperture, pebbled
-    // texture pattern, bevel cues, and outer wine border all need the
-    // wide cardstock border on every side. Below this the aperture
-    // bevel + caption emboss collide with the photo.
     minPadding: { top: 100, right: 80, bottom: 120, left: 80 },
-    // No drop shadow — the photo is INSET into the mount (depth comes
-    // from the inner-shadow gradient in decorate, not from a raised
-    // pop). Anything > 0 would visually fight the recessed metaphor.
     shadowDefault: { blur: 0, offsetY: 0, opacity: 0 },
+    // Frame default values for the 1.7.0+ user-controllable knobs.
+    // resolveRenderParams reads these when cfg.slide* fields are null.
+    // mountColors / ringColors are the enum lookups consumed by
+    // resolveRenderParams to apply tint / outerRing selections.
+    slideMount: {
+      mountColor: 'cream',
+      outerRing:  'wine',
+      pebbleScale: 1.0,
+      bevelDepth: 8,
+      mountColors: MOUNT_COLORS,
+      ringColors:  RING_COLORS
+    },
+    // ─── 1.7.x harness · cfg schema (4 knobs) ─────────────────────────
+    cfg: {
+      slideMountColor: { kind: 'swatches', options: ['cream', 'leather', 'black'], default: null, frameDefault: 'cream' },
+      slideOuterRing:  { kind: 'swatches', options: ['wine', 'brass', 'charcoal'], default: null, frameDefault: 'wine'  },
+      slidePebble:     { kind: 'slider', min: 0.5, max: 1.5, step: 0.25, default: null, frameDefault: 1.0 },
+      slideBevel:      { kind: 'slider', min: 4,   max: 20,  step: 1,    default: null, frameDefault: 8   }
+    },
     decorate: decorate
   });
 })();

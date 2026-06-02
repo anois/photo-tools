@@ -256,7 +256,7 @@ EXIF GPS is parsed automatically (the exifr options flip `gps: true`) and surfac
 
 The GPS line is opt-in via the `gps` show-field chip — defaults to off so users don't accidentally publish coordinates. When enabled it's appended to each template's existing extras row alongside lens / date, with the `brand-logo` template emitting it on its own line below the author so the layout doesn't get cramped.
 
-**Manual override + map picker** (`public/geopicker.js`). Sources that lost GPS during a social-platform round-trip can still get coordinates back: D · EXIF has `latitude` / `longitude` number inputs that write to `cfg.exifOverride` like every other override field. `buildExifForFile` parses lat/lon as numbers, recomputes `base.gps` via `formatGps`, and the caption row updates live. The 📍 button next to the inputs opens `<dialog id="geo-modal">`, which lazy-loads the vendored Leaflet (`vendor/leaflet.js` + `vendor/leaflet.css`, ~165 KB combined) on first call — same pattern as `heic.js`/libheif. PWA service worker doesn't precache the Leaflet bundle (lazy-only) or tile URLs (cross-origin), so users who never open the picker pay nothing. Offline-first visitors see a tiny error overlay pointing them back to the manual lat/lon inputs.
+**Manual override + map picker** (`public/geopicker.js`). Sources that lost GPS during a social-platform round-trip can still get coordinates back: the ✎ Notation tool's EXIF override zone has `latitude` / `longitude` number inputs that write to `cfg.exifOverride` like every other override field. `buildExifForFile` parses lat/lon as numbers, recomputes `base.gps` via `formatGps`, and the caption row updates live. The 📍 button next to the inputs opens `<dialog id="geo-modal">`, which lazy-loads the vendored Leaflet (`vendor/leaflet.js` + `vendor/leaflet.css`, ~165 KB combined) on first call — same pattern as `heic.js`/libheif. PWA service worker doesn't precache the Leaflet bundle (lazy-only) or tile URLs (cross-origin), so users who never open the picker pay nothing. Offline-first visitors see a tiny error overlay pointing them back to the manual lat/lon inputs.
 
 **Tile source: AutoNavi (高德地图) instead of OSM, with GCJ-02 ↔ WGS-84 correction.** OpenStreetMap's tile servers are firewalled in mainland China — the picker would render fully blank for the project's primary user. `webrd0{1-4}.is.autonavi.com/appmaptile?style=7&lang=zh_cn` is reachable from China and ships Chinese place labels by default. Catch: AutoNavi paints content using the GCJ-02 ("Mars coordinates") obfuscated CRS, so a marker placed at WGS-84 39.9042 / 116.4074 (天安门) lands ~500 m NW of where the landmark renders on the tile. EXIF GPS is WGS-84 by spec, so we transform at the Leaflet boundary: `wgs2gcj()` on every coord we hand to Leaflet (`setView`, `marker.setLatLng`); `gcj2wgs()` on every coord Leaflet emits (click, marker drag) before we store it. Both helpers live inline in `geopicker.js` (Krasovsky-1940 ellipsoid math, ~30 lines, 5-iteration fixed-point inverse). `outOfChina(lat, lng)` short-circuits both to identity outside the China bounding box, so non-Chinese photos see no shift. Style `7` is the full base map; `8` is a transparent road overlay (looks blank).
 
@@ -338,7 +338,7 @@ Frames are organized into 4 visual families. The seg buttons in `#frame-seg` car
 | `editorial` / `editorial-mirror` | `gallery-white` | asymmetric right/left strip layout (no successor) |
 | `kodak-pro` | `gallery-white` | red+black "Kodak Professional" wordmark stamp — recover via `cfg.topTemplate = 'wordmark'` on any frame |
 
-Each frame carries a `shadowDefault` (drop shadow under the rounded foreground photo). User-tunable via the **D · Shadow** UI (3 sliders) and overrideable in cfg. `opacity = 0` short-circuits the entire shadow render path.
+Each frame carries a `shadowDefault` (drop shadow under the rounded foreground photo). User-tunable via the workshop's ◉ Instrument panel `Lighting` strip (3 sliders: Blur / Drop / Depth — moved from Caliper in 1.10.2 because shadow defaults are intimately frame-bound) and overrideable in cfg. `opacity = 0` short-circuits the entire shadow render path.
 
 **Frame `decorate` hook**. `R.registerFrame` accepts an optional `decorate(ctx, layout, args)` function. `compose()` runs it AFTER caption rendering and BEFORE the user signature overlay, mirrored across `clientRender.js` and `worker.js`. Use it for frame-specific decorative passes — gallery passe-partout, film sprocket holes, editorial separator lines, slide-mount labels, etc. Must be self-contained: workers have no DOM, so don't call `document.createElement` from inside; use `ctx` primitives + `R.pathRoundRect` (the public rounded-rect path helper, with arcTo fallback for older Safari).
 
@@ -372,7 +372,7 @@ Independent of the bottom caption template. Stamps a brand-identity line into th
 
 `R.buildTopBadgeSvg(exif, layout, opts)` returns a full-canvas SVG that `compose()` rasterizes via `svgToImage` and `drawImage`s **BEFORE** the frame's `decorate` hook. Rationale: frames that own their top padding (film-35's edge print, future kodak-style stamps) take visual primacy over the user-applied badge — `decorate` paints over the badge. For clean frames (frosted-noir, instax, torn, gallery-white) there's no conflict and the badge shows through. Badge auto-hides when top padding is below ~30 base-px (extreme custom aspects).
 
-Lives in **E · Top** UI block (workshop tweak tab). Goes through `LOOK_KEYS` so preset / share-code captures it. Frame switch resets to `'none'`.
+Lives in the workshop's **◉ Instrument** panel as a universal top-of-frame badge strip above the 7 frame-instrument cards (moved from Notation in 1.10.0 — top badge is a frame decoration, not a caption choice). Goes through `LOOK_KEYS` so preset / share-code captures it. Frame switch resets to `'none'`.
 
 ### Caption overlay text lift (`cfg.captionOverlayTextLift`, 0.22+)
 
@@ -410,25 +410,38 @@ All bottom-strip templates support a **flash indicator** (small ⚡ glyph) when 
 
 (There is no longer a backend allow-list to update — `app.js` passes `cfg.template` straight through to `R.buildCaptionSvg`, which falls back to the default if unknown.)
 
-### Custom signature overlay (`public/shared/render.js → customLogoRect`)
+### Custom seal / signature overlay (`public/shared/render.js → customLogoRect`, v2 since 1.11.0)
 
-Users can upload one signature image (SVG or PNG) which gets drawn as the very last layer of `compose()`, clipped to the rounded foreground rect so it never escapes into the frame area.
+Users upload one seal image (SVG or PNG) drawn as the very last layer of `compose()`. **It is NOT clipped to the photo** — it floats freely over the WHOLE canvas, so it can sit on the photo OR in the frame margin / border / caption band. Placement is direct-manipulation (drag / scale / rotate) in the `#seal-modal` surface, not a 9-anchor grid.
+
+**v2 schema** (`cfg.customLogo`, one object — all fields ride the existing preset/cascade plumbing via `{...customLogo}` spread, so nothing structural changed there):
 
 | field | type | meaning |
 |---|---|---|
-| `customLogo.data` | dataURL | the uploaded SVG/PNG, base64-inlined |
-| `customLogo.type` | `'svg'` / `'png'` | source format (decided at upload from MIME prefix) |
-| `customLogo.position` | `'br'` / `'bl'` / `'bc'` | bottom-right / bottom-left / bottom-center anchor |
-| `customLogo.scale` | 0.03–0.20 | width relative to fg width (UI exposes 3–20%) |
-| `customLogo.opacity` | 0.2–1.0 | global alpha multiplier |
+| `data` | dataURL | the uploaded SVG/PNG, base64-inlined |
+| `type` | `'svg'` / `'png'` | source format (MIME prefix at upload) |
+| `cx` / `cy` | 0–1 | normalized **center** position relative to the full canvas (`layout.canvas.W/H`) |
+| `scale` | 0.02–0.60 | width as a fraction of **canvas width** (was fg width in v1) |
+| `rotation` | deg | clockwise; applied around the seal center |
+| `flipH` | bool | horizontal mirror (applied after rotation in the seal's local x-axis) |
+| `blend` | enum | `'normal'\|'multiply'\|'screen'\|'overlay'\|'darken'\|'lighten'` → `customLogoRect` returns it pre-translated to a `globalCompositeOperation` string |
+| `opacity` | 0.2–1.0 | global alpha multiplier |
 
-`customLogo` lives on each per-photo `cfg` (or `null` when no signature), but **upload always cascades**: a new image writes to `draftCfg`, every loaded photo, and `localStorage['phototools.customLogo']`. Per-photo position/scale/opacity edits stay local; "Apply frame to all" propagates them along with the frame settings. Re-uploading the same image while one is already loaded preserves the active photo's position/scale/opacity.
+**Render**: `customLogoRect(layout, customLogo, imgAspect)` returns `{x,y,w,h,rotation,flipH,blend,opacity}` (x/y = top-left of the UNROTATED box; longer edge capped at `0.8·max(canvasW,canvasH)`). Both compose paths (`clientRender.js` preview + `worker.js` export) consume the rect identically: `save → globalAlpha → globalCompositeOperation=blend → translate(center) → rotate → flipH ? scale(-1,1) → drawImage(-w/2,-h/2) → restore`. **The two blocks must stay byte-mirrored** — `restore()` resets the blend so it can't leak into later draws. No clip.
+
+**Global identity model** (1.11.0 — unified the old "upload global / position per-photo" split): the entire seal object is ONE global identity. `applyCustomLogoEverywhere(payload)` is the single commit path — used by upload, clear, the panel blend/flip/opacity controls, and the `#seal-modal` Apply — writing to `draftCfg` + every loaded photo + `localStorage['phototools.customLogo']`. `patchSeal(partial)` merges a field change and re-commits globally. "Apply frame to all" also carries `customLogo`.
+
+**UI split**: the ❖ Seal workshop tool ("seal maker's desk") holds upload + the non-spatial *ink settings* (blend seg `#seal-blend-seg`, flip toggle `#seal-flip-toggle`, opacity `#signature-opacity`) + a "Place on canvas…" CTA (`#seal-place-btn`, disabled until a seal is loaded). Spatial properties (cx/cy/scale/rotation) are edited only in `#seal-modal` via the `SEAL_PLACE` IIFE (drag body to move, corner handles / pinch to scale, rotation knob / two-finger twist / rot-bar to rotate; arrows nudge, Shift = free-rotate; ±3° snap to 0/90/180/270). `SEAL_PLACE` reuses the Compose darkroom shell CSS + `snapshotCfgForRender` projection (overriding `customLogo` with the working seal); because cx/cy/scale are canvas-normalized, the displayed canvas CSS box IS the coordinate space — no layout coupling needed for the overlay box.
+
+**Migration** (`migrateCustomLogo` in app.js): v0 string-anchor / v1 `{position:{anchor,dx,dy}, scale(fg-rel)}` → v2. 9 anchors map to a normalized canvas-center table (mirrored in render.js's `legacyAnchorCenter` defensive fallback); dx/dy fold into cx/cy as canvas fractions; `scale × 0.85` (fg ≈ 0.85 of canvas width); rotation/flipH/blend default; `position` deleted. Runs at every persistence boundary (localStorage hydrate, preset apply).
 
 Decoding:
-- Main thread: `customLogoCache` (Map, max 3) in `public/clientRender.js`, keyed by dataURL → `Promise<ImageBitmap>`. Same dataURL hits the cache, so dragging the size slider doesn't re-decode.
-- Workers: each worker decodes on every job (no cache); cheap because PNG/SVG decode is fast and batch jobs typically share one signature.
+- Main thread: `customLogoCache` (Map, max 3) in `public/clientRender.js`, keyed by dataURL → `Promise<ImageBitmap>`.
+- Workers: each worker decodes on every job (no cache).
 
-Storage: 2MB upload cap (pre-encoding); SVG dataURLs are usually <50KB, PNG can reach the cap. Larger files surface `status.signatureTooBig` and are rejected. The clear button (`#signature-clear-btn`) wipes the signature from every loaded photo + draftCfg + localStorage in one shot — there is no per-photo remove.
+SVG note: `ensureSvgDimensions` (app.js) still required at upload — `createImageBitmap` rejects dimensionless SVGs and workers have no `HTMLImageElement` fallback.
+
+Storage: 2MB upload cap (pre-encoding). The clear button (`#signature-clear-btn`) wipes the seal from every loaded photo + draftCfg + localStorage in one shot.
 
 ### LOOK system — preset library as first-class entry (0.20+)
 
@@ -502,7 +515,7 @@ Adding / editing a factory preset:
 
 Render path: in `compose()`, when `params.bg.type === 'frosted'` AND `args.customBg.data` is set, the bg pass decodes the dataURL via `decodeCustomBg` (LRU cache, sibling of `decodeCustomLogo`) and uses it as the source instead of `bitmap`. Bg cache is bypassed when customBg is set — keying caches by full dataURL would balloon memory and the blur is GPU-cheap to redo. Custom bg also ignores `cfg.rotation` deliberately: rotating the photo shouldn't tilt the chosen backdrop.
 
-UI: in B · Frame's "Advanced · frosted bg" details panel, below the slider trio. Upload cascades the compressed dataURL to `draftCfg`, every loaded photo, and `localStorage['phototools.customBg']`. The picker accepts JPEG / PNG / HEIC; HEIC sources route through `HeicTools.transcode` first.
+UI: in the ◉ Instrument tool's `frosted-noir` frame card, below the bg-rack slider trio. Upload cascades the compressed dataURL to `draftCfg`, every loaded photo, and `localStorage['phototools.customBg']`. The picker accepts JPEG / PNG / HEIC; HEIC sources route through `HeicTools.transcode` first.
 
 Compression at upload time: `compressBgImage()` decodes the source via `createImageBitmap`, downscales to fit `CUSTOMBG_MAX_EDGE` (1024px long edge), and re-encodes as JPEG `q=0.72`. The bg layer renders behind a sigma-60..90 blur, so detail below ~4 px in the source is invisible in output — anything finer than 1024×0.72 is just bytes for nothing, and going much smaller starts letting JPEG block artifacts poke through the blur in lighter midtones. There's still a `CUSTOMBG_HARD_CAP` (32MB raw) so the picker refuses files large enough that even attempting decode would be wasteful, but otherwise any source size is accepted. Clear wipes everything globally.
 
@@ -524,7 +537,7 @@ In collage mode the crop applies to the primary cell only — partner files have
 
 ### Compose mode (`<dialog id="compose-modal">`, 1.1+)
 
-The 6th lookbar block ("构图 / Compose", parallel to LOOK + the four lookchips) opens a full-bleed direct-manipulation surface that unifies **crop / rotation / per-edge padding** into one optical-bench instrument. Replaces the old "two ↶↷ buttons + separate crop modal" UX with one cohesive language; the old crop modal still lives in the workshop drawer for now but Compose is the primary path.
+The 6th lookbar block ("构图 / Compose", parallel to LOOK + the four lookchips) opens a full-bleed direct-manipulation surface that unifies **crop / rotation / per-edge padding** into one optical-bench instrument. Replaces the old "two ↶↷ buttons + separate crop modal" UX with one cohesive language. Compose is now the *only* crop/rotate entry: the legacy `#crop-modal` was deleted in 1.10.7, and the workshop ┃ Caliper tool's redundant "裁剪 & 旋转…" CTA button (which had been redirected to open Compose) was removed entirely in the same cleanup — the lookbar Compose block + the ⌘K "裁剪 & 旋转" command are the two remaining entry points.
 
 **Aesthetic**: darkroom + view-camera ground glass. Scoped warm-dark palette (`--c-ink-*` / `--c-cream-*`) + single amber safelight (`--c-amber: #d4a574`) + film-leader callout + measurement HUD that follows the cursor. The Compose dialog is the only place in the app that breaks from the main red-accent palette — justified because it reads as "a different room you've stepped into."
 
@@ -615,7 +628,7 @@ A photo entry can pair with up to three additional photos to render as a multi-c
 | `v3` | 3×1 column | 2 |
 | `2x2` | 2×2 grid | 3 |
 
-When `cfg.collage.layout` is set AND the active entry has the right number of partner files, `compose()` swaps the single-bitmap fg pass for a cell loop using `R.collageCellRects(collage, layout)`. Each cell uses the same rounded radius as the full fg, so the visual reads as one rounded panel split by 12-px gutters (scaled). Caption + frame + signature still treat the collage as one unit — caption uses the primary photo's EXIF, signature pins to the global fg corner, shadow renders under the full envelope.
+When `cfg.collage.layout` is set AND the active entry has the right number of partner files, `compose()` swaps the single-bitmap fg pass for a cell loop using `R.collageCellRects(collage, layout)`. Each cell uses the same rounded radius as the full fg, so the visual reads as one rounded panel split by 12-px gutters (scaled). Caption + frame + seal still treat the collage as one unit — caption uses the primary photo's EXIF, the seal is canvas-normalized (cx/cy over the whole canvas) so it just works regardless of cell layout, shadow renders under the full envelope.
 
 HEIC partner files are transcoded via `HeicTools.transcode` at upload time (in the per-slot file input handler in `app.js`), same as primaries, so `entry.partnerFiles[i]` is always JPEG/PNG by the time it reaches the worker.
 
@@ -631,22 +644,22 @@ Each `state.files[i]` carries its own complete `cfg` (frame / aspect / template 
 
 **`radiusOverride` / `captionForceOverlay`** were added 2026-05-09 (0.19.0) as the first cfg-level unlocks of frame-internal knobs. `radiusOverride: null` means "fall through to frame.layout.radiusOverride or aspect base"; any number 0–72 wins. `captionForceOverlay: true` short-circuits `computeCaptionZone` straight to overlay regardless of `prefer` / available padding. Both are reset to default on frame switch (consistent with bg* / shadow*) and propagated by "Apply frame to all" + presets.
 
-**`tornJitter` / `tornStep` / `tornEdgeOpacity`** (0.21+) — torn-paper frame's procedural-tear knobs, exposed under "Advanced · torn paper" in B · Frame, mirroring frosted-advanced's blur/brightness/saturation triplet. `null` = use frame default (jitter 6 / step 7 / edgeOpacity 0.22). Plumbed via `R.resolveRenderParams` into `params.torn`, which `tornClip` + `decorate` consume from `args.params.torn`. Same reset / preset / share-code semantics as the radius/overlay pair.
+**`tornJitter` / `tornStep` / `tornEdgeOpacity`** (0.21+) — torn-paper frame's procedural-tear knobs, exposed in the ◉ Instrument tool's `torn` frame card, mirroring frosted-advanced's blur/brightness/saturation triplet. `null` = use frame default (jitter 6 / step 7 / edgeOpacity 0.22). Plumbed via `R.resolveRenderParams` into `params.torn`, which `tornClip` + `decorate` consume from `args.params.torn`. Same reset / preset / share-code semantics as the radius/overlay pair.
 
-**`filmMfAge`** (0.22+) — film-mf vintage-aging strength (0..1). Single composite scalar that scales all of the frame's `decorate`-baked aging effects (sepia tint, partial-fade gradient, corner vignette, foxing speck alphas) uniformly. `null` = use frame default `filmMf: { age: 1.0 }` (full vintage); 0 = clean print (paper bg + deckle hairline + library notation persist; sepia / fade / vignette / foxing all suppressed). Exposed under "Advanced · vintage print" in B · Frame as a single 0–100% slider. Plumbed via `R.resolveRenderParams` into `params.filmMf`, which film-mf's `decorate` reads from `args.params.filmMf.age`. Same reset / preset / share-code semantics as the torn triplet.
+**`filmMfAge`** (0.22+) — film-mf vintage-aging strength (0..1). Single composite scalar that scales all of the frame's `decorate`-baked aging effects (sepia tint, partial-fade gradient, corner vignette, foxing speck alphas) uniformly. `null` = use frame default `filmMf: { age: 1.0 }` (full vintage); 0 = clean print (paper bg + deckle hairline + library notation persist; sepia / fade / vignette / foxing all suppressed). Exposed in the ◉ Instrument tool's `film-mf` frame card as a single 0–100% slider. Plumbed via `R.resolveRenderParams` into `params.filmMf`, which film-mf's `decorate` reads from `args.params.filmMf.age`. Same reset / preset / share-code semantics as the torn triplet.
 
-**`topTemplate`** (0.22+) — `'none' | 'brand-model' | 'brand-only' | 'wordmark'`. Top-of-frame badge picker (workshop's **E · Top** section). Independent of bottom caption template. Renders via `R.buildTopBadgeSvg` before frame `decorate`. Resets to `'none'` on frame switch. See "Top-of-frame badge" section above for the full design.
+**`topTemplate`** (0.22+) — `'none' | 'brand-model' | 'brand-only' | 'wordmark'`. Top-of-frame badge picker. Lives in workshop's **◉ Instrument** panel as a universal strip above the 7 frame-instrument cards (1.10.0 — moved from Notation; top badge is a frame decoration, not a caption choice). Independent of bottom caption template. Renders via `R.buildTopBadgeSvg` before frame `decorate`. Resets to `'none'` on frame switch. See "Top-of-frame badge" section above for the full design.
 
-**`captionOverlayTextLift`** (0.22+) — 0–120 base-1440 px. Only meaningful when `captionForceOverlay === true`. Lifts overlay caption text up within the gradient. Slider sits in the same C · Template section as the forceOverlay toggle (hidden when overlay is off via `els.captionOverlayLiftRow.hidden`). Resets to 0 on frame switch.
+**`captionOverlayTextLift`** (0.22+) — 0–120 base-1440 px. Only meaningful when `captionForceOverlay === true`. Lifts overlay caption text up within the gradient. Slider sits in workshop's **✎ Notation** panel inside the "Caption strip" zone, right under the overlay toggle (hidden when overlay is off via `els.captionOverlayLiftRow.hidden`). Moved from Caliper in 1.10.0 alongside `captionHeight` + `captionForceOverlay` — the three knobs that describe "where the caption sits" sit together in Notation. Resets to 0 on frame switch.
 
 **`paddingTop` / `paddingRight` / `paddingBottom` / `paddingLeft`** (1.1+) — per-edge padding overrides in base-1440 px. `null` = follow `padding` scalar + frame's `topPaddingBoost` / `bottomPaddingBoost` + aspect's `bottomPaddingBias` (legacy behavior preserved). A concrete number on any edge WINS outright — frame boost + aspect bias are bypassed on that edge alone. Source of input: the Compose mode dialog (drag the edge push-bar OR type into the bench's T/R/B/L inputs). All four reset to null on frame switch (consistent with bg* / shadow*) so a freshly-selected frame gets its natural decoration space back. Frames declare optional `minPadding: { top, right, bottom, left }` on their def — Compose's warning band surfaces violations but doesn't clamp.
 
-**Adding a new cfg field — full checklist (DO NOT SKIP).** A cfg field that's read in render code (clientRender / worker / shared/render.js) is *not* automatically reachable from the UI just because it exists on the cfg object. There are TWO whitelist projections that strip unknown fields, and forgetting either silently makes the feature look "completely broken" while the schema looks correct:
+**Adding a new cfg field — full checklist (DO NOT SKIP).** A cfg field that's read in render code (clientRender / worker / shared/render.js) is *not* automatically reachable from the UI just because it exists on the cfg object. Multiple touchpoints have to know about it. For **per-frame knobs declared via `frame.cfg` schema** (the harness pattern — see [public/frames/film-35.js](public/frames/film-35.js) or any frame file), #1 + #2 + #3 + #4 are handled automatically — declaring `frame.cfg.X = { kind, default, frameDefault }` flows into `defaultCfg()` via `R.collectFrameCfgDefaults()`, `LOOK_KEYS` via `R.collectFrameCfgKeys()`, and both `doRender` + `buildConfigForFile` projections via the LOOK_KEYS iteration (1.10.5+). For non-frame cfg keys (cross-frame knobs like `captionHeight` / `topTemplate` / `paddingTop`), all 11 touchpoints must be done by hand.
 
 1. **`defaultCfg()`** in `public/app.js` — the field's initial value + presence on every fresh cfg.
 2. **`LOOK_KEYS`** array — what gets snapshotted into presets / share-codes / "Apply frame to all".
-3. **`doRender()` cfg projection** in `public/app.js` (~line 415) — the preview path manually projects fields when calling `CR.renderPreview`. Fields missing here are dropped from preview rendering. **This is the easiest one to forget; symptom = slider/toggle has no effect on the on-screen preview.**
-4. **`buildConfigForFile()`** in `public/app.js` — the export path's cfg projection. Fields missing here are dropped from JPEG/PNG export. **Symptom = preview shows the change but exported file doesn't.**
+3. **`doRender()` cfg projection** via `snapshotCfgForRender()` — the preview path. As of 1.10.5 iterates `LOOK_KEYS` automatically, so any field in LOOK_KEYS lands here for free. Non-LOOK_KEYS fields (showFields / customLogo / customBg / collage / rotation / crop) need explicit handling.
+4. **`buildConfigForFile()`** — the export path. As of 1.10.5 iterates `LOOK_KEYS` automatically with conditional inclusion (null = "follow frame default", omitted from output). Same caveat for non-LOOK_KEYS fields.
 5. **`clientRender.js → buildLayoutAndCaption`** — passes cfg field through to `layoutOpts` for `R.computeLayout` / `computeCaptionZone`.
 6. **`worker.js`** mirrors #5 for batch export.
 7. **`R.computeLayout`** / **`computeCaptionZone`** in `shared/render.js` — actually consume the field.
@@ -655,7 +668,7 @@ Each `state.files[i]` carries its own complete `cfg` (frame / aspect / template 
 10. **`onFrameChange()`** — reset the field on frame switch if it's a "look" parameter (consistent with bg* / shadow*).
 11. **i18n keys** for any user-visible label / hint.
 
-When debugging "the new cfg field doesn't seem to do anything," check #3 first (preview) and #4 second (export). The 0.19 round shipped with both projections missing radiusOverride / captionForceOverlay, so the slider + toggle looked dead until the user reported it. The lesson: cfg whitelist projections are silent footguns — adding a cfg field is at minimum an 11-touch change, and #3/#4 are the ones the schema doesn't enforce.
+When debugging "the new cfg field doesn't seem to do anything," historically #3 / #4 were the easiest footguns (the 0.19 round shipped with both projections missing radiusOverride / captionForceOverlay; 1.10.4 caught applyFrameToAll missing 7 fields between 0.22 and 1.1). The 1.10.5 LOOK_KEYS-driven refactor of `doRender` / `buildConfigForFile` / `applyFrameToAll` retires that whole class of bug for any field that lives on LOOK_KEYS — drift surfaces remaining are #5 / #6 / #7 / #8 / #9 / #10 / #11, which are still hand-maintained.
 
 - Switching the active photo via the rail or arrow keys re-syncs **all** controls to that photo's cfg via `syncControlsFromCfg(cfg)`.
 - Changing any control writes through to `activeCfg()` only — other photos are unaffected.
@@ -665,8 +678,10 @@ Two batch-apply buttons let users propagate the active photo's settings:
 
 | Button | Location | Copies | Excludes |
 |---|---|---|---|
-| **Apply 相框设置到全部** | end of B · Frame | `aspect`, `frame`, `template`, `padding`, `captionHeight`, `bgBlur`, `bgBrightness`, `bgSaturation`, `shadowBlur`, `shadowOffsetY`, `shadowOpacity`, `showFields`, `customLogo` | `exifOverride` |
-| **Apply EXIF to all** | inside D · EXIF details | `exifOverride` (raw form strings) | everything else |
+| **Apply to all photos** | workshop sticky footer (`#apply-frame-all-btn`) | every `LOOK_KEYS` field (canonical look whitelist, frame.cfg keys auto-harnessed) + `showFields` / `customLogo` / `customBg` | `exifOverride`, `rotation`, `crop`, `collage` (per-photo) |
+| **Apply EXIF to all** | ✎ Notation tool's notebook actions row (`#apply-exif-all-btn`) | `exifOverride` (raw form strings) | everything else |
+
+**Drift-proofing**: `applyFrameToAll` was previously a hand-maintained `FRAME_KEYS` list that silently drifted from `LOOK_KEYS` — 1.10.4 caught it missing 7 fields (topTemplate / captionOverlayTextLift / paddingTop/R/B/L / filmMfAge) added between 0.22 and 1.1. The function now iterates `LOOK_KEYS` directly, so any new field declared in `LOOK_KEYS` (whether hardcoded or harnessed via `frame.cfg`) propagates automatically without touching this code path again.
 
 The split is deliberate: photos in a batch usually share one *look* (frame/aspect/etc.) but differ in *metadata* (each has its own auto-parsed Make/Model/focal). One button propagates the look without overwriting per-photo EXIF; the other propagates EXIF without resetting per-photo frame tweaks.
 
@@ -886,10 +901,10 @@ To promote a ratio into the seg as a first-class preset (gets its own button + t
 4. If EXIF `Make` doesn't match the slug directly, add an entry to `ALIASES` in `public/shared/render.js`.
 
 **Add a new toggleable field:**
-1. Extend `FIELD_KEYS` in `public/app.js` (top of file).
+1. Seed the default in `defaultCfg().showFields` in `public/app.js` — this object is the source of truth for the field set (the old top-level `FIELD_KEYS` const was unused and removed in 1.10.x). Add `<key>: true|false`.
 2. Respect it in any template that references it (use `on(show, key)` helper in `public/shared/render.js`).
 3. Add a `<label class="chip">` checkbox to `#show-fields` in `public/index.html` with `data-i18n="caption.fields.<key>"` on the label span.
-4. Seed default in both `defaultCfg().showFields` in `public/app.js` (drives state) — chip-checked attribute in HTML drives initial UI but `state.draftCfg.showFields[key]` overrides it on render.
+4. The chip-checked attribute in HTML drives the initial UI, but `state.draftCfg.showFields[key]` (from `defaultCfg`) overrides it on render — so step 1 is the authoritative default.
 5. Add `caption.fields.<key>` to the dictionary in `public/i18n.js` for both locales.
 
 **Add a translatable string:** put the key in *both* `zh-CN` and `en` blocks of `DICT` in `public/i18n.js`. Static markup uses `data-i18n="..."`; runtime code uses `T('key', vars)`. See "Internationalization" above.

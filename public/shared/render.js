@@ -463,6 +463,60 @@
     ctx.closePath();
   }
 
+  // ─── Procedural grain tile · shared between frames ────────────────────
+  // Lazily-built 64×64 grayscale noise tile that decorate hooks can blend
+  // over their canvases. Built once per JS context (main thread or worker)
+  // and pattern-tiled at the call site. The original tile lives in
+  // clientRender.js as a private detail; this is the shared public version
+  // so any frame's decorate (which runs in BOTH main thread and worker)
+  // can apply grain consistently.
+  let _grainTile = null;
+  function ensureGrainTile() {
+    if (_grainTile) return _grainTile;
+    const W = 64, H = 64;
+    const HasOC = (typeof OffscreenCanvas !== 'undefined');
+    let tile;
+    if (HasOC) {
+      tile = new OffscreenCanvas(W, H);
+    } else if (typeof document !== 'undefined') {
+      tile = document.createElement('canvas');
+      tile.width = W; tile.height = H;
+    } else {
+      return null;
+    }
+    const tctx = tile.getContext('2d');
+    if (!tctx) return null;
+    const img = tctx.createImageData(W, H);
+    const d = img.data;
+    for (let i = 0; i < d.length; i += 4) {
+      // Mean-centered noise so the tile is visually neutral on overlay
+      // blend (rgb=128 → no change; values above/below tint up/down).
+      const v = 96 + ((Math.random() * 64) | 0);
+      d[i] = v; d[i+1] = v; d[i+2] = v; d[i+3] = 255;
+    }
+    tctx.putImageData(img, 0, 0);
+    _grainTile = tile;
+    return tile;
+  }
+  // Paint procedural film grain over the given rect at `opacity` (0..1).
+  // Uses 'overlay' blend so light areas tint slightly darker + dark areas
+  // tint slightly lighter — yields a chemical-emulsion feel rather than
+  // the flat haze that 'source-over' would produce. Cheap: O(canvas/tile²)
+  // pattern fills, no per-pixel JS.
+  function fillGrain(ctx, x, y, w, h, opacity) {
+    if (opacity <= 0) return;
+    const tile = ensureGrainTile();
+    if (!tile) return;
+    const pattern = ctx.createPattern(tile, 'repeat');
+    if (!pattern) return;
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, Math.min(1, opacity));
+    ctx.globalCompositeOperation = 'overlay';
+    ctx.fillStyle = pattern;
+    ctx.fillRect(x, y, w, h);
+    ctx.restore();
+  }
+
   // ======================================================================
   // Frames + caption colors
   // ======================================================================
@@ -496,6 +550,57 @@
     return FRAMES['frosted-noir'] || FRAMES[Object.keys(FRAMES)[0]];
   }
 
+  // ─── Per-frame cfg schema harness (1.7.x architecture · phase 9) ────
+  // Each frame file may declare `def.cfg = { <cfgKey>: { kind, min, max,
+  // step, options, default, frameDefault } }` to describe its user-facing
+  // knobs. The two helpers below collect those declarations across ALL
+  // registered frames and produce:
+  //   collectFrameCfgDefaults()  — { cfgKey: defaultValue } map, fed into
+  //                                app.js defaultCfg() to populate fresh
+  //                                cfg objects.
+  //   collectFrameCfgKeys()      — array of cfg key names, fed into
+  //                                LOOK_KEYS so presets / share-codes
+  //                                automatically snapshot all frame knobs.
+  // Key uniqueness is enforced via console.warn (collision = bug, since
+  // each frame's knobs use a frame-specific prefix today: bg* / torn* /
+  // film35* / instax* / gal* / slide* / filmMf*).
+  //
+  // This is the foundational layer of rev.3's "frame files are self-
+  // contained modules" promise. Future sessions will harness more of the
+  // 11-touchpoint cfg checklist (doRender projection, sync, reset,
+  // event listeners, resolveRenderParams) onto the same schemas — for
+  // now only defaultCfg + LOOK_KEYS are auto-generated.
+  function collectFrameCfgDefaults() {
+    const out = {};
+    for (const frame of Object.values(FRAMES)) {
+      if (!frame || !frame.cfg) continue;
+      for (const key of Object.keys(frame.cfg)) {
+        if (key in out) {
+          // Two frames declared the same cfg key — likely a bug.
+          // eslint-disable-next-line no-console
+          if (typeof console !== 'undefined') console.warn('[frame-cfg] duplicate key declared by multiple frames:', key);
+          continue;
+        }
+        const spec = frame.cfg[key] || {};
+        out[key] = ('default' in spec) ? spec.default : null;
+      }
+    }
+    return out;
+  }
+  function collectFrameCfgKeys() {
+    const seen = new Set();
+    const out = [];
+    for (const frame of Object.values(FRAMES)) {
+      if (!frame || !frame.cfg) continue;
+      for (const key of Object.keys(frame.cfg)) {
+        if (seen.has(key)) continue;
+        seen.add(key);
+        out.push(key);
+      }
+    }
+    return out;
+  }
+
   // Merge user cfg overrides with frame presets to produce the single set of
   // numbers both the SVG (compose.js) and Canvas (clientRender.js) renderers
   // consume. Keeps fallback logic in one place — neither renderer should
@@ -504,9 +609,11 @@
     cfg = cfg || {};
     const bg = Object.assign({}, frame.bg);
     if (bg.type === 'frosted') {
-      if (cfg.bgBlur != null)       bg.blurSigma  = Number(cfg.bgBlur);
-      if (cfg.bgBrightness != null) bg.brightness = Number(cfg.bgBrightness);
-      if (cfg.bgSaturation != null) bg.saturation = Number(cfg.bgSaturation);
+      if (cfg.bgBlur != null)       bg.blurSigma    = Number(cfg.bgBlur);
+      if (cfg.bgBrightness != null) bg.brightness   = Number(cfg.bgBrightness);
+      if (cfg.bgSaturation != null) bg.saturation   = Number(cfg.bgSaturation);
+      if (cfg.bgDarken != null)     bg.darken       = Math.max(0, Math.min(0.7, Number(cfg.bgDarken)));
+      if (cfg.bgGrain != null)      bg.grainOpacity = Math.max(0, Math.min(0.5, Number(cfg.bgGrain)));
     }
     const sd = frame.shadowDefault || { blur: 0, offsetY: 0, opacity: 0 };
     const shadow = {
@@ -534,7 +641,86 @@
     const filmMf = {
       age: cfg.filmMfAge != null ? Math.max(0, Math.min(1, Number(cfg.filmMfAge))) : fmd.age
     };
-    return { bg: bg, shadow: shadow, torn: torn, filmMf: filmMf };
+    // Instax (1.6.0+). 4 user-controllable knobs:
+    //   slab      — bottom strip depth in base-1440 px (60–360). Flows
+    //               into layoutOpts.extraBottom at compose call sites
+    //               (clientRender.js / worker.js), NOT here — listed in
+    //               params for readback/debugging but doesn't change bg.
+    //   tint      — paper color enum 'pure' | 'cream' | 'aged' →
+    //               override bg.color via the frame's tintColors table.
+    //   dateStamp — toggle for the decorate-painted YY·MM·DD stamp.
+    //   rainbow   — toggle for the decorate-painted 4-color signature.
+    // Only meaningful when frame === 'instax'. Defaults match the frame.
+    const ixd = (frame.instax) || { slab: 240, tint: 'pure', dateStamp: false, rainbow: false };
+    const instaxTint = cfg.instaxTint || ixd.tint;
+    const instax = {
+      slab:      cfg.instaxSlab    != null ? Math.max(60, Math.min(360, Number(cfg.instaxSlab))) : ixd.slab,
+      tint:      instaxTint,
+      dateStamp: cfg.instaxStamp   != null ? !!cfg.instaxStamp   : ixd.dateStamp,
+      rainbow:   cfg.instaxRainbow != null ? !!cfg.instaxRainbow : ixd.rainbow
+    };
+    // Apply tint to bg.color if frame has a tintColors table (instax).
+    if (frame.instax && frame.instax.tintColors && bg.type === 'solid') {
+      const tintColor = frame.instax.tintColors[instaxTint];
+      if (tintColor) bg.color = tintColor;
+    }
+    // Slide-mount (1.7.0+). 4 user-controllable knobs:
+    //   mountColor  — cardstock color enum 'cream' | 'leather' | 'black'
+    //                 → looked up against frame.slideMount.mountColors,
+    //                 overrides bg.color (the cardstock IS the bg).
+    //   outerRing   — outer tray color enum 'wine' | 'brass' | 'charcoal'
+    //                 → resolved via frame.slideMount.ringColors, passed
+    //                 through params for decorate to paint.
+    //   pebbleScale — pebble density multiplier 0.5–1.5× (5 buckets).
+    //                 Resolved into numBumps that the tile cache keys on.
+    //   bevelDepth  — bevel depth in base-1440 px (4–20). Scales the
+    //                 cardstock bevel cues AND the aperture inset shadow.
+    const smd = (frame.slideMount) || { mountColor: 'cream', outerRing: 'wine', pebbleScale: 1.0, bevelDepth: 8 };
+    const slideMountColor = cfg.slideMountColor || smd.mountColor;
+    const slideOuterRing  = cfg.slideOuterRing  || smd.outerRing;
+    const slidePebble     = cfg.slidePebble != null ? Math.max(0.5, Math.min(1.5, Number(cfg.slidePebble))) : smd.pebbleScale;
+    const slideBevel      = cfg.slideBevel  != null ? Math.max(4,   Math.min(20,  Number(cfg.slideBevel)))  : smd.bevelDepth;
+    const slideMount = {
+      mountColor: slideMountColor,
+      outerRing:  slideOuterRing,
+      pebbleScale: slidePebble,
+      numBumps:    Math.round(180 * slidePebble),
+      bevelDepth:  slideBevel
+    };
+    // Apply mountColor to bg.color if frame supplies a mountColors table.
+    if (frame.slideMount && frame.slideMount.mountColors && bg.type === 'solid') {
+      const mc = frame.slideMount.mountColors[slideMountColor];
+      if (mc) bg.color = mc;
+    }
+    // Film-35 cine-look (1.5.0+). 4 user-controllable knobs:
+    //   sprocketScale — pitch multiplier (0.5 = sparser / 2.0 = denser)
+    //   grain         — emulsion noise intensity (0..1 mapped to overlay alpha)
+    //   edgePrint     — show/hide top "BRAND · ISO·T · DX" stamp
+    //   frameNo       — 'xx' (anonymous "· XX ·") | '1-36' (default) | 'a-z' (uppercase letter)
+    // Only meaningful when frame === 'film-35'. Defaults match the legacy
+    // hardcoded values so cfg-null sliders reproduce the legacy look.
+    const f35d = (frame.film35) || { sprocketScale: 1.0, grain: 0, edgePrint: true, frameNo: '1-36' };
+    const film35 = {
+      sprocketScale: cfg.f35Sprocket  != null ? Math.max(0.5, Math.min(2.0, Number(cfg.f35Sprocket))) : f35d.sprocketScale,
+      grain:         cfg.f35Grain     != null ? Math.max(0, Math.min(1, Number(cfg.f35Grain)))       : f35d.grain,
+      edgePrint:     cfg.f35EdgePrint != null ? !!cfg.f35EdgePrint                                    : f35d.edgePrint,
+      frameNo:       cfg.f35FrameNo   || f35d.frameNo
+    };
+    // Gallery-white passe-partout (1.4.0+). 4 user-controllable knobs:
+    //   matWidth     — outer hairline distance from photo edge (base-1440 px)
+    //   lineSpacing  — gap between inner and outer hairlines
+    //   lineWeight   — multiplier on stroke width (1.0 = legacy hardcoded look)
+    //   lineColor    — enum 'ink' | 'charcoal' | 'warm' (decorate maps to RGBA)
+    // Only meaningful when frame === 'gallery-white'. Defaults match the
+    // pre-1.4 hardcoded values so cfg-null sliders reproduce legacy look.
+    const gwd = (frame.galleryWhite) || { matWidth: 26, lineSpacing: 18, lineWeight: 1.0, lineColor: 'ink' };
+    const galleryWhite = {
+      matWidth:    cfg.galMatWidth    != null ? Math.max(8, Math.min(60, Number(cfg.galMatWidth)))    : gwd.matWidth,
+      lineSpacing: cfg.galLineSpacing != null ? Math.max(4, Math.min(24, Number(cfg.galLineSpacing))) : gwd.lineSpacing,
+      lineWeight:  cfg.galLineWeight  != null ? Math.max(0.5, Math.min(2.4, Number(cfg.galLineWeight))): gwd.lineWeight,
+      lineColor:   cfg.galLineColor   || gwd.lineColor
+    };
+    return { bg: bg, shadow: shadow, torn: torn, filmMf: filmMf, film35: film35, instax: instax, slideMount: slideMount, galleryWhite: galleryWhite };
   }
 
   function captionColors(textStyle) {
@@ -1929,59 +2115,78 @@
   // Custom signature / logo overlay
   // ======================================================================
 
-  // Compute the destination rect for a user-supplied signature image overlaid
-  // on the foreground photo. Returns null when customLogo is missing or has
-  // an invalid scale. The rect is in canvas-px (already scaled), positioned
-  // inside the foreground bounds with a small margin so the signature sits
-  // visually away from the fg edge.
+  // Blend-mode enum → Canvas2D globalCompositeOperation. 'normal' maps to
+  // the default 'source-over'; the rest are valid GCO strings 1:1. Any
+  // unknown value falls back to 'source-over'. Single source of truth so
+  // clientRender (preview) and worker (export) never re-derive it.
+  const SEAL_BLEND_GCO = {
+    normal: 'source-over', multiply: 'multiply', screen: 'screen',
+    overlay: 'overlay', darken: 'darken', lighten: 'lighten'
+  };
+  // Legacy 9-anchor → normalized canvas center, for defensive fallback when
+  // a customLogo slipped past app.js's migrateCustomLogo (e.g. an un-migrated
+  // worker job). Mirrors the migration table; biased slightly inward to
+  // approximate the old "inside the photo with a 20px margin" placement.
+  function legacyAnchorCenter(pos) {
+    let anchor = 'br';
+    if (typeof pos === 'string') anchor = pos;
+    else if (pos && typeof pos === 'object' && pos.anchor) anchor = pos.anchor;
+    const ay = anchor.charAt(0) || 'b', ax = anchor.charAt(1) || 'r';
+    const cx = ax === 'l' ? 0.18 : ax === 'c' ? 0.50 : 0.82;
+    const cy = ay === 't' ? 0.16 : ay === 'c' ? 0.50 : 0.84;
+    return { cx: cx, cy: cy };
+  }
+
+  // Compute the destination rect for a user-supplied signature/seal image,
+  // overlaid as the last compose layer. Returns null when customLogo is
+  // missing or has an invalid scale.
   //
-  // Position model — accepts both legacy and new schemas:
-  //   - Legacy: `position: 'br' | 'bl' | 'bc'` (3 corner anchors)
-  //   - New:    `position: { anchor, dx, dy }` where anchor is a 2-letter
-  //             code in the 9-cell grid (tl/tc/tr/cl/cc/cr/bl/bc/br) and
-  //             dx / dy are optional fine offsets in base-1440 px.
-  // Migration in app.js upgrades persisted cfg, but we also tolerate the
-  // legacy form here so worker / SVG round-trips don't have to migrate.
+  // Coordinate model (v2, 1.11.0): the seal floats freely over the WHOLE
+  // canvas — it can sit on the photo OR in the frame margin / border /
+  // caption band (the compose callers no longer clip it to the fg).
+  //   - cx / cy : normalized center [0..1] relative to layout.canvas.W / H
+  //   - scale   : fraction of canvas WIDTH (UI 2%–60%)
+  //   - rotation: degrees clockwise; flipH: horizontal mirror
+  //   - blend   : enum → returned pre-translated to a globalCompositeOperation
+  // The returned rect's x/y is the top-left of the UNROTATED drawImage box;
+  // the caller applies rotation + flipH around the box center, identically
+  // in clientRender.js and worker.js. A legacy { position } object is still
+  // tolerated (mapped via legacyAnchorCenter) for un-migrated round-trips.
   function customLogoRect(layout, customLogo, imgAspect) {
     if (!customLogo || !customLogo.data || !(customLogo.scale > 0)) return null;
     const ar = (imgAspect && isFinite(imgAspect) && imgAspect > 0) ? imgAspect : 1;
-    const margin = Math.round(20 * (layout.scale || 1));
-    let dw = Math.max(1, Math.round(layout.fgW * Number(customLogo.scale)));
-    let dh = Math.max(1, Math.round(dw / ar));
-    const maxH = Math.round(layout.fgH * 0.5);
-    if (dh > maxH) { dh = maxH; dw = Math.round(dh * ar); }
-
-    // Decode the position into a 2-letter anchor + optional dx/dy. Both
-    // legacy (string) and new (object) schemas land here.
-    let anchor = 'br', dx = 0, dy = 0;
-    const pos = customLogo.position;
-    if (typeof pos === 'string') {
-      anchor = pos;   // legacy 'br' / 'bl' / 'bc'
-    } else if (pos && typeof pos === 'object') {
-      anchor = pos.anchor || 'br';
-      dx = Number(pos.dx) || 0;
-      dy = Number(pos.dy) || 0;
+    const CW = layout.canvas.W, CH = layout.canvas.H;
+    const scale = Math.max(0.02, Math.min(0.60, Number(customLogo.scale)));
+    let w = Math.max(1, Math.round(CW * scale));
+    let h = Math.max(1, Math.round(w / ar));
+    // Cap the longer edge so a runaway scale/aspect can't make a multi-canvas
+    // bitmap. Soft UI cap is 60% width; this is the hard safety net.
+    const maxEdge = Math.round(0.8 * Math.max(CW, CH));
+    if (w > maxEdge || h > maxEdge) {
+      const k = maxEdge / Math.max(w, h);
+      w = Math.max(1, Math.round(w * k));
+      h = Math.max(1, Math.round(h * k));
     }
-    // Each anchor is "<row><col>" — row in {t, c, b}, col in {l, c, r}.
-    const ay = anchor.charAt(0) || 'b';
-    const ax = anchor.charAt(1) || 'r';
-    let x, y;
-    if (ax === 'l')      x = layout.fgLeft + margin;
-    else if (ax === 'c') x = layout.fgLeft + Math.round((layout.fgW - dw) / 2);
-    else                 x = layout.fgLeft + layout.fgW - dw - margin;
-    if (ay === 't')      y = layout.fgTop + margin;
-    else if (ay === 'c') y = layout.fgTop + Math.round((layout.fgH - dh) / 2);
-    else                 y = layout.fgTop + layout.fgH - dh - margin;
+    // Center: prefer v2 cx/cy; fall back to legacy anchor for un-migrated cfg.
+    let cx, cy;
+    if (customLogo.cx != null && customLogo.cy != null) {
+      cx = Number(customLogo.cx); cy = Number(customLogo.cy);
+    } else {
+      const t = legacyAnchorCenter(customLogo.position);
+      cx = t.cx; cy = t.cy;
+    }
+    cx = Math.max(0, Math.min(1, isFinite(cx) ? cx : 0.85));
+    cy = Math.max(0, Math.min(1, isFinite(cy) ? cy : 0.90));
+    const x = Math.round(cx * CW - w / 2);
+    const y = Math.round(cy * CH - h / 2);
 
-    // dx/dy are in base-1440 units; scale into canvas px before applying.
-    const s = layout.scale || 1;
-    if (dx) x += Math.round(dx * s);
-    if (dy) y += Math.round(dy * s);
-
+    const rotation = ((Number(customLogo.rotation) || 0) % 360 + 360) % 360;
+    const flipH = !!customLogo.flipH;
+    const blend = SEAL_BLEND_GCO[customLogo.blend] || 'source-over';
     const opacity = customLogo.opacity != null && isFinite(Number(customLogo.opacity))
       ? Math.max(0, Math.min(1, Number(customLogo.opacity)))
       : 1;
-    return { x: x, y: y, w: dw, h: dh, opacity: opacity };
+    return { x: x, y: y, w: w, h: h, rotation: rotation, flipH: flipH, blend: blend, opacity: opacity };
   }
 
   // Convenience: build the final full-canvas caption SVG in one call.
@@ -2148,6 +2353,8 @@
     registerFrame: registerFrame,
     resolveFrame: resolveFrame,
     resolveRenderParams: resolveRenderParams,
+    collectFrameCfgDefaults: collectFrameCfgDefaults,
+    collectFrameCfgKeys: collectFrameCfgKeys,
     captionColors: captionColors,
     resolveLogoFill: resolveLogoFill,
 
@@ -2161,6 +2368,7 @@
     renderLensInline: renderLensInline,
     boxedSpec: boxedSpec,
     pathRoundRect: pathRoundRect,
+    fillGrain: fillGrain,
 
     // Templates
     TEMPLATES: TEMPLATES,

@@ -4,6 +4,559 @@
 
 每次有意义的功能 / 修复 / 优化都记到这里 —— 同一份文件既给开发者看，也通过顶栏 ✦ 按钮在应用内展示给用户。
 
+## 1.11.0 · 2026-06-01
+
+**❖ 印记（Seal）完整重做 · 自由放置 + 旋转 / 翻转 / 混合模式** —— 印记从「9 宫格锚点、只能压在照片内」升级为「在整张画面任意位置自由拖拽摆放的水印」。同时印章身份标记从 ✦ 换成 ❖（篆刻菱纹），统一用在工具坞图标、面板 eyebrow、红蜡封。
+
+### ✂️ 直接操控放置台
+
+- ❖ 印记 工具新增「**放置到画面…**」按钮，打开一个 Compose 式的直接操控台：在实时合成画面上**拖拽移动 · 拖角/双指缩放 · 旋钮/双指/拖拽条旋转**印记
+- **印记可超出照片** —— 落到相框留白 / 边框 / 字幕区都行（不再裁切在圆角照片内）。很多人想把签名放白边里，现在可以了
+- 移动端双指 pinch + twist 同步缩放旋转；桌面端角手柄 + 旋转旋钮 + 方向键微移（Shift 自由旋转 / 关吸附）；旋转 ±3° 内吸附 0/90/180/270
+
+### 🎨 新增印记能力
+
+- **旋转** —— 任意角度
+- **水平翻转** —— 左右镜像
+- **混合模式** —— 正常 / 正片叠底 / 滤色 / 叠加 / 变暗 / 变亮（如正片叠底做压印水印效果，透明 PNG 只叠墨色不染整框）
+- 不透明度保留；混合 / 翻转 / 不透明度作为「墨水设置」留在工具面板，位置 / 大小 / 旋转在放置台直接操控
+
+### 🔁 模型统一
+
+- 印记现在是**统一的全局身份**：任意改动（图片 / 位置 / 大小 / 旋转 / 翻转 / 混合 / 不透明度）一次性应用到所有照片 + 本地存储，统一掉旧版「上传全局、位置逐张」的割裂
+
+### ⚠️ Breaking · 仅影响手存预设里的印记
+
+- 印记 `scale` 语义从「相对照片宽度」改为「相对画面宽度」，位置从 9 锚点改为归一化坐标。旧的本地存储 / 预设里的印记会自动迁移（锚点→坐标、尺寸×0.85 近似换算），位置 / 大小可能有轻微偏移，重新拖一下即可。分享码本就不含印记，不受影响
+
+### 🗑️ 退役
+
+- 9 宫格锚点选择器 + 尺寸滑块（被画布直接拖拽 + 缩放取代）
+
+### 🐞 修复
+
+- 「按下印章」蜡封 logo 重做成精致火漆（光滑红蜡圆顶 + ❖ 压进蜡里的凹刻），去掉小尺寸糊成一团的锯齿蜡块
+- 修一个老 bug：没上传印记时，签名预览行因 CSS `display` 盖过 `hidden` 而漏出一个空 `<img>` 破图 —— 现在没印记时整行正确隐藏
+
+## 1.10.7 · 2026-05-29
+
+**🧹 移除遗留裁剪弹窗** —— 裁剪 / 旋转早在 1.1 就被 **构图（Compose）模式**统一接管（裁切 + 旋转 + 四边距在一个直接操控的暗房工作台里）。旧的独立裁剪弹窗（`#crop-modal`）作为过渡保留至今，现在彻底清理。
+
+### 🔁 入口收敛
+
+- 工作台 ┃ 测量 工具里多余的「裁剪 & 旋转…」按钮**直接移除** —— 构图已在 lookbar 一键直达，工作台里再摆一个等价入口纯属重复
+- 命令面板（⌘K）的「裁剪 & 旋转」命令**保留**，现在直接打开**构图模式**
+- 旋转能力不变 —— 构图模式支持任意角度旋转 + 90° 快捷；裁剪、旋转的数据（`cfg.crop` / `cfg.rotation`）格式零变化，老 preset / 分享链接照常解析
+
+### 🗑️ 清理量
+
+- 删除旧裁剪弹窗整套：HTML 弹窗 + 预览区旋转提示浮层、app.js 的 `CROP` 模块 + 旋转控制簇（~460 行）、styles.css 的裁剪弹窗 + 旋转浮层样式（~460 行）、i18n 的顶级 `crop` 文案块 + 一批孤儿键
+- 构图模式（`#compose-modal`）的裁剪 / 旋转 / 边距交互完全不受影响
+
+## 1.10.6 · 2026-05-29
+
+**📐 工作台触摸目标合规 + 文案订正** —— 一次多视角审查（6 个独立审视角度并行 + 逐条对抗式复核）捞出几处 1.10.x 引入的触摸可用性问题，本版修复。
+
+### 👆 触摸目标 ≥ 44px
+
+触摸设备上以下控件原来只有 18–28px 高，低于 44×44 的可点击下限（CLAUDE.md rule 13 / WCAG 2.5.5），手指容易点偏到相邻控件：
+
+- **顶部标记 chip**（None / 品牌·型号 / 品牌 / 字标，1.10.0 新组件）—— 约 18px 高
+- **底部 应用到全部 / 全部重置 按钮** —— 约 24px 高
+- **移动端工具栏 5 个工具 pill** —— 约 28px 高
+
+三者在 `@media (pointer: coarse)`（所有触摸设备，不限宽度）下补到 `min-height: 44px`；桌面精确指针保持原紧凑尺寸不变。
+
+### ✏️ 文案 + 边距订正
+
+- ┃ 测量 工具标题的<em>静态兜底文案</em>从遗留的「测量 · geometry & depth」订正为「测量 · 画幅几何」（i18n 早在 1.10.2 就改对了，只有 JS 加载前一瞬可见的兜底文本漏改）
+- 工作台底部按钮条加 `env(safe-area-inset-*)` —— 横屏 home indicator 手势区不再压住 应用/重置 按钮
+
+## 1.10.4 · 2026-05-29
+
+**🔧 Apply-to-all 修复 7 字段漏授** —— 之前用户在某张照片上设置 *顶部品牌标记* / *字幕浮高* / *四边距任一边* / *film-mf 老化度*，再点 footer 的「应用到全部照片」按钮，这些设置不会传播到其他照片。
+
+### 🐞 怎么出现的
+
+`applyFrameToAll` 一直手维护一份 `FRAME_KEYS` 白名单（30+ 个键），而 preset / share-code 用的是 `LOOK_KEYS`（同样目的，但通过 `R.collectFrameCfgKeys` harness 自动跟 `frame.cfg` schema 联动）。两份名单从 0.22.0 起逐渐 drift —— 0.22 新加的 topTemplate / captionOverlayTextLift、1.1 新加的 paddingTop/Right/Bottom/Left、film-mf 老化度 filmMfAge 共 7 个字段，preset 全部 OK 但 Apply 按钮漏授。
+
+### 🔨 怎么修
+
+`applyFrameToAll` 现在直接遍历 `LOOK_KEYS`（外加 showFields / customLogo / customBg 三个独立追踪的对象），杜绝未来 drift。新加 frame.cfg 知识点 / 新增 LOOK_KEYS 字段时只需要改一处。
+
+### 🧹 顺手清理
+
+- 删除 50+ 死 i18n key —— rev.0 4-tab IA (`workshop.tabs.*`)、rev.1 5-section IA (`workshop.section.*`)、1.10.2 后失效的 `workshop.caliper.shadowGeom`、跟着旧设计语言的 `workshop.padding / topBadge / instrument / instrumentHint / signature / footerSummary`
+- Caliper 工具内 zone label 上的 "1" 数字标记去掉 —— Zone 2 阴影搬到 Instrument 后 Caliper 只剩一个 zone，孤立的"1"读起来反而像未完成
+- 内部函数重命名 `refreshSealClampActive` → `refreshArrangeClampActive`（clamp 1.10.1 起就搬到 ▦ Arrange 工具了，函数名一直挂着 seal 容易误导）
+- CLAUDE.md 内部文档清理 5 处过期 IA 引用 (B · Frame / D · EXIF / E · Top / D · Shadow rev.0 章节代号)，替换为 5 工具 IA 描述
+
+## 1.10.3 · 2026-05-29
+
+**🪪 顶部身份条瘦身** —— 工作台顶部的双行身份条砍掉冗余的第 2 行 (`FROSTED-NOIR · 3:4 · MINIMAL · 4 MODIFIED`)。这一行的三个 token (frame / aspect / template) lookbar 上方的 4 个 lookchip 已经实时显示，"N MODIFIED" 工作台底部 footer 也有，重复一次反而让用户找信息变难。
+
+### 🟢 改动细节
+
+- 顶部身份条现在就一行：文件名 + 关闭 ×
+- footer 占位符 *5 sections · 0 modified* → *5 tools · 0 modified*（rev.2 "The Bench" 5 工具语义对齐；JS 首渲染前的占位文本，看到的几率极低但顺手修了）
+- 删除冗余 i18n key `workshop.identityEmpty` 和对应 CSS `.bench-identity-spec`
+
+## 1.10.2 · 2026-05-29
+
+**☀ 阴影三件套从测量搬到仪器** —— Shadow blur / drop / depth 三个滑块从 ┃ 测量 Zone 2 搬到 ◉ 仪器 面板底部，作为「光影 · LIGHTING」子区跟着当前相框走。
+
+### 🔦 为什么是仪器，不是测量
+
+- **shadow 默认值是相框身份的一部分** —— film-35 出厂值是 0/0/0（它是底片印刷不该有 drop shadow）、slide-mount 同 0/0/0（照片 inset 在皮料里）、instax 是软落影、gallery-white 是博物馆灯光。在 ┃ 测量 里把 shadow 当作"通用 6 件套"会鼓励用户在 film-35 上拉 shadow blur 把底片画成"床单上的相片"，违背相框设计
+- **┃ 测量 现在专注于纯几何** —— padding + radius + Compose CTA。标题改为 *测量 · 画幅几何* (en: *Caliper · frame geometry*)
+- **◉ 仪器 底部多了一条光影 strip** —— 钢蓝深色面板配琥珀刻度 eyebrow，复用同一套黄铜滑环 chrome；位置在 7 张相框仪器卡之下、面板底部，切相框时跟着该相框的 shadowDefault 重置
+
+### 🟢 改动细节
+
+- `cfg.shadowBlur` / `cfg.shadowOffsetY` / `cfg.shadowOpacity` 字段语义零变化；老 preset / share-code / 老 cfg 不受影响
+- 3 个 `<input id="shadow-(blur|offset|opacity)">` 全部保留 —— 事件监听器一字不动
+- modified-state 红点判定从 ┃ 测量 移到 ◉ 仪器（红点位置变了但口径一致）
+
+## 1.10.1 · 2026-05-29
+
+**▦ 排版 · 第 5 件工具落地** —— 把多张照片的拼贴布局从 ✦ 印记 工具里抽出来，独立成新的 **▦ 排版 / Arrange** 工具，跟仪器 / 测量 / 笔记 / 印记 并列在工具栏。
+
+### 🪟 工作台从 4 工具变 5 工具
+
+- **▦ Arrange · 排版** 新工具：6 张纸夹小卡（off / 1×2 / 2×1 / 1×3 / 3×1 / 2×2）+ 伙伴照片绑定槽，原样从 Seal Zone 2 搬过来；继承同款米黄卡纸 chrome（共享 paper-craft 材质族）
+- **✦ Seal · 印记** 收窄成纯签名工具：保留蜡印按下按钮 + 9 位置画框 + size/opacity 双 meter，hint 改为 *盖在照片画框内的蜡印水印*
+- **为什么**：1.9.2 版本把拼贴当作"印记的第二张纸夹"，但拼贴是<em>多张照片如何排版</em>的决策，跟<em>一张照片上盖什么签名</em>语义无关 — 一个用户打开 Seal 想加签名却先看到 6 张布局会困惑
+
+### 🟢 改动细节
+
+- 工具栏移动端横向 pill bar 5 chip 仍然横滚可达；桌面 64px 左栏垂直排列容纳无压力
+- `customBg`（毛玻璃自定义背景图）的 modified-state 红点从 Seal 改归到 ◉ Instrument（它的 UI 一直在 frosted-noir 仪器卡里，归属早就该校正）
+- 所有 cfg / preset / share-code 字段语义零变化；33 个 `<input id="…">` 全部保留 — `#collage-layout` / `#sealcard-clamps` / `#collage-slots` / 9 个签名锚点全部就位
+- `refreshSealClampActive` 仍按 `.sealcard-clamp` 类选 — clamp 按钮 class 名称沿用（搬位置不改类）
+
+## 1.10.0 · 2026-05-29
+
+**🪜 工作台 IA 整改** —— 1.9.x 落地的 4 工具语言保持不变（仪器 / 测量 / 笔记 / 印记），但把两块功能搬到了对的工具里：
+
+### ✎ 字幕带尺寸搬到「笔记」
+
+- **Caption h（字幕带高度） / Caption inside photo（嵌入开关） / Lift（嵌入字浮高）** 从 ┃ 测量 整体搬到 ✎ 笔记，作为 Zone 1「字幕带」，EXIF 双栏成为 Zone 2
+- **为什么**：调一条 caption 的完整决策（用什么 template / 显示哪些字段 / EXIF 覆盖 / 字幕带高度 / 是否嵌入照片底 / 嵌入字距底多远）原来要在测量↔笔记两个工具之间反复切；语义上它们都属于「这条字幕的外观」，应该坐在一起
+- ┃ 测量现在专注于「画幅几何 + 光影」两个 zone — 主标题相应改为 *测量 · 画幅与阴影* (en: *Caliper · frame & shadow*)
+
+### ◉ 顶部品牌标记搬到「仪器」
+
+- **Top badge（None / Brand·Model / Brand / Wordmark）** 从 ✎ 笔记 Zone 1 搬到 ◉ 仪器，作为 7 张相框仪器卡<em>之上</em>的一条通用 strip
+- **为什么**：顶部标记是<em>相框的一种装饰</em>（在相框留白区域盖一行品牌字），跟「这条字幕显示什么」不是同一件事。放在 Notation 是按"哪个 cfg 字段"分组的遗产，按"用户怎么想"分组它属于 Instrument
+- 视觉上做成深色琥珀镶边的 4 chip 通用 strip，避免跟 7 张相框各自的物质化 chrome 抢戏
+
+### 🟢 兼容性
+
+- 所有 cfg / preset / share-code 的字段语义零变化；老的 preset / 分享链接照常加载
+- 33 个 `<input id="…">` 全部保留 — 事件监听器、syncControlsFromCfg、`buildConfigForFile` / `doRender` 投影都无需改
+- 4 个工具按钮的红点 modified-state 重新按新归属计算
+
+## 1.9.2 · 2026-05-29
+
+**✦ Seal 工具 · 蜡印 + 纸夹** —— Phase 14 of「The Bench」(收尾)，跟 1.9.0 Caliper 黄铜测距尺 / 1.9.1 Notation 笔记本同级。Seal 从 1.9.0 包装着旧 chrome 升级为完整<em>厚卡纸蜡印盒 + 纸夹拼贴卡</em>设计：上半区是签名印章 + 9 位置照片画框，下半区是 6 张纸夹小卡（带金属夹头）替代下拉布局选择器。
+
+### 🔏 蜡印盒视觉
+
+```
+✦ SEAL · 印记 · signature + collage
+┌──────────────────────────────────┐
+│ ①  蜡印 · 签名                    │
+│ ┌─[ ✦ ]─────────────────────────┐│  ← wax press button
+│ │  红蜡圆球 + Press your seal    ││    irregular drip edges
+│ │  SVG · PNG · transparent bg    ││    上传 = 按下印章
+│ └────────────────────────────────┘│
+│                                    │
+│  Where to stamp                    │  ← 9 位置 = 照片画框 + 蜡红圆点
+│  ┌────────────┐                    │     active = 大红蜡 drop
+│  │ • • •      │                    │
+│  │ • • •      │                    │
+│  │ • • ●      │                    │
+│  └────────────┘                    │
+│                                    │
+│  Size       ━━━●━━━━━━━━   6%      │  ← 红蜡细线 + 小蜡丸 thumb
+│  Opacity    ━━━━━━━●━━━   100%     │
+├──────────────────────────────────┤
+│ ②  纸夹 · 拼贴                    │
+│  ╔═══╗ ╔═══╗ ╔═══╗                │  ← 纸夹小卡 (3×2 grid)
+│  ║Off║ ║1×2║ ║2×1║                │    顶部金属夹头
+│  ╚═══╝ ╚═══╝ ╚═══╝                │    active = 米黄 + 蜡红边
+│  ╔═══╗ ╔═══╗ ╔═══╗                │
+│  ║1×3║ ║3×1║ ║2×2║                │
+│  ╚═══╝ ╚═══╝ ╚═══╝                │
+└──────────────────────────────────┘
+```
+
+### 🔧 实现注释
+
+- **厚卡纸卡片** (`#ede1c4 → #e0d2af`) + SVG 纤维噪点 + 双线压痕边
+- **蜡印 press button** = irregular clip-path 红蜡圆球（drip 边）+ `✦` Fraunces 斜体高光 + 沉色虚线边框 + 「Press your seal」13px Fraunces 斜体
+- **蜡印 imprint** = 上传后切换：左侧蜡印小圆球 + 中间签名图片预览 + 右侧「Remove seal」沉色按钮
+- **9 位置 = 照片画框** (4:3 aspect-ratio + 沉色边) · 9 个位置以圆点呈现 (8px) · 激活的位置变 14px 大蜡红 drop + 内嵌高光
+- **细线 meter slider** (size + opacity) · 红蜡细线 track + 小蜡红圆球 thumb (12px)
+- **6 张纸夹小卡** 替代 `<select>` · 每张顶部带<em>金属夹头</em>（黄铜小药丸）+ 小型 layout 视觉化（1/2/3 photo cells）+ 标签
+  - 激活态 = 沉色边框 + 黄米黄背景 + 内嵌阴影 + cell 变沉色
+- **隐藏 `<select id="collage-layout">`** 保留（驱动 change-event listener）· 可见纸夹按钮 click 时同步 select.value + dispatch change
+- **`refreshSealClampActive()`** 在 `syncCollageFromActive` 末尾跑 · photo switch / preset apply 时纸夹激活态正确刷新
+
+### 🔧 接线 0 行 cfg / render 改动
+
+- 所有 8 个 signature/collage 相关 id 保留: signature-input · signature-preview · signature-preview-img · signature-clear-btn · signature-pos-grid · signature-scale · signature-opacity · collage-layout · collage-slots
+- 现有事件 listener (`els.collageLayout.addEventListener('change', ...)`) 通过 dispatchEvent 触发 · 旧逻辑不动
+- service-worker `CACHE_VERSION` 走到 v56
+
+### 🎯 「The Bench」 4 件工具收尾
+
+| 工具 | 物理隐喻 | 落地版本 |
+|---|---|---|
+| ◉ Instrument | 7 张物质化仪器卡 | 1.3-1.7 |
+| ┃ Caliper | 黄铜测距尺 + 双 zone | 1.9.0 |
+| ✎ Notation | 米黄横线笔记纸 + 双栏 | 1.9.1 |
+| **✦ Seal** | **厚卡纸 + 红蜡圆球 + 纸夹** | **1.9.2** |
+
+4 件工具全员到齐 · 每件都有自己的物理外壳 · workshop 完整重做闭环。
+
+---
+
+## 1.9.1 · 2026-05-29
+
+**✎ Notation 工具 · 摄影师笔记本** —— Phase 13 of「The Bench」 (跟 1.9.0 的 Caliper 黄铜测距尺平级)。Notation 从 1.9.0 包装着旧 chrome 升级为完整<em>米黄横线笔记纸</em>设计：装订针孔 + 横线 + 4 张顶部标记纸贴 + EXIF 双栏对照（打字机原文 vs Special Elite 手写覆盖）+ 沉色三按钮笔记动作。
+
+### 📝 笔记本视觉
+
+```
+✎ NOTATION
+笔记 · caption + EXIF
+─────────────────────────
+○  ○  ○  ○                ← 装订针孔
+─────────────────────────
+①  顶部品牌
+   [none] [brand·model] [brand-only] [wordmark]   ← 4 张纸贴 (略微旋转)
+
+②  EXIF override
+   FIELD  | AUTO · 自动识别 | HAND · 手写覆盖
+   ────── | ────────────── | ─────────────
+   make   | Fujifilm       | _________________  ← Special Elite 手写体
+   model  | X-T5           | _________________
+   focal  | 35             | _________________
+   ...
+   [📍 Pick on map]
+
+   [Erase hand]  [Copy to all]  [Copy raw]      ← 三沉色按钮
+```
+
+- **米黄横线纸** (`#f0e8d4` → `#ead9b8`) + multiply SVG 纤维噪点 + 22px 横线节奏
+- **4 装订针孔** 沿顶边 · 内陷阴影 + 微高光
+- **4 张纸贴** 替代 segmented 按钮 · 每张略微旋转 (-1.5° / +1° / -0.5° / +1.8°) · 激活态酒红蜡封色 + 内嵌高光
+- **EXIF 双栏**: 左 AUTO 列 (JetBrains Mono · 灰) · 右 HAND 列 (Special Elite 手写体 · 深沉色 `#5a1810`)
+- **AUTO 列实时填充**: `populateExifAutoDisplay(normalized)` 从 EXIF 自动识别结果填 12 个 `.notebook-auto` 跨度。手写非空时 AUTO 列<em>划线</em>表示被覆盖
+- **横向虚线** 在每行之间作为笔记本的细密分隔
+- **Special Elite 手写字段** focus 时下划线变成酒红蜡色 · 占位符也是斜体 Special Elite
+- **三沉色按钮**: Erase hand · Copy to all · Copy raw — 沉色边框 + 米黄背景 hover
+
+### 🔧 实现注释
+
+- **行为变化**: EXIF 输入框现在 ONLY 持有 override 值 (不再 prefill 自动识别)。AUTO 列负责显示自动识别。<em>这是行为改变但语义更清晰</em>: 输入空 = 用 auto · 输入非空 = override。Renderer 不变 (`buildExifForFile` 依然合并 normalized + override)。
+- **`populateExifInputs(normalized)`** 重定义为「清空所有 EXIF 输入 + 填 AUTO 列」。所有 call site 自动改用新行为
+- **新增 `refreshNotebookOverriddenState()`** 在 input event + cfg sync 末尾跑 · 给每行 `<label>` 设 `data-overridden` 属性 → CSS 命中划线
+- **新增 `populateExifAutoDisplay(normalized)`** 把 12 个字段从 normalized 投影到 `.notebook-auto[data-auto-field]` 跨度
+- 所有 16 个 EXIF 相关 input/button id 保留 (exif-make / model / focalLength / fNumber / exposureTime / iso / lensModel / dateTimeOriginal / author / flash / latitude / longitude / pick-on-map-btn / clear-exif-btn / apply-exif-all-btn / copy-raw-exif-btn / exif-details / exif-warn / top-template-seg)
+- service-worker `CACHE_VERSION` 走到 v55
+
+### ⚠️ Behavior note
+
+老用户注意: **打开照片后 EXIF 输入框默认为空，自动识别在左侧 AUTO 列显示**。这是设计变化，不是 bug。要"用自动值" → 输入空即可；要"覆盖" → 写在 HAND 列输入里。"Erase hand" 按钮清空 HAND 一列，AUTO 列不动。
+
+剩 Phase 14 (Seal 工具 · 蜡印 + 纸夹) 待落地。
+
+---
+
+## 1.9.0 · 2026-05-29
+
+**工作台重做 · 「The Bench」** —— 1.8.x 的 5-section 字母 rail 复盘后认定不够个性化（除 B · 仪器面板外仍是 section header + 通用控件），IA 也不是按摄影师思考路径划。Phase 12 重新组织整个 workshop 模块的交互语言：5 段折成 **4 件工具** 摆在「暗房工作台」上，每件工具都有自己的物理隐喻和材质 chrome。详见 [docs/workshop-redesign-rev1.html](../docs/workshop-redesign-rev1.html) + .claude plan「steady-gliding-graham」。
+
+### 🪛 4 件工具的暗房工作台
+
+```
+┌───── photo-tools · workshop ─────┐
+│ ▤  IMG_1234.HEIC            [×] │ ← identity strip (read-only stamp)
+│    FROSTED-NOIR · 3:4 · ··· · 0 │
+├──────┬──────────────────────────┤
+│ ◉ 仪器│  当前工具的物质化面板    │
+│ ┃ 测量│                          │
+│ ✎ 笔记│                          │
+│ ✦ 印记│                          │
+├──────┴──────────────────────────┤
+│ 4 件工具 · N 修改  [Reset][Apply]│
+└──────────────────────────────────┘
+```
+
+- **◉ Instrument · 仪器** —— 当前相框的物质化面板 (frosted-noir 5 通道 / torn 牛皮 / film-mf 黄铜 / gallery-white passe-partout / film-35 拉丝钢 / instax 奶油塑料 / slide-mount 酒红皮革)。1.3–1.7 已完成，原样嵌入。打开 workshop 默认看到的就是这件。
+- **┃ Caliper · 测量** —— **黄铜测距尺**新工具。合并 1.8.x 的 A · Edges + C · Shadow + Compose 入口于一台仪器。两侧黄铜镶边带刻度线，内部分两 zone (画幅几何 1: padding/captionH/radius · 光影深度 2: shadow blur/drop/depth)，外加 caption overlay 切换 + Compose CTA。Thumb 是黄铜小环（独特于仪器卡的钢小药丸），落在深色刻槽里。
+- **✎ Notation · 笔记** —— Phase 12 暂保留旧 D · Caption 内容 (top badge + EXIF override + actions)。Phase 13 将重设为<em>摄影师笔记本</em>：左栏打字机原文 / 右栏手写覆盖（Special Elite handwriting 字体）。
+- **✦ Seal · 印记** —— Phase 12 暂保留旧 E · Mark 内容 (signature + collage)。Phase 14 将重设为<em>蜡印 + 纸夹</em>：签名拖到照片占位图 9 位置盖章 + 拼贴布局以纸夹比喻。
+
+### 🪧 顶部 identity 条
+
+永远显示的只读 readout 条:
+- 行 1: `▤ IMG_1234.HEIC` (mono 灰) + 右侧 × close
+- 行 2: `FROSTED-NOIR · 3:4 · MINIMAL · N MODIFIED` (mono 琥珀小)
+
+不在 workshop 内换 frame/aspect/template (那些在 lookbar)；这条是<em>这张照片现在是什么</em>的现场报告。
+
+### 🧭 Tool dock 导航
+
+- 桌面: 左侧 68px 纵向工具栏 · 4 个 icon + 中文名 + modified 红点
+- 移动: 横向 pill bar (身份条下方) · 同一组 icon + 名字
+- 当前工具琥珀高亮 + 24px 高光条；其他淡米色
+
+### 🔧 实现注释
+
+- **保留所有 input id** (33+ 个): padding / caption-h / radius / shadow-blur / shadow-offset / shadow-opacity / caption-overlay-toggle / caption-overlay-lift / crop-open-btn / top-template-seg / 12 EXIF inputs / signature-* / collage-layout / apply-frame-all-btn / workshop-close 等全部保留位置变了 id 不变 · 现有 event listener 一字未动
+- **保留所有 cfg schema + 渲染管线**: 22 个 frame-cfg 旋钮 / 7 frame defs / resolveRenderParams / FACTORY_PRESETS / preset 系统 / Compose modal / lookbar pickers 全部不动
+- **删 IntersectionObserver scroll-spy** (Phase 11 上线): 新 IA 单一可见 tool panel · scroll 不再 index sections · tool dock click 是唯一导航源
+- **旧 tab name 兼容**: setWorkshopTab('tweak'/'exif'/'sign'/'tile'/'edges'/'shadow'/'caption'/'mark') 自动映射到对应 4 工具 · 外部 caller (lookbar / picker close / cmdk) 无需立即改动
+- service-worker `CACHE_VERSION` 走到 v54
+
+### ⚠️ Breaking visual
+
+老用户 muscle memory 注意:
+- **5-letter rail → 4-tool dock**: A/B/C/D/E 字母 rail 退役
+- **EXIF 现在叫 Notation**: 在 ✎ 工具下
+- **签名/拼贴现在叫 Seal**: 在 ✦ 工具下
+- **shadow 出了独立段, 重新归到 Caliper 工具的 Zone 2**
+
+Phase 13/14 将进一步把 Notation/Seal 落地它们各自的物理 chrome (笔记本 / 蜡印 + 纸夹)。
+
+---
+
+## 1.8.1 · 2026-05-29
+
+**工作台 rail 联动滚动 + section 修改指示** —— Phase 11 of the workshop redesign（接 1.8.0 的 5-section IA）。打开工作台滚动时，左侧 rail 的 A/B/C/D/E 字母<em>自动跟随</em>当前可见的 section 高亮琥珀；修改过的 section 字母右上角亮起 5px 红点；底部 footer 实时显示 "5 sections · N modified" 计数。
+
+### 🎯 实时反馈
+
+- **rail 滚动联动**：基于 `IntersectionObserver`，root 设为 `#ws-content`，rootMargin 偏向上半视口（`-10% 0px -50% 0px`）—— section 顶部进入上半时被认为"当前"。5 个阈值采样（0/0.1/0.25/0.5/0.75/1.0），保证滑动时 rail 高亮顺滑切换。
+- **section 修改指示**：每个 section 维护一个 `isModified` 计算：A 段比对 padding/captionH/radius/captionOverlay/lift/perEdge padding/rotation/crop；B 段比对当前相框的所有 `frame.cfg` keys (null = 默认)；C 段比对 `frame.shadowDefault`；D 段比对 topTemplate / exifOverride / showFields；E 段比对 customLogo / customBg / collage。基线一律 = `defaultCfg()` 快照（一次性缓存在 `_wsBaseline`）。
+- **footer 实时计数**：footer 左侧"5 sections · 0 modified" 占位文字现在 live 计算——拨任何一个旋钮立刻刷新。0 时显示 "全部默认 / all default"。
+
+### 🔧 实现注释
+
+- `refreshWorkshopModifiedState(cfg)` 挂到 `syncControlsFromCfg()` 末尾——每次 cfg 改动（slider/toggle/swatch/photo switch/preset apply）都会重算。
+- `initWorkshopScrollSpy()` 在 `openWorkshop()` 首次调用时 lazy-init（IntersectionObserver 需要 workshop 在 DOM 树里且 rect 非零，关着的时候没法初始化）。Idempotent，多次调用安全。
+- service-worker `CACHE_VERSION` 走到 v53。
+
+### 🎯 Phase 11 锁单
+
+Phase 10 (1.8.0) 落了 IA + chrome。Phase 11 (1.8.1) 落了 rail 联动 + modified 指示 + footer 计数。剩下 Phase 12 (移动端打磨：grabber + sticky section heads) 和 Phase 13 (footer Apply 提升) 按后续需求分别推。
+
+---
+
+## 1.8.0 · 2026-05-29
+
+**工作台抽屉重做 · 5 sections 替代 4 tabs · 暖暗调色板** —— Phase 10 of the workshop redesign（见 [docs/workshop-redesign-rev1.html](../docs/workshop-redesign-rev1.html)）。打开工作台不再是「微调 / EXIF / 签名 / 拼贴」4 个分裂的 tab——是一条连续滚动的长页，左侧 52px 字母 rail (A/B/C/D/E) 指示当前位置，底部 sticky footer 放 Reset / Apply 两个全局动作。视觉语言跟<em>仪器面板</em>和 <em>Compose mode</em> 完全打通——同一个房间的三块功能区。
+
+### 🗂️ 5 sections IA · 按工作流排
+
+| | 段名 | 内容 |
+|---|---|---|
+| **A** | Edges · 边距 | padding · captionH · radius · caption-overlay 开关 + lift · Compose 入口 |
+| **B** | Instrument · 仪器 | 7 张仪器卡（仅改名，内容跟 1.7.0 一致）|
+| **C** | Shadow · 阴影 | 阴影 blur/Y/opacity（终于<em>不再藏在折叠抽屉里</em>）|
+| **D** | Caption · 说明 | 顶部 brand 标记 + EXIF 字段覆盖 + Reset / Apply EXIF / Copy raw |
+| **E** | Mark · 印记 | 签名上传 + position grid + 大小 / 透明度 + 拼贴布局 |
+
+### 🎨 视觉语言
+
+- workshop 调色板从冷暗 `#0a0c0e` 切到暖暗 `#14120f → #2a2520`——跟 Compose mode + 仪器面板用同一套<em>琥珀 + 红色</em>双色系统。琥珀 (`#d4a574`) 驱动导航 / eyebrow / 提示语；红色 (`#e5493a`) 保留作 active 指示色。
+- 顶部条：Fraunces 斜体 "Editor's desk" 副标 + JetBrains Mono 红色 "PHOTO-TOOLS · WORKSHOP" eyebrow。
+- 每个 section header：方块 eyebrow 字母 (A/B/C/D/E 琥珀 mono) + Fraunces 斜体 section 名 + 右侧灰色 mono 中文小标。跟 C · 仪器面板 1.4.0 已经用的 ws-section-eyebrow 是同套语言。
+- 通用 slider thumb 改为<em>冷调钢小药丸</em>（12×12 cream-to-cool-steel 渐变）+ 琥珀光晕——跟仪器面板的"steel pill"语言一致。
+
+### 🧭 导航
+
+- 左侧 **vertical rail** 永远显示 A/B/C/D/E 5 个字母。当前 section 字母琥珀色 + 24px 高光条；其他淡米色。点字母平滑滚动到那段（`scrollIntoView({behavior:'smooth'})`）。
+- 字母右上角 5px 红点 = 该 section 修改过 placeholder（Phase 11 接活 modified 检测）。
+- 移动端（≤700px）rail 横转 90° 变成 horizontal **pill bar**：5 个琥珀边胶囊按钮，激活态琥珀填充 + 深色字。
+
+### 📍 sticky footer
+
+- 永远在底部：左侧 "5 sections" 元数据（modified 计数 Phase 11 接），右侧 "Reset all" ghost 按钮 + "Apply to all photos" **琥珀 primary**。
+- Apply-to-all 从 B · Frame 底部按钮升级为 footer primary——因为它<em>跨照片</em>，是编辑师层级的动作，应该常驻可触。
+
+### 🔧 实现注释
+
+- **零 cfg / 渲染管线改动**：所有 22 个旋钮 cfg key 一字不动，frame schemas 一字不动，resolveRenderParams 一字不动，FACTORY_PRESETS 一字不动。这一波是<em>纯 IA + UI 重构</em>。
+- **所有 input id 完整保留**：33 个关键 id（padding / caption-h / radius / shadow-blur / shadow-offset / shadow-opacity / top-template-seg / 12 个 exif-* / signature-* / collage-layout / apply-frame-all-btn 等）位置变了但 id 没变，所有 event listener 继续 work。
+- `app.js` 旧 `setWorkshopTab(tab)` 函数保留作 alias：tweak→edges / exif→caption / sign→mark / tile→mark，外部调用方（lookbar 触发 / picker 关闭 / cmdk action）无需立即改动。
+- shadow-advanced `<details>` 折叠 chrome 退役 (1.3.x 上线，1.8.0 退役)。shadow 现在作为顶层 C 段直接展开。
+- service-worker `CACHE_VERSION` 走到 v52。
+
+### ⚠️ Breaking
+
+- workshop 4 tab → 5 section IA 调整：长期肌肉记忆的用户会短期"找不到 EXIF 在哪"。EXIF 现在在 **D · Caption**；签名在 **E · Mark**；拼贴也在 **E · Mark**。
+
+---
+
+## 1.7.0 · 2026-05-29
+
+**slide-mount 上线 · 7 台仪器全员到齐 · ✦** —— Phase 8 of the per-frame instrument language（[docs/frame-instruments-rev3.html](../docs/frame-instruments-rev3.html)）。最后一台沉默的相框现在也有自己的仪器面板。**C · 仪器面板现在 7/7 全员到齐**：frosted-noir / torn / film-mf / gallery-white / film-35 / instax / slide-mount，从 1.3.0 启动到这一版完整闭环，每个相框都从「hardcoded 常量箱」升级为「用户可拨弄的乐器」。
+
+### 🎞️ slide-mount · 4 根新旋钮
+
+- **`cfg.slideMountColor`** ('cream' / 'leather' / 'black'，默认 cream) · 卡纸色。三档枚举对应 `#e6dac0` / `#9c7a4a` / `#2a1a14`——Kodachrome 米黄、皮革棕、档案黑。**改 mountColor 不只是换 bg.color——pebble tile 会按新颜色重建**，这样皮革凸起的明暗对比在不同底色下都保持视觉一致。
+- **`cfg.slideOuterRing`** ('wine' / 'brass' / 'charcoal'，默认 wine) · 外框色。canvas 周边 28px 实心带的颜色。酒红是原版；黄铜是 Kodachrome slide tray 的高档质感；炭黑是博物馆装裱风。
+- **`cfg.slidePebble`** (0.5×–1.5×，默认 1.0×，5 档：0.5/0.75/1.0/1.25/1.5) · 皮革凸起密度。乘到 `numBumps`（180 默认 → 90/135/180/225/270）。**这是 rev.3 标的 R6 风险点**——tile 重建有成本，所以 cache 按 `(mountColor, numBumps)` 组合键化，最多缓存 3 × 5 = 15 张 128×128 tile (~960 KB worst case)；用户拨过一遍之后全部命中缓存。
+- **`cfg.slideBevel`** (4–20 px，默认 8) · 凹陷深度。同时缩放卡纸 bevel cues 的宽度和照片孔的 inset shadow 深度（后者最多 36px）。从「平面贴纸」到「深陷镶嵌」全光谱。
+
+### 🎛️ slide-mount 仪器卡
+
+C · 仪器面板第 7 张卡，**酒红皮革 + 黄铜配件**：160° 酒红到深紫渐变 + multiply 皮革纹理 overlay + 左上角的 radial 暖色高光（黄铜反射既视感）。黄铜横杠 + `SLIDE · MOUNT` mono 大写 + 右侧 `PROJECTOR` Fraunces 大写副标。Thumb 是**抛光黄铜圆钮**（径向金色渐变 + 内嵌高光环 + 外阴影）。Swatches 是 3 个实色圆盘 + 黄铜激活光晕。
+
+### 📊 C · 仪器面板 最终阵容
+
+| Frame | 物质身体 | 旋钮数 | Thumb 造型 |
+|---|---|---|---|
+| frosted-noir | 冷调编辑控制台 | 5 | 红色小药丸（5 通道 channel-strip） |
+| torn | 牛皮纸工作台 | 3 旋钮 + 1 选材 | 带炭笔印章的牛皮纸方块 |
+| film-mf | 米黄相纸图书馆 | 1（复合 age） | 黄铜镶边圆钮 |
+| gallery-white | 美术馆铭牌 | 3 旋钮 + 1 选材 | 极简白方块 + 黑细边 |
+| film-35 | 拉丝钢顶板 | 2 旋钮 + 1 开关 + 1 步进 | 滚花金属药丸 + 红刻线 |
+| instax | 奶油塑料拍立得 | 1 旋钮 + 2 开关 + 1 选材 | 奶油塑料厚块 + 橙刻线 |
+| slide-mount | 酒红皮革幻灯片机座 | 2 旋钮 + 2 选材 | 抛光黄铜圆钮 |
+
+**总计 22 根旋钮** · **每根都跟自己的物质外壳一致** · **底层机制全部统一为 input + button 的标准 web 控件**——这是 rev.3 设计语言「Same mechanism · different garment」的完整兑现。
+
+### 🔧 实现注释
+
+- `slide-mount.js` tile cache 现在用 Map 按 `${mountColor}_${numBumps}` 组合键化（之前是 `_leatherTile` 模块级单缓存）。lazy 填充，只构造用户真实拨到的组合。
+- `buildLeatherTile(baseColor, numBumps)` 重构为接收两个参数，seed 也混入 numBumps 让不同密度 tile 视觉上有别（不只是 bump 数量变）。
+- `resolveRenderParams` 现在包含 7 个相框-namespace block (`bg / torn / filmMf / film35 / instax / slideMount / galleryWhite`) + shadow。函数已经接近 90 行——下一波 cfg 命名空间迁移会把这套 if-block 收敛成一个 schema-driven loop。
+- service-worker `CACHE_VERSION` 走到 v50。
+
+### 🚀 下一步
+
+完成 C · 仪器面板 7/7 后，**下一波是架构重构**——把所有 9 + 4 + 4 + 4 + 4 + 4 = 29 个扁平 cfg key（`bgBlur` / `tornJitter` / ... / `slideBevel`）迁移到嵌套 `cfg.bg.blur` / `cfg.torn.jitter` / ... 命名空间，搭 schema-driven `renderInstrumentPanel(frameId)` harness（[设计稿 rev.3](../docs/frame-instruments-rev3.html) 章节 03）。preset / share-code 走 alias 表迁移，保 v:1 兼容。这是真正兑现「frame 文件是自治模块」的最后一步。
+
+---
+
+## 1.6.0 · 2026-05-29
+
+**instax 升级为可调拍立得 · 仪器面板第 6 台** —— Phase 6 of the per-frame instrument language（[docs/frame-instruments-rev3.html](../docs/frame-instruments-rev3.html)）。把 instax 相框从「2 个 hardcoded 常量 + 没 decorate」变成「4 根真旋钮 + 第一个新画的 decorate hook」。这是 rev.3 标的"风险最高"的 phase——slab 是唯一会真实改变 layout 数学（fg 位置 + caption zone）的参数；其他 5 台仪器的所有旋钮都在 decorate 里活，不动 layout。
+
+### 📷 instax · 4 根新旋钮
+
+- **`cfg.instaxSlab`** (60–360 base-1440 px，默认 240) · 底部留白深度。是这一波唯一**真改 layout**的旋钮——`layoutOpts.extraBottom` 在 `clientRender.js` + `worker.js` 接收 cfg 覆盖，进入 `computeLayout` 重新算 fg 位置 + caption zone。调小得到"边窄"的现代 mini Evo，调大得到"大白边"的复古 polaroid 既视感。
+- **`cfg.instaxTint`** ('pure' / 'cream' / 'aged'，默认 'pure') · 相纸色调。3 档枚举对应 #fffdf6 / #f5ecd6 / #eddcb8——`resolveRenderParams` 在解析 bg 时按相框的 `tintColors` 查表替换 `bg.color`。从纯白到奶油到陈旧泛黄。
+- **`cfg.instaxStamp`** (boolean，默认 false) · 日期戳。新画的 decorate hook（instax 之前没有 decorate）从 EXIF 解析日期，按 `'YY·MM·DD` 格式（实际 instax mini Evo 的打印格式）画在底部留白右侧。
+- **`cfg.instaxRainbow`** (boolean，默认 false) · 彩虹条。decorate hook 在底部留白左侧画 4 色彩虹方块（#ff6b35 / #ffc857 / #7fbf6e / #4595d0）——真 instax 包装的标志性视觉。
+
+### 🎛️ instax 仪器卡
+
+C · 仪器面板第 6 张卡，**奶油塑料拍立得正面**：#fffdf6 卡纸 + 多 multiply 纸纹噪点，底部左侧带 absolute 定位的小彩虹条 signature。橙色 #ee6a39 nameplate tag + Fraunces 斜体 "Instax mini" 大字。Thumb 是**奶油塑料厚块**（24×28 圆角矩形 + 双向阴影），落在浅灰极细轨道上。Toggle 是 FUJI 橙填充胶囊；swatches 是 3 个对应实际相纸色的圆色块。
+
+### 🔧 实现注释
+
+- 这一版 layout 数学**第一次**接收 cfg 覆盖。之前 `computeLayout` 的 opts 是 frame 给的死值（`extraBottom: 240`），现在 `clientRender + worker` 都在传给 computeLayout 之前 `if (cfg.instaxSlab != null && cfg.frame === 'instax') layoutOpts.extraBottom = ...` 截胡。这是为后续允许其他 frame 也参数化 layout 数学开的口子。
+- `frame.instax.tintColors` 是新引入的"frame 提供的 enum 查表"模式——为后续 slide-mount 的 mountColor / outerRing 等 enum 旋钮提供前例。
+- instax 第一次有了 decorate hook。原本它只是"bg + layout + 没有装饰画"的极简 frame；现在 stamp + rainbow 作为 cfg-toggle 的纯加成画，不影响 layout。
+- C · 仪器面板进度：5/7 → **6/7**。剩下 slide-mount 一台。
+- service-worker `CACHE_VERSION` 走到 v49。
+
+---
+
+## 1.5.0 · 2026-05-29
+
+**film-35 升级为可调电影胶片 · 仪器面板第 5 台** —— Phase 7 of the per-frame instrument language（[docs/frame-instruments-rev3.html](../docs/frame-instruments-rev3.html)）。把 film-35 相框从「4 个 hardcoded 常量」变成「4 根真旋钮」——齿孔密度、胶片颗粒、DX 边印开关、帧号样式。C · 仪器面板里现在能看见第 5 张穿着拉丝钢 + Kodak 红 + 滚花金属药丸 thumb 的仪器卡了。
+
+### 🎞️ film-35 · 4 根新旋钮
+
+- **`cfg.f35Sprocket`** (0.5×–2.0×，默认 1.0×) · 齿孔密度乘数。沿用现有的 `numHoles = clamp([8,32], fgW / pitch)` 几何，调小让齿孔变稀疏（IMAX 大画幅风）、调大让齿孔变密（8mm 家用机风）。
+- **`cfg.f35Grain`** (0–1，默认 0) · 胶片颗粒强度。新增的 `R.fillGrain` 公共 helper（`shared/render.js`）用 64×64 噪点 tile + overlay blend 给整张画布盖一层化学颗粒。100% 上限阿尔法 0.32——重也不会变成电视雪花。
+- **`cfg.f35EdgePrint`** (boolean，默认 true) · 顶部 "BRAND · 400T · DX" 胶片标识能不能关——关掉得到"未冲洗 leader"质感。
+- **`cfg.f35FrameNo`** ('xx' / '1-36' / 'a-z'，默认 '1-36') · 底部帧号样式。`24A`（电影半帧编号默认）/ `XX`（匿名未编号）/ `R`（字母 A–Z 周期，按日期日推算）。
+
+### 🎛️ film-35 仪器卡
+
+C · 仪器面板里的新成员，**拉丝钢顶板**：125° 五段渐变（深→浅→高光→浅→深）+ 90° 重复线性渐变模拟刷痕 + 噪点 overlay。Kodak 红圆点 + "FILM · 35MM" mono 大写 nameplate + "TOP PLATE" Fraunces 大写副标。Thumb 是**滚花金属药丸**——36×18 钢色四段渐变 + 内嵌 repeating-linear-gradient 模拟滚花纹 + 中央红刻线，停在深钢色细轨上。Toggle 是 Kodak 红填充的胶囊开关；stepper 是黑底红激活的三档分段按钮。
+
+### 🔧 实现注释
+
+- 新增 `R.fillGrain(ctx, x, y, w, h, opacity)` —— `shared/render.js` 公共 API，所有 frame decorate 都能调（worker 用 OffscreenCanvas、主线程用 HTMLCanvasElement）。原本只在 `clientRender.js` 私有的噪点能力现在升级到 shared 层。
+- film-35 decorate hook 现在读 `args.params.film35.*`；legacy 调用 (`args.params` 缺失) fallback 到 1.4.x 的 hardcoded 常量，smoke baseline 在数学上等价。
+- C · 仪器面板现有 5 台仪器：frosted-noir / torn / film-mf / gallery-white / film-35。还差 2 台 (instax · slide-mount) 沿同一架构补齐。
+- service-worker `CACHE_VERSION` 走到 v48。
+
+---
+
+## 1.4.0 · 2026-05-29
+
+**C · 仪器面板 顶层化 · gallery-white 升级为可调 passe-partout** —— Phase 4+5 of the per-frame instrument design language（见 [docs/frame-instruments-rev3.html](../docs/frame-instruments-rev3.html)）。1.3.x 把 frosted-noir / torn / film-mf 三台仪器穿上了物质外壳，但它们还藏在 B · Frame 底部的折叠抽屉里；这一版把整套 Advanced 升级为 workshop 顶层的「C · 仪器面板」section——永远可见、跟着相框切换、不用展开任何东西。同时把 gallery-white 从"4 个 hardcoded 常量"变成"4 根真旋钮"。
+
+### 🎛️ 顶层化 · C · 仪器面板
+
+- **从 B · Frame 抽屉升级为顶层 section**：原本 frosted-advanced / torn-advanced / film-mf-advanced 是埋在 B · Frame 底部的 `<details>` 折叠抽屉——要先滚到 B 底部再点开。现在它们升级为顶层「C · 仪器面板」，**永远展开**、永远可见。切换相框 = 看见对应仪器的房间，0 click cost。
+- **`<details>` 改为 `<section>`**：3 个面板不再有可折叠 summary——summary chrome 让位给 C section 自己的标题（Fraunces 斜体 + 红色 mono eyebrow「C」标）。视觉上读为「这是一台仪器房间」而不是「这是又一个折叠抽屉」。
+- **shadow-advanced 保留在 B · Frame 底部折叠**：阴影是跨相框的几何参数（不属于任何一台仪器的"性格"），按 rev.3 设计原则继续留在 B 里。
+
+### 🖼️ gallery-white · 4 根新旋钮
+
+- **衬纸宽度** (`cfg.galMatWidth`, 8–60px) · **双线间距** (`cfg.galLineSpacing`, 4–24px) · **线条粗细** (`cfg.galLineWeight`, 0.5–2.4×) · **线条颜色** (`cfg.galLineColor`, 墨色 / 炭灰 / 暖棕)。
+- 原本 gallery-white 的 passe-partout 双线是 frame 内部的 hardcoded 数字（衬纸 26、间距 18、粗细 1.0、墨色），现在每张照片都能自己调——从"几乎看不见的细线" 到 "建筑事务所厚衬纸"，从精确数学制图风到温暖手工书装风。
+- 仪器卡视觉延续设计语言：**暖米色板 + 双层 passe-partout 边线包裹整张卡**（呼应它绘制在照片周围的同款细线），Fraunces 斜体标签、JetBrains Mono 数值读出、奶油白小方块 thumb 落在暗墨细轨上。
+
+### 🔧 实现注释
+
+- `frames/gallery-white.js` 的 decorate hook 重写为读 `args.params.galleryWhite.*` (legacy 调用 fallback 到 hardcoded，smoke 基线不漂)。
+- 所有 cfg key 仍是扁平命名（`galMatWidth` 等）——下一波会把 9 个扁平 key 统一迁到 `cfg.bg.* / cfg.torn.* / cfg.filmMf.* / cfg.galleryWhite.*` 命名空间，并在 frame 文件里声明 cfg schema 让 harness 自动织入（[设计稿 rev.3](../docs/frame-instruments-rev3.html) 章节 03）。
+- service-worker `CACHE_VERSION` 走到 v47。
+
+---
+
+## 1.3.1 · 2026-05-29
+
+**相框高级面板 · 全套乐器外壳上线** —— Phase 3 of the per-frame instrument design language（见 [docs/frame-instruments-design.html](../docs/frame-instruments-design.html) rev.2）。1.3.0 给 frosted-noir 落地了 channel-strip 编辑台；这一版把 torn 和 film-mf 的 Advanced 面板也穿上各自的物质外壳，让"打开这个相框的高级设置"在视觉上真的像"打开那台仪器的面板"。
+
+### 🎛️ Advanced 面板 · 三个房间
+
+- **torn · 牛皮纸工作台**：打开后是一块带<em>不规则撕痕顶边</em>（clip-path 多边形）的牛皮纸卡片，纸面有 fractalNoise 纤维纹理；标签用 Special Elite 打字机体；滑块 thumb 是<em>带炭笔印章的牛皮纸方块</em>（内嵌 SVG），落在暗炭笔色轨道里。Reset 按钮也换成炭笔描边样式。
+- **film-mf · 图书馆档案**：打开后是一块<em>陈年米黄相纸</em>（径向渐变 + 5 处随机 foxing 斑点 + 对角光线衰减），右上角带馆藏登记号「Archive · vol. iv / MF · 6×7 · 1974」（Fraunces 斜体 + JetBrains Mono 配排）；标签用 Fraunces 斜体；滑块 thumb 是<em>黄铜镶边圆钮</em>（径向金属渐变），落在 sepia 浅刻槽里。
+- **frosted-noir · 编辑控制台**（向后兼容微调）：1.3.0 的 5 通道 rack 现在被包在一层<em>冷调钢蓝</em>卡片里（轻量纵向 magazine grid 线），跟另外两个面板形成"三张卡片各自一种物理"的视觉系列感。已有的 channel-strip 行为 100% 保留。
+- **summary 左侧 2px 颜色条**：三个面板的折叠条左边各加了一道 frame 主色——frosted-cool / kraft / sepia——折叠状态下也能从颜色看出这是哪台仪器的房间。
+
+### 📚 字体新增
+
+- 顶部 `<link>` 加载了 **Fraunces italic** 和 **Special Elite**——前者给 film-mf 标签当馆藏花体，后者给 torn 标签当工作台打字机体。两个都来自 Google Fonts，本来 Fraunces roman 就在工程里加载，只是补了 italic 轴。
+
+### 🔧 实现注释
+
+- 所有 `<input type="range">` id 完全不变（torn-jitter / torn-step / torn-edge-opacity / film-mf-age），仅替换外层 wrapper class + 加 per-frame slider chrome (`.torn-slider` / `.filmmf-slider`)。事件 listener / syncControlsFromCfg / onFrameChange 一行没动。
+- 触屏自动加大 slider hit target（torn 28→32 wide × 22→26 high；film-mf 22→26 round），桌面端保持精密手感。
+- service-worker `CACHE_VERSION` 走到 v46。
+
+---
+
+## 1.3.0 · 2026-05-29
+
+**每个相框是一台仪器** —— Phase 2 of the per-frame instrument design language (see [docs/frame-instruments-design.html](../docs/frame-instruments-design.html)). 把 frosted-noir 的"高级 · 毛玻璃参数"区从 3 根松散的 slider 改造成 **5 路 channel-strip 编辑台**，同时把两个一直 hardcoded 在渲染管线里的参数（压暗 · 颗粒）作为真正的旋钮升上来给用户掌控。
+
+### 🎛️ frosted-noir · 5 通道控制台
+
+- **新增旋钮**：`cfg.bgDarken`（CH·4，0–0.7）和 `cfg.bgGrain`（CH·5，0–0.5）。原本是 frame 内部常量，现在每张照片都能自己拨——从原本的 0.22 / 0.14 出厂值可以一路开到漆黑 + 满屏胶片颗粒，也可以归零得到纯净的毛玻璃。
+- **5 路 channel-strip 布局**：CH·1 Blur / CH·2 Brightness / CH·3 Saturation / CH·4 Darken / CH·5 Grain。每行 mono 通道号 + 标签 / 滑块 + 右侧 tabular 数值读出，行间细线分隔——视觉上读为一台仪器而不是 5 个独立 slider。
+- **更精炼的 slider**：rack 内 slider 厚度从全局 12×12 thumb 改为 10×10 + 双环聚焦阴影。视觉降噪，5 行叠起来不打架。触摸设备自动放大到 14×14 保留 44px 触控目标。
+- **预设兼容**：share-code / preset schema 仍是 v:1 additive——旧预设不带 bgDarken / bgGrain 字段时自动 fallback 到 frame 出厂值。
+
+### 📚 设计文档
+
+- [docs/frame-instruments-design.html](../docs/frame-instruments-design.html)（rev.2）—— 7 个相框的"乐器面板"完整设计语言提案：每台仪器有自己的 thumb 造型 / track 纹理（钢制药丸 / 奶油塑料 / 牛皮纸 / 黄铜旋钮），底层机制全部统一为横向滑块。本版落地的是第一台 frosted-noir，余下 6 台按熟悉度依次跟进。
+
+---
+
 ## 1.2.0 · 2026-05-21
 
 **移动端裁切交互整个推倒重做** —— 从「拖拽角的 handle」模型换成 iPhone 原生 Photos / Instagram / Lightroom Mobile 那种 **「Through the Aperture」（取景器后面拖照片）** 模型。1.1.x 的 handle UX 在 mobile 完全不可用：手指比 28px 的 bracket 粗，触摸后手指还把那个 bracket 完全挡住；「拽手柄=resize」vs「拽内部=pan」靠 hover 试探的判定在 touch 下根本无法运作。这一版抛掉历史包袱重新设计。

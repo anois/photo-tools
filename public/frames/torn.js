@@ -152,8 +152,14 @@
     // Torn-paper procedural defaults. cfg.tornJitter / tornStep /
     // tornEdgeOpacity (when present) win over these via R.resolveRenderParams,
     // exposing the same DIY-knob pattern frosted's bgBlur/Brightness/
-    // Saturation use. See B · Frame's "Advanced · torn paper" panel.
+    // Saturation use. Surfaced in the workshop's ◉ Instrument tool · torn card.
     torn: { jitter: 6, step: 7, edgeOpacity: 0.22 },
+    // ─── 1.7.x harness · cfg schema (3 knobs) ─────────────────────────
+    cfg: {
+      tornJitter:      { kind: 'slider', min: 0, max: 14,  step: 0.5,  default: null, frameDefault: 6    },
+      tornStep:        { kind: 'slider', min: 3, max: 14,  step: 0.5,  default: null, frameDefault: 7    },
+      tornEdgeOpacity: { kind: 'slider', min: 0, max: 0.5, step: 0.02, default: null, frameDefault: 0.22 }
+    },
     clipPath: tornClip,
     decorate: decorate
   });

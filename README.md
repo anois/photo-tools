@@ -67,7 +67,7 @@ These are not skins. Each one is a tuned starting point — every render paramet
 
 ## Workshop — seeds, not skins
 
-The product model is **engine + community look library**, not "fixed frames + a few sliders". When a seed isn't quite your photo's vibe, the workshop opens with every knob the engine exposes: corner radius, caption-inside-photo with sub-pixel lift, torn-paper jitter/density/edge, vintage-print age scalar, top-of-frame badge picker, custom background image, drop-shadow tuple, signature overlay. Every change becomes a new LOOK you can save, share by URL, or apply to the whole rail.
+The product model is **engine + community look library**, not "fixed frames + a few sliders". When a seed isn't quite your photo's vibe, the workshop opens with every knob the engine exposes: corner radius, caption-inside-photo with sub-pixel lift, torn-paper jitter/density/edge, vintage-print age scalar, top-of-frame badge picker, custom background image, drop-shadow tuple, and a freely-placed seal/signature you drag anywhere on the composition (onto the photo or into the frame margin) with rotation, horizontal flip and blend modes. Every change becomes a new LOOK you can save, share by URL, or apply to the whole rail.
 
 <table>
   <tr>
