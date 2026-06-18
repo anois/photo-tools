@@ -2483,6 +2483,26 @@ input[type="range"]::-moz-range-thumb {
   bottom: 0;
   background: linear-gradient(to top, var(--bg-elev), transparent);
 }
+/* Shared modal close button — the circular ✕ used by every modal head
+   (changelog / geo / aspect / export / workshop). This base rule was lost
+   during the 1.10.7 crop-modal CSS removal (it sat inside the spliced
+   range), leaving all .modal-x buttons unstyled (default browser box).
+   Contextual rules like `.export-modal-head .modal-x { width:36px }` only
+   override size and assume this base exists. */
+.modal-x {
+  appearance: none; -webkit-appearance: none;
+  border: 1px solid var(--line); background: var(--bg-sunken);
+  color: var(--text-muted);
+  width: 28px; height: 28px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 999px; cursor: pointer;
+  padding: 0;
+  transition: color 120ms, border-color 120ms, background 120ms, transform 120ms;
+}
+.modal-x:hover { color: var(--text); border-color: var(--accent-line); background: var(--accent-wash); }
+.modal-x:active { transform: scale(0.92); }
+.modal-x:focus-visible { outline: 1px solid var(--accent-line); outline-offset: 2px; }
+
 .changelog-modal-head {
   display: flex; align-items: center; justify-content: space-between;
   padding: 14px 18px; border-bottom: 1px solid var(--line);
@@ -7136,9 +7156,12 @@ input.compose-vnum, .compose-vnum {
   box-shadow: -30px 0 80px -20px rgba(0, 0, 0, 0.75);
   display: flex;
   flex-direction: column;
-  position: absolute;
-  inset: 0 0 0 auto;
-  width: min(440px, calc(100vw - 32px));
+  /* Geometry (position / inset / width / desktop translateX · mobile
+     bottom-sheet translateY) comes from the base `.workshop` rule + its
+     mobile @media override — the element is always `workshop workshop--bench`.
+     Re-declaring position/inset/width here previously clobbered the mobile
+     bottom-sheet anchoring (forced top:0), leaving the closed sheet's top
+     edge (the ▤ identity strip) peeking at the bottom on tall phones. */
 }
 .workshop--bench::before {
   /* faint film-grain noise · same overlay as Compose mode */
