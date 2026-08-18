@@ -46,6 +46,7 @@
 <script src="public/frames/film-mf.js"></script>
 <script src="public/frames/slide-mount.js"></script>
 <script src="public/frames/torn.js"></script>
+<script src="public/frames/halftone.js"></script>
 <script src="public/exifio.js"></script>
 <script src="public/clientRender.js"></script>
 
@@ -55,9 +56,12 @@
   // each baseline. If a future change moves the pipeline, either the diff
   // surfaces it here or the baselines need to be re-rendered alongside.
   function makeCfg(overrides) {
-    const FRAMES = window.PhotoRender.FRAMES;
     const frameName = overrides.frame || 'frosted-noir';
-    const sd = FRAMES[frameName].shadowDefault;
+    // Resolve via resolveFrame, NOT a direct FRAMES[...] index — the fixtures
+    // deliberately keep retired frame names ('frosted-dark' / 'frosted') to
+    // exercise the alias table, and a direct index throws on them (the 0.22
+    // cull broke this page silently: it stuck at "running…" ever since).
+    const sd = window.PhotoRender.resolveFrame(frameName).shadowDefault;
     return {
       aspect: '9:16',
       frame: frameName,

@@ -18,7 +18,8 @@ self.importScripts(
   'frames/film-35.js',
   'frames/film-mf.js',
   'frames/slide-mount.js',
-  'frames/torn.js'
+  'frames/torn.js',
+  'frames/halftone.js'
 );
 
 const R = self.PhotoRender;
@@ -153,11 +154,12 @@ async function compose(canvas, args) {
   // Frames can override the default rounded-rect silhouette via
   // `frame.clipPath`. Used for shadow casting + photo clip (the seal
   // overlay is NOT clipped since 1.11.0) — see clientRender.js.
-  const clipFn = (args.frame && typeof args.frame.clipPath === 'function')
+  // Frameless mode skips every frame-chrome pass — mirrors clientRender.js.
+  const clipFn = (!args.frameless && args.frame && typeof args.frame.clipPath === 'function')
     ? (ctx2, x, y, w, h) => args.frame.clipPath(ctx2, x, y, w, h, layout, args)
     : null;
 
-  if (params.shadow.opacity > 0) {
+  if (!args.frameless && params.shadow.opacity > 0) {
     ctx.save();
     ctx.shadowColor = `rgba(0,0,0,${params.shadow.opacity})`;
     ctx.shadowBlur = params.shadow.blur * layout.scale;
@@ -180,6 +182,16 @@ async function compose(canvas, args) {
     drawCellPhoto(ctx, {
       x: layout.fgLeft, y: layout.fgTop, w: layout.fgW, h: layout.fgH
     }, bitmap, rot, layout.radius, args.crop, clipFn);
+  }
+
+  // Frame fx hook (pixel effects — e.g. halftone screening). Runs after the
+  // fg cells and before caption / badge / decorate / seal — mirrors
+  // clientRender.js. Hooks are DOM-free (OffscreenCanvas + ctx primitives).
+  if (args.frame && typeof args.frame.fx === 'function') {
+    ctx.save();
+    try { args.frame.fx(ctx, layout, args); }
+    catch (err) { console.warn('[worker] frame.fx failed:', err); }
+    ctx.restore();
   }
 
   // Stash captionImg on args so frame.decorate hooks that destructively
@@ -215,7 +227,7 @@ async function compose(canvas, args) {
   // Mirrors clientRender.js: frame.decorate runs after caption, before
   // signature. decorate runs in worker context (no DOM) — frames must use
   // ctx primitives + R.pathRoundRect, not document.createElement.
-  if (args.frame && typeof args.frame.decorate === 'function') {
+  if (!args.frameless && args.frame && typeof args.frame.decorate === 'function') {
     ctx.save();
     try { args.frame.decorate(ctx, layout, args); }
     catch (err) { console.warn('[worker] frame.decorate failed:', err); }
@@ -369,15 +381,19 @@ async function renderJob(msg) {
     const cropW = cfg.crop && cfg.crop.w > 0 ? cfg.crop.w : 1;
     const cropH = cfg.crop && cfg.crop.h > 0 ? cfg.crop.h : 1;
     const meta = { width: safe.w * cropW, height: safe.h * cropH };
+    // Frameless mode — mirrors clientRender.js's buildLayoutAndCaption:
+    // shared layout-opts rewrite, no caption / top badge SVG built.
+    const frameless = !!cfg.frameless;
+    if (frameless) R.applyFramelessLayoutOpts(layoutOpts, meta.width, meta.height);
     const layout = R.computeLayout(meta, layoutOpts);
     const effectiveTextStyle = layout.caption.placement === 'overlay' ? 'light' : frame.textStyle;
-    const captionSvg = R.buildCaptionSvg(normExif, layout, {
+    const captionSvg = (frameless || frame.noCaption) ? null : R.buildCaptionSvg(normExif, layout, {
       template: cfg.template,
       textStyle: effectiveTextStyle,
       showFields: cfg.showFields,
       fontFaceCss, logos
     });
-    const topBadgeSvg = R.buildTopBadgeSvg(normExif, layout, {
+    const topBadgeSvg = frameless ? null : R.buildTopBadgeSvg(normExif, layout, {
       topTemplate: cfg.topTemplate,
       textStyle: frame.textStyle,
       fontFaceCss, logos
@@ -387,6 +403,7 @@ async function renderJob(msg) {
     const bitmaps = collage ? [bitmap, ...partnerBms] : null;
     await compose(canvas, {
       bitmap, bitmaps, layout, params, captionSvg, topBadgeSvg, frame, normExif,
+      frameless,
       customLogo: cfg.customLogo || null,
       customBg: cfg.customBg || null,
       collage,
