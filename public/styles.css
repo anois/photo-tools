@@ -691,374 +691,366 @@ input[type="range"]::-moz-range-thumb {
 
 /* the first instrument inside the section gets margin from .torn-card etc. */
 
-/* ─── frosted-noir · editorial console card ─── */
-.bg-rack {
-  display: flex;
-  flex-direction: column;
-  margin: 10px 0 0;
-  padding: 4px 14px 6px;
-  border-radius: 3px;
-  position: relative;
-  background:
-    linear-gradient(170deg, rgba(28, 37, 48, 0.55) 0%, rgba(10, 14, 18, 0.35) 100%);
-  box-shadow:
-    inset 0 1px 0 rgba(168, 184, 196, 0.06),
-    0 6px 16px -10px rgba(0, 0, 0, 0.4);
-}
-.bg-rack::before {
-  /* faint magazine grid — vertical 1px lines at 1/3 and 2/3 marks */
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background:
-    linear-gradient(90deg, transparent calc(33.33% - 1px), rgba(168, 184, 196, 0.05) 33.33%, transparent calc(33.33% + 1px)),
-    linear-gradient(90deg, transparent calc(66.66% - 1px), rgba(168, 184, 196, 0.05) 66.66%, transparent calc(66.66% + 1px));
-  border-radius: inherit;
-}
-.bg-channel {
-  display: grid;
-  grid-template-columns: 36px 1fr 64px;
-  align-items: center;
-  column-gap: 14px;
-  padding: 9px 0;
-  border-bottom: 1px solid var(--line-subtle);
-}
-.bg-channel:last-child { border-bottom: 0; }
-.bg-ch-num {
-  font-family: var(--f-mono);
-  font-size: 9.5px;
-  letter-spacing: 0.16em;
-  color: var(--text-dim);
-  text-transform: uppercase;
-}
-.bg-ch-body {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 0;
-}
-.bg-ch-label {
-  font-family: var(--f-mono);
-  font-size: 10px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-.bg-ch-slider {
-  /* override the global range-slider — slimmer thumb + track */
-  height: 16px;
-}
-.bg-ch-slider::-webkit-slider-runnable-track {
-  height: 3px;
-  background: var(--line-strong);
-  border-radius: 2px;
-}
-.bg-ch-slider::-webkit-slider-thumb {
-  appearance: none;
-  width: 10px; height: 10px;
-  margin-top: -3.5px;
-  background: var(--accent);
-  border: none;
-  border-radius: 50%;
-  box-shadow:
-    0 0 0 1.5px var(--bg-chrome),
-    0 0 0 2.5px rgba(229, 73, 58, 0.45),
-    0 0 6px var(--accent-glow);
-  transition: transform 120ms, box-shadow 160ms;
-}
-.bg-ch-slider::-webkit-slider-thumb:active { transform: scale(0.85); }
-.bg-ch-slider:focus-visible::-webkit-slider-thumb {
-  box-shadow:
-    0 0 0 1.5px var(--bg-chrome),
-    0 0 0 3.5px var(--accent-line),
-    0 0 8px var(--accent-glow);
-}
-.bg-ch-slider::-moz-range-track {
-  height: 3px;
-  background: var(--line-strong);
-  border-radius: 2px;
-}
-.bg-ch-slider::-moz-range-thumb {
-  width: 10px; height: 10px;
-  background: var(--accent);
-  border: none;
-  border-radius: 50%;
-  box-shadow:
-    0 0 0 1.5px var(--bg-chrome),
-    0 0 0 2.5px rgba(229, 73, 58, 0.45),
-    0 0 6px var(--accent-glow);
-}
-.bg-ch-value {
-  font-family: var(--f-mono);
-  font-size: 11px;
-  letter-spacing: 0.02em;
-  color: var(--text);
-  font-weight: 500;
-  text-align: right;
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
-}
-/* Touch-coarse: bump thumb hit target without changing visual much. */
-@media (pointer: coarse) {
-  .bg-ch-slider { height: 28px; }
-  .bg-ch-slider::-webkit-slider-thumb {
-    width: 14px; height: 14px;
-    margin-top: -5.5px;
-  }
-  .bg-ch-slider::-moz-range-thumb { width: 14px; height: 14px; }
-  .bg-channel { padding: 11px 0; }
+/* ════════════════════════════════════════════════════════════════════════
+   DARKROOM INSTRUMENT CARDS · 1.12.1 「暗房纪律」
+   One graphite recipe for all 8 frame cards. The per-frame material themes
+   (editorial console / kraft / riso proof-press / archive paper / museum
+   placard / brushed steel / cream plastic / wine leather) are retired —
+   frame identity survives as a 2px accent bar + the mono tag line. Amber
+   (#d4a574, the Compose safelight) is the drawer's ONE light: it marks
+   what the user touched. Red is reserved for destructive actions.
+   Design spec: docs/workshop-darkroom-rev2.html.
+   All input ids / class names / DOM structure unchanged — pure reskin.
+   ════════════════════════════════════════════════════════════════════════ */
+:root {
+  --wk-g0: #101113;
+  --wk-g1: #17181b;
+  --wk-g2: #1e2024;
+  --wk-g3: #26282d;
+  --wk-line: rgba(240, 238, 230, 0.08);
+  --wk-line-strong: rgba(240, 238, 230, 0.16);
+  --wk-text: #e8e5dc;
+  --wk-mute: #8f8b80;
+  --wk-dim: #5c594f;
+  --wk-amber: #d4a574;
+  --wk-amber-hi: #e8bd88;
+  --wk-amber-dim: rgba(212, 165, 116, 0.32);
+  --wk-amber-faint: rgba(212, 165, 116, 0.1);
+  --wk-danger: #c94f3d;
 }
 
-/* ─────────────────── torn · kraft workbench card ─────────────────── */
-/* The card has an irregular torn TOP edge via clip-path (the polygon is a
-   single hand-tuned silhouette — not procedurally fancy, but consistent
-   regardless of viewport). Paper-fibre texture via inline SVG noise. */
-.torn-card {
+/* ── card shells + per-frame accent (2px left bar via --fa) ── */
+.bg-rack, .torn-card, .ht-card, .filmmf-card,
+.gallery-card, .film35-card, .instax-card, .slide-card {
   position: relative;
   margin: 10px 0 0;
-  padding: 22px 18px 16px;
-  background:
-    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.32' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .42  0 0 0 0 .32  0 0 0 0 .2  0 0 0 .4 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>") 0 0 / 240px 240px,
-    #b89b76;
-  color: #2b1f17;
-  clip-path: polygon(
-    0 9px, 5% 0, 10% 12px, 15% 2px, 20% 11px, 26% 1px,
-    31% 10px, 37% 4px, 43% 11px, 49% 0, 54% 9px, 60% 2px,
-    66% 11px, 72% 4px, 78% 11px, 84% 1px, 90% 9px, 96% 3px, 100% 11px,
-    100% 100%, 0 100%
-  );
-  box-shadow: 0 10px 22px -12px rgba(0, 0, 0, 0.55);
+  padding: 12px 14px 12px 16px;
+  background: var(--wk-g1);
+  color: var(--wk-text);
+  border: 1px solid var(--wk-line);
+  border-radius: 4px;
+  overflow: hidden;
+  isolation: isolate;
 }
-.torn-stamp {
+.bg-rack     { --fa: #5a7fb8; }   /* frosted-noir · deep blue */
+.gallery-card{ --fa: #cfc9b8; }   /* gallery bone */
+.instax-card { --fa: #ee6a39; }   /* fuji orange */
+.torn-card   { --fa: #b89b76; }   /* kraft */
+.film35-card { --fa: #d0524a; }   /* cine red (lifted for dark bg) */
+.filmmf-card { --fa: #c79a55; }   /* brass */
+.slide-card  { --fa: #a4576a; }   /* wine (lifted) */
+.ht-card     { --fa: #4f79c9; }   /* riso ink (lifted) */
+.bg-rack::before, .torn-card::before, .ht-card::before, .filmmf-card::before,
+.gallery-card::before, .film35-card::before, .instax-card::before, .slide-card::before {
+  content: "";
   position: absolute;
-  top: 18px;
-  right: 16px;
-  font-family: 'Special Elite', 'Courier Prime', monospace;
-  font-size: 10px;
-  letter-spacing: 0.16em;
-  color: rgba(43, 31, 23, 0.55);
+  left: 0; top: 0; bottom: 0;
+  width: 2px;
+  background: var(--fa);
+}
+
+/* ── card tag line (the retired stamps / nameplates, unified) ── */
+.torn-stamp, .ht-stamp, .gallery-stamp, .filmmf-stamp,
+.film35-nameplate, .instax-nameplate, .slide-nameplate {
+  position: static;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  margin: 0 0 10px;
+  font: 500 9px/1.5 var(--f-mono);
+  font-style: normal;
+  letter-spacing: 0.2em;
   text-transform: uppercase;
+  color: var(--wk-mute);
+  text-align: left;
   pointer-events: none;
   user-select: none;
 }
-.torn-knob { margin: 14px 0; }
-.torn-knob:first-of-type { margin-top: 6px; }
-.torn-knob-head {
+.film35-np-left { display: flex; gap: 8px; align-items: baseline; }
+/* material-era ornaments retired */
+.film35-np-dot, .slide-np-bar { display: none; }
+.filmmf-stamp-l1, .filmmf-stamp-l2,
+.film35-np-tag, .film35-np-title,
+.instax-np-tag, .instax-np-title,
+.slide-np-tag, .slide-np-title {
+  font: inherit;
+  color: inherit;
+  letter-spacing: inherit;
+}
+.film35-np-title, .instax-np-title, .slide-np-title, .filmmf-stamp-l2 { color: var(--fa); }
+
+/* ── knob rows ── */
+.torn-knob, .ht-knob, .ht-color-block, .ht-shape-block, .filmmf-knob,
+.gallery-knob, .film35-knob, .instax-knob, .slide-knob {
+  position: static;
+  margin: 10px 0;
+  z-index: auto;
+}
+.torn-knob:first-of-type, .filmmf-knob:first-of-type, .gallery-knob:first-of-type,
+.film35-knob:first-of-type, .instax-knob:first-of-type, .slide-knob:first-of-type,
+.ht-color-block:first-of-type { margin-top: 4px; }
+.torn-knob-head, .ht-knob-head, .filmmf-knob-head, .gallery-knob-head,
+.film35-knob-head, .instax-knob-head, .slide-knob-head {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
   gap: 12px;
   margin-bottom: 6px;
-  font-family: 'Special Elite', 'Courier Prime', monospace;
-  font-size: 11.5px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
 }
-.torn-knob-label { color: rgba(43, 31, 23, 0.78); }
-.torn-knob-readout {
-  color: #2b1f17;
-  font-weight: 400;
+.torn-knob-label, .ht-knob-label, .filmmf-knob-label, .gallery-knob-label,
+.film35-knob-label, .instax-knob-label, .slide-knob-label {
+  font: 400 11.5px/1.3 var(--f-ui);
+  font-style: normal;
+  letter-spacing: 0.01em;
+  text-transform: none;
+  color: var(--wk-text);
+}
+.torn-knob-readout, .ht-knob-readout, .filmmf-knob-readout, .gallery-knob-readout,
+.film35-knob-readout, .instax-knob-readout, .slide-knob-readout {
+  font: 500 10.5px/1.3 var(--f-mono);
+  letter-spacing: 0.04em;
+  color: var(--wk-amber);
   font-variant-numeric: tabular-nums;
 }
-.torn-slider { width: 100%; height: 22px; background: transparent; cursor: pointer; appearance: none; }
-.torn-slider::-webkit-slider-runnable-track {
-  height: 4px;
-  background: rgba(43, 31, 23, 0.22);
-  border-radius: 0;
-  box-shadow: inset 0 1px 0 rgba(0, 0, 0, 0.1);
-}
-.torn-slider::-webkit-slider-thumb {
+
+/* ── sliders — one instrument for all 8 cards ── */
+.workshop--bench .bg-ch-slider, .workshop--bench .torn-slider, .workshop--bench .ht-slider, .workshop--bench .filmmf-slider,
+.workshop--bench .gallery-slider, .workshop--bench .film35-slider, .workshop--bench .instax-slider, .workshop--bench .slide-slider {
   appearance: none;
-  width: 28px;
-  height: 22px;
-  margin-top: -9px;
-  background:
-    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 22'><rect width='28' height='22' fill='%23b89b76'/><path d='M7 6 L21 7 L20.5 16 L7.5 15.5 Z' fill='%232b1f17' opacity='.85'/></svg>")
-    center / 28px 22px no-repeat,
-    #b89b76;
-  border: 1.5px solid #2b1f17;
+  -webkit-appearance: none;
+  width: 100%;
+  height: 20px;
+  background: transparent;
+  cursor: pointer;
+}
+.workshop--bench .bg-ch-slider::-webkit-slider-runnable-track, .workshop--bench .torn-slider::-webkit-slider-runnable-track,
+.workshop--bench .ht-slider::-webkit-slider-runnable-track, .workshop--bench .filmmf-slider::-webkit-slider-runnable-track,
+.workshop--bench .gallery-slider::-webkit-slider-runnable-track, .workshop--bench .film35-slider::-webkit-slider-runnable-track,
+.workshop--bench .instax-slider::-webkit-slider-runnable-track, .workshop--bench .slide-slider::-webkit-slider-runnable-track {
+  height: 2px;
+  background: var(--wk-line-strong);
   border-radius: 1px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.35);
+}
+.workshop--bench .bg-ch-slider::-webkit-slider-thumb, .workshop--bench .torn-slider::-webkit-slider-thumb,
+.workshop--bench .ht-slider::-webkit-slider-thumb, .workshop--bench .filmmf-slider::-webkit-slider-thumb,
+.workshop--bench .gallery-slider::-webkit-slider-thumb, .workshop--bench .film35-slider::-webkit-slider-thumb,
+.workshop--bench .instax-slider::-webkit-slider-thumb, .workshop--bench .slide-slider::-webkit-slider-thumb {
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  margin-top: -5px;
+  border-radius: 50%;
+  background: var(--wk-g2);
+  border: 1.5px solid var(--wk-amber);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
   transition: transform 120ms;
 }
-.torn-slider::-webkit-slider-thumb:active { transform: scale(0.94); }
-.torn-slider:focus-visible::-webkit-slider-thumb {
-  box-shadow: 0 0 0 3px rgba(43, 31, 23, 0.35), 0 2px 4px rgba(0, 0, 0, 0.4);
+.workshop--bench .bg-ch-slider::-webkit-slider-thumb:active, .workshop--bench .torn-slider::-webkit-slider-thumb:active,
+.workshop--bench .ht-slider::-webkit-slider-thumb:active, .workshop--bench .filmmf-slider::-webkit-slider-thumb:active,
+.workshop--bench .gallery-slider::-webkit-slider-thumb:active, .workshop--bench .film35-slider::-webkit-slider-thumb:active,
+.workshop--bench .instax-slider::-webkit-slider-thumb:active, .workshop--bench .slide-slider::-webkit-slider-thumb:active { transform: scale(0.9); }
+.workshop--bench .bg-ch-slider:focus-visible::-webkit-slider-thumb, .workshop--bench .torn-slider:focus-visible::-webkit-slider-thumb,
+.workshop--bench .ht-slider:focus-visible::-webkit-slider-thumb, .workshop--bench .filmmf-slider:focus-visible::-webkit-slider-thumb,
+.workshop--bench .gallery-slider:focus-visible::-webkit-slider-thumb, .workshop--bench .film35-slider:focus-visible::-webkit-slider-thumb,
+.workshop--bench .instax-slider:focus-visible::-webkit-slider-thumb, .workshop--bench .slide-slider:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 2px var(--wk-amber-dim), 0 1px 3px rgba(0, 0, 0, 0.5);
 }
-.torn-slider::-moz-range-track {
-  height: 4px;
-  background: rgba(43, 31, 23, 0.22);
-  border-radius: 0;
-}
-.torn-slider::-moz-range-thumb {
-  width: 28px;
-  height: 22px;
-  background:
-    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 22'><rect width='28' height='22' fill='%23b89b76'/><path d='M7 6 L21 7 L20.5 16 L7.5 15.5 Z' fill='%232b1f17' opacity='.85'/></svg>")
-    center / 28px 22px no-repeat,
-    #b89b76;
-  border: 1.5px solid #2b1f17;
+.workshop--bench .bg-ch-slider::-moz-range-track, .workshop--bench .torn-slider::-moz-range-track,
+.workshop--bench .ht-slider::-moz-range-track, .workshop--bench .filmmf-slider::-moz-range-track,
+.workshop--bench .gallery-slider::-moz-range-track, .workshop--bench .film35-slider::-moz-range-track,
+.workshop--bench .instax-slider::-moz-range-track, .workshop--bench .slide-slider::-moz-range-track {
+  height: 2px;
+  background: var(--wk-line-strong);
   border-radius: 1px;
 }
-.torn-reset {
-  display: inline-block;
-  margin-top: 14px;
-  padding: 7px 14px;
-  font-family: 'Special Elite', 'Courier Prime', monospace;
-  font-size: 10.5px;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: #2b1f17;
-  background: transparent;
-  border: 1.5px solid #2b1f17;
-  border-radius: 1px;
-  cursor: pointer;
-  transition: background 150ms, color 150ms;
+.workshop--bench .bg-ch-slider::-moz-range-thumb, .workshop--bench .torn-slider::-moz-range-thumb,
+.workshop--bench .ht-slider::-moz-range-thumb, .workshop--bench .filmmf-slider::-moz-range-thumb,
+.workshop--bench .gallery-slider::-moz-range-thumb, .workshop--bench .film35-slider::-moz-range-thumb,
+.workshop--bench .instax-slider::-moz-range-thumb, .workshop--bench .slide-slider::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--wk-g2);
+  border: 1.5px solid var(--wk-amber);
 }
-.torn-reset:hover { background: rgba(43, 31, 23, 0.18); }
 
-/* ──────────────── halftone · proof press card ────────────────
-   Riso print-shop language: cream stock, ink-blue registration marks,
-   a dot-screen texture on the card itself, mono technical labels.
-   Slider thumbs are print registration marks (circle + crosshair). */
-.ht-card {
-  position: relative;
-  margin: 10px 0 0;
-  padding: 20px 18px 16px;
-  color: #16376e;
-  background:
-    radial-gradient(circle at 2px 2px, rgba(43, 86, 165, 0.10) 1px, transparent 1.4px) 0 0 / 9px 9px,
-    #f2ead6;
-  border: 1px solid rgba(43, 86, 165, 0.45);
-  border-radius: 2px;
-  box-shadow: 0 10px 22px -12px rgba(0, 0, 0, 0.55);
+/* ── frosted console rows — CH numbers retired, rows compressed ── */
+.bg-ch-num { display: none; }
+.bg-channel {
+  display: grid;
+  grid-template-columns: 1fr 56px;
+  align-items: center;
+  column-gap: 12px;
+  padding: 5px 0;
+  border-bottom: 0;
 }
-.ht-stamp {
-  position: absolute;
-  top: 16px;
-  right: 16px;
-  font-family: var(--f-mono);
-  font-size: 9.5px;
-  letter-spacing: 0.16em;
-  color: rgba(43, 86, 165, 0.6);
-  text-transform: uppercase;
-  pointer-events: none;
-  user-select: none;
-}
-.ht-color-block { margin: 12px 0 14px; }
-.ht-color-block:first-of-type { margin-top: 4px; }
-.ht-knob { margin: 14px 0; }
-.ht-shape-block { margin: 14px 0 4px; }
-.ht-knob-head {
+.bg-ch-body {
   display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 12px;
-  margin-bottom: 7px;
-  font-family: var(--f-mono);
-  font-size: 11px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
 }
-.ht-knob-label { color: rgba(22, 55, 110, 0.8); }
-.ht-knob-readout {
-  color: #dd4a33;
+.bg-ch-label {
+  font: 400 11.5px/1.3 var(--f-ui);
+  letter-spacing: 0.01em;
+  text-transform: none;
+  color: var(--wk-text);
+}
+.bg-ch-value {
+  font: 500 10.5px/1.3 var(--f-mono);
+  letter-spacing: 0.04em;
+  color: var(--wk-amber);
+  text-align: right;
+  white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
-.ht-swatches { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.ht-sw {
-  width: 26px;
-  height: 26px;
+
+/* ── swatch rows (gallery line color / instax tint / slide mount+ring / ht ink+paper) ── */
+.gallery-swatches, .instax-swatches, .slide-swatches, .ht-swatches {
+  display: flex;
+  gap: 8px;
   padding: 0;
-  background: var(--sw, #2b56a5);
-  border: 1.5px solid rgba(22, 55, 110, 0.5);
-  border-radius: 1px;
-  cursor: pointer;
-  box-shadow: 1.5px 1.5px 0 rgba(43, 86, 165, 0.18);
-  transition: transform 120ms ease;
+  background: transparent;
+  border-radius: 0;
+  width: auto;
+  align-items: center;
+  flex-wrap: wrap;
 }
-.ht-sw:hover { transform: translateY(-1px); }
-.ht-sw.on {
-  outline: 2px solid #dd4a33;
+.gallery-sw, .instax-sw, .slide-sw {
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  border: 1px solid rgba(0, 0, 0, 0.4);
+  background: var(--c);
+  cursor: pointer;
+  padding: 0;
+  box-shadow: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.ht-sw {
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  border: 1px solid rgba(0, 0, 0, 0.4);
+  background: var(--sw, #2b56a5);
+  cursor: pointer;
+  padding: 0;
+  box-shadow: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.gallery-sw.on, .instax-sw.on, .slide-sw.on, .ht-sw.on {
+  border-color: var(--wk-amber);
+  box-shadow: 0 0 0 1.5px var(--wk-amber);
+}
+.gallery-sw:focus-visible, .instax-sw:focus-visible, .slide-sw:focus-visible, .ht-sw:focus-visible {
+  outline: 2px solid var(--wk-amber);
   outline-offset: 2px;
 }
-.ht-sw:focus-visible { outline: 2px solid #dd4a33; outline-offset: 2px; }
 .ht-pick {
-  width: 26px;
-  height: 26px;
+  width: 22px;
+  height: 22px;
   padding: 0;
   background: transparent;
-  border: 1.5px dashed rgba(22, 55, 110, 0.55);
-  border-radius: 1px;
+  border: 1px dashed var(--wk-line-strong);
+  border-radius: 4px;
   cursor: pointer;
 }
-.ht-slider { width: 100%; height: 22px; background: transparent; cursor: pointer; appearance: none; }
-.ht-slider::-webkit-slider-runnable-track {
-  height: 3px;
-  background: rgba(43, 86, 165, 0.3);
+
+/* ── toggles (film35 edge print / instax stamp + rainbow) ── */
+.film35-toggle, .instax-toggle {
+  position: relative;
+  width: 40px;
+  height: 20px;
+  border-radius: 11px;
+  background: var(--wk-g2);
+  border: 1px solid var(--wk-line-strong);
+  cursor: pointer;
+  padding: 0;
+  transition: background 200ms, border-color 200ms;
 }
-.ht-slider::-webkit-slider-thumb {
-  appearance: none;
-  width: 22px;
-  height: 22px;
-  margin-top: -9.5px;
-  background:
-    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 22 22'><circle cx='11' cy='11' r='7.5' fill='%23f2ead6' stroke='%2316376e' stroke-width='2'/><path d='M11 2v18M2 11h18' stroke='%2316376e' stroke-width='1.3'/></svg>")
-    center / 22px 22px no-repeat;
+.film35-toggle.on, .instax-toggle.on {
+  background: var(--wk-amber-faint);
+  border-color: var(--wk-amber);
+}
+.film35-toggle-nub, .instax-toggle-nub {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--wk-mute);
   border: 0;
-  transition: transform 120ms;
+  box-shadow: none;
+  transition: transform 240ms cubic-bezier(0.22, 0.61, 0.36, 1), background 200ms;
 }
-.ht-slider::-webkit-slider-thumb:active { transform: scale(0.92); }
-.ht-slider:focus-visible::-webkit-slider-thumb {
-  filter: drop-shadow(0 0 3px rgba(221, 74, 51, 0.8));
+.film35-toggle.on .film35-toggle-nub, .instax-toggle.on .instax-toggle-nub {
+  transform: translateX(20px);
+  background: var(--wk-amber);
 }
-.ht-slider::-moz-range-track {
-  height: 3px;
-  background: rgba(43, 86, 165, 0.3);
+
+/* ── steppers / segs (film35 frame-№ · halftone dot shape) ── */
+.film35-stepper, .ht-shape-seg {
+  display: inline-flex;
+  border: 1px solid var(--wk-line-strong);
+  border-radius: 3px;
+  overflow: hidden;
+  background: transparent;
 }
-.ht-slider::-moz-range-thumb {
-  width: 22px;
-  height: 22px;
-  background:
-    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 22 22'><circle cx='11' cy='11' r='7.5' fill='%23f2ead6' stroke='%2316376e' stroke-width='2'/><path d='M11 2v18M2 11h18' stroke='%2316376e' stroke-width='1.3'/></svg>")
-    center / 22px 22px no-repeat;
-  border: 0;
-}
-.ht-shape-seg { display: flex; border: 1.5px solid rgba(22, 55, 110, 0.55); width: max-content; max-width: 100%; }
-.ht-shape-seg button {
-  padding: 7px 12px;
-  font-family: var(--f-mono);
-  font-size: 10.5px;
-  letter-spacing: 0.06em;
-  color: #16376e;
+.film35-step, .ht-shape-seg button {
+  padding: 6px 10px;
+  font: 500 10px/1.3 var(--f-mono);
+  letter-spacing: 0.08em;
+  color: var(--wk-mute);
   background: transparent;
   border: 0;
-  border-right: 1px solid rgba(43, 86, 165, 0.25);
+  border-right: 1px solid var(--wk-line);
   cursor: pointer;
-  transition: background 120ms ease, color 120ms ease;
+  transition: background 150ms, color 150ms;
+  text-transform: uppercase;
 }
-.ht-shape-seg button:last-child { border-right: 0; }
-.ht-shape-seg button.on { background: #2b56a5; color: #f2ead6; }
-.ht-shape-seg button:focus-visible { outline: 2px solid #dd4a33; outline-offset: -2px; }
-.ht-reset {
+.film35-step:last-child, .ht-shape-seg button:last-child { border-right: 0; }
+@media (hover: hover) and (pointer: fine) {
+  .film35-step:hover, .ht-shape-seg button:hover { color: var(--wk-text); }
+}
+.film35-step.on, .ht-shape-seg button.on {
+  background: var(--wk-amber-faint);
+  color: var(--wk-amber);
+  font-weight: 600;
+}
+.film35-step:focus-visible, .ht-shape-seg button:focus-visible {
+  outline: 2px solid var(--wk-amber);
+  outline-offset: -2px;
+}
+
+/* ── per-card reset buttons ── */
+.torn-reset, .ht-reset, .filmmf-reset, .gallery-reset,
+.film35-reset, .instax-reset, .slide-reset {
+  position: static;
   display: inline-block;
-  margin-top: 14px;
-  padding: 7px 14px;
-  font-family: var(--f-mono);
-  font-size: 10px;
+  margin-top: 12px;
+  padding: 6px 12px;
+  font: 500 10px/1.3 var(--f-mono);
+  font-style: normal;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: #16376e;
+  color: var(--wk-mute);
   background: transparent;
-  border: 1.5px solid rgba(22, 55, 110, 0.55);
-  border-radius: 1px;
+  border: 1px solid var(--wk-line-strong);
+  border-radius: 3px;
   cursor: pointer;
-  transition: background 150ms;
+  transition: color 150ms, border-color 150ms;
 }
-.ht-reset:hover { background: rgba(43, 86, 165, 0.14); }
+@media (hover: hover) and (pointer: fine) {
+  .torn-reset:hover, .ht-reset:hover, .filmmf-reset:hover, .gallery-reset:hover,
+  .film35-reset:hover, .instax-reset:hover, .slide-reset:hover {
+    color: var(--wk-text);
+    border-color: var(--wk-mute);
+  }
+}
 
-/* ──────────────── frameless mode (cfg.frameless) ────────────────
+/* ── frameless mode (cfg.frameless) ──
    The Caliper toggle sits OUTSIDE .caliper so this dimming can never
    disable the toggle itself. Geometry + caption-strip zones are inert
    while frameless is on — dim + block pointer, CSS only. */
@@ -1076,1036 +1068,35 @@ input[type="range"]::-moz-range-thumb {
   margin: 0 0 12px;
   padding: 8px 12px;
   font: 400 12px/1.5 var(--f-ui);
-  color: rgba(22, 55, 110, 0.85);
-  background: rgba(43, 86, 165, 0.08);
-  border-left: 2px solid rgba(43, 86, 165, 0.5);
+  color: var(--wk-amber-hi);
+  background: var(--wk-amber-faint);
+  border-left: 2px solid var(--wk-amber-dim);
+  border-radius: 0 3px 3px 0;
 }
 .notebook-nocaption-hint[hidden] { display: none; }
 
-/* ──────────────── film-mf · library archive card ──────────────── */
-.filmmf-card {
-  position: relative;
-  margin: 10px 0 0;
-  padding: 22px 22px 16px;
-  border-radius: 2px;
-  color: #3a2a18;
-  background:
-    radial-gradient(80% 60% at 30% 25%, #f5e7c2 0%, #e8d7ab 50%, #e8d7ab 100%);
-  box-shadow: 0 10px 22px -12px rgba(0, 0, 0, 0.55);
-  overflow: hidden;
-  isolation: isolate;
-}
-.filmmf-card::before {
-  /* foxing specks — 5 hand-placed radials, multiplied onto the paper */
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background:
-    radial-gradient(circle at 12% 18%, rgba(140, 90, 50, 0.16) 0%, transparent 4%),
-    radial-gradient(circle at 88% 12%, rgba(140, 90, 50, 0.12) 0%, transparent 5%),
-    radial-gradient(circle at 22% 88%, rgba(140, 90, 50, 0.18) 0%, transparent 6%),
-    radial-gradient(circle at 78% 78%, rgba(140, 90, 50, 0.10) 0%, transparent 4%),
-    radial-gradient(circle at 56% 38%, rgba(140, 90, 50, 0.08) 0%, transparent 3%);
-  mix-blend-mode: multiply;
-  z-index: 0;
-}
-.filmmf-card::after {
-  /* diagonal warm overlay — upper-left bleached, lower-right darker */
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: linear-gradient(135deg,
-    rgba(255, 250, 235, 0.14) 0%,
-    transparent 30%,
-    rgba(140, 90, 50, 0.06) 60%,
-    rgba(140, 90, 50, 0.14) 100%);
-  z-index: 0;
-}
-.filmmf-stamp {
-  position: absolute;
-  top: 14px;
-  right: 18px;
-  z-index: 2;
-  text-align: right;
-  pointer-events: none;
-  user-select: none;
-  font-family: 'Fraunces', serif;
-  font-style: italic;
-  color: #6d4a2a;
-  line-height: 1.25;
-  opacity: 0.78;
-}
-.filmmf-stamp-l1 { font-size: 11px; letter-spacing: 0.02em; }
-.filmmf-stamp-l2 {
-  font-family: 'JetBrains Mono', monospace;
-  font-style: normal;
-  font-size: 9.5px;
-  letter-spacing: 0.1em;
-  margin-top: 3px;
-}
-.filmmf-knob { position: relative; z-index: 1; }
-.filmmf-knob-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 12px;
-  margin-bottom: 8px;
-}
-.filmmf-knob-label {
-  font-family: 'Fraunces', serif;
-  font-style: italic;
-  font-weight: 500;
-  font-size: 14px;
-  color: #3a2a18;
-  letter-spacing: -0.005em;
-}
-.filmmf-knob-readout {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 11px;
-  letter-spacing: 0.04em;
-  color: #6d4a2a;
-  font-variant-numeric: tabular-nums;
-}
-.filmmf-slider {
-  width: 100%;
-  height: 26px;
-  background: transparent;
-  cursor: pointer;
-  appearance: none;
-  position: relative;
-  z-index: 1;
-}
-.filmmf-slider::-webkit-slider-runnable-track {
-  height: 5px;
-  background: linear-gradient(to bottom,
-    rgba(74, 40, 16, 0.3) 0%,
-    rgba(109, 74, 42, 0.18) 50%,
-    rgba(109, 74, 42, 0.12) 100%);
-  border-radius: 3px;
-  box-shadow:
-    inset 0 1px 2px rgba(74, 40, 16, 0.45),
-    0 1px 0 rgba(255, 250, 235, 0.45);
-}
-.filmmf-slider::-webkit-slider-thumb {
-  appearance: none;
-  width: 22px;
-  height: 22px;
-  margin-top: -8.5px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 30% 25%, #f4d99a 0%, #c79a55 60%, #8a6730 100%);
-  border: 1px solid rgba(74, 40, 16, 0.45);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.55),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.25),
-    0 2px 5px rgba(74, 40, 16, 0.4);
-  transition: transform 120ms;
-}
-.filmmf-slider::-webkit-slider-thumb:active { transform: scale(0.94); }
-.filmmf-slider:focus-visible::-webkit-slider-thumb {
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.55),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.25),
-    0 0 0 3px rgba(109, 74, 42, 0.35),
-    0 2px 5px rgba(74, 40, 16, 0.4);
-}
-.filmmf-slider::-moz-range-track {
-  height: 5px;
-  background: linear-gradient(to bottom,
-    rgba(74, 40, 16, 0.3) 0%,
-    rgba(109, 74, 42, 0.18) 100%);
-  border-radius: 3px;
-}
-.filmmf-slider::-moz-range-thumb {
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 30% 25%, #f4d99a 0%, #c79a55 60%, #8a6730 100%);
-  border: 1px solid rgba(74, 40, 16, 0.45);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.55),
-    0 2px 5px rgba(74, 40, 16, 0.4);
-}
-.filmmf-reset {
-  position: relative;
-  z-index: 1;
-  display: inline-block;
-  margin-top: 14px;
-  padding: 6px 14px;
-  font-family: 'Fraunces', serif;
-  font-style: italic;
-  font-size: 13px;
-  color: #6d4a2a;
-  background: transparent;
-  border: 1px solid #6d4a2a;
-  border-radius: 2px;
-  cursor: pointer;
-  transition: background 150ms, color 150ms;
-}
-.filmmf-reset:hover { background: rgba(109, 74, 42, 0.12); color: #3a2a18; }
-
-/* ───────── gallery-white · museum placard card ─────────
-   Warm cream board with passe-partout double-thin border around the card
-   chrome (echoes what gets drawn around the photo). Restrained museum
-   aesthetic — italic Fraunces label / mono readout / dark hairline slider
-   thumb is a cream square with dark border. Less brash than torn/film-mf.
-   New in 1.4.0 alongside the 4 passe-partout cfg knobs. */
-.gallery-card {
-  position: relative;
-  margin: 10px 0 0;
-  padding: 30px 26px 22px;
-  background: #f4f3ee;
-  color: #2a2520;
-  border-radius: 2px;
-  box-shadow: 0 10px 22px -12px rgba(0, 0, 0, 0.5);
-}
-.gallery-card::before {
-  /* outer hairline of the passe-partout — sits at 12px from card edge */
-  content: "";
-  position: absolute;
-  inset: 12px;
-  border: 1.5px solid #2a2520;
-  pointer-events: none;
-}
-.gallery-card::after {
-  /* inner hairline — sits at 18px from card edge */
-  content: "";
-  position: absolute;
-  inset: 18px;
-  border: 0.75px solid #2a2520;
-  opacity: 0.55;
-  pointer-events: none;
-}
-.gallery-stamp {
-  position: relative;
-  z-index: 2;
-  margin: -8px 0 16px;
-  font-family: var(--f-display);
-  font-style: italic;
-  font-size: 12.5px;
-  letter-spacing: 0.04em;
-  color: rgba(43, 37, 32, 0.55);
-  text-align: center;
-  pointer-events: none;
-  user-select: none;
-}
-.gallery-knob {
-  position: relative;
-  z-index: 2;
-  margin: 14px 0;
-}
-.gallery-knob:first-of-type { margin-top: 6px; }
-.gallery-knob-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 12px;
-  margin-bottom: 8px;
-}
-.gallery-knob-label {
-  font-family: var(--f-display);
-  font-style: italic;
-  font-weight: 500;
-  font-size: 13.5px;
-  color: rgba(43, 37, 32, 0.85);
-  letter-spacing: -0.005em;
-}
-.gallery-knob-readout {
-  font-family: var(--f-mono);
-  font-size: 10.5px;
-  letter-spacing: 0.04em;
-  color: var(--text-dim);
-  font-variant-numeric: tabular-nums;
-}
-.gallery-knob-readout:not([data-i18n="frame.defaultReadout"]) { color: #2a2520; }
-.gallery-slider {
-  width: 100%;
-  height: 18px;
-  background: transparent;
-  cursor: pointer;
-  appearance: none;
-}
-.gallery-slider::-webkit-slider-runnable-track {
-  height: 1.5px;
-  background: rgba(43, 37, 32, 0.18);
-  border-radius: 0;
-}
-.gallery-slider::-webkit-slider-thumb {
-  appearance: none;
-  width: 12px;
-  height: 12px;
-  margin-top: -5.25px;
-  background: #f4f3ee;
-  border: 1.5px solid #2a2520;
-  border-radius: 0;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
-  transition: transform 120ms;
-}
-.gallery-slider::-webkit-slider-thumb:active { transform: scale(0.92); }
-.gallery-slider:focus-visible::-webkit-slider-thumb {
-  box-shadow: 0 0 0 3px rgba(43, 37, 32, 0.18), 0 1px 2px rgba(0, 0, 0, 0.25);
-}
-.gallery-slider::-moz-range-track {
-  height: 1.5px;
-  background: rgba(43, 37, 32, 0.18);
-  border-radius: 0;
-}
-.gallery-slider::-moz-range-thumb {
-  width: 12px;
-  height: 12px;
-  background: #f4f3ee;
-  border: 1.5px solid #2a2520;
-  border-radius: 0;
-}
-.gallery-swatches {
-  display: flex;
-  gap: 8px;
-  padding: 4px;
-  background: rgba(43, 37, 32, 0.06);
-  border-radius: 2px;
-  width: fit-content;
-}
-.gallery-sw {
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  border: 1.5px solid transparent;
-  background: var(--c);
-  cursor: pointer;
-  transition: transform 0.15s ease, border-color 0.15s ease;
-  padding: 0;
-}
-.gallery-sw:hover { transform: scale(1.1); }
-.gallery-sw.on {
-  border-color: #2a2520;
-  box-shadow: inset 0 0 0 2px #f4f3ee;
-}
-.gallery-knob--swatches .gallery-knob-head { margin-bottom: 6px; }
-.gallery-reset {
-  position: relative;
-  z-index: 2;
-  display: inline-block;
-  margin-top: 14px;
-  padding: 6px 14px;
-  font-family: var(--f-display);
-  font-style: italic;
-  font-size: 12px;
-  color: #2a2520;
-  background: transparent;
-  border: 1px solid #2a2520;
-  border-radius: 2px;
-  cursor: pointer;
-  transition: background 150ms;
-}
-.gallery-reset:hover { background: rgba(43, 37, 32, 0.08); }
-
-/* ───────── film-35 · brushed-steel top plate card (1.5.0+) ─────────
-   Cine 35mm aesthetic. Brushed-steel gradient body with vertical ridges
-   + faint noise overlay; cream typography on red-Kodak nameplate dot;
-   slider thumb is a knurled metal pill with a red center notch (the
-   thing you grab on a real camera ISO ring); toggle / stepper match the
-   cream-on-steel grammar. 4 controls: 2 sliders + 1 toggle + 1 stepper.
-   */
-.film35-card {
-  position: relative;
-  margin: 10px 0 0;
-  padding: 24px 22px 18px;
-  color: #efe8db;
-  background:
-    linear-gradient(125deg,
-      #1d1f24 0%, #3a3d42 28%, #5e6168 40%,
-      #3a3d42 52%, #1d1f24 100%);
-  border-radius: 3px;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.1),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.5),
-    0 12px 26px -14px rgba(0, 0, 0, 0.7);
-  isolation: isolate;
-}
-.film35-card::before {
-  /* brushed vertical ridges */
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  z-index: 1;
-  background: repeating-linear-gradient(
-    90deg,
-    transparent 0, transparent 1px,
-    rgba(255, 255, 255, 0.04) 1px, rgba(255, 255, 255, 0.04) 2px,
-    transparent 2px, transparent 4px);
-}
-.film35-card::after {
-  /* fine noise grain */
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  z-index: 1;
-  background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.92' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 .22 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
-  opacity: 0.5;
-  mix-blend-mode: overlay;
-}
-.film35-nameplate {
-  position: relative;
-  z-index: 2;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding-bottom: 14px;
-  margin-bottom: 16px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-}
-.film35-np-left {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.film35-np-dot {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background: #c63931;
-  box-shadow: 0 0 6px #c63931;
-}
-.film35-np-tag {
-  font-family: var(--f-mono);
-  font-size: 9.5px;
-  letter-spacing: 0.22em;
-  color: #c63931;
-  text-transform: uppercase;
-}
-.film35-np-title {
-  font-family: var(--f-display);
-  font-size: 11px;
-  letter-spacing: 0.32em;
-  color: #efe8db;
-  text-transform: uppercase;
-  font-weight: 500;
-}
-.film35-knob {
-  position: relative;
-  z-index: 2;
-  margin: 12px 0;
-}
-.film35-knob:first-of-type { margin-top: 4px; }
-.film35-knob-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 12px;
-  margin-bottom: 8px;
-  font-family: var(--f-mono);
-}
-.film35-knob-label {
-  font-size: 10px;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: rgba(239, 232, 219, 0.7);
-}
-.film35-knob-readout {
-  font-size: 10.5px;
-  letter-spacing: 0.04em;
-  color: #c63931;
-  font-weight: 500;
-  font-variant-numeric: tabular-nums;
-}
-.film35-knob--toggle, .film35-knob--stepper {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  align-items: center;
-  gap: 14px;
-}
-.film35-knob--toggle .film35-knob-head,
-.film35-knob--stepper .film35-knob-head {
-  margin-bottom: 0;
-}
-.film35-slider {
-  width: 100%;
-  height: 22px;
-  background: transparent;
-  cursor: pointer;
-  appearance: none;
-}
-.film35-slider::-webkit-slider-runnable-track {
-  height: 3px;
-  background: linear-gradient(to bottom, #13151a, #1d1f24);
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.7);
-  border-radius: 1px;
-}
-.film35-slider::-webkit-slider-thumb {
-  appearance: none;
-  width: 36px;
-  height: 18px;
-  margin-top: -7.5px;
-  background: linear-gradient(to bottom,
-    #a3a7ae 0%, #80848a 22%, #4a4d52 60%, #2e3034 100%);
-  border-radius: 2px;
-  border: 1px solid #14161a;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.5),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.55),
-    0 3px 6px rgba(0, 0, 0, 0.6);
-  position: relative;
-  background-image:
-    /* knurled vertical lines via repeating gradient */
-    repeating-linear-gradient(90deg,
-      rgba(0, 0, 0, 0.32) 0, rgba(0, 0, 0, 0.32) 1px,
-      transparent 1px, transparent 3px),
-    linear-gradient(to bottom, #a3a7ae 0%, #80848a 22%, #4a4d52 60%, #2e3034 100%);
-}
-.film35-slider::-webkit-slider-thumb:active { transform: scale(0.94); }
-.film35-slider:focus-visible::-webkit-slider-thumb {
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.55),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.55),
-    0 0 0 2px rgba(198, 57, 49, 0.55),
-    0 3px 6px rgba(0, 0, 0, 0.6);
-}
-.film35-slider::-moz-range-track {
-  height: 3px;
-  background: linear-gradient(to bottom, #13151a, #1d1f24);
-  border-radius: 1px;
-}
-.film35-slider::-moz-range-thumb {
-  width: 36px;
-  height: 18px;
-  background: linear-gradient(to bottom,
-    #a3a7ae 0%, #80848a 22%, #4a4d52 60%, #2e3034 100%);
-  border: 1px solid #14161a;
-  border-radius: 2px;
-}
-.film35-toggle {
-  position: relative;
-  width: 50px;
-  height: 24px;
-  border-radius: 13px;
-  background: rgba(0, 0, 0, 0.4);
-  border: 1px solid rgba(239, 232, 219, 0.3);
-  cursor: pointer;
-  transition: background 200ms;
-}
-.film35-toggle.on {
-  background: #c63931;
-  border-color: #c63931;
-}
-.film35-toggle-nub {
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: linear-gradient(to bottom, #a3a7ae, #4a4d52);
-  border: 1px solid rgba(0, 0, 0, 0.4);
-  transition: transform 240ms cubic-bezier(0.22, 0.61, 0.36, 1);
-}
-.film35-toggle.on .film35-toggle-nub {
-  transform: translateX(24px);
-  background: linear-gradient(to bottom, #efe8db, #a3a7ae);
-}
-.film35-stepper {
-  display: inline-flex;
-  border: 1px solid rgba(239, 232, 219, 0.3);
-  border-radius: 2px;
-  overflow: hidden;
-  background: rgba(0, 0, 0, 0.3);
-}
-.film35-step {
-  padding: 6px 10px;
-  font-family: var(--f-mono);
-  font-size: 10px;
-  letter-spacing: 0.12em;
-  color: rgba(239, 232, 219, 0.7);
-  background: transparent;
-  border: 0;
-  border-right: 1px solid rgba(239, 232, 219, 0.15);
-  cursor: pointer;
-  transition: background 150ms, color 150ms;
-  text-transform: uppercase;
-}
-.film35-step:last-child { border-right: 0; }
-.film35-step:hover { color: #efe8db; }
-.film35-step.on {
-  background: #c63931;
-  color: #efe8db;
-  font-weight: 600;
-}
-.film35-reset {
-  position: relative;
-  z-index: 2;
-  display: inline-block;
-  margin-top: 14px;
-  padding: 6px 14px;
-  font-family: var(--f-mono);
-  font-size: 10px;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: rgba(239, 232, 219, 0.85);
-  background: transparent;
-  border: 1px solid rgba(239, 232, 219, 0.3);
-  border-radius: 2px;
-  cursor: pointer;
-  transition: background 150ms, color 150ms, border-color 150ms;
-}
-.film35-reset:hover {
-  background: rgba(255, 255, 255, 0.05);
-  color: #efe8db;
-  border-color: rgba(239, 232, 219, 0.6);
-}
-
-/* ───────── instax · cream plastic polaroid front (1.6.0+) ─────────
-   Cream-tinted plastic body with rainbow stripe signature at bottom-left
-   (echoes the actual print's rainbow bar). Thumb is a chunky cream
-   plastic block with orange center indicator. Toggle is FUJI-orange when
-   on. 4 controls: 1 slider + 1 swatch + 2 toggles. */
-.instax-card {
-  position: relative;
-  margin: 10px 0 0;
-  padding: 24px 22px 22px;
-  color: #1a1814;
-  background: #fffdf6;
-  border-radius: 4px;
-  box-shadow:
-    inset 0 0 60px rgba(0, 0, 0, 0.04),
-    0 12px 26px -14px rgba(0, 0, 0, 0.5);
-  isolation: isolate;
-}
-.instax-card::before {
-  /* paper grain — gentle multiply */
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.65' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .85  0 0 0 0 .82  0 0 0 0 .72  0 0 0 .18 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
-  mix-blend-mode: multiply;
-  opacity: 0.35;
-}
-.instax-card::after {
-  /* signature rainbow strip in bottom-left */
-  content: "";
-  position: absolute;
-  bottom: 20px;
-  left: 22px;
-  width: 44px;
-  height: 10px;
-  background: linear-gradient(90deg,
-    #ff6b35 0% 25%, #ffc857 25% 50%, #7fbf6e 50% 75%, #4595d0 75% 100%);
-  opacity: 0.85;
-  border-radius: 1px;
-  pointer-events: none;
-}
-.instax-nameplate {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-  padding-bottom: 14px;
-  margin-bottom: 16px;
-  border-bottom: 1px solid rgba(26, 24, 20, 0.15);
-}
-.instax-np-tag {
-  font-family: var(--f-mono);
-  font-size: 9.5px;
-  letter-spacing: 0.22em;
-  color: #ee6a39;
-  text-transform: uppercase;
-}
-.instax-np-title {
-  font-family: var(--f-display);
-  font-style: italic;
-  font-weight: 500;
-  font-size: 18px;
-  color: #1a1814;
-  letter-spacing: -0.01em;
-}
-.instax-knob {
-  position: relative;
-  z-index: 1;
-  margin: 12px 0;
-}
-.instax-knob:first-of-type { margin-top: 4px; }
-.instax-knob-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 12px;
-  margin-bottom: 8px;
-}
-.instax-knob-label {
-  font-family: var(--f-mono);
-  font-size: 10px;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: rgba(26, 24, 20, 0.7);
-}
-.instax-knob-readout {
-  font-family: var(--f-mono);
-  font-size: 10.5px;
-  letter-spacing: 0.04em;
-  color: #1a1814;
-  font-weight: 500;
-  font-variant-numeric: tabular-nums;
-}
-.instax-knob--toggle,
-.instax-knob--swatches {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  align-items: center;
-  gap: 14px;
-}
-.instax-knob--toggle .instax-knob-head,
-.instax-knob--swatches .instax-knob-head {
-  margin-bottom: 0;
-}
-.instax-slider {
-  width: 100%;
-  height: 22px;
-  background: transparent;
-  cursor: pointer;
-  appearance: none;
-}
-.instax-slider::-webkit-slider-runnable-track {
-  height: 3px;
-  background: rgba(26, 24, 20, 0.12);
-  border-radius: 2px;
-}
-.instax-slider::-webkit-slider-thumb {
-  appearance: none;
-  width: 24px;
-  height: 28px;
-  margin-top: -12.5px;
-  background: linear-gradient(to bottom, #ffffff 0%, #f0ecdf 100%);
-  border-radius: 4px;
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 1),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.08),
-    0 3px 8px rgba(0, 0, 0, 0.14);
-  position: relative;
-}
-.instax-slider::-webkit-slider-thumb:active { transform: scale(0.94); }
-.instax-slider:focus-visible::-webkit-slider-thumb {
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 1),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.08),
-    0 0 0 2.5px rgba(238, 106, 57, 0.4),
-    0 3px 8px rgba(0, 0, 0, 0.14);
-}
-.instax-slider::-moz-range-track {
-  height: 3px;
-  background: rgba(26, 24, 20, 0.12);
-  border-radius: 2px;
-}
-.instax-slider::-moz-range-thumb {
-  width: 24px;
-  height: 28px;
-  background: linear-gradient(to bottom, #ffffff 0%, #f0ecdf 100%);
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: 4px;
-}
-.instax-swatches {
-  display: flex;
-  gap: 8px;
-  padding: 4px;
-  background: rgba(26, 24, 20, 0.06);
-  border-radius: 3px;
-}
-.instax-sw {
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  border: 1.5px solid transparent;
-  background: var(--c);
-  cursor: pointer;
-  padding: 0;
-  box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.04);
-  transition: transform 0.15s ease, border-color 0.15s ease;
-}
-.instax-sw:hover { transform: scale(1.1); }
-.instax-sw.on {
-  border-color: #1a1814;
-  box-shadow: inset 0 0 0 2px #fffdf6, inset 0 1px 1px rgba(0, 0, 0, 0.04);
-}
-.instax-toggle {
-  position: relative;
-  width: 46px;
-  height: 24px;
-  border-radius: 13px;
-  background: rgba(26, 24, 20, 0.15);
-  border: 1px solid rgba(26, 24, 20, 0.2);
-  cursor: pointer;
-  transition: background 200ms, border-color 200ms;
-  padding: 0;
-}
-.instax-toggle.on {
-  background: #ee6a39;
-  border-color: #ee6a39;
-}
-.instax-toggle-nub {
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: #fffdf6;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
-  transition: transform 240ms cubic-bezier(0.22, 0.61, 0.36, 1);
-}
-.instax-toggle.on .instax-toggle-nub { transform: translateX(22px); }
-.instax-reset {
-  position: relative;
-  z-index: 1;
-  display: inline-block;
-  margin-top: 14px;
-  padding: 6px 14px;
-  font-family: var(--f-mono);
-  font-size: 10px;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: rgba(26, 24, 20, 0.85);
-  background: transparent;
-  border: 1px solid rgba(26, 24, 20, 0.3);
-  border-radius: 2px;
-  cursor: pointer;
-  transition: background 150ms, border-color 150ms;
-}
-.instax-reset:hover {
-  background: rgba(0, 0, 0, 0.05);
-  border-color: rgba(26, 24, 20, 0.6);
-}
-
-/* ───────── slide-mount · wine leather + brass card (1.7.0+) ─────────
-   35mm slide-mount instrument. Wine leather body with brass-colored
-   accents; nameplate has a brass horizontal bar + "SLIDE · MOUNT" cream
-   mono caps. Pebble texture overlay echoes the actual frame's pebbled
-   cardstock. Thumb is a polished brass dome (radial gold gradient).
-   Swatches are circular color discs with thin brass border on active.
-   4 controls: 2 swatches + 2 sliders. The last instrument. */
-.slide-card {
-  position: relative;
-  margin: 10px 0 0;
-  padding: 24px 22px 22px;
-  color: #e6dac0;
-  background: linear-gradient(160deg, #3a1822 0%, #2a0f15 100%);
-  border-radius: 3px;
-  box-shadow:
-    inset 0 1px 0 rgba(184, 148, 92, 0.15),
-    0 12px 26px -14px rgba(0, 0, 0, 0.7);
-  isolation: isolate;
-}
-.slide-card::before {
-  /* faint pebble texture — multiply overlay */
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='128' height='128'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.55' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .85  0 0 0 0 .55  0 0 0 0 .55  0 0 0 .12 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
-  mix-blend-mode: overlay;
-  opacity: 0.55;
-}
-.slide-card::after {
-  /* warm radial highlight from upper-left */
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: radial-gradient(80% 60% at 30% 20%, rgba(184, 148, 92, 0.12) 0%, transparent 60%);
-}
-.slide-nameplate {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding-bottom: 14px;
-  margin-bottom: 16px;
-  border-bottom: 1px solid rgba(184, 148, 92, 0.25);
-}
-.slide-np-bar {
-  width: 28px;
-  height: 4px;
-  background: #b8945c;
-  border-radius: 1px;
-  flex-shrink: 0;
-  box-shadow: 0 0 6px rgba(184, 148, 92, 0.4);
-}
-.slide-np-tag {
-  font-family: var(--f-mono);
-  font-size: 9.5px;
-  letter-spacing: 0.28em;
-  color: #b8945c;
-  text-transform: uppercase;
-}
-.slide-np-title {
-  font-family: var(--f-display);
-  font-size: 11px;
-  letter-spacing: 0.32em;
-  color: #e6dac0;
-  text-transform: uppercase;
-  font-weight: 500;
-  margin-left: auto;
-  opacity: 0.85;
-}
-.slide-knob {
-  position: relative;
-  z-index: 1;
-  margin: 12px 0;
-}
-.slide-knob:first-of-type { margin-top: 4px; }
-.slide-knob-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 12px;
-  margin-bottom: 8px;
-}
-.slide-knob-label {
-  font-family: var(--f-mono);
-  font-size: 10px;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: rgba(230, 218, 192, 0.7);
-}
-.slide-knob-readout {
-  font-family: var(--f-mono);
-  font-size: 10.5px;
-  letter-spacing: 0.04em;
-  color: #b8945c;
-  font-weight: 500;
-  font-variant-numeric: tabular-nums;
-}
-.slide-knob--swatches {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  align-items: center;
-  gap: 14px;
-}
-.slide-knob--swatches .slide-knob-head { margin-bottom: 0; }
-.slide-swatches {
-  display: flex;
-  gap: 8px;
-  padding: 4px;
-  background: rgba(0, 0, 0, 0.3);
-  border-radius: 3px;
-  border: 1px solid rgba(184, 148, 92, 0.2);
-}
-.slide-sw {
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  border: 1.5px solid transparent;
-  background: var(--c);
-  cursor: pointer;
-  padding: 0;
-  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.08), 0 1px 1px rgba(0, 0, 0, 0.3);
-  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
-}
-.slide-sw:hover { transform: scale(1.1); }
-.slide-sw.on {
-  border-color: #b8945c;
-  box-shadow:
-    inset 0 0 0 2px rgba(0, 0, 0, 0.3),
-    0 0 6px rgba(184, 148, 92, 0.5);
-}
-.slide-slider {
-  width: 100%;
-  height: 22px;
-  background: transparent;
-  cursor: pointer;
-  appearance: none;
-}
-.slide-slider::-webkit-slider-runnable-track {
-  height: 4px;
-  background: rgba(0, 0, 0, 0.5);
-  border-radius: 2px;
-  box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.5);
-}
-.slide-slider::-webkit-slider-thumb {
-  appearance: none;
-  width: 20px;
-  height: 20px;
-  margin-top: -8px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 30% 25%, #f4d99a 0%, #b8945c 60%, #7d6238 100%);
-  border: 1px solid rgba(0, 0, 0, 0.45);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.45),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.3),
-    0 2px 5px rgba(0, 0, 0, 0.5);
-  transition: transform 120ms;
-}
-.slide-slider::-webkit-slider-thumb:active { transform: scale(0.92); }
-.slide-slider:focus-visible::-webkit-slider-thumb {
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.45),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.3),
-    0 0 0 2.5px rgba(184, 148, 92, 0.5),
-    0 2px 5px rgba(0, 0, 0, 0.5);
-}
-.slide-slider::-moz-range-track {
-  height: 4px;
-  background: rgba(0, 0, 0, 0.5);
-  border-radius: 2px;
-}
-.slide-slider::-moz-range-thumb {
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 30% 25%, #f4d99a 0%, #b8945c 60%, #7d6238 100%);
-  border: 1px solid rgba(0, 0, 0, 0.45);
-}
-.slide-reset {
-  position: relative;
-  z-index: 1;
-  display: inline-block;
-  margin-top: 14px;
-  padding: 6px 14px;
-  font-family: var(--f-mono);
-  font-size: 10px;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: rgba(230, 218, 192, 0.85);
-  background: transparent;
-  border: 1px solid rgba(184, 148, 92, 0.4);
-  border-radius: 2px;
-  cursor: pointer;
-  transition: background 150ms, color 150ms, border-color 150ms;
-}
-.slide-reset:hover {
-  background: rgba(184, 148, 92, 0.08);
-  color: #e6dac0;
-  border-color: rgba(184, 148, 92, 0.7);
-}
-
-/* Touch-coarse — bump slider hit target for all SEVEN card variants */
+/* ── touch-coarse: bump slider + swatch hit targets, all cards at once ── */
 @media (pointer: coarse) {
-  .torn-slider { height: 34px; }
-  .torn-slider::-webkit-slider-thumb { width: 32px; height: 26px; margin-top: -11px; }
-  .torn-slider::-moz-range-thumb { width: 32px; height: 26px; }
-  .filmmf-slider { height: 36px; }
-  .filmmf-slider::-webkit-slider-thumb { width: 26px; height: 26px; margin-top: -10.5px; }
-  .filmmf-slider::-moz-range-thumb { width: 26px; height: 26px; }
-  .gallery-slider { height: 30px; }
-  .gallery-slider::-webkit-slider-thumb { width: 18px; height: 18px; margin-top: -8.25px; }
-  .gallery-slider::-moz-range-thumb { width: 18px; height: 18px; }
-  .gallery-sw { width: 28px; height: 28px; }
-  .film35-slider { height: 32px; }
-  .film35-slider::-webkit-slider-thumb { width: 42px; height: 22px; margin-top: -9.5px; }
-  .film35-slider::-moz-range-thumb { width: 42px; height: 22px; }
-  .film35-step { padding: 8px 12px; }
-  .instax-slider { height: 34px; }
-  .instax-slider::-webkit-slider-thumb { width: 28px; height: 32px; margin-top: -14.5px; }
-  .instax-slider::-moz-range-thumb { width: 28px; height: 32px; }
-  .instax-sw { width: 28px; height: 28px; }
-  .slide-slider { height: 32px; }
-  .slide-slider::-webkit-slider-thumb { width: 26px; height: 26px; margin-top: -11px; }
-  .slide-slider::-moz-range-thumb { width: 26px; height: 26px; }
-  .slide-sw { width: 28px; height: 28px; }
+  .workshop--bench .bg-ch-slider, .workshop--bench .torn-slider, .workshop--bench .ht-slider, .workshop--bench .filmmf-slider,
+  .workshop--bench .gallery-slider, .workshop--bench .film35-slider, .workshop--bench .instax-slider, .workshop--bench .slide-slider { height: 32px; }
+  .workshop--bench .bg-ch-slider::-webkit-slider-thumb, .workshop--bench .torn-slider::-webkit-slider-thumb,
+  .workshop--bench .ht-slider::-webkit-slider-thumb, .workshop--bench .filmmf-slider::-webkit-slider-thumb,
+  .workshop--bench .gallery-slider::-webkit-slider-thumb, .workshop--bench .film35-slider::-webkit-slider-thumb,
+  .workshop--bench .instax-slider::-webkit-slider-thumb, .workshop--bench .slide-slider::-webkit-slider-thumb {
+    width: 20px;
+    height: 20px;
+    margin-top: -9px;
+  }
+  .workshop--bench .bg-ch-slider::-moz-range-thumb, .workshop--bench .torn-slider::-moz-range-thumb,
+  .workshop--bench .ht-slider::-moz-range-thumb, .workshop--bench .filmmf-slider::-moz-range-thumb,
+  .workshop--bench .gallery-slider::-moz-range-thumb, .workshop--bench .film35-slider::-moz-range-thumb,
+  .workshop--bench .instax-slider::-moz-range-thumb, .workshop--bench .slide-slider::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+  }
+  .gallery-sw, .instax-sw, .slide-sw, .ht-sw, .ht-pick { width: 28px; height: 28px; }
+  .film35-step, .ht-shape-seg button { padding: 8px 12px; }
+  .bg-channel { padding: 7px 0; }
 }
 
 /* ──────────────────────────────────────────────────────────────────────────
@@ -7323,9 +6314,11 @@ input.compose-vnum, .compose-vnum {
 
 /* Shell — warm-dark room, inherits .workshop's position/width/transform */
 .workshop--bench {
-  background:
-    linear-gradient(180deg, #1d1a16 0%, #14120f 60%, #0a0907 100%);
-  border-left: 1px solid rgba(212, 165, 116, 0.12);
+  /* 1.12.1 darkroom discipline — flat graphite, no warm gradient. The
+     drawer's one light source is amber (--wk-amber); see the instrument-
+     cards layer for the token set. */
+  background: var(--wk-g0);
+  border-left: 1px solid var(--wk-line-strong);
   box-shadow: -30px 0 80px -20px rgba(0, 0, 0, 0.75);
   display: flex;
   flex-direction: column;
@@ -7336,26 +6329,13 @@ input.compose-vnum, .compose-vnum {
      bottom-sheet anchoring (forced top:0), leaving the closed sheet's top
      edge (the ▤ identity strip) peeking at the bottom on tall phones. */
 }
-.workshop--bench::before {
-  /* faint film-grain noise · same overlay as Compose mode */
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
-  opacity: 0.045;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 .92  0 0 0 0 .8  0 0 0 .6 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
-  mix-blend-mode: overlay;
-}
-
 /* ─── Identity strip · always visible · "this is what this photo is" ─── */
 .workshop--bench .bench-identity {
   position: relative;
   z-index: 2;
   padding: 16px 20px 14px;
-  border-bottom: 1px solid rgba(212, 165, 116, 0.18);
-  background:
-    linear-gradient(180deg, rgba(212, 165, 116, 0.06) 0%, transparent 100%);
+  border-bottom: 1px solid var(--wk-line);
+  background: var(--wk-g1);
   flex-shrink: 0;
 }
 .workshop--bench .bench-identity-row {
@@ -7369,7 +6349,7 @@ input.compose-vnum, .compose-vnum {
 .workshop--bench .bench-identity-icon {
   font-family: var(--f-mono);
   font-size: 13px;
-  color: #d4a574;
+  color: var(--wk-amber);
   opacity: 0.7;
   line-height: 1;
 }
@@ -7377,7 +6357,7 @@ input.compose-vnum, .compose-vnum {
   flex: 1;
   font: 500 12.5px/1.2 var(--f-mono);
   letter-spacing: 0.04em;
-  color: #efe8db;
+  color: var(--wk-text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -7387,7 +6367,7 @@ input.compose-vnum, .compose-vnum {
   height: 26px;
   border-radius: 50%;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  color: #a89c8b;
+  color: var(--wk-mute);
   display: grid;
   place-items: center;
   background: transparent;
@@ -7396,8 +6376,8 @@ input.compose-vnum, .compose-vnum {
   flex-shrink: 0;
 }
 .workshop--bench .bench-identity-row--filename .modal-x:hover {
-  color: #efe8db;
-  border-color: #d4a574;
+  color: var(--wk-text);
+  border-color: var(--wk-amber);
   transform: rotate(90deg);
 }
 /* ─── Body · dock + stage layout ─── */
@@ -7413,8 +6393,8 @@ input.compose-vnum, .compose-vnum {
 
 /* ─── Tool dock · vertical desktop · pill bar mobile ─── */
 .workshop--bench .bench-dock {
-  border-right: 1px solid rgba(255, 255, 255, 0.05);
-  background: rgba(0, 0, 0, 0.2);
+  border-right: 1px solid var(--wk-line);
+  background: var(--wk-g1);
   padding: 12px 0;
   display: flex;
   flex-direction: column;
@@ -7436,16 +6416,16 @@ input.compose-vnum, .compose-vnum {
   flex-direction: column;
   align-items: center;
   gap: 4px;
-  color: #6b6259;
+  color: var(--wk-dim);
   transition: color 200ms, background 200ms;
 }
 .workshop--bench .bench-tool-btn:hover {
-  color: #efe8db;
+  color: var(--wk-text);
   background: rgba(255, 255, 255, 0.02);
 }
 .workshop--bench .bench-tool-btn.active {
-  color: #d4a574;
-  background: rgba(212, 165, 116, 0.05);
+  color: var(--wk-amber);
+  background: var(--wk-amber-faint);
 }
 .workshop--bench .bench-tool-btn.active::before {
   content: "";
@@ -7455,8 +6435,8 @@ input.compose-vnum, .compose-vnum {
   transform: translateY(-50%);
   width: 2px;
   height: 32px;
-  background: #d4a574;
-  box-shadow: 0 0 8px rgba(212, 165, 116, 0.5);
+  background: var(--wk-amber);
+  box-shadow: 0 0 8px var(--wk-amber-dim);
 }
 .workshop--bench .bench-tool-glyph {
   font-family: var(--f-mono);
@@ -7475,8 +6455,9 @@ input.compose-vnum, .compose-vnum {
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: var(--accent);
-  box-shadow: 0 0 4px var(--accent);
+  /* amber = the user's hand touched this tool (red is destructive-only) */
+  background: var(--wk-amber);
+  box-shadow: 0 0 4px var(--wk-amber);
   opacity: 0;
   transition: opacity 200ms;
 }
@@ -7508,25 +6489,23 @@ input.compose-vnum, .compose-vnum {
   margin-bottom: 4px;
 }
 .workshop--bench .bench-tool-panel-eyebrow {
+  /* un-boxed 1.12.1 — plain amber mono, no gold frame */
   font: 600 9.5px/1 var(--f-mono);
   letter-spacing: 0.26em;
-  color: #d4a574;
+  color: var(--wk-amber);
   text-transform: uppercase;
-  padding: 4px 7px 3px;
-  border: 1px solid rgba(212, 165, 116, 0.4);
-  border-radius: 2px;
 }
 .workshop--bench .bench-tool-panel-title {
-  font: 500 15px/1.15 var(--f-display);
-  font-style: italic;
-  font-variation-settings: "opsz" 144;
-  color: #efe8db;
-  letter-spacing: -0.005em;
+  /* Fraunces italic retired from the workshop (1.12.1) — the drawer speaks
+     Hanken + mono only; the italic serif stays with the main UI's LOOK voice. */
+  font: 600 15px/1.2 var(--f-ui);
+  color: var(--wk-text);
+  letter-spacing: 0.02em;
 }
 .workshop--bench .bench-tool-panel-hint {
   margin: 0 0 14px;
   font: 300 11.5px/1.55 var(--f-ui);
-  color: #a89c8b;
+  color: var(--wk-mute);
   letter-spacing: 0.01em;
 }
 
@@ -7542,14 +6521,14 @@ input.compose-vnum, .compose-vnum {
   gap: 12px;
   padding: 10px 12px;
   margin: 0 0 14px;
-  background: rgba(20, 18, 15, 0.6);
-  border: 1px solid rgba(212, 165, 116, 0.18);
+  background: var(--wk-g1);
+  border: 1px solid var(--wk-line);
   border-radius: 4px;
 }
 .workshop--bench .bench-top-badge-label {
   font: 500 9.5px/1 var(--f-mono);
   letter-spacing: 0.12em;
-  color: #d4a574;
+  color: var(--wk-dim);
   text-transform: uppercase;
   flex-shrink: 0;
 }
@@ -7562,25 +6541,25 @@ input.compose-vnum, .compose-vnum {
   appearance: none;
   -webkit-appearance: none;
   background: transparent;
-  border: 1px solid rgba(168, 156, 139, 0.3);
+  border: 1px solid var(--wk-line-strong);
   padding: 4px 9px;
   font: 500 10.5px/1 var(--f-ui);
-  color: #a89c8b;
+  color: var(--wk-mute);
   cursor: pointer;
-  border-radius: 2px;
+  border-radius: 3px;
   letter-spacing: 0.02em;
   transition: background 160ms, color 160ms, border-color 160ms;
 }
 @media (hover: hover) and (pointer: fine) {
   .workshop--bench .bench-top-badge-chip:hover {
-    color: #efe8db;
-    border-color: rgba(212, 165, 116, 0.4);
+    color: var(--wk-text);
+    border-color: var(--wk-mute);
   }
 }
 .workshop--bench .bench-top-badge-chip.active {
-  background: rgba(212, 165, 116, 0.18);
-  color: #efe8db;
-  border-color: #d4a574;
+  background: var(--wk-amber-faint);
+  color: var(--wk-amber);
+  border-color: var(--wk-amber);
 }
 
 /* ─── Instrument · universal Lighting (shadow trio) ─────────────────────
@@ -7593,22 +6572,18 @@ input.compose-vnum, .compose-vnum {
    instrument cards above. */
 .workshop--bench .instrument-lighting {
   margin: 14px 0 4px;
-  padding: 14px 16px 12px;
-  background:
-    linear-gradient(180deg, #1a1612 0%, #0f0d0a 100%);
-  border-left: 2px solid rgba(168, 156, 139, 0.25);
-  border-radius: 2px;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.04),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.4);
+  padding: 12px 14px 10px;
+  background: var(--wk-g1);
+  border: 1px solid var(--wk-line);
+  border-radius: 4px;
 }
 .workshop--bench .instrument-lighting-head {
   margin-bottom: 8px;
 }
 .workshop--bench .instrument-lighting-eyebrow {
-  font: 500 9.5px/1 var(--f-mono);
-  letter-spacing: 0.14em;
-  color: #a89c8b;
+  font: 500 9px/1.5 var(--f-mono);
+  letter-spacing: 0.2em;
+  color: var(--wk-mute);
   text-transform: uppercase;
 }
 .workshop--bench .instrument-lighting .caliper-row {
@@ -7621,17 +6596,14 @@ input.compose-vnum, .compose-vnum {
    Compose. Brass rim has tick marks; slider thumbs are polished brass
    rings (distinct from rev.1's cream steel pill). */
 .workshop--bench .caliper {
+  /* brass instrument retired (1.12.1) — the caliper keeps its tick-rim
+     identity, but as hairline engravings on graphite. */
   position: relative;
   margin-top: 12px;
   padding: 18px 0 16px;
-  background:
-    linear-gradient(180deg, #1a1612 0%, #0f0d0a 50%, #1a1612 100%);
-  border-left: 4px solid #b8945c;
-  border-right: 4px solid #b8945c;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.05),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.5),
-    0 4px 12px rgba(0, 0, 0, 0.4);
+  background: var(--wk-g1);
+  border: 1px solid var(--wk-line);
+  border-radius: 4px;
 }
 .workshop--bench .caliper-rim {
   display: flex;
@@ -7639,18 +6611,15 @@ input.compose-vnum, .compose-vnum {
   align-items: flex-start;
   height: 14px;
   padding: 0 12px;
-  background: linear-gradient(180deg, #b8945c 0%, #7d6238 100%);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 245, 215, 0.4),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.4);
+  background: transparent;
 }
 .workshop--bench .caliper-rim--top {
-  margin-top: -18px;
-  margin-bottom: 18px;
+  margin-top: -12px;
+  margin-bottom: 12px;
 }
 .workshop--bench .caliper-rim--bottom {
-  margin-top: 16px;
-  margin-bottom: -16px;
+  margin-top: 12px;
+  margin-bottom: -10px;
   align-items: flex-end;
 }
 .workshop--bench .caliper-rim--bottom .caliper-tick {
@@ -7659,13 +6628,13 @@ input.compose-vnum, .compose-vnum {
 .workshop--bench .caliper-tick {
   width: 1px;
   height: 5px;
-  background: rgba(45, 25, 10, 0.7);
+  background: var(--wk-line-strong);
   margin-top: 0;
 }
 .workshop--bench .caliper-tick--major {
   height: 9px;
-  width: 1.5px;
-  background: rgba(45, 25, 10, 0.9);
+  width: 1px;
+  background: rgba(240, 238, 230, 0.3);
 }
 
 .workshop--bench .caliper-zone {
@@ -7673,7 +6642,7 @@ input.compose-vnum, .compose-vnum {
   position: relative;
 }
 .workshop--bench .caliper-zone + .caliper-zone {
-  border-top: 1px dashed rgba(184, 148, 92, 0.18);
+  border-top: 1px dashed var(--wk-line);
   margin-top: 4px;
   padding-top: 14px;
 }
@@ -7682,10 +6651,10 @@ input.compose-vnum, .compose-vnum {
   align-items: center;
   gap: 8px;
   margin-bottom: 12px;
-  font: 500 9.5px/1 var(--f-mono);
-  letter-spacing: 0.22em;
+  font: 500 9px/1.5 var(--f-mono);
+  letter-spacing: 0.2em;
   text-transform: uppercase;
-  color: rgba(212, 165, 116, 0.75);
+  color: var(--wk-mute);
 }
 
 .workshop--bench .caliper-row {
@@ -7696,16 +6665,16 @@ input.compose-vnum, .compose-vnum {
   margin: 8px 0;
 }
 .workshop--bench .caliper-row-label {
-  font: 500 10px/1.2 var(--f-mono);
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: rgba(239, 232, 219, 0.75);
+  font: 400 11.5px/1.3 var(--f-ui);
+  letter-spacing: 0.01em;
+  text-transform: none;
+  color: var(--wk-text);
 }
 .workshop--bench .caliper-row-readout {
   font: 500 10.5px/1.2 var(--f-mono);
   letter-spacing: 0.04em;
   text-align: right;
-  color: #d4a574;
+  color: var(--wk-amber);
   font-variant-numeric: tabular-nums;
 }
 .workshop--bench .caliper-row-readout .ru {
@@ -7714,7 +6683,7 @@ input.compose-vnum, .compose-vnum {
   font-size: 9px;
 }
 
-/* Caliper slider · brass-ring thumb on dark engraved track */
+/* Caliper slider — same graphite instrument as the card sliders */
 .workshop--bench .caliper-slider {
   appearance: none;
   -webkit-appearance: none;
@@ -7723,51 +6692,39 @@ input.compose-vnum, .compose-vnum {
   cursor: pointer;
 }
 .workshop--bench .caliper-slider::-webkit-slider-runnable-track {
-  height: 3px;
-  background: rgba(0, 0, 0, 0.55);
-  box-shadow:
-    inset 0 1px 1px rgba(0, 0, 0, 0.7),
-    0 1px 0 rgba(184, 148, 92, 0.15);
-  border-radius: 2px;
+  height: 2px;
+  background: var(--wk-line-strong);
+  border-radius: 1px;
 }
 .workshop--bench .caliper-slider::-webkit-slider-thumb {
   appearance: none;
-  width: 16px;
-  height: 16px;
-  margin-top: -6.5px;
+  width: 14px;
+  height: 14px;
+  margin-top: -6px;
   border-radius: 50%;
-  background:
-    radial-gradient(circle at 30% 25%, #f4d99a 0%, #b8945c 60%, #7d6238 100%);
-  border: 1px solid rgba(45, 25, 10, 0.6);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.45),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.3),
-    0 2px 4px rgba(0, 0, 0, 0.5);
+  background: var(--wk-g2);
+  border: 1.5px solid var(--wk-amber);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
   transition: transform 120ms;
 }
 .workshop--bench .caliper-slider::-webkit-slider-thumb:active { transform: scale(0.9); }
 .workshop--bench .caliper-slider:focus-visible::-webkit-slider-thumb {
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.45),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.3),
-    0 0 0 2px rgba(212, 165, 116, 0.55),
-    0 2px 4px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 0 0 2px var(--wk-amber-dim), 0 1px 3px rgba(0, 0, 0, 0.5);
 }
 .workshop--bench .caliper-slider::-moz-range-track {
-  height: 3px;
-  background: rgba(0, 0, 0, 0.55);
-  border-radius: 2px;
+  height: 2px;
+  background: var(--wk-line-strong);
+  border-radius: 1px;
 }
 .workshop--bench .caliper-slider::-moz-range-thumb {
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
-  background:
-    radial-gradient(circle at 30% 25%, #f4d99a 0%, #b8945c 60%, #7d6238 100%);
-  border: 1px solid rgba(45, 25, 10, 0.6);
+  background: var(--wk-g2);
+  border: 1.5px solid var(--wk-amber);
 }
 
-/* Overlay toggle · brass-switch metaphor */
+/* Overlay / frameless toggle · graphite pill, amber when on */
 .workshop--bench .caliper-toggle-row {
   display: flex;
   align-items: center;
@@ -7785,8 +6742,8 @@ input.compose-vnum, .compose-vnum {
   width: 36px;
   height: 18px;
   border-radius: 10px;
-  background: rgba(0, 0, 0, 0.55);
-  border: 1px solid rgba(184, 148, 92, 0.4);
+  background: var(--wk-g2);
+  border: 1px solid var(--wk-line-strong);
   flex-shrink: 0;
   transition: background 200ms, border-color 200ms;
 }
@@ -7798,18 +6755,16 @@ input.compose-vnum, .compose-vnum {
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  background: radial-gradient(circle at 30%, #f4d99a 0%, #b8945c 70%, #7d6238 100%);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.4),
-    0 1px 2px rgba(0, 0, 0, 0.6);
-  transition: transform 240ms cubic-bezier(0.22, 0.61, 0.36, 1);
+  background: var(--wk-mute);
+  transition: transform 240ms cubic-bezier(0.22, 0.61, 0.36, 1), background 200ms;
 }
 .workshop--bench .caliper-toggle-row input:checked + .caliper-toggle-knob {
-  background: rgba(212, 165, 116, 0.4);
-  border-color: #d4a574;
+  background: var(--wk-amber-faint);
+  border-color: var(--wk-amber);
 }
 .workshop--bench .caliper-toggle-row input:checked + .caliper-toggle-knob::after {
   transform: translateX(18px);
+  background: var(--wk-amber);
 }
 .workshop--bench .caliper-toggle-stack {
   display: flex;
@@ -7818,11 +6773,11 @@ input.compose-vnum, .compose-vnum {
 }
 .workshop--bench .caliper-toggle-label {
   font: 500 11px/1.2 var(--f-ui);
-  color: #efe8db;
+  color: var(--wk-text);
 }
 .workshop--bench .caliper-toggle-hint {
   font: 300 10px/1.3 var(--f-ui);
-  color: #6b6259;
+  color: var(--wk-dim);
 }
 
 /* ─── Sticky footer (1.9.0 「The Bench」) ─────────────────────────────── */
@@ -7837,16 +6792,15 @@ input.compose-vnum, .compose-vnum {
      landscape orientations (left/right). max() degrades to the literal off
      notched devices, so desktop is unchanged. Matches the lookbar pattern. */
   padding: 12px max(20px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-  background: linear-gradient(0deg, rgba(10, 9, 7, 0.85), rgba(20, 18, 15, 0.6));
-  backdrop-filter: blur(6px);
+  border-top: 1px solid var(--wk-line);
+  background: var(--wk-g1);
   flex-shrink: 0;
 }
 .workshop--bench .ws-footer-meta {
   font: 500 9.5px/1.2 var(--f-mono);
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: #6b6259;
+  color: var(--wk-dim);
 }
 .workshop--bench .ws-footer-actions { display: flex; gap: 8px; }
 .workshop--bench .ws-btn {
@@ -7856,33 +6810,37 @@ input.compose-vnum, .compose-vnum {
   font: 500 10px/1 var(--f-mono);
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: #a89c8b;
+  color: var(--wk-mute);
   background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 2px;
+  border: 1px solid var(--wk-line-strong);
+  border-radius: 3px;
   cursor: pointer;
   transition: color 200ms, border-color 200ms, background 200ms;
   white-space: nowrap;
 }
 .workshop--bench .ws-btn:hover {
-  color: #efe8db;
-  border-color: rgba(255, 255, 255, 0.25);
+  color: var(--wk-text);
+  border-color: var(--wk-mute);
 }
 .workshop--bench .ws-btn-primary {
-  background: rgba(212, 165, 116, 0.12);
-  border-color: rgba(212, 165, 116, 0.5);
-  color: #e8b97f;
+  background: var(--wk-amber-faint);
+  border-color: var(--wk-amber);
+  color: var(--wk-amber);
 }
 .workshop--bench .ws-btn-primary:hover {
   background: rgba(212, 165, 116, 0.2);
-  border-color: #d4a574;
-  color: #efe8db;
+  border-color: var(--wk-amber);
+  color: var(--wk-amber-hi);
 }
 
 /* ─── Mobile · pill bar replaces vertical dock ──────────────────────── */
 @media (max-width: 700px) {
   .workshop--bench {
     width: 100vw;
+    /* the sheet's "safelight handle" — a thin amber glow line along the
+       top edge marks stepping into the darkroom (rev.2 §04) */
+    border-top: 2px solid var(--wk-amber);
+    box-shadow: 0 -6px 24px -8px var(--wk-amber-dim);
   }
   .workshop--bench .bench-body {
     grid-template-columns: 1fr;
@@ -7937,61 +6895,28 @@ input.compose-vnum, .compose-vnum {
 }
 
 /* ═════════════════════════════════════════════════════════════════════
-   ✎ NOTATION · 1.9.1 (Phase 13)
-   Photographer's lined-paper notebook. Replaces 1.9.0 placeholder
-   pass-through. Cream paper with binding holes + ruled lines, top
-   section is paper-sticker badge picker, body is 2-column EXIF
-   (typed mono auto · gray) vs (Special Elite handwriting · sepia).
-   Material lives only inside .workshop--bench [data-tool="notation"]
-   so it doesn't leak into other tools.
+   ✎ NOTATION · 1.12.1 「暗房纪律」
+   The lined-paper notebook cosplay is retired — graphite panel, mono
+   AUTO column, Special Elite HANDWRITING column in amber (the drawer's
+   one deliberate material-font exception: typewriter face + safelight
+   both say "a human wrote this"). Structure / ids / classes unchanged.
    ═════════════════════════════════════════════════════════════════════ */
 .workshop--bench .notebook {
   position: relative;
   margin: 14px 0 4px;
   padding: 0;
-  background: #f0e8d4;
-  color: #2b1f17;
-  border-radius: 2px;
-  box-shadow:
-    inset 0 -2px 0 rgba(0, 0, 0, 0.08),
-    0 4px 12px rgba(0, 0, 0, 0.35);
-  /* paper grain via SVG noise */
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.42' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .58  0 0 0 0 .42  0 0 0 0 .25  0 0 0 .18 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>"),
-    linear-gradient(180deg, #f0e8d4 0%, #ead9b8 100%);
-  background-blend-mode: multiply, normal;
-  isolation: isolate;
+  background: var(--wk-g1);
+  color: var(--wk-text);
+  border: 1px solid var(--wk-line);
+  border-radius: 4px;
 }
 
-/* binding holes along the top edge — 4 circles at 25% / 50% / 75% / etc. */
-.workshop--bench .notebook-binding {
-  display: flex;
-  justify-content: space-around;
-  padding: 8px 24px 4px;
-  border-bottom: 1px dashed rgba(80, 60, 30, 0.18);
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0.06) 0%, transparent 100%);
-}
-.workshop--bench .notebook-hole {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 35% 30%, #0a0907 0%, #1d1611 60%, #2b1f17 100%);
-  box-shadow:
-    inset 0 1px 1px rgba(0, 0, 0, 0.8),
-    0 1px 0 rgba(255, 245, 220, 0.55);
-}
+/* paper binding holes retired */
+.workshop--bench .notebook-binding { display: none; }
 
 .workshop--bench .notebook-page {
   position: relative;
-  padding: 16px 18px 18px;
-  /* horizontal ruled lines · 22px rhythm */
-  background-image: repeating-linear-gradient(
-    180deg,
-    transparent 0,
-    transparent 21px,
-    rgba(80, 60, 30, 0.12) 21px,
-    rgba(80, 60, 30, 0.12) 22px
-  );
-  background-position: 0 16px;
+  padding: 14px 16px 16px;
 }
 
 /* zone label · numbered marker + section name */
@@ -8002,51 +6927,35 @@ input.compose-vnum, .compose-vnum {
   align-items: center;
   gap: 8px;
   margin-bottom: 12px;
-  font: 500 13px/1.2 var(--f-stamp);
-  letter-spacing: 0.04em;
-  color: #5a4530;
+  font: 500 9px/1.5 var(--f-mono);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--wk-mute);
 }
 .workshop--bench .notebook-zone-num {
   display: grid;
   place-items: center;
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
-  border: 1.5px solid #5a4530;
-  font: 600 10px/1 var(--f-stamp);
-  color: #5a4530;
-  background: rgba(240, 232, 212, 0.6);
+  border: 1px solid var(--wk-line-strong);
+  font: 600 9px/1 var(--f-mono);
+  color: var(--wk-mute);
+  background: transparent;
 }
 
-/* paper sticker · Top badge picker · 4 slightly-rotated rectangles */
-/* ── Caption strip · brass rows on notebook page ──
-   Reuses caliper-row / caliper-toggle-* visual classes intentionally:
-   captionH + overlay toggle + lift form a small "brass-instrument-on-
-   notebook" cluster. Slight visual clash with paper aesthetic is
-   acceptable; the IA correctness (caption sits with EXIF, not with
-   padding) is what we're earning here. */
+/* ── Caption strip · caliper rows on graphite ── */
 .workshop--bench .notebook-zone--caption .notebook-caption-strip {
   display: flex;
   flex-direction: column;
   gap: 2px;
   padding: 6px 10px 8px;
-  background: rgba(43, 31, 23, 0.04);
-  border: 1px dashed rgba(80, 60, 30, 0.28);
+  background: transparent;
+  border: 1px dashed var(--wk-line-strong);
   border-radius: 4px;
 }
 .workshop--bench .notebook-zone--caption .caliper-row {
   padding: 4px 0;
-}
-.workshop--bench .notebook-zone--caption .caliper-row-label,
-.workshop--bench .notebook-zone--caption .caliper-toggle-label {
-  color: #2b1f17;
-  font-family: var(--f-mono);
-}
-.workshop--bench .notebook-zone--caption .caliper-row-readout {
-  color: #2b1f17;
-}
-.workshop--bench .notebook-zone--caption .caliper-toggle-hint {
-  color: rgba(80, 60, 30, 0.7);
 }
 
 /* ── Zone 2 · EXIF · double-column ── */
@@ -8056,14 +6965,14 @@ input.compose-vnum, .compose-vnum {
   grid-template-columns: 64px 1fr 1fr;
   gap: 10px;
   padding: 4px 0 6px;
-  border-bottom: 1.5px solid rgba(80, 60, 30, 0.35);
+  border-bottom: 1px solid var(--wk-line-strong);
   margin-bottom: 4px;
 }
 .workshop--bench .notebook-col-label {
   font: 600 8.5px/1.1 var(--f-mono);
   letter-spacing: 0.22em;
   text-transform: uppercase;
-  color: rgba(80, 60, 30, 0.55);
+  color: var(--wk-dim);
 }
 .workshop--bench .notebook-row {
   display: grid;
@@ -8073,21 +6982,20 @@ input.compose-vnum, .compose-vnum {
   padding: 4px 0 5px;
   margin: 0;
   cursor: text;
-  border-bottom: 1px dotted rgba(80, 60, 30, 0.18);
+  border-bottom: 1px solid var(--wk-line);
 }
 .workshop--bench .notebook-row:last-of-type { border-bottom: 0; }
 .workshop--bench .notebook-field {
-  font: 500 11px/1.3 var(--f-mono);
+  font: 500 10px/1.3 var(--f-mono);
   letter-spacing: 0.06em;
-  color: #5a4530;
+  color: var(--wk-dim);
   text-transform: lowercase;
 }
 .workshop--bench .notebook-auto {
   font: 500 11.5px/1.3 var(--f-mono);
   letter-spacing: 0.02em;
-  color: rgba(80, 60, 30, 0.7);
+  color: var(--wk-mute);
   font-variant-numeric: tabular-nums;
-  /* typewriter-faded look · subtle striped overlay */
   transition: color 200ms, opacity 200ms, text-decoration 200ms;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -8095,45 +7003,46 @@ input.compose-vnum, .compose-vnum {
 }
 .workshop--bench .notebook-row[data-overridden="true"] .notebook-auto {
   text-decoration: line-through;
-  text-decoration-color: rgba(138, 42, 26, 0.55);
-  opacity: 0.5;
+  text-decoration-color: rgba(240, 238, 230, 0.3);
+  opacity: 0.45;
 }
+/* HANDWRITING column — Special Elite in amber: the override IS the hand. */
 .workshop--bench .notebook-handwriting {
   appearance: none;
   -webkit-appearance: none;
   background: transparent;
   border: 0;
-  border-bottom: 1.5px solid rgba(80, 60, 30, 0.25);
+  border-bottom: 1px solid var(--wk-line-strong);
   padding: 2px 0 3px;
   font: 400 14.5px/1.2 var(--f-stamp);
   letter-spacing: 0.005em;
-  color: #5a1810;        /* sepia brown ink */
+  color: var(--wk-amber-hi);
   outline: none;
   transition: border-color 200ms;
   min-width: 0;
   width: 100%;
 }
 .workshop--bench .notebook-handwriting:focus {
-  border-bottom-color: #c43d2c;
+  border-bottom-color: var(--wk-amber);
 }
 .workshop--bench .notebook-handwriting::placeholder {
   font: 400 13px/1.2 var(--f-stamp);
-  color: rgba(90, 24, 16, 0.32);
+  color: var(--wk-dim);
   font-style: italic;
 }
 .workshop--bench .notebook-select {
   font: 400 13px/1.2 var(--f-stamp);
-  color: #5a1810;
+  color: var(--wk-amber-hi);
   background: transparent;
   cursor: pointer;
 }
 .workshop--bench .notebook-select option {
   font-family: var(--f-mono);
-  color: #2b1f17;
-  background: #f0e8d4;
+  color: var(--wk-text);
+  background: var(--wk-g1);
 }
 
-/* GPS map button — small note-pinned action */
+/* GPS map button — small pinned action */
 .workshop--bench .notebook-gps-actions {
   grid-column: 1 / -1;
   padding: 6px 0 0;
@@ -8141,53 +7050,54 @@ input.compose-vnum, .compose-vnum {
   justify-content: flex-end;
 }
 .workshop--bench .notebook-action--map {
-  font: 500 10px/1 var(--f-stamp);
+  font: 500 10px/1 var(--f-mono);
   padding: 4px 9px;
   letter-spacing: 0.08em;
 }
 
-/* ── Bottom action strip — 3 buttons stamped on the paper ── */
+/* ── Bottom action strip ── */
 .workshop--bench .notebook-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
   padding: 14px 0 0;
   margin-top: 14px;
-  border-top: 1.5px solid rgba(80, 60, 30, 0.25);
+  border-top: 1px solid var(--wk-line-strong);
 }
 .workshop--bench .notebook-action {
   appearance: none;
   -webkit-appearance: none;
-  font: 500 10.5px/1 var(--f-stamp);
+  font: 500 10px/1.3 var(--f-mono);
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: #2b1f17;
+  color: var(--wk-mute);
   background: transparent;
-  border: 1px solid rgba(80, 60, 30, 0.4);
+  border: 1px solid var(--wk-line-strong);
   padding: 6px 11px;
-  border-radius: 1px;
+  border-radius: 3px;
   cursor: pointer;
-  transition: background 200ms, color 200ms, border-color 200ms;
+  transition: color 200ms, border-color 200ms;
 }
 .workshop--bench .notebook-action:hover {
-  background: rgba(80, 60, 30, 0.08);
-  border-color: rgba(80, 60, 30, 0.7);
+  color: var(--wk-text);
+  border-color: var(--wk-mute);
 }
 
-/* warn banner inside notebook (e.g. EXIF stripped) */
+/* warn banner inside notebook (e.g. EXIF stripped) — danger red, one of
+   the only places red is still allowed to speak */
 .workshop--bench .notebook-zone--exif .warn {
-  background: rgba(196, 61, 44, 0.12);
-  border: 1px solid rgba(138, 42, 26, 0.4);
-  color: #5a1810;
+  background: rgba(201, 79, 61, 0.1);
+  border: 1px solid rgba(201, 79, 61, 0.4);
+  color: #d98277;
   padding: 8px 10px;
-  border-radius: 2px;
+  border-radius: 3px;
   margin-bottom: 8px;
-  font: 500 11px/1.4 var(--f-stamp);
+  font: 400 11px/1.4 var(--f-ui);
 }
 
 /* Mobile · keep the same notebook structure but tighten columns */
 @media (max-width: 700px) {
-  .workshop--bench .notebook-page { padding: 14px 14px 16px; }
+  .workshop--bench .notebook-page { padding: 12px 14px 14px; }
   .workshop--bench .notebook-cols,
   .workshop--bench .notebook-row {
     grid-template-columns: 54px 1fr 1fr;
@@ -8200,67 +7110,54 @@ input.compose-vnum, .compose-vnum {
 }
 
 /* ═════════════════════════════════════════════════════════════════════
-   ✦ SEAL · 1.9.2 + ▦ ARRANGE · 1.10.1
-   Cream-cardstock paper-craft family — both tools share material chrome
-   intentionally (paper-stationery tools sit on the same cardstock). Seal
-   holds the wax-press signature; Arrange holds the paper-clamp collage.
-   Per-zone visuals diverge inside.
+   ❖ SEAL + ▦ ARRANGE · 1.12.1 「暗房纪律」
+   Cream-cardstock paper craft retired. Both tools sit on the same
+   graphite panel as every other tool. The wax-red drama moves out of
+   the panel (red = destructive only now); the seal press is a graphite
+   disc under the amber safelight — the wax ritual lives on in the
+   placement stage (#seal-modal, untouched). Structure / ids unchanged.
    ═════════════════════════════════════════════════════════════════════ */
 .workshop--bench .sealcard,
 .workshop--bench .arrangecard {
   position: relative;
   margin: 14px 0 4px;
   padding: 0;
-  background:
-    linear-gradient(180deg, #ede1c4 0%, #e0d2af 100%);
-  color: #2b1f17;
-  border-radius: 2px;
-  /* paper grain — coarser than notebook (heavier cardstock feel) */
-  background-image:
-    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.32' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .52  0 0 0 0 .38  0 0 0 0 .22  0 0 0 .22 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>"),
-    linear-gradient(180deg, #ede1c4 0%, #e0d2af 100%);
-  background-blend-mode: multiply, normal;
-  box-shadow:
-    inset 0 -3px 0 rgba(0, 0, 0, 0.08),
-    inset 0 0 0 1px rgba(80, 60, 30, 0.18),
-    0 4px 12px rgba(0, 0, 0, 0.35);
-  isolation: isolate;
+  background: var(--wk-g1);
+  color: var(--wk-text);
+  border: 1px solid var(--wk-line);
+  border-radius: 4px;
 }
 
-/* zone header — numbered marker on cardstock */
-.workshop--bench .sealcard-zone { padding: 18px 18px 16px; }
+.workshop--bench .sealcard-zone { padding: 16px 16px 14px; }
 .workshop--bench .sealcard-zone + .sealcard-zone {
-  border-top: 1px dashed rgba(80, 60, 30, 0.28);
+  border-top: 1px dashed var(--wk-line-strong);
 }
-/* Arrange has no zone wrapper — clamps + slots sit directly on the
-   cardstock. Give the card its own outer padding instead. */
+/* Arrange has no zone wrapper — clamps + slots sit directly on the card. */
 .workshop--bench .arrangecard {
-  padding: 18px 18px 16px;
+  padding: 16px 16px 14px;
 }
 .workshop--bench .arrangecard-clamps {
   margin-bottom: 12px;
 }
 
-/* ─── Wax seal press button (signature upload) ─── */
+/* ─── Seal press (signature upload) ─── */
 .workshop--bench .sealcard-press {
   position: relative;
   display: grid;
-  grid-template-columns: 56px 1fr;
+  grid-template-columns: 52px 1fr;
   align-items: center;
   gap: 14px;
   padding: 14px 16px;
-  background: linear-gradient(180deg, rgba(255, 250, 235, 0.55) 0%, rgba(220, 205, 175, 0.4) 100%);
-  border: 1.5px dashed rgba(138, 42, 26, 0.5);
-  border-radius: 3px;
+  background: transparent;
+  border: 1.5px dashed var(--wk-line-strong);
+  border-radius: 4px;
   cursor: pointer;
-  transition: background 200ms, border-color 200ms, transform 200ms;
+  transition: background 200ms, border-color 200ms;
 }
 .workshop--bench .sealcard-press:hover {
-  background: linear-gradient(180deg, rgba(255, 250, 235, 0.7), rgba(220, 205, 175, 0.55));
-  border-color: #8a2a1a;
-  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.02);
+  border-color: var(--wk-amber-dim);
 }
-.workshop--bench .sealcard-press:active { transform: translateY(0); }
 .workshop--bench .sealcard-press input[type="file"] {
   position: absolute;
   inset: 0;
@@ -8274,36 +7171,23 @@ input.compose-vnum, .compose-vnum {
   position: relative;
   display: grid;
   place-items: center;
-  width: 52px;
-  height: 52px;
+  width: 48px;
+  height: 48px;
 }
-/* Refined sealing-wax (1.11.0) — a clean domed red-wax disc, no jagged
-   clip-path. The dome comes from an off-center highlight gradient + inner
-   top-highlight / bottom-shadow; a hairline rim + faint inner ring read as
-   the raised edge of a pressed wax seal. */
+/* graphite disc under the safelight — the wax ritual moved to #seal-modal */
 .workshop--bench .sealcard-wax-blob {
   position: absolute;
   inset: 0;
   border-radius: 50%;
-  background:
-    radial-gradient(circle at 38% 30%,
-      #e3593c 0%, #c43a23 40%, #94270f 76%, #611708 100%);
-  box-shadow:
-    inset 0 3px 4px rgba(255, 200, 170, 0.5),
-    inset 0 -5px 7px rgba(40, 10, 4, 0.55),
-    inset 0 0 0 1.5px rgba(255, 190, 160, 0.12),
-    0 3px 7px rgba(80, 20, 10, 0.5),
-    0 0 0 1px rgba(70, 16, 8, 0.55);
+  background: var(--wk-g2);
+  border: 1px solid var(--wk-amber-dim);
+  box-shadow: 0 0 14px var(--wk-amber-faint);
 }
-/* The insignia is debossed — pressed INTO the wax: a recessed dark mark
-   (semi-transparent so the wax gradient shows through) with a thin light
-   catch on its lower lip. Upright (a stamped emblem isn't italic). */
 .workshop--bench .sealcard-wax-glyph {
   position: relative;
   z-index: 1;
-  font: 500 20px/1 var(--f-display);
-  color: rgba(66, 16, 7, 0.6);
-  text-shadow: 0 1px 0.5px rgba(255, 198, 168, 0.4);
+  font: 500 19px/1 var(--f-ui);
+  color: var(--wk-amber);
 }
 .workshop--bench .sealcard-press-stack {
   display: flex;
@@ -8311,14 +7195,14 @@ input.compose-vnum, .compose-vnum {
   gap: 3px;
 }
 .workshop--bench .sealcard-press-stack strong {
-  font: 500 13px/1.2 var(--f-display);
-  font-style: italic;
-  color: #2b1f17;
-  letter-spacing: -0.005em;
+  font: 600 12.5px/1.2 var(--f-ui);
+  font-style: normal;
+  color: var(--wk-text);
+  letter-spacing: 0.01em;
 }
 .workshop--bench .sealcard-press-stack span {
-  font: 400 10.5px/1.3 var(--f-stamp);
-  color: rgba(80, 60, 30, 0.7);
+  font: 400 10.5px/1.3 var(--f-mono);
+  color: var(--wk-dim);
   letter-spacing: 0.02em;
 }
 
@@ -8326,13 +7210,13 @@ input.compose-vnum, .compose-vnum {
 .workshop--bench .sealcard-imprint {
   position: relative;
   display: grid;
-  grid-template-columns: 52px 1fr auto;
+  grid-template-columns: 44px 1fr auto;
   align-items: center;
   gap: 14px;
   padding: 10px 14px;
-  background: rgba(255, 250, 235, 0.45);
-  border: 1px solid rgba(138, 42, 26, 0.35);
-  border-radius: 3px;
+  background: var(--wk-g2);
+  border: 1px solid var(--wk-line);
+  border-radius: 4px;
   margin-top: 8px;
 }
 /* The `display: grid` above (0,2,0) ties + out-orders the global
@@ -8342,98 +7226,92 @@ input.compose-vnum, .compose-vnum {
    `display:` rule on a [hidden]-toggled element needs a sibling [hidden] rule.) */
 .workshop--bench .sealcard-imprint[hidden] { display: none; }
 .workshop--bench .sealcard-imprint-wax {
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
-  background: radial-gradient(circle at 38% 30%, #e3593c 0%, #c43a23 40%, #94270f 76%, #611708 100%);
-  box-shadow:
-    inset 0 2px 3px rgba(255, 200, 170, 0.45),
-    inset 0 -3px 4px rgba(40, 10, 4, 0.5);
-  opacity: 0.7;
+  background: var(--wk-g3);
+  border: 1px solid var(--wk-amber-dim);
+  box-shadow: 0 0 10px var(--wk-amber-faint);
+  opacity: 0.9;
 }
 .workshop--bench .sealcard-imprint img {
   max-width: 100%;
   max-height: 32px;
   object-fit: contain;
-  filter: drop-shadow(0 1px 1px rgba(80, 60, 30, 0.2));
 }
+/* Remove seal — destructive: red keeps its one job */
 .workshop--bench .sealcard-imprint-clear {
   appearance: none;
   -webkit-appearance: none;
-  font: 500 9.5px/1 var(--f-stamp);
+  font: 500 9.5px/1.3 var(--f-mono);
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: #5a1810;
+  color: #d98277;
   background: transparent;
-  border: 1px solid rgba(138, 42, 26, 0.45);
+  border: 1px solid rgba(201, 79, 61, 0.45);
   padding: 5px 8px;
-  border-radius: 1px;
+  border-radius: 3px;
   cursor: pointer;
   transition: background 200ms;
 }
 .workshop--bench .sealcard-imprint-clear:hover {
-  background: rgba(138, 42, 26, 0.1);
+  background: rgba(201, 79, 61, 0.12);
 }
 
-/* Place-on-canvas CTA — wax-red primary (mirrors Caliper's Compose CTA),
-   opens #seal-modal for direct-manipulation placement. */
+/* Place-on-canvas CTA — the panel's true primary action, amber outline */
 .workshop--bench .sealcard-place {
   display: flex; align-items: center; justify-content: center; gap: 9px;
   width: 100%; margin-top: 14px; padding: 11px 14px;
   appearance: none; -webkit-appearance: none; cursor: pointer;
-  font: 600 11px/1 var(--f-stamp); letter-spacing: 0.1em; text-transform: uppercase;
-  color: #fdf6e0;
-  background: linear-gradient(180deg, #c43d2c 0%, #8a2a1a 100%);
-  border: 1px solid #5a1810; border-radius: 3px;
-  box-shadow: inset 0 1px 0 rgba(255, 220, 200, 0.35), 0 2px 6px rgba(138, 42, 26, 0.4);
-  transition: filter 180ms, transform 180ms, opacity 180ms;
+  font: 600 11px/1 var(--f-mono); letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--wk-amber);
+  background: var(--wk-amber-faint);
+  border: 1px solid var(--wk-amber); border-radius: 4px;
+  transition: background 180ms, color 180ms, opacity 180ms;
 }
-.workshop--bench .sealcard-place:hover:not(:disabled) { filter: brightness(1.08); transform: translateY(-1px); }
-.workshop--bench .sealcard-place:active:not(:disabled) { transform: translateY(0); }
+.workshop--bench .sealcard-place:hover:not(:disabled) { background: rgba(212, 165, 116, 0.18); color: var(--wk-amber-hi); }
 .workshop--bench .sealcard-place:disabled { opacity: 0.4; cursor: default; }
 .workshop--bench .sealcard-place-glyph { font-size: 14px; }
 
-/* Ink settings — blend-mode seg + flip toggle, on the cardstock */
+/* Ink settings — blend-mode seg + flip toggle */
 .workshop--bench .sealcard-ink-row { margin-top: 14px; }
 .workshop--bench .sealcard-ink-label {
-  display: block; font: 500 10px/1.2 var(--f-stamp); letter-spacing: 0.14em;
-  text-transform: uppercase; color: rgba(80, 60, 30, 0.65); margin-bottom: 7px;
+  display: block; font: 500 9px/1.5 var(--f-mono); letter-spacing: 0.2em;
+  text-transform: uppercase; color: var(--wk-dim); margin-bottom: 7px;
 }
 .workshop--bench .sealcard-blend-seg { display: flex; flex-wrap: wrap; gap: 5px; }
 .workshop--bench .sealcard-blend-chip {
   appearance: none; -webkit-appearance: none; cursor: pointer;
-  padding: 5px 9px; font: 500 10.5px/1 var(--f-ui); color: #2b1f17;
-  background: linear-gradient(180deg, #fdf6e0 0%, #ead9b8 100%);
-  border: 1px solid rgba(80, 60, 30, 0.35); border-radius: 2px;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45);
+  padding: 5px 9px; font: 500 10.5px/1 var(--f-ui); color: var(--wk-mute);
+  background: transparent;
+  border: 1px solid var(--wk-line-strong); border-radius: 3px;
   transition: background 160ms, color 160ms, border-color 160ms;
 }
 @media (hover: hover) and (pointer: fine) {
-  .workshop--bench .sealcard-blend-chip:hover:not(:disabled) { border-color: rgba(138, 42, 26, 0.55); }
+  .workshop--bench .sealcard-blend-chip:hover:not(:disabled) { color: var(--wk-text); border-color: var(--wk-mute); }
 }
 .workshop--bench .sealcard-blend-chip.active {
-  background: linear-gradient(180deg, #c43d2c 0%, #8a2a1a 100%);
-  color: #fdf6e0; border-color: #5a1810;
+  background: var(--wk-amber-faint);
+  color: var(--wk-amber); border-color: var(--wk-amber);
 }
 .workshop--bench .sealcard-blend-chip:disabled { opacity: 0.4; cursor: default; }
 
 .workshop--bench .sealcard-flip-toggle {
   display: inline-flex; align-items: center; gap: 8px; margin-top: 12px;
   appearance: none; -webkit-appearance: none; cursor: pointer;
-  padding: 7px 12px; font: 500 11px/1 var(--f-ui); color: #2b1f17;
-  background: linear-gradient(180deg, #fdf6e0 0%, #ead9b8 100%);
-  border: 1px solid rgba(80, 60, 30, 0.35); border-radius: 999px;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45);
+  padding: 7px 12px; font: 500 11px/1 var(--f-ui); color: var(--wk-mute);
+  background: transparent;
+  border: 1px solid var(--wk-line-strong); border-radius: 999px;
   transition: background 160ms, color 160ms, border-color 160ms;
 }
 .workshop--bench .sealcard-flip-toggle.active {
-  background: linear-gradient(180deg, #c43d2c 0%, #8a2a1a 100%);
-  color: #fdf6e0; border-color: #5a1810;
+  background: var(--wk-amber-faint);
+  color: var(--wk-amber); border-color: var(--wk-amber);
 }
 .workshop--bench .sealcard-flip-toggle:disabled { opacity: 0.4; cursor: default; }
 .workshop--bench .sealcard-flip-glyph { font-size: 14px; }
 
-/* hairline meter sliders (opacity) — thin wax-line styling */
+/* opacity meter — same graphite slider instrument */
 .workshop--bench .sealcard-meter-row {
   display: grid;
   grid-template-columns: 64px 1fr 56px;
@@ -8442,15 +7320,15 @@ input.compose-vnum, .compose-vnum {
   margin-top: 12px;
 }
 .workshop--bench .sealcard-meter-label {
-  font: 500 10px/1.2 var(--f-stamp);
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: rgba(80, 60, 30, 0.75);
+  font: 400 11px/1.3 var(--f-ui);
+  letter-spacing: 0.01em;
+  text-transform: none;
+  color: var(--wk-text);
 }
 .workshop--bench .sealcard-meter-readout {
   font: 500 10.5px/1.2 var(--f-mono);
   letter-spacing: 0.04em;
-  color: #5a1810;
+  color: var(--wk-amber);
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
@@ -8464,7 +7342,7 @@ input.compose-vnum, .compose-vnum {
 }
 .workshop--bench .sealcard-meter::-webkit-slider-runnable-track {
   height: 2px;
-  background: rgba(80, 60, 30, 0.3);
+  background: var(--wk-line-strong);
   border-radius: 1px;
 }
 .workshop--bench .sealcard-meter::-webkit-slider-thumb {
@@ -8473,25 +7351,23 @@ input.compose-vnum, .compose-vnum {
   height: 12px;
   margin-top: -5px;
   border-radius: 50%;
-  background: radial-gradient(circle at 32% 28%, #d44a2a 0%, #8a2a1a 60%, #5a1810 100%);
-  border: 1px solid #5a1810;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 200, 180, 0.4),
-    0 1px 2px rgba(80, 60, 30, 0.3);
+  background: var(--wk-g2);
+  border: 1.5px solid var(--wk-amber);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
 }
 .workshop--bench .sealcard-meter::-moz-range-track {
   height: 2px;
-  background: rgba(80, 60, 30, 0.3);
+  background: var(--wk-line-strong);
 }
 .workshop--bench .sealcard-meter::-moz-range-thumb {
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  background: radial-gradient(circle at 32% 28%, #d44a2a 0%, #8a2a1a 60%, #5a1810 100%);
-  border: 1px solid #5a1810;
+  background: var(--wk-g2);
+  border: 1.5px solid var(--wk-amber);
 }
 
-/* ─── Paper clamps · collage layout picker ─── */
+/* ─── Collage layout picker (paper clamps retired → graphite tiles) ─── */
 .workshop--bench .sealcard-collage-select {
   /* hidden select drives existing change-event listener; visible
      clamp buttons below sync via JS */
@@ -8509,8 +7385,9 @@ input.compose-vnum, .compose-vnum {
 .workshop--bench .sealcard-clamp {
   appearance: none;
   -webkit-appearance: none;
-  background: linear-gradient(180deg, #fdf6e0 0%, #ead9b8 100%);
-  border: 1px solid rgba(80, 60, 30, 0.35);
+  background: transparent;
+  border: 1px solid var(--wk-line);
+  border-radius: 4px;
   padding: 10px 8px 7px;
   display: flex;
   flex-direction: column;
@@ -8518,36 +7395,15 @@ input.compose-vnum, .compose-vnum {
   gap: 6px;
   cursor: pointer;
   position: relative;
-  transition: transform 200ms, border-color 200ms, box-shadow 200ms;
-  box-shadow:
-    0 2px 4px rgba(80, 60, 30, 0.18),
-    inset 0 1px 0 rgba(255, 255, 255, 0.45);
-}
-.workshop--bench .sealcard-clamp::before {
-  /* paper-clamp small metallic dot at top */
-  content: "";
-  position: absolute;
-  top: -3px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 14px;
-  height: 5px;
-  border-radius: 2px;
-  background: linear-gradient(180deg, #b8945c 0%, #7d6238 100%);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 245, 215, 0.5),
-    0 1px 2px rgba(45, 25, 10, 0.45);
+  transition: border-color 200ms, background 200ms;
 }
 .workshop--bench .sealcard-clamp:hover {
-  transform: translateY(-1px);
-  border-color: rgba(80, 60, 30, 0.6);
+  border-color: var(--wk-line-strong);
+  background: rgba(255, 255, 255, 0.02);
 }
 .workshop--bench .sealcard-clamp.active {
-  border-color: #8a2a1a;
-  background: linear-gradient(180deg, #f7e4c2 0%, #e8c994 100%);
-  box-shadow:
-    0 4px 8px rgba(138, 42, 26, 0.3),
-    inset 0 1px 0 rgba(255, 240, 200, 0.55);
+  border-color: var(--wk-amber);
+  background: var(--wk-amber-faint);
 }
 .workshop--bench .sealcard-clamp-visual {
   width: 40px;
@@ -8555,8 +7411,8 @@ input.compose-vnum, .compose-vnum {
   display: grid;
   gap: 2px;
   padding: 2px;
-  background: rgba(80, 60, 30, 0.18);
-  border-radius: 1px;
+  background: rgba(240, 238, 230, 0.08);
+  border-radius: 2px;
 }
 .workshop--bench .sealcard-clamp-visual--off { grid-template: 1fr / 1fr; }
 .workshop--bench .sealcard-clamp-visual--h2 { grid-template: 1fr / 1fr 1fr; }
@@ -8565,20 +7421,21 @@ input.compose-vnum, .compose-vnum {
 .workshop--bench .sealcard-clamp-visual--v3 { grid-template: 1fr 1fr 1fr / 1fr; }
 .workshop--bench .sealcard-clamp-visual--2x2 { grid-template: 1fr 1fr / 1fr 1fr; }
 .workshop--bench .sealcard-clamp-visual span {
-  background: rgba(255, 250, 235, 0.7);
+  background: rgba(240, 238, 230, 0.35);
   border-radius: 0.5px;
 }
 .workshop--bench .sealcard-clamp.active .sealcard-clamp-visual span {
-  background: #8a2a1a;
+  background: var(--wk-amber);
 }
 .workshop--bench .sealcard-clamp-label {
-  font: 500 9.5px/1 var(--f-stamp);
+  font: 500 9.5px/1.3 var(--f-mono);
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: #2b1f17;
+  color: var(--wk-mute);
 }
-
-/* collage-slots inside the sealcard */
+.workshop--bench .sealcard-clamp.active .sealcard-clamp-label {
+  color: var(--wk-amber);
+}
 
 /* Mobile · tighten grids */
 @media (max-width: 700px) {
@@ -8596,4 +7453,3 @@ input.compose-vnum, .compose-vnum {
     height: 20px;
   }
 }
-

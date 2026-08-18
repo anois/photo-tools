@@ -1,0 +1,663 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>暗房纪律 rev.2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600&family=Special+Elite&display=swap" rel="stylesheet">
+<style>
+  /* ── 本稿即样张：整份文档运行在最终 token 上。一间暗房，一盏琥珀灯。 ── */
+  :root{
+    --g0:#101113;          /* 抽屉底 */
+    --g1:#17181b;          /* 面板面 */
+    --g2:#1e2024;          /* 浮起面（卡片 hover / 输入底）*/
+    --g3:#26282d;          /* 最高浮起（active 底）*/
+    --gl:rgba(240,238,230,.08);    /* hairline */
+    --gl-strong:rgba(240,238,230,.16);
+    --gt:#e8e5dc;          /* 主文字 */
+    --gm:#8f8b80;          /* 次文字 */
+    --gd:#5c594f;          /* 弱文字 / 占位 */
+    --amber:#d4a574;       /* 安全灯 — 人的手迹 */
+    --amber-hi:#e8bd88;
+    --amber-dim:rgba(212,165,116,.32);
+    --amber-faint:rgba(212,165,116,.1);
+    --danger:#c94f3d;      /* 仅破坏性动作 */
+    /* 帧色 — 每帧一个，只出现在卡片左缘 2px 色条 + 卡签 */
+    --fa-frosted:#5a7fb8; --fa-gallery:#cfc9b8; --fa-instax:#ee6a39; --fa-torn:#b89b76;
+    --fa-f35:#d0524a; --fa-fmf:#c79a55; --fa-slide:#a4576a; --fa-ht:#4f79c9;
+    --f-ui:"Hanken Grotesk","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+    --f-mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+    --f-hand:"Special Elite","Courier Prime",monospace;   /* 仅 Notation 手写列 */
+    --r:4px;
+  }
+  *,*::before,*::after{box-sizing:border-box}
+  html{background:var(--g0)}
+  body{
+    margin:0;background:var(--g0);color:var(--gt);
+    font-family:var(--f-ui);font-size:15px;line-height:1.75;
+    -webkit-font-smoothing:antialiased;overflow-x:hidden;
+  }
+  code{font-family:var(--f-mono);font-size:.9em;color:var(--amber);background:var(--g1);padding:1px 6px;border-radius:3px}
+  .wrap{max-width:1180px;margin:0 auto;padding:64px 40px 140px}
+  @media (max-width:700px){.wrap{padding:36px 18px 100px}}
+
+  .eyebrow{
+    font-family:var(--f-mono);font-size:10.5px;letter-spacing:.3em;text-transform:uppercase;
+    color:var(--gm);display:flex;align-items:center;gap:14px;margin-bottom:14px;
+  }
+  .eyebrow::after{content:"";flex:1;height:1px;background:var(--gl)}
+  .eyebrow b{color:var(--amber);font-weight:600}
+  h1{font-size:clamp(30px,4.6vw,44px);font-weight:700;line-height:1.2;margin:0 0 14px;text-wrap:balance}
+  h2{font-size:21px;font-weight:700;margin:0 0 8px}
+  h3{font-size:14px;font-weight:700;margin:24px 0 8px;letter-spacing:.03em}
+  .lede{color:var(--gm);max-width:47em;margin:0 0 10px}
+  section{margin-top:100px}
+  p{max-width:47em}
+  p strong,li strong{color:var(--gt)}
+  ul{color:var(--gm);padding-left:20px;max-width:47em}
+  li{margin-bottom:8px}
+
+  /* ── token 表 ── */
+  .tokens{display:grid;grid-template-columns:repeat(auto-fill,minmax(215px,1fr));gap:10px;margin-top:20px}
+  .tk{
+    display:flex;align-items:center;gap:10px;
+    font-family:var(--f-mono);font-size:10.5px;color:var(--gm);
+    border:1px solid var(--gl);padding:9px 12px;border-radius:var(--r);background:var(--g1);
+  }
+  .tk i{width:18px;height:18px;border-radius:3px;display:block;flex:none;border:1px solid rgba(0,0,0,.4)}
+  .tk b{color:var(--gt);font-weight:500;margin-right:auto}
+  .tk-note{font-family:var(--f-ui);font-size:12.5px;color:var(--gd)}
+
+  /* ── mock 布局 ── */
+  .mock-row{display:grid;grid-template-columns:460px 1fr;gap:44px;align-items:start;margin-top:26px}
+  @media (max-width:980px){.mock-row{grid-template-columns:1fr}}
+  .notes h3:first-child{margin-top:0}
+  .notes p,.notes ul{color:var(--gm);font-size:14px}
+  .notes p{margin:0 0 10px}
+
+  /* ════════════════════════════════════════════════════════════
+     .dk — 暗房抽屉 mock 骨架（440px 实宽，最终 token 直出）
+     ════════════════════════════════════════════════════════════ */
+  .dk{
+    width:440px;max-width:100%;background:var(--g0);
+    border:1px solid var(--gl-strong);border-radius:6px;overflow:hidden;
+    box-shadow:0 24px 60px -24px rgba(0,0,0,.75);
+    font-size:13px;line-height:1.5;
+  }
+  .dk-id{
+    display:flex;align-items:center;gap:10px;padding:13px 16px;
+    font-family:var(--f-mono);font-size:11.5px;color:var(--gm);
+    background:var(--g1);border-bottom:1px solid var(--gl);
+  }
+  .dk-id .x{margin-left:auto;color:var(--gd)}
+  .dk-flex{display:flex;min-height:520px}
+  .dk-dock{
+    display:flex;flex-direction:column;gap:2px;padding:10px 0;width:64px;flex:none;
+    background:var(--g1);border-right:1px solid var(--gl);
+  }
+  .dk-tool{
+    display:flex;flex-direction:column;align-items:center;gap:4px;
+    padding:11px 0;font-size:10.5px;color:var(--gd);position:relative;cursor:default;
+  }
+  .dk-tool .ico{font-size:14px;line-height:1}
+  .dk-tool.on{color:var(--amber)}
+  .dk-tool.on::before{
+    content:"";position:absolute;left:0;top:8px;bottom:8px;width:2px;background:var(--amber);
+    box-shadow:0 0 10px 1px var(--amber-dim);
+  }
+  .dk-tool .dot{position:absolute;top:7px;right:14px;width:4px;height:4px;border-radius:50%;background:var(--amber)}
+  .dk-panel{flex:1;padding:18px 18px 12px;min-width:0}
+  .dk-eyebrow{font-family:var(--f-mono);font-size:9.5px;letter-spacing:.24em;text-transform:uppercase;color:var(--amber);margin-bottom:3px}
+  .dk-title{font-size:15px;font-weight:700;letter-spacing:.02em;color:var(--gt);margin-bottom:2px}
+  .dk-hint{font-size:11.5px;color:var(--gm);margin-bottom:14px}
+  .dk-chiprow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+  .dk-chiprow .lbl{font-family:var(--f-mono);font-size:10px;letter-spacing:.12em;color:var(--gd)}
+  .dk-chip{
+    font-size:11px;padding:4px 10px;border:1px solid var(--gl);border-radius:3px;
+    color:var(--gm);background:var(--g1);cursor:default;white-space:nowrap;
+  }
+  .dk-chip.on{border-color:var(--amber);color:var(--amber);background:var(--amber-faint)}
+  .dk-card{
+    background:var(--g1);border:1px solid var(--gl);border-radius:var(--r);
+    padding:14px 14px 12px;margin-bottom:12px;position:relative;overflow:hidden;
+  }
+  .dk-card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:2px;background:var(--fa,var(--gd))}
+  .dk-card-tag{
+    font-family:var(--f-mono);font-size:9px;letter-spacing:.2em;text-transform:uppercase;
+    color:var(--gm);margin-bottom:10px;display:flex;justify-content:space-between;
+  }
+  .dk-card-tag .sw{color:var(--fa,var(--gm))}
+  .dk-row{display:grid;grid-template-columns:52px 1fr 46px;gap:10px;align-items:center;padding:7px 0}
+  .dk-row .l{font-size:11.5px;color:var(--gt);white-space:nowrap}
+  .dk-row .v{font-family:var(--f-mono);font-size:10.5px;text-align:right;color:var(--gd);font-variant-numeric:tabular-nums}
+  .dk-row.set .v{color:var(--amber)}
+  .dk-track{position:relative;height:14px;display:flex;align-items:center}
+  .dk-track::before{content:"";position:absolute;left:0;right:0;height:2px;background:var(--gl)}
+  .dk-track .fill{position:absolute;left:0;height:2px;background:var(--amber-dim)}
+  .dk-thumb{
+    position:absolute;top:50%;transform:translate(-50%,-50%);
+    width:12px;height:12px;border-radius:50%;
+    background:var(--g2);border:1.5px solid var(--gm);
+  }
+  .dk-row.set .dk-thumb{border-color:var(--amber)}
+  .dk-drop{
+    display:flex;align-items:center;gap:10px;padding:10px 12px;margin-bottom:12px;
+    border:1px dashed var(--gl-strong);border-radius:var(--r);color:var(--gm);font-size:11.5px;
+  }
+  .dk-sect{
+    display:flex;align-items:center;gap:8px;padding:10px 2px;
+    font-family:var(--f-mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;
+    color:var(--gd);border-top:1px solid var(--gl);
+  }
+  .dk-foot{
+    display:flex;align-items:center;gap:10px;padding:12px 16px;font-size:11px;
+    background:var(--g1);border-top:1px solid var(--gl);
+  }
+  .dk-foot .sum{font-family:var(--f-mono);font-size:10px;letter-spacing:.06em;color:var(--gd);margin-right:auto}
+  .dk-foot .sum b{color:var(--amber);font-weight:500}
+  .dk-btn{
+    padding:7px 12px;font-size:11px;border:1px solid var(--gl);border-radius:3px;
+    color:var(--gm);background:transparent;cursor:default;white-space:nowrap;
+  }
+  .dk-btn.cta{background:var(--amber);border-color:var(--amber);color:#141210;font-weight:600}
+  .dk-toggle{display:flex;align-items:center;gap:10px;margin:2px 0 14px;font-size:12px;color:var(--gt)}
+  .dk-toggle .knob{
+    width:34px;height:18px;border-radius:10px;border:1px solid var(--gl-strong);position:relative;flex:none;background:var(--g2);
+  }
+  .dk-toggle .knob::after{content:"";position:absolute;top:2px;left:2px;width:12px;height:12px;border-radius:50%;background:var(--gm)}
+  .dk-toggle.on .knob{background:var(--amber-faint);border-color:var(--amber)}
+  .dk-toggle.on .knob::after{left:auto;right:2px;background:var(--amber)}
+  .dk-toggle .sub{display:block;font-size:10.5px;color:var(--gd)}
+
+  /* Caliper 刻度尺缘 */
+  .dk-ruler{display:flex;justify-content:space-between;padding:0 2px;margin:4px 0}
+  .dk-ruler i{width:1px;height:6px;background:var(--gl-strong)}
+  .dk-ruler i:nth-child(5n+1){height:10px}
+
+  /* Notation EXIF 双列 */
+  .dk-exif{border-top:1px solid var(--gl);margin-top:4px}
+  .dk-exif-row{
+    display:grid;grid-template-columns:44px 1fr 1fr;gap:10px;align-items:baseline;
+    padding:8px 0;border-bottom:1px solid var(--gl);
+  }
+  .dk-exif-row .f{font-family:var(--f-mono);font-size:9.5px;letter-spacing:.08em;color:var(--gd);text-transform:uppercase}
+  .dk-exif-row .auto{font-family:var(--f-mono);font-size:11px;color:var(--gm)}
+  .dk-exif-row .hand{font-family:var(--f-hand);font-size:13px;color:var(--amber-hi)}
+  .dk-exif-row .hand.empty{color:var(--gd);font-family:var(--f-mono);font-size:10.5px}
+  .dk-exif-cols{
+    display:grid;grid-template-columns:44px 1fr 1fr;gap:10px;
+    font-family:var(--f-mono);font-size:8.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--gd);
+    padding:6px 0 4px;
+  }
+  .dk-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+
+  /* Arrange 布局钳 */
+  .dk-clamps{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-bottom:14px}
+  .dk-clamp{
+    display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 4px 8px;
+    border:1px solid var(--gl);border-radius:var(--r);background:var(--g1);
+  }
+  .dk-clamp.on{border-color:var(--amber);background:var(--amber-faint)}
+  .dk-clamp .viz{display:grid;gap:2px;width:26px;height:20px}
+  .dk-clamp .viz i{background:var(--gd);border-radius:1px}
+  .dk-clamp.on .viz i{background:var(--amber)}
+  .dk-clamp .lb{font-family:var(--f-mono);font-size:9px;color:var(--gm)}
+  .dk-clamp.on .lb{color:var(--amber)}
+  .viz-off{grid-template-columns:1fr}
+  .viz-h2{grid-template-columns:1fr 1fr}
+  .viz-v2{grid-template-rows:1fr 1fr}
+  .viz-h3{grid-template-columns:1fr 1fr 1fr}
+  .viz-v3{grid-template-rows:1fr 1fr 1fr}
+  .viz-2x2{grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr}
+  .dk-slots{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .dk-slot{
+    border-radius:var(--r);padding:10px;font-size:10.5px;display:flex;align-items:center;gap:9px;
+  }
+  .dk-slot.filled{background:var(--g2);border:1px solid var(--gl);color:var(--gm)}
+  .dk-slot.filled .thumb{width:30px;height:30px;border-radius:3px;background:linear-gradient(135deg,#33414f,#1c2530);flex:none}
+  .dk-slot.empty{border:1px dashed var(--gl-strong);color:var(--gd);justify-content:center}
+
+  /* Seal 印面 */
+  .dk-press{
+    display:flex;align-items:center;gap:14px;padding:16px 14px;margin-bottom:12px;
+    border:1px dashed var(--gl-strong);border-radius:var(--r);
+  }
+  .dk-press .glyph{
+    width:44px;height:44px;border-radius:50%;flex:none;
+    display:flex;align-items:center;justify-content:center;font-size:18px;color:var(--amber);
+    background:var(--g2);border:1px solid var(--amber-dim);
+    box-shadow:0 0 14px var(--amber-faint);
+  }
+  .dk-press .st strong{display:block;font-size:12.5px;color:var(--gt);font-weight:600}
+  .dk-press .st span{font-size:10.5px;color:var(--gd)}
+  .dk-place{
+    display:flex;align-items:center;justify-content:center;gap:8px;padding:10px;margin-bottom:14px;
+    border:1px solid var(--amber);border-radius:var(--r);color:var(--amber);font-size:12px;background:var(--amber-faint);
+  }
+
+  /* ── 状态规格行 ── */
+  .states{display:grid;grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:12px;margin-top:20px}
+  .state{
+    border:1px solid var(--gl);border-radius:var(--r);background:var(--g1);padding:14px;
+    display:flex;flex-direction:column;gap:9px;
+  }
+  .state .demo{height:38px;display:flex;align-items:center;justify-content:center;border-radius:3px}
+  .state .nm{font-family:var(--f-mono);font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--gm)}
+  .state .ds{font-size:11.5px;color:var(--gd);line-height:1.5}
+
+  /* ── 移动端 sheet mock ── */
+  .sheet{
+    width:390px;max-width:100%;border:1px solid var(--gl-strong);border-radius:14px 14px 6px 6px;overflow:hidden;
+    background:var(--g0);box-shadow:0 24px 60px -24px rgba(0,0,0,.75);font-size:13px;
+  }
+  .sheet-handle{
+    display:flex;flex-direction:column;align-items:center;gap:6px;padding:8px 0 0;background:var(--g1);
+  }
+  .sheet-handle .bar{width:110px;height:3px;border-radius:2px;background:var(--amber);box-shadow:0 0 12px 1px var(--amber-dim)}
+  .sheet-dock{display:flex;gap:6px;padding:9px 12px;background:var(--g1);border-bottom:1px solid var(--gl);overflow:hidden}
+  .sheet-pill{
+    display:flex;align-items:center;gap:7px;padding:7px 12px;flex:none;
+    border:1px solid var(--gl);border-radius:14px;color:var(--gd);font-size:10.5px;
+  }
+  .sheet-pill.on{background:var(--amber);border-color:var(--amber);color:#141210;font-weight:600}
+  .sheet-pill .dot{width:4px;height:4px;border-radius:50%;background:var(--amber)}
+  .sheet-body{padding:16px 16px 4px}
+
+  /* 帧卡头一览 */
+  .cardheads{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px;max-width:640px}
+  .ch{
+    position:relative;overflow:hidden;background:var(--g1);border:1px solid var(--gl);border-radius:var(--r);
+    padding:11px 12px;font-family:var(--f-mono);font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--gm);display:flex;justify-content:space-between;
+  }
+  .ch::before{content:"";position:absolute;left:0;top:0;bottom:0;width:2px;background:var(--fa)}
+  .ch .sw{color:var(--fa)}
+
+  /* 对照表 */
+  .tbl-wrap{overflow-x:auto;margin-top:18px}
+  table{border-collapse:collapse;width:100%;font-size:13px;min-width:600px}
+  th{font-family:var(--f-mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--gd);text-align:left;padding:8px 16px 8px 0;border-bottom:1px solid var(--gm)}
+  td{padding:10px 16px 10px 0;border-bottom:1px solid var(--gl);color:var(--gm);vertical-align:top}
+  td:first-child{color:var(--gt);white-space:nowrap}
+  td code{white-space:nowrap}
+
+  .verdict{
+    border:1px solid var(--amber);border-radius:var(--r);padding:22px 26px;margin-top:30px;
+    background:var(--amber-faint);max-width:52em;
+  }
+  .verdict .q{font-family:var(--f-mono);font-size:10px;letter-spacing:.26em;color:var(--amber);text-transform:uppercase;margin-bottom:8px}
+  .verdict p{color:var(--gm);margin:0 0 10px;font-size:14px}
+  .verdict p:last-child{margin:0}
+
+  .foot{
+    margin-top:80px;padding-top:18px;border-top:1px solid var(--gl);
+    display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;
+    font-family:var(--f-mono);font-size:10px;letter-spacing:.2em;color:var(--gd);text-transform:uppercase;
+  }
+  @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="eyebrow"><b>DARKROOM DISCIPLINE</b><span>rev.2 · 实施规格</span></div>
+  <h1>暗房纪律 rev.2</h1>
+  <p class="lede">
+    方向 B 定稿细化：全部 5 个工具面板、交互态规格、移动端 sheet、实施计划。
+    整份文档就跑在最终 token 上 —— 你现在看到的就是工作台完工后的氛围。
+  </p>
+  <p class="lede" style="color:var(--gt)">
+    一句话纪律：<strong style="color:var(--amber)">琥珀 = 人的手迹</strong>。
+    机器的默认态一律石墨；凡是被人碰过的东西 —— 拨过的旋钮、手写的 EXIF、正在用的工具、有改动的面板 ——
+    才亮起安全灯。整个抽屉只有这一个光源（危险动作的红除外）。
+  </p>
+</header>
+
+<!-- ═══════════ SPEC 01 · TOKENS ═══════════ -->
+<section>
+  <div class="eyebrow"><b>01</b><span>Token 定稿</span></div>
+  <h2>石墨四阶 · 一盏灯 · 八条帧色</h2>
+  <div class="tokens">
+    <span class="tk"><i style="background:#101113"></i><b>--g0</b>#101113 抽屉底</span>
+    <span class="tk"><i style="background:#17181b"></i><b>--g1</b>#17181b 面板面</span>
+    <span class="tk"><i style="background:#1e2024"></i><b>--g2</b>#1e2024 浮起面</span>
+    <span class="tk"><i style="background:#26282d"></i><b>--g3</b>#26282d 最高浮起</span>
+    <span class="tk"><i style="background:#e8e5dc"></i><b>--gt</b>#e8e5dc 主文字</span>
+    <span class="tk"><i style="background:#8f8b80"></i><b>--gm</b>#8f8b80 次文字</span>
+    <span class="tk"><i style="background:#5c594f"></i><b>--gd</b>#5c594f 弱文字</span>
+    <span class="tk"><i style="background:#d4a574"></i><b>--amber</b>#d4a574 安全灯</span>
+    <span class="tk"><i style="background:#c94f3d"></i><b>--danger</b>#c94f3d 仅破坏性</span>
+    <span class="tk"><i style="background:#5a7fb8"></i><b>frosted</b>帧色 ×8 见下</span>
+  </div>
+  <h3>帧色（只出现在卡片左缘 2px 色条 + 卡签文字）</h3>
+  <div class="cardheads">
+    <div class="ch" style="--fa:var(--fa-frosted)"><span>frosted-noir · 背景</span><span class="sw">#5a7fb8</span></div>
+    <div class="ch" style="--fa:var(--fa-gallery)"><span>gallery-white · 衬纸</span><span class="sw">#cfc9b8</span></div>
+    <div class="ch" style="--fa:var(--fa-instax)"><span>instax · 相纸</span><span class="sw">#ee6a39</span></div>
+    <div class="ch" style="--fa:var(--fa-torn)"><span>torn · 撕纸</span><span class="sw">#b89b76</span></div>
+    <div class="ch" style="--fa:var(--fa-f35)"><span>film-35 · 齿孔</span><span class="sw">#d0524a</span></div>
+    <div class="ch" style="--fa:var(--fa-fmf)"><span>film-mf · 银盐</span><span class="sw">#c79a55</span></div>
+    <div class="ch" style="--fa:var(--fa-slide)"><span>slide-mount · 装裱</span><span class="sw">#a4576a</span></div>
+    <div class="ch" style="--fa:var(--fa-ht)"><span>halftone · 网屏</span><span class="sw">#4f79c9</span></div>
+  </div>
+  <h3>字体角色</h3>
+  <ul>
+    <li><strong>Hanken Grotesk</strong>：标题（600）与正文（400）。工作台内<strong>废除 Fraunces 斜体</strong> —— 意大利斜体衬线只保留给主界面的 LOOK 语境。</li>
+    <li><strong>JetBrains Mono</strong>：eyebrow / 标签 / 读数 / 卡签，读数一律 <code>tabular-nums</code>。</li>
+    <li><strong>Special Elite</strong>：全抽屉唯一的材质字体特例 —— Notation 的「手写覆盖」列。打字机字 = 人手写的东西，恰好与琥珀语义同构（见 03）。</li>
+  </ul>
+  <h3>节奏</h3>
+  <ul>
+    <li>间距 4/8px 网格：行内 8 / 行间 7 / 卡内边 14 / 面板边 18 / 区块间 12。</li>
+    <li>圆角一律 4px（chip 3px，dock pill 14px 沿用）；描边一律 1px hairline（<code>--gl</code>）。</li>
+    <li>动效只允许两处：安全灯 rail 的 160ms 淡入、sheet 上滑（现有）。其余交互零动画 —— 暗房里手要稳。</li>
+  </ul>
+</section>
+
+<!-- ═══════════ SPEC 02 · 五面板 ═══════════ -->
+<section>
+  <div class="eyebrow"><b>02</b><span>五个工具面板 · 1:1</span></div>
+  <h2>◉ 仪器 Instrument</h2>
+  <div class="mock-row">
+    <div class="dk">
+      <div class="dk-id"><span>▤</span><span>00012.JPG</span><span class="x">✕</span></div>
+      <div class="dk-flex">
+        <div class="dk-dock">
+          <div class="dk-tool on"><span class="ico">◉</span>仪器<span class="dot"></span></div>
+          <div class="dk-tool"><span class="ico">┃</span>测量</div>
+          <div class="dk-tool"><span class="ico">✎</span>笔记<span class="dot"></span></div>
+          <div class="dk-tool"><span class="ico">▦</span>排版</div>
+          <div class="dk-tool"><span class="ico">❖</span>印记</div>
+        </div>
+        <div class="dk-panel">
+          <div class="dk-eyebrow">◉ Instrument</div>
+          <div class="dk-title">仪器 · 跟着当前相框</div>
+          <div class="dk-hint">每张相框是一台仪器 · 切换相框换对应面板</div>
+          <div class="dk-chiprow">
+            <span class="lbl">顶部标记</span>
+            <span class="dk-chip on">关闭</span><span class="dk-chip">品牌·型号</span><span class="dk-chip">品牌</span><span class="dk-chip">字标</span>
+          </div>
+          <div class="dk-card" style="--fa:var(--fa-frosted)">
+            <div class="dk-card-tag"><span>frosted-noir · 背景</span><span class="sw">deep blue</span></div>
+            <div class="dk-row set"><span class="l">模糊</span><span class="dk-track"><span class="fill" style="width:60%"></span><span class="dk-thumb" style="left:60%"></span></span><span class="v">72px</span></div>
+            <div class="dk-row set"><span class="l">亮度</span><span class="dk-track"><span class="fill" style="width:44%"></span><span class="dk-thumb" style="left:44%"></span></span><span class="v">0.98</span></div>
+            <div class="dk-row"><span class="l">饱和度</span><span class="dk-track"><span class="dk-thumb" style="left:52%"></span></span><span class="v">—</span></div>
+            <div class="dk-row"><span class="l">压暗</span><span class="dk-track"><span class="dk-thumb" style="left:38%"></span></span><span class="v">—</span></div>
+            <div class="dk-row"><span class="l">颗粒</span><span class="dk-track"><span class="dk-thumb" style="left:30%"></span></span><span class="v">—</span></div>
+          </div>
+          <div class="dk-drop">▨ 自定义背景图 · JPEG / PNG</div>
+          <div class="dk-sect">▸ 光影 · SHADOW</div>
+        </div>
+      </div>
+      <div class="dk-foot"><span class="sum">5 件工具 · <b>2 处修改</b></span><span class="dk-btn">全部重置</span><span class="dk-btn cta">应用到全部</span></div>
+    </div>
+    <div class="notes">
+      <h3>与现状的差异</h3>
+      <ul>
+        <li>CH·1–5 混音台隐喻退役：编号列删除，行高从 ~120px 收到 34px —— 仪器 + 光影一屏放完，滚动基本消失。</li>
+        <li>「默认」读数列 → 弱灰 <code>—</code>；被拨过的行亮起琥珀（读数 + 填充轨 + thumb 描边），一眼看清这张照片改过什么。</li>
+        <li>7 张材质卡统一为石墨卡 + 帧色条 + 卡签（上节一览）。frosted 的自定义背景图、各帧全部旋钮原样保留，只换皮。</li>
+        <li>dock 修改点由红点改琥珀点（琥珀 = 手迹，红只留给破坏性动作）。</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2 style="margin-top:70px">┃ 测量 Caliper</h2>
+  <div class="mock-row">
+    <div class="dk">
+      <div class="dk-id"><span>▤</span><span>00012.JPG</span><span class="x">✕</span></div>
+      <div class="dk-flex" style="min-height:420px">
+        <div class="dk-dock">
+          <div class="dk-tool"><span class="ico">◉</span>仪器<span class="dot"></span></div>
+          <div class="dk-tool on"><span class="ico">┃</span>测量</div>
+          <div class="dk-tool"><span class="ico">✎</span>笔记</div>
+          <div class="dk-tool"><span class="ico">▦</span>排版</div>
+          <div class="dk-tool"><span class="ico">❖</span>印记</div>
+        </div>
+        <div class="dk-panel">
+          <div class="dk-eyebrow">┃ Caliper</div>
+          <div class="dk-title">测量 · 画幅几何</div>
+          <div class="dk-hint">&nbsp;</div>
+          <div class="dk-toggle on">
+            <span class="knob"></span>
+            <span>无边框 · 仅照片<span class="sub">只导出（风格化后的）照片本体 · 印章仍然生效</span></span>
+          </div>
+          <div class="dk-card" style="--fa:transparent;opacity:.45">
+            <div class="dk-ruler"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+            <div class="dk-card-tag"><span>Frame geometry · 画幅几何</span></div>
+            <div class="dk-row set"><span class="l">边距</span><span class="dk-track"><span class="fill" style="width:35%"></span><span class="dk-thumb" style="left:35%"></span></span><span class="v">70px</span></div>
+            <div class="dk-row"><span class="l">圆角</span><span class="dk-track"><span class="dk-thumb" style="left:50%"></span></span><span class="v">—</span></div>
+            <div class="dk-ruler"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          </div>
+        </div>
+      </div>
+      <div class="dk-foot"><span class="sum">5 件工具 · <b>2 处修改</b></span><span class="dk-btn">全部重置</span><span class="dk-btn cta">应用到全部</span></div>
+    </div>
+    <div class="notes">
+      <h3>与现状的差异</h3>
+      <ul>
+        <li>卡尺刻度缘保留 —— 但从装饰性金棕降为 hairline 刻度（工具身份留着，戏服脱掉）。</li>
+        <li>1.12.0 的无边框开关按规格放在几何区上方、卡尺之外；mock 里演示的是<strong>开启态</strong>：几何卡整体 45% 淡化 + 指针穿透关闭（<code>.is-frameless</code> 现有实现不动，只换皮）。</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2 style="margin-top:70px">✎ 笔记 Notation</h2>
+  <div class="mock-row">
+    <div class="dk">
+      <div class="dk-id"><span>▤</span><span>00012.JPG</span><span class="x">✕</span></div>
+      <div class="dk-flex" style="min-height:520px">
+        <div class="dk-dock">
+          <div class="dk-tool"><span class="ico">◉</span>仪器<span class="dot"></span></div>
+          <div class="dk-tool"><span class="ico">┃</span>测量</div>
+          <div class="dk-tool on"><span class="ico">✎</span>笔记<span class="dot"></span></div>
+          <div class="dk-tool"><span class="ico">▦</span>排版</div>
+          <div class="dk-tool"><span class="ico">❖</span>印记</div>
+        </div>
+        <div class="dk-panel">
+          <div class="dk-eyebrow">✎ Notation</div>
+          <div class="dk-title">笔记 · 字幕 + EXIF</div>
+          <div class="dk-hint">照片在说什么 · 自动识别可逐张手写覆盖</div>
+          <div class="dk-card" style="--fa:var(--gd)">
+            <div class="dk-card-tag"><span>字幕带</span></div>
+            <div class="dk-row"><span class="l">高度</span><span class="dk-track"><span class="dk-thumb" style="left:28%"></span></span><span class="v">自动</span></div>
+            <div class="dk-toggle" style="margin:6px 0 2px"><span class="knob"></span><span>水印嵌入图片<span class="sub">盖在照片底部渐变条上</span></span></div>
+          </div>
+          <div class="dk-card" style="--fa:var(--gd)">
+            <div class="dk-card-tag"><span>EXIF override</span><span>auto ⇄ hand</span></div>
+            <div class="dk-exif-cols"><span>字段</span><span>自动 · detected</span><span>手写 · override</span></div>
+            <div class="dk-exif-row"><span class="f">Make</span><span class="auto">PENTAX</span><span class="hand">RICOH GR</span></div>
+            <div class="dk-exif-row"><span class="f">Model</span><span class="auto">K-3</span><span class="hand empty">—</span></div>
+            <div class="dk-exif-row"><span class="f">ISO</span><span class="auto">200</span><span class="hand empty">—</span></div>
+            <div class="dk-actions">
+              <span class="dk-btn">将 EXIF 应用到全部</span><span class="dk-btn">重置为自动</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="dk-foot"><span class="sum">5 件工具 · <b>2 处修改</b></span><span class="dk-btn">全部重置</span><span class="dk-btn cta">应用到全部</span></div>
+    </div>
+    <div class="notes">
+      <h3>与现状的差异</h3>
+      <ul>
+        <li>拍纸簿装订孔 / 横线纸退役，双列语义留下：<strong>自动列 = mono 石墨，手写列 = Special Elite 琥珀</strong> —— 「打字机字 + 安全灯」两个通道同时说「这是人写的」，比纸质化妆更准。</li>
+        <li>空手写位显示弱灰 <code>—</code>（同旋钮未触碰态），有值即琥珀。半调网屏激活时整个字幕带卡走 45% 淡化 + 顶部一行提示（1.12.0 已有 <code>noCaption</code> 逻辑，只换皮）。</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2 style="margin-top:70px">▦ 排版 Arrange &nbsp;·&nbsp; ❖ 印记 Seal</h2>
+  <div class="mock-row">
+    <div>
+    <div class="dk" style="margin-bottom:34px">
+      <div class="dk-id"><span>▤</span><span>00012.JPG</span><span class="x">✕</span></div>
+      <div class="dk-flex" style="min-height:400px">
+        <div class="dk-dock">
+          <div class="dk-tool"><span class="ico">◉</span>仪器<span class="dot"></span></div>
+          <div class="dk-tool"><span class="ico">┃</span>测量</div>
+          <div class="dk-tool"><span class="ico">✎</span>笔记</div>
+          <div class="dk-tool on"><span class="ico">▦</span>排版<span class="dot"></span></div>
+          <div class="dk-tool"><span class="ico">❖</span>印记</div>
+        </div>
+        <div class="dk-panel">
+          <div class="dk-eyebrow">▦ Arrange</div>
+          <div class="dk-title">排版 · 多张拼贴</div>
+          <div class="dk-hint">把多张照片夹在同一相框内 · 选布局后绑定伙伴照片</div>
+          <div class="dk-clamps">
+            <span class="dk-clamp"><span class="viz viz-off"><i></i></span><span class="lb">OFF</span></span>
+            <span class="dk-clamp on"><span class="viz viz-h2"><i></i><i></i></span><span class="lb">1×2</span></span>
+            <span class="dk-clamp"><span class="viz viz-v2"><i></i><i></i></span><span class="lb">2×1</span></span>
+            <span class="dk-clamp"><span class="viz viz-h3"><i></i><i></i><i></i></span><span class="lb">1×3</span></span>
+            <span class="dk-clamp"><span class="viz viz-v3"><i></i><i></i><i></i></span><span class="lb">3×1</span></span>
+            <span class="dk-clamp"><span class="viz viz-2x2"><i></i><i></i><i></i><i></i></span><span class="lb">2×2</span></span>
+          </div>
+          <div class="dk-slots">
+            <span class="dk-slot filled"><span class="thumb"></span>IMG_0107.jpg</span>
+            <span class="dk-slot empty">+ 绑定第 2 张</span>
+          </div>
+        </div>
+      </div>
+      <div class="dk-foot"><span class="sum">5 件工具 · <b>3 处修改</b></span><span class="dk-btn">全部重置</span><span class="dk-btn cta">应用到全部</span></div>
+    </div>
+
+    <div class="dk">
+      <div class="dk-id"><span>▤</span><span>00012.JPG</span><span class="x">✕</span></div>
+      <div class="dk-flex" style="min-height:430px">
+        <div class="dk-dock">
+          <div class="dk-tool"><span class="ico">◉</span>仪器<span class="dot"></span></div>
+          <div class="dk-tool"><span class="ico">┃</span>测量</div>
+          <div class="dk-tool"><span class="ico">✎</span>笔记</div>
+          <div class="dk-tool"><span class="ico">▦</span>排版</div>
+          <div class="dk-tool on"><span class="ico">❖</span>印记</div>
+        </div>
+        <div class="dk-panel">
+          <div class="dk-eyebrow">❖ Seal</div>
+          <div class="dk-title">印记 · 签名</div>
+          <div class="dk-hint">可拖放到画面任意位置的水印</div>
+          <div class="dk-press">
+            <span class="glyph">❖</span>
+            <span class="st"><strong>按下印章</strong><span>SVG / PNG · 建议透明底</span></span>
+          </div>
+          <div class="dk-place">✛ 放置到画面…</div>
+          <div class="dk-chiprow">
+            <span class="lbl">混合</span>
+            <span class="dk-chip on">正常</span><span class="dk-chip">正片叠底</span><span class="dk-chip">滤色</span><span class="dk-chip">叠加</span>
+          </div>
+          <div class="dk-row set"><span class="l">不透明</span><span class="dk-track"><span class="fill" style="width:80%"></span><span class="dk-thumb" style="left:80%"></span></span><span class="v">80%</span></div>
+        </div>
+      </div>
+      <div class="dk-foot"><span class="sum">5 件工具 · <b>2 处修改</b></span><span class="dk-btn">全部重置</span><span class="dk-btn cta">应用到全部</span></div>
+    </div>
+    </div>
+    <div class="notes">
+      <h3>排版 · 与现状的差异</h3>
+      <ul>
+        <li>布局钳格骨架不动（6 个 radio 瓦片 + 伙伴槽），选中态从各自为政收编为琥珀 outline + 琥珀格块。</li>
+        <li>伙伴槽：已绑定 = g2 浮起面 + 缩略图；空槽 = 虚线 + 弱灰邀请文案。</li>
+      </ul>
+      <h3>印记 · 与现状的差异</h3>
+      <ul>
+        <li>红蜡封的戏剧性从<strong>面板</strong>撤出（红只留给破坏性动作），❖ 印面改为石墨圆盘 + 琥珀微光 —— 蜡的仪式感移交给放置台（#seal-modal，本次不动）。</li>
+        <li>「放置到画面…」升为琥珀描边 CTA —— 它是本面板真正的主动作。移除印章按钮用 <code>--danger</code>。</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ SPEC 03 · 交互态 ═══════════ -->
+<section>
+  <div class="eyebrow"><b>03</b><span>交互态规格</span></div>
+  <h2>六个状态，一条规则</h2>
+  <p class="lede">规则：<strong>状态只用「亮度」和「琥珀」表达，不新增颜色</strong>。hover 升一阶石墨，touched 亮琥珀，危险才见红。</p>
+  <div class="states">
+    <div class="state"><span class="demo" style="background:var(--g1);border:1px solid var(--gl)"><span style="color:var(--gm);font-size:12px">默认 rest</span></span><span class="nm">rest</span><span class="ds">g1 面 + hairline + gm 文字；未触碰读数一律弱灰 —</span></div>
+    <div class="state"><span class="demo" style="background:var(--g2);border:1px solid var(--gl-strong)"><span style="color:var(--gt);font-size:12px">悬停 hover</span></span><span class="nm">hover</span><span class="ds">升一阶（g1→g2）+ 描边加强。禁用 translateY 位移（触屏黏滞坑）</span></div>
+    <div class="state"><span class="demo" style="background:var(--g1);border:1px solid var(--gl);outline:2px solid var(--amber);outline-offset:2px"><span style="color:var(--gt);font-size:12px">焦点 focus</span></span><span class="nm">focus-visible</span><span class="ds">2px 琥珀 outline + 2px offset，全控件统一</span></div>
+    <div class="state"><span class="demo" style="background:var(--amber-faint);border:1px solid var(--amber)"><span style="color:var(--amber);font-size:12px">已调整 touched</span></span><span class="nm">touched</span><span class="ds">琥珀读数 + 填充轨 + thumb 描边；dock/footer 的修改点同源</span></div>
+    <div class="state"><span class="demo" style="background:var(--g1);border:1px solid var(--gl);opacity:.45"><span style="color:var(--gm);font-size:12px">不生效 inert</span></span><span class="nm">inert</span><span class="ds">45% 淡化 + pointer-events 关闭 + 顶部一行原因提示（frameless / noCaption）</span></div>
+    <div class="state"><span class="demo" style="background:rgba(201,79,61,.1);border:1px solid var(--danger)"><span style="color:var(--danger);font-size:12px">危险 danger</span></span><span class="nm">danger</span><span class="ds">仅破坏性动作（移除印章 / 全部重置的确认态）。红从此不再当装饰用</span></div>
+  </div>
+</section>
+
+<!-- ═══════════ SPEC 04 · 移动端 ═══════════ -->
+<section>
+  <div class="eyebrow"><b>04</b><span>移动端 bottom sheet</span></div>
+  <h2>结构不动，把手点灯</h2>
+  <div class="mock-row" style="grid-template-columns:410px 1fr">
+    <div class="sheet">
+      <div class="sheet-handle"><span class="bar"></span></div>
+      <div class="sheet-dock">
+        <span class="sheet-pill on">◉ 仪器</span>
+        <span class="sheet-pill">┃ 测量</span>
+        <span class="sheet-pill">✎ 笔记 <span class="dot"></span></span>
+        <span class="sheet-pill">▦ 排版</span>
+        <span class="sheet-pill">❖ 印记</span>
+      </div>
+      <div class="sheet-body">
+        <div class="dk-eyebrow">◉ Instrument</div>
+        <div class="dk-title">仪器 · 跟着当前相框</div>
+        <div class="dk-hint">每张相框是一台仪器</div>
+        <div class="dk-card" style="--fa:var(--fa-frosted)">
+          <div class="dk-card-tag"><span>frosted-noir · 背景</span><span class="sw">deep blue</span></div>
+          <div class="dk-row set" style="grid-template-columns:54px 1fr 54px"><span class="l">模糊</span><span class="dk-track"><span class="fill" style="width:60%"></span><span class="dk-thumb" style="left:60%;width:20px;height:20px"></span></span><span class="v">72px</span></div>
+          <div class="dk-row" style="grid-template-columns:54px 1fr 54px"><span class="l">亮度</span><span class="dk-track"><span class="dk-thumb" style="left:44%;width:20px;height:20px"></span></span><span class="v">—</span></div>
+        </div>
+        <div class="dk-foot" style="border:0;background:transparent;padding:10px 0 14px"><span class="sum">5 件工具 · <b>2 处修改</b></span><span class="dk-btn cta">应用到全部</span></div>
+      </div>
+    </div>
+    <div class="notes">
+      <h3>规格</h3>
+      <ul>
+        <li>现有 sheet 结构 / 手势零改动。横向 pill dock 保留 —— 它的琥珀 active 态本来就是这套语言的先声，现在只是全抽屉向它看齐。</li>
+        <li><strong>把手条 = 安全灯</strong>：sheet 顶部把手换成琥珀亮条（带微光），是「进入暗房」的开灯瞬间；修改过的工具 pill 右上 4px 琥珀点。</li>
+        <li>触控目标维持现有 ≥44px 规则；滑杆 thumb 移动端放大到 20–22px（现有 override 保留）。</li>
+        <li>safe-area 逻辑不动。</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ SPEC 05 · 实施计划 ═══════════ -->
+<section>
+  <div class="eyebrow"><b>05</b><span>实施计划</span></div>
+  <h2>两个 Phase，一次 PR 一个</h2>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Phase</th><th>内容</th><th>触面</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>P1 · 换皮</td>
+        <td>chrome 全量重做：dock / 面板头（废斜体）/ 卡片统一（删 7 套材质卡 CSS：<code>.bg-rack</code> 混音台、<code>.torn-card</code> 牛皮纸、<code>.filmmf-card</code>、gallery / instax / slide 卡、1.12.0 的 <code>.ht-card</code> 理索卡）/ 页脚 / 移动端 sheet 调色 / 读数「默认」→「—」（改 <code>frame.defaultReadout</code> 双语值）</td>
+        <td>styles.css 为主 + i18n.js 两行 · 版本 PATCH（视觉重排 = 1.12.x）</td>
+      </tr>
+      <tr>
+        <td>P2 · 点灯</td>
+        <td>touched 语义落地：中央 <code>setKnobReadout(el, valueText|null)</code> 助手替换各 sync 点的裸 textContent 写入，顺带挂 <code>.is-set</code> 类（琥珀读数 + 填充轨）；dock 修改点换琥珀</td>
+        <td>app.js（~30 个旋钮的 sync/wiring 收口到一个助手）· MINOR</td>
+      </tr>
+    </tbody>
+  </table></div>
+  <h3>红线（照 CLAUDE.md 既有教训）</h3>
+  <ul>
+    <li><strong>删材质卡 CSS 块前先 grep 共享选择器</strong> —— 1.10.7 删裁切弹窗 CSS 连带删掉 <code>.modal-x</code> 基础规则的事故不能重演；<code>.caliper-row</code> / <code>.caliper-slider</code> / <code>.caliper-toggle-row</code> 是跨面板共享件，必须先确认归属再动。</li>
+    <li>hover 一律走亮度不走位移（iOS :hover 黏滞坑），保留 <code>@media (hover:hover)</code> 门控。</li>
+    <li>Compose 暗房弹窗、LOOK 选择器、lookbar<strong>都不在本次范围</strong> —— Compose 本来就是这套语言的源头，主界面另议。</li>
+    <li>验收路径：dev server + 你逐面板过一遍（桌面 + 手机），smoke 与本次无关（纯 CSS 不触管线）。</li>
+  </ul>
+  <div class="verdict">
+    <div class="q">待确认后开工</div>
+    <p><strong>三个可以现在拍的细节</strong>：① 读数「默认」→「—」是否 OK（信息密度换极简）；② Notation 手写列保留 Special Elite 打字机字（全抽屉唯一材质字体特例）；③ 印记面板的红蜡从面板撤到放置台。默认我按本稿执行，有异议说哪条即可。</p>
+    <p>P1 完成后你在真机上过一遍手感，再决定 P2（点灯语义）是否紧跟同一个版本周期。</p>
+  </div>
+</section>
+
+<div class="foot">
+  <span>photo-tools · workshop darkroom rev.2</span>
+  <span>docs/workshop-darkroom-rev2.html</span>
+</div>
+
+</div>
+</body>
+</html>
