@@ -114,12 +114,12 @@ A LOOK is a base64url-encoded JSON snapshot. Copy `#p=<code>`, send it as a chat
 
 | Axis | What's there |
 |---|---|
-| **Frames** | 7 hand-tuned styles in 4 families — Editorial (`frosted-noir`) · Gallery (`gallery-white`) · Instant (`instax` · `torn`) · Film (`film-35` · `film-mf` · `slide-mount`) |
+| **Frames** | 8 hand-tuned styles in 5 families — Editorial (`frosted-noir`) · Gallery (`gallery-white`) · Instant (`instax` · `torn`) · Film (`film-35` · `film-mf` · `slide-mount`) · Print (`halftone` — two-ink riso screen with ink / paper / pitch / grain / angle / shape / tone knobs) |
 | **Captions** | 11 templates in 4 grammars — Spec (`minimal-text` · `tech-stack` · `spec-grid` · `spec-rail`) · Brand (`brand-logo` · `brand-right`) · Editorial (`wordmark` · `headline`) · Stamp (`date-lens` · `slate` · `passport`) |
 | **Engine** | Every render parameter UI-reachable + preset-capturable · LOOK seeds as first-class entries · `#p=<code>` share-link round-trip |
 | **Input** | JPEG / PNG / HEIC (libheif lazy-loaded) · auto EXIF · `LensInfo` → lens-model fallback · per-photo manual override |
 | **Output** | Single + batch (web-worker pool) · JPEG / PNG · EXIF round-trip preserved · RAW pass-through from cloud gallery |
-| **Composition** | Collage 2 / 3 / 4 cells · **Compose mode** with crop + arbitrary-angle rotation + per-edge padding · aspect-ratio chips (Free / Frame / 1:1 / 3:4 / 4:3 / 9:16 / 16:9 / Custom W:H) · render-time only, source untouched · GPS auto-parse + manual + map picker (Leaflet + AutoNavi, GCJ-02 ↔ WGS-84) |
+| **Composition** | Collage 2 / 3 / 4 cells · **Compose mode** with crop + arbitrary-angle rotation + per-edge padding · **frameless mode** (export just the styled photo — no margins / caption / decorations) · aspect-ratio chips (Free / Frame / 1:1 / 3:4 / 4:3 / 9:16 / 16:9 / Custom W:H) · render-time only, source untouched · GPS auto-parse + manual + map picker (Leaflet + AutoNavi, GCJ-02 ↔ WGS-84) |
 | **Cloud** | Direct-from-browser SigV4 against your bucket (AWS S3 / Cloudflare R2 / Aliyun OSS) · `#s3=<code>` share-link · upload / gallery / lightbox / bulk download |
 | **Platform** | Installable PWA · offline shell · Chinese / English UI · brand logos for Fujifilm · Sony · Leica · Nikon · Canon · Apple · Xiaomi · OPPO · Vivo · DJI · … |
 | **Surface** | Desktop and mobile speak their own gesture grammar — sidebar + keyboard shortcuts on desktop, bottom sheets + thumb-zone CTA + swipe on mobile |

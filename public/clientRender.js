@@ -390,12 +390,15 @@
     // torn-paper frame produces a torn shadow + torn photo edge. (The seal
     // overlay is NOT clipped since 1.11.0 — it free-places over the whole
     // canvas, including the frame margin.)
-    const clipFn = (args.frame && typeof args.frame.clipPath === 'function')
+    // Frameless mode skips every frame-chrome pass (shadow / clipPath /
+    // decorate — caption + badge SVGs were never built); frame.fx and the
+    // seal still run, they're the point of the mode.
+    const clipFn = (!args.frameless && args.frame && typeof args.frame.clipPath === 'function')
       ? (ctx2, x, y, w, h) => args.frame.clipPath(ctx2, x, y, w, h, layout, args)
       : null;
 
     // ─── Foreground shadow ───────────────────────────────────────────────
-    if (params.shadow.opacity > 0) {
+    if (!args.frameless && params.shadow.opacity > 0) {
       ctx.save();
       ctx.shadowColor = `rgba(0,0,0,${params.shadow.opacity})`;
       ctx.shadowBlur = params.shadow.blur * layout.scale;
@@ -423,6 +426,19 @@
       drawCellPhoto(ctx, {
         x: layout.fgLeft, y: layout.fgTop, w: layout.fgW, h: layout.fgH
       }, bitmap, rot, layout.radius, args.crop, clipFn);
+    }
+
+    // ─── Frame fx hook (pixel effects — e.g. halftone screening) ─────────
+    // Runs on the composed foreground region AFTER the photo/collage cells
+    // and BEFORE caption / top badge / decorate / seal, so text and stamps
+    // stay crisp solid ink over the processed pixels. Mirrored in worker.js
+    // (same discipline as decorate). Hooks must be DOM-free: OffscreenCanvas
+    // + ctx primitives only.
+    if (args.frame && typeof args.frame.fx === 'function') {
+      ctx.save();
+      try { args.frame.fx(ctx, layout, args); }
+      catch (err) { console.warn('[render] frame.fx failed:', err); }
+      ctx.restore();
     }
 
     // ─── Caption (SVG → Image → drawImage) ───────────────────────────────
@@ -463,7 +479,7 @@
     // Runs after caption so decorative elements draw on top of captions in
     // the rare overlap case (film-35 stamps cover caption corners), and
     // before signature so user signatures still sit at the very top.
-    if (args.frame && typeof args.frame.decorate === 'function') {
+    if (!args.frameless && args.frame && typeof args.frame.decorate === 'function') {
       ctx.save();
       try { args.frame.decorate(ctx, layout, args); }
       catch (err) { console.warn('[render] frame.decorate failed:', err); }
@@ -532,21 +548,28 @@
     const cropW = cfg.crop && cfg.crop.w > 0 ? cfg.crop.w : 1;
     const cropH = cfg.crop && cfg.crop.h > 0 ? cfg.crop.h : 1;
     const meta = { width: safe.w * cropW, height: safe.h * cropH };
+    // Frameless mode (cfg.frameless): the canvas IS the photo — no padding,
+    // caption, badge, decoration, or shadow. Layout opts rewritten by the
+    // shared helper (single source of truth; worker.js mirrors this call).
+    const frameless = !!cfg.frameless;
+    if (frameless) R.applyFramelessLayoutOpts(layoutOpts, meta.width, meta.height);
     const layout = R.computeLayout(meta, layoutOpts);
     const effectiveTextStyle = layout.caption.placement === 'overlay' ? 'light' : frame.textStyle;
-    const captionArgs = {
+    // frame.noCaption (halftone): the frame renders no EXIF caption at all —
+    // template / caption knobs are inert while it's active. Frameless skips
+    // the caption for every frame.
+    const captionSvg = (frameless || frame.noCaption) ? null : R.buildCaptionSvg(normExif, layout, {
       template: cfg.template,
       textStyle: effectiveTextStyle,
       showFields: cfg.showFields,
       fontFaceCss: opts.fontFaceCss,
       logos: opts.logos
-    };
-    const captionSvg = R.buildCaptionSvg(normExif, layout, captionArgs);
+    });
     // Top badge (cfg.topTemplate): independent of caption template; sits
     // in the frame's top padding. textStyle is the frame's native style
     // (not the caption's overlay-forced 'light') because the badge lives
-    // outside the photo.
-    const topBadgeSvg = R.buildTopBadgeSvg(normExif, layout, {
+    // outside the photo. Frameless has no top padding — skip.
+    const topBadgeSvg = frameless ? null : R.buildTopBadgeSvg(normExif, layout, {
       topTemplate: cfg.topTemplate,
       textStyle: frame.textStyle,
       fontFaceCss: opts.fontFaceCss,
@@ -554,7 +577,7 @@
     });
     // Cache only the preview path — full-resolution exports are ad-hoc and
     // rarely repeated, so caching them just wastes memory on multi-MB SVGs.
-    const captionKey = opts.cacheCaption
+    const captionKey = (opts.cacheCaption && captionSvg)
       ? captionCacheKey({ normExif, layout, template: cfg.template, textStyle: effectiveTextStyle, showFields: cfg.showFields })
       : null;
     const validLayouts = ['h2', 'v2', 'h3', 'v3', '2x2'];
@@ -563,6 +586,7 @@
       : null;
     return {
       layout, params, captionSvg, captionKey, topBadgeSvg, frame, normExif,
+      frameless: frameless,
       customLogo: cfg.customLogo || null,
       customBg: cfg.customBg || null,
       collage: collage,

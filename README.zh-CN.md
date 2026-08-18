@@ -114,12 +114,12 @@ photo-tools 是一台完全跑在浏览器里的照片成片引擎。拖入一�
 
 | 维度 | 内容 |
 |---|---|
-| **相框** | 4 个家族 · 7 个手调风格 —— 编辑（`frosted-noir`）/ 画廊（`gallery-white`）/ 即影（`instax` · `torn`）/ 胶片（`film-35` · `film-mf` · `slide-mount`） |
+| **相框** | 5 个家族 · 8 个手调风格 —— 编辑（`frosted-noir`）/ 画廊（`gallery-white`）/ 即影（`instax` · `torn`）/ 胶片（`film-35` · `film-mf` · `slide-mount`）/ 印刷（`halftone` —— 双色理索网屏，油墨 / 纸色 / 网点密度 / 颗粒 / 角度 / 形状 / 明暗七旋钮） |
 | **字幕** | 4 个语法 · 11 个模板 —— Spec（`minimal-text` · `tech-stack` · `spec-grid` · `spec-rail`）/ Brand（`brand-logo` · `brand-right`）/ Editorial（`wordmark` · `headline`）/ Stamp（`date-lens` · `slate` · `passport`） |
 | **引擎** | 每个渲染参数 UI 可达 + preset 可捕获 · LOOK 种子作为一级入口 · `#p=<code>` 分享链接完整 round-trip |
 | **输入** | JPEG / PNG / HEIC（libheif 懒加载）· 自动 EXIF · `LensInfo` → 镜头型号反推 · 每张照片可独立手动覆盖 |
 | **输出** | 单张 + 批量（Web Worker 池）· JPEG / PNG · EXIF 完整 round-trip · 云相册 RAW 原图直通 |
-| **构图** | 拼贴 2 / 3 / 4 格 · **构图模式** 裁剪 + 任意角度旋转 + 四边距独立调整 · 裁剪预设比例（自由 / 当前画幅 / 1:1 / 3:4 / 4:3 / 9:16 / 16:9 / 自定义 W:H）· 渲染时应用，源图不动 · GPS 自动解析 + 手填 + 地图选点（Leaflet + 高德地图，GCJ-02 ↔ WGS-84 校正） |
+| **构图** | 拼贴 2 / 3 / 4 格 · **构图模式** 裁剪 + 任意角度旋转 + 四边距独立调整 · **无相框模式**（只导出风格化后的照片本体 —— 无边距 / 字幕 / 装饰）· 裁剪预设比例（自由 / 当前画幅 / 1:1 / 3:4 / 4:3 / 9:16 / 16:9 / 自定义 W:H）· 渲染时应用，源图不动 · GPS 自动解析 + 手填 + 地图选点（Leaflet + 高德地图，GCJ-02 ↔ WGS-84 校正） |
 | **云端** | 浏览器直签 SigV4 到你自己的 bucket（AWS S3 / Cloudflare R2 / 阿里云 OSS）· `#s3=<code>` 分享链接 · 上传 / 画廊 / 灯箱 / 多选打包下载 |
 | **平台** | 可安装 PWA · 离线壳 · 中英文 UI · 内置 Fujifilm · Sony · Leica · Nikon · Canon · Apple · Xiaomi · OPPO · Vivo · DJI · … 品牌 logo |
 | **形态** | 桌面与移动各自说自己的手势语言 —— 桌面 sidebar + 键盘快捷键，移动 bottom sheet + 拇指区 CTA + 横滑切片 |

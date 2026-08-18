@@ -55,7 +55,7 @@
       },
       picker: {
         frame: '选择相框',
-        frameSub: ' 款 · 4 个家族',
+        frameSub: ' 款 · 5 个家族',
         template: '选择文字模板',
         templateSub: ' 款 · 4 个语法',
         aspect: '画幅比例',
@@ -97,7 +97,8 @@
           field: '字段',
           auto: '自动 · DETECTED',
           hand: '手写 · OVERRIDE',
-          captionStripZone: '字幕带'
+          captionStripZone: '字幕带',
+          noCaptionHint: '当前相框不渲染说明文字 —— 图像即整个印刷品，下方字幕带设置不生效。'
         },
         seal: {
           pressTitle: '按下印章',
@@ -194,6 +195,17 @@
         slideOuterRingOpt: { wine: '酒红', brass: '黄铜', charcoal: '炭黑' },
         slidePebble: '颗粒密度',
         slideBevel: '凹陷深度',
+        htInk: '油墨色',
+        htPaper: '纸色',
+        htCell: '网点密度',
+        htPx: '颗粒粗细',
+        htAngle: '网线角度',
+        htTone: '明暗',
+        htShape: '网点形状',
+        htShapeOpt: { cross: '十字线', round: '圆点', line: '线条', diamond: '菱形' },
+        htCustomColor: '自定义颜色',
+        frameless: '无边框 · 仅照片',
+        framelessHint: '只导出（风格化后的）照片本体 —— 无边距 / 说明文字 / 装饰；印章仍然生效',
         toggleOn: '开',
         toggleOff: '关',
         defaultReadout: '默认',
@@ -214,13 +226,15 @@
           torn: '撕纸',
           'film-35': '35mm 胶片',
           'film-mf': '银盐印品',
-          'slide-mount': '幻灯片'
+          'slide-mount': '幻灯片',
+          halftone: '半调网屏'
         },
         families: {
           editorial: '编辑',
           gallery: '画廊',
           instant: '即影',
-          film: '胶片'
+          film: '胶片',
+          print: '印刷'
         }
       },
       preset: {
@@ -229,7 +243,8 @@
           tornPaperStack:   '撕纸',
           film35Stack:      '35mm 胶卷',
           filmMfPrint:      '银盐印品',
-          slideMountPrint:  '幻灯片'
+          slideMountPrint:  '幻灯片',
+          risoHalftone:     '半调波点'
         }
       },
       caption: {
@@ -268,7 +283,8 @@
         },
         compat: {
           narrow: '当前相框的底部文字带偏窄，这个模板的多行布局塞进去会显拥挤。建议改用 极简 / 日期·镜头 / 护照戳。',
-          rotated: '当前相框的文字带走垂直方向（旋转 ±90°），横排参数模板被旋转后字符竖排，可读性差。建议改用 标题 / 字标。'
+          rotated: '当前相框的文字带走垂直方向（旋转 ±90°），横排参数模板被旋转后字符竖排，可读性差。建议改用 标题 / 字标。',
+          noCaption: '半调网屏不渲染说明文字 —— 网屏化的图像就是整个印刷品，模板选择在此相框下不生效。'
         }
       },
       exif: {
@@ -607,7 +623,7 @@
       },
       picker: {
         frame: 'Pick a frame',
-        frameSub: ' styles · 4 families',
+        frameSub: ' styles · 5 families',
         template: 'Caption template',
         templateSub: ' layouts · 4 grammars',
         aspect: 'Aspect ratio',
@@ -649,7 +665,8 @@
           field: 'Field',
           auto: 'Auto · detected',
           hand: 'Hand · override',
-          captionStripZone: 'Caption strip'
+          captionStripZone: 'Caption strip',
+          noCaptionHint: 'This frame renders no caption — the styled image is the whole print; the caption-strip knobs below have no effect here.'
         },
         seal: {
           pressTitle: 'Press your seal',
@@ -746,6 +763,17 @@
         slideOuterRingOpt: { wine: 'Wine', brass: 'Brass', charcoal: 'Charcoal' },
         slidePebble: 'Pebble density',
         slideBevel: 'Bevel depth',
+        htInk: 'Ink color',
+        htPaper: 'Paper color',
+        htCell: 'Dot pitch',
+        htPx: 'Grain size',
+        htAngle: 'Screen angle',
+        htTone: 'Tone',
+        htShape: 'Dot shape',
+        htShapeOpt: { cross: 'Cross', round: 'Round', line: 'Line', diamond: 'Diamond' },
+        htCustomColor: 'Custom color',
+        frameless: 'Frameless · photo only',
+        framelessHint: 'export just the (styled) photo — no margins, caption, or decorations; the seal still applies',
         toggleOn: 'ON',
         toggleOff: 'OFF',
         defaultReadout: 'preset',
@@ -766,13 +794,15 @@
           torn: 'Torn paper',
           'film-35': '35mm film',
           'film-mf': 'Silver print',
-          'slide-mount': 'Slide mount'
+          'slide-mount': 'Slide mount',
+          halftone: 'Halftone'
         },
         families: {
           editorial: 'Editorial',
           gallery: 'Gallery',
           instant: 'Instant',
-          film: 'Film'
+          film: 'Film',
+          print: 'Print'
         }
       },
       preset: {
@@ -781,7 +811,8 @@
           tornPaperStack:   'Torn paper',
           film35Stack:      '35mm film',
           filmMfPrint:      'Silver print',
-          slideMountPrint:  'Slide mount'
+          slideMountPrint:  'Slide mount',
+          risoHalftone:     'Riso halftone'
         }
       },
       caption: {
@@ -820,7 +851,8 @@
         },
         compat: {
           narrow: 'This frame has a narrow bottom caption strip; multi-row templates feel cramped here. Try Minimal, Date · lens, or Passport.',
-          rotated: 'This frame’s caption runs vertically (±90°); horizontally-laid templates become unreadable when rotated. Try Headline or Wordmark.'
+          rotated: 'This frame’s caption runs vertically (±90°); horizontally-laid templates become unreadable when rotated. Try Headline or Wordmark.',
+          noCaption: 'Halftone renders no caption — the screened image is the whole print, so template choices have no effect on this frame.'
         }
       },
       exif: {

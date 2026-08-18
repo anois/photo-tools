@@ -535,6 +535,9 @@
   const FRAMES = {};
   const FRAME_ALIASES = {
     // Retired in 0.22.0 (12 → 6 frames). Each maps to the nearest survivor.
+    // (NOTE: 'frosted-dark' and 'white' are NOT here — those are live
+    // double-registrations in frosted-noir.js / gallery-white.js, so they
+    // hit FRAMES directly and never reach this table.)
     'frosted':          'frosted-noir',     // light variant → dark variant (lossy: bg dim differs)
     'polaroid':         'instax',           // sibling instant-print frame
     'gallery-noir':     'gallery-white',    // dark gallery → light gallery (lossy: color invert)
@@ -720,7 +723,63 @@
       lineWeight:  cfg.galLineWeight  != null ? Math.max(0.5, Math.min(2.4, Number(cfg.galLineWeight))): gwd.lineWeight,
       lineColor:   cfg.galLineColor   || gwd.lineColor
     };
-    return { bg: bg, shadow: shadow, torn: torn, filmMf: filmMf, film35: film35, instax: instax, slideMount: slideMount, galleryWhite: galleryWhite };
+    // Halftone screen print (1.12.0+). 7 user-controllable knobs consumed
+    // by the frame's `fx` hook (two-ink duotone screening of the composed
+    // foreground). ink/paper are '#rrggbb' strings; malformed cfg values
+    // (hand-edited share codes) fall back to the frame default rather than
+    // feeding garbage into the per-pixel loop. paper additionally takes
+    // over bg.color (instax-tint pattern) so highlights that drop out to
+    // bare paper merge seamlessly into the frame margin.
+    const htd = frame.halftone || null;
+    let halftone = null;
+    if (htd) {
+      const hexOk = function (v) { return typeof v === 'string' && /^#[0-9a-fA-F]{6}$/.test(v); };
+      halftone = {
+        ink:   hexOk(cfg.htInk)   ? cfg.htInk   : htd.ink,
+        paper: hexOk(cfg.htPaper) ? cfg.htPaper : htd.paper,
+        cell:  cfg.htCell  != null ? Math.max(3, Math.min(32, Number(cfg.htCell)))  : htd.cell,
+        px:    cfg.htPx    != null ? Math.max(1, Math.min(8,  Number(cfg.htPx)))    : htd.px,
+        angle: cfg.htAngle != null ? Math.max(0, Math.min(90, Number(cfg.htAngle))) : htd.angle,
+        shape: cfg.htShape || htd.shape,
+        tone:  cfg.htTone  != null ? Math.max(-1, Math.min(1, Number(cfg.htTone)))  : htd.tone
+      };
+      if (bg.type === 'solid') bg.color = halftone.paper;
+    }
+    return { bg: bg, shadow: shadow, torn: torn, filmMf: filmMf, film35: film35, instax: instax, slideMount: slideMount, galleryWhite: galleryWhite, halftone: halftone };
+  }
+
+  // ─── Frameless mode (cfg.frameless, 1.12.0+) ─────────────────────────
+  // Rewrites a layoutOpts object so the canvas IS the photo: aspect
+  // synthesized from the effective (post-rotation-safe-area × crop) source
+  // dims, every padding edge hard-overridden to 0 (which also bypasses
+  // frame boosts + aspect bias in computeLayout), square corners, no
+  // asymmetric insets. Callers (clientRender.js + worker.js — keep them
+  // mirrored) additionally skip caption/topBadge SVG building and gate the
+  // shadow/decorate/clipPath passes in compose(); frame.fx and the seal
+  // still run — they're the point of the mode.
+  //
+  // The aspect token rides the existing resolveAspectPreset "W:H" synth
+  // (short edge 1440 × quality scale — unchanged export-size semantics).
+  // Ratio is clamped to resolveAspectPreset's [0.1, 10] parse bounds so an
+  // extreme pano letterboxes instead of throwing.
+  function applyFramelessLayoutOpts(layoutOpts, metaW, metaH) {
+    const w = Math.max(1, Math.round(metaW));
+    const h = Math.max(1, Math.round(metaH));
+    const ratio = w / h;
+    layoutOpts.aspect = ratio > 10 ? '10:1' : ratio < 0.1 ? '1:10' : (w + ':' + h);
+    layoutOpts.padding = 0;
+    layoutOpts.paddingTop = 0;
+    layoutOpts.paddingRight = 0;
+    layoutOpts.paddingBottom = 0;
+    layoutOpts.paddingLeft = 0;
+    layoutOpts.radiusOverride = 0;
+    layoutOpts.extraRightInset = 0;
+    layoutOpts.extraLeftInset = 0;
+    layoutOpts.fgXOffset = 0;
+    layoutOpts.fgYBoost = 0;
+    layoutOpts.captionForceOverlay = false;
+    layoutOpts.captionPrefer = null;
+    return layoutOpts;
   }
 
   function captionColors(textStyle) {
@@ -2353,6 +2412,7 @@
     registerFrame: registerFrame,
     resolveFrame: resolveFrame,
     resolveRenderParams: resolveRenderParams,
+    applyFramelessLayoutOpts: applyFramelessLayoutOpts,
     collectFrameCfgDefaults: collectFrameCfgDefaults,
     collectFrameCfgKeys: collectFrameCfgKeys,
     captionColors: captionColors,

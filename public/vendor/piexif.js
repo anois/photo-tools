@@ -2476,7 +2476,10 @@ SOFTWARE.
         }
         exports.piexif = that;
     } else {
-        window.piexif = that;
+        // Workers have no `window` — importScripts'ing this file from
+        // worker.js used to throw here, killing the whole worker pool and
+        // silently forcing batch export onto the main-thread fallback.
+        (typeof window !== 'undefined' ? window : self).piexif = that;
     }
 
 })();

@@ -305,7 +305,7 @@
   <div class="picker" id="picker-frame" role="dialog" data-i18n-aria-label="picker.frame" hidden>
     <div class="picker-header">
       <h3 class="picker-title" data-i18n="picker.frame">Frame</h3>
-      <span class="picker-subtitle"><em>12</em><span data-i18n="picker.frameSub"> styles · 4 families</span></span>
+      <span class="picker-subtitle"><em>8</em><span data-i18n="picker.frameSub"> styles · 5 families</span></span>
     </div>
 
     <div class="picker-body">
@@ -325,6 +325,10 @@
         <div class="picker-family-head"><span data-i18n="frame.families.film">Film</span></div>
         <div class="frame-tile-grid" id="frame-seg-film"></div>
       </div>
+      <div class="frame-family-group" data-family="print">
+        <div class="picker-family-head"><span data-i18n="frame.families.print">Print</span></div>
+        <div class="frame-tile-grid" id="frame-seg-print"></div>
+      </div>
     </div>
 
     <!-- Hidden seg buttons — kept for app.js compatibility. wireSeg(els.frameSeg)
@@ -338,12 +342,14 @@
       <button data-val="film-35" data-family="film" role="radio" aria-checked="false" data-i18n="frame.styles.film-35">Film 35</button>
       <button data-val="film-mf" data-family="film" role="radio" aria-checked="false" data-i18n="frame.styles.film-mf">Film MF</button>
       <button data-val="slide-mount" data-family="film" role="radio" aria-checked="false" data-i18n="frame.styles.slide-mount">Slide mount</button>
+      <button data-val="halftone" data-family="print" role="radio" aria-checked="false" data-i18n="frame.styles.halftone">Halftone</button>
     </div>
     <div class="seg" id="frame-family-seg" hidden>
       <button data-family="editorial" class="active"></button>
       <button data-family="gallery"></button>
       <button data-family="instant"></button>
       <button data-family="film"></button>
+      <button data-family="print"></button>
     </div>
   </div>
 
@@ -744,6 +750,87 @@
           </div>
           </section>
 
+          <!-- ─── halftone · proof press ─── -->
+          <!-- Two-ink halftone screen — visible only when frame === 'halftone'.
+               7 knobs from the frame's cfg schema: ink + paper color (swatch
+               row + free picker — the harness's first `color` kind), cell
+               pitch, chunk size, screen angle, tone gamma, dot shape.
+               Riso proof-press card: cream paper + ink-blue labels + a dot-
+               screen texture strip. -->
+          <section class="frame-instrument frame-instrument--halftone" id="halftone-advanced" hidden>
+          <div class="ht-card">
+            <div class="ht-stamp" aria-hidden="true">[ proof press · two-ink ]</div>
+            <div class="ht-color-block">
+              <div class="ht-knob-head">
+                <span class="ht-knob-label" data-i18n="frame.htInk">Ink color</span>
+                <span class="ht-knob-readout" id="ht-ink-val" data-i18n="frame.defaultReadout">preset</span>
+              </div>
+              <div class="ht-swatches" id="ht-ink-swatches">
+                <button type="button" class="ht-sw on" data-val="#2b56a5" style="--sw:#2b56a5"></button>
+                <button type="button" class="ht-sw" data-val="#0078bf" style="--sw:#0078bf"></button>
+                <button type="button" class="ht-sw" data-val="#dd4a33" style="--sw:#dd4a33"></button>
+                <button type="button" class="ht-sw" data-val="#00a95c" style="--sw:#00a95c"></button>
+                <button type="button" class="ht-sw" data-val="#7a4a24" style="--sw:#7a4a24"></button>
+                <button type="button" class="ht-sw" data-val="#221f1c" style="--sw:#221f1c"></button>
+                <input type="color" id="ht-ink-pick" class="ht-pick" value="#2b56a5" data-i18n-title="frame.htCustomColor" />
+              </div>
+            </div>
+            <div class="ht-color-block">
+              <div class="ht-knob-head">
+                <span class="ht-knob-label" data-i18n="frame.htPaper">Paper color</span>
+                <span class="ht-knob-readout" id="ht-paper-val" data-i18n="frame.defaultReadout">preset</span>
+              </div>
+              <div class="ht-swatches" id="ht-paper-swatches">
+                <button type="button" class="ht-sw" data-val="#f8f4e8" style="--sw:#f8f4e8"></button>
+                <button type="button" class="ht-sw on" data-val="#f2ead6" style="--sw:#f2ead6"></button>
+                <button type="button" class="ht-sw" data-val="#e6d7b8" style="--sw:#e6d7b8"></button>
+                <input type="color" id="ht-paper-pick" class="ht-pick" value="#f2ead6" data-i18n-title="frame.htCustomColor" />
+              </div>
+            </div>
+            <div class="ht-knob">
+              <div class="ht-knob-head">
+                <span class="ht-knob-label" data-i18n="frame.htCell">Dot pitch</span>
+                <span class="ht-knob-readout" id="ht-cell-val" data-i18n="frame.defaultReadout">preset</span>
+              </div>
+              <input class="ht-slider" id="ht-cell" type="range" min="4" max="24" step="1" />
+            </div>
+            <div class="ht-knob">
+              <div class="ht-knob-head">
+                <span class="ht-knob-label" data-i18n="frame.htPx">Grain size</span>
+                <span class="ht-knob-readout" id="ht-px-val" data-i18n="frame.defaultReadout">preset</span>
+              </div>
+              <input class="ht-slider" id="ht-px" type="range" min="1" max="6" step="1" />
+            </div>
+            <div class="ht-knob">
+              <div class="ht-knob-head">
+                <span class="ht-knob-label" data-i18n="frame.htAngle">Screen angle</span>
+                <span class="ht-knob-readout" id="ht-angle-val" data-i18n="frame.defaultReadout">preset</span>
+              </div>
+              <input class="ht-slider" id="ht-angle" type="range" min="0" max="90" step="1" />
+            </div>
+            <div class="ht-knob">
+              <div class="ht-knob-head">
+                <span class="ht-knob-label" data-i18n="frame.htTone">Tone</span>
+                <span class="ht-knob-readout" id="ht-tone-val" data-i18n="frame.defaultReadout">preset</span>
+              </div>
+              <input class="ht-slider" id="ht-tone" type="range" min="-1" max="1" step="0.05" />
+            </div>
+            <div class="ht-shape-block">
+              <div class="ht-knob-head">
+                <span class="ht-knob-label" data-i18n="frame.htShape">Dot shape</span>
+                <span class="ht-knob-readout" id="ht-shape-val" data-i18n="frame.defaultReadout">preset</span>
+              </div>
+              <div class="ht-shape-seg" id="ht-shape-seg" role="radiogroup">
+                <button type="button" data-val="cross" data-i18n="frame.htShapeOpt.cross">Cross</button>
+                <button type="button" data-val="round" data-i18n="frame.htShapeOpt.round">Round</button>
+                <button type="button" data-val="line" data-i18n="frame.htShapeOpt.line">Line</button>
+                <button type="button" data-val="diamond" data-i18n="frame.htShapeOpt.diamond">Diamond</button>
+              </div>
+            </div>
+            <button id="reset-halftone-btn" type="button" class="ht-reset" data-i18n="frame.resetDefault">Reset to default</button>
+          </div>
+          </section>
+
           <!-- ─── film-mf · library archive ─── -->
           <!-- Film-mf vintage-aging — visible only when frame === 'film-mf'.
                Single slider scales sepia / partial-fade / vignette / foxing
@@ -1030,6 +1117,20 @@
             <span class="bench-tool-panel-title" data-i18n="workshop.tool.caliperTitle">测量 · 画幅几何</span>
           </header>
 
+          <!-- ── Frameless · photo only (cfg.frameless, 1.12.0) ──
+               Universal knob: the export canvas IS the photo — no padding,
+               caption, badge, decoration, or shadow. frame.fx + seal still
+               apply. Sits OUTSIDE .caliper so the .is-frameless dimming of
+               the geometry zone below never disables the toggle itself. -->
+          <label class="caliper-toggle-row caliper-toggle-row--frameless" for="frameless-toggle">
+            <input id="frameless-toggle" type="checkbox" />
+            <span class="caliper-toggle-knob" aria-hidden="true"></span>
+            <span class="caliper-toggle-stack">
+              <span class="caliper-toggle-label" data-i18n="frame.frameless">Frameless · photo only</span>
+              <span class="caliper-toggle-hint" data-i18n="frame.framelessHint">export just the (styled) photo — no margins, caption, or decorations</span>
+            </span>
+          </label>
+
           <div class="caliper">
             <div class="caliper-rim caliper-rim--top" aria-hidden="true">
               <span class="caliper-tick caliper-tick--major"></span>
@@ -1098,6 +1199,9 @@
               <span class="notebook-hole"></span>
             </div>
             <div class="notebook-page">
+              <!-- Shown when the active frame declares noCaption (halftone):
+                   the caption strip + template knobs below are inert. -->
+              <div class="notebook-nocaption-hint" id="notation-nocaption-hint" hidden data-i18n="workshop.notebook.noCaptionHint">This frame renders no caption — the styled image is the whole print.</div>
               <!-- ── Zone 1 · Caption strip · height / overlay / lift ──
                    Moved from Caliper in 1.10.0 — caption physical layout
                    belongs with the "what the photo says" decision, not the
@@ -2023,6 +2127,7 @@
 <script src="frames/film-mf.js"></script>
 <script src="frames/slide-mount.js"></script>
 <script src="frames/torn.js"></script>
+<script src="frames/halftone.js"></script>
 <script src="exifio.js"></script>
 <script src="heic.js"></script>
 <script src="geopicker.js"></script>

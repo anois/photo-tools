@@ -53,6 +53,11 @@ function defaultCfg() {
     // semi-transparent gradient backdrop stays pinned to the photo's bottom
     // edge. 0 = caption text sits at the very bottom (legacy behavior).
     captionOverlayTextLift: 0,
+    // Frameless mode (1.12.0+): true = the canvas IS the photo — no padding,
+    // caption, badge, decoration, or shadow; frame.fx + seal still apply.
+    // "What product do I want" rather than "how is this frame tuned", so it
+    // deliberately SURVIVES frame switches (like aspect, unlike bg*/shadow*).
+    frameless: false,
     showFields: { brand: true, model: true, focal: true, aperture: true, shutter: true, iso: true, lens: false, date: false, author: true, flash: false, gps: false },
     // Rotation applied at render time, in degrees clockwise. 0 / 90 / 180 / 270.
     // Per-photo correction — not propagated by "Apply frame to all" or by
@@ -233,6 +238,28 @@ const els = {
   slideBevel: document.getElementById('slide-bevel'),
   slideBevelVal: document.getElementById('slide-bevel-val'),
   resetSlideBtn: document.getElementById('reset-slide-btn'),
+  // Halftone advanced — 7-knob proof-press panel, gated on frame === 'halftone'
+  halftoneAdvanced: document.getElementById('halftone-advanced'),
+  htInkSwatches: document.getElementById('ht-ink-swatches'),
+  htInkPick: document.getElementById('ht-ink-pick'),
+  htInkVal: document.getElementById('ht-ink-val'),
+  htPaperSwatches: document.getElementById('ht-paper-swatches'),
+  htPaperPick: document.getElementById('ht-paper-pick'),
+  htPaperVal: document.getElementById('ht-paper-val'),
+  htCell: document.getElementById('ht-cell'),
+  htCellVal: document.getElementById('ht-cell-val'),
+  htPx: document.getElementById('ht-px'),
+  htPxVal: document.getElementById('ht-px-val'),
+  htAngle: document.getElementById('ht-angle'),
+  htAngleVal: document.getElementById('ht-angle-val'),
+  htTone: document.getElementById('ht-tone'),
+  htToneVal: document.getElementById('ht-tone-val'),
+  htShapeSeg: document.getElementById('ht-shape-seg'),
+  htShapeVal: document.getElementById('ht-shape-val'),
+  resetHalftoneBtn: document.getElementById('reset-halftone-btn'),
+  // Frameless mode toggle (Caliper) + Notation no-caption hint
+  framelessToggle: document.getElementById('frameless-toggle'),
+  notationNoCaptionHint: document.getElementById('notation-nocaption-hint'),
   applyFrameAllBtn: document.getElementById('apply-frame-all-btn'),
   // ── LOOK system (presets library — promoted to lookbar first-class) ──
   lookbarLook: document.querySelector('.lookbar-look'),
@@ -586,6 +613,16 @@ function requestRender() {
 
 // Reflect a per-photo cfg into all the DOM controls. Called whenever the
 // active photo changes (or apply-to-all rewrites the active photo's EXIF).
+// Swatch-row + free-picker sync for the halftone color knobs (harness kind
+// 'color'). cfgVal null = frame default; a custom hex that matches no
+// swatch clears every .on so the free picker reads as the active source.
+function syncHtColorRow(swRow, pick, valEl, cfgVal, frameDefault) {
+  const active = cfgVal || frameDefault;
+  if (swRow) swRow.querySelectorAll('.ht-sw').forEach(b => b.classList.toggle('on', b.dataset.val === active));
+  if (pick) pick.value = /^#[0-9a-fA-F]{6}$/.test(String(active)) ? active : frameDefault;
+  if (valEl) valEl.textContent = cfgVal != null ? String(cfgVal) : T('frame.defaultReadout');
+}
+
 function syncControlsFromCfg(cfg) {
   // Guard against a cfg carrying a retired frame name that slipped past the
   // applyPresetToCfg migration path (e.g. a future session where someone
@@ -756,6 +793,34 @@ function syncControlsFromCfg(cfg) {
   if (els.slideAdvanced) {
     els.slideAdvanced.hidden = cfg.frame !== 'slide-mount';
   }
+  // Halftone panel — gated on frame === 'halftone'. 7 knobs: ink/paper
+  // swatch rows + free pickers, cell/px/angle/tone sliders, shape stepper.
+  if (cfg.frame === 'halftone' && els.halftoneAdvanced) {
+    const hd = (frame.halftone) || { ink: '#2b56a5', paper: '#f2ead6', cell: 8, px: 2, angle: 45, shape: 'cross', tone: 0 };
+    syncHtColorRow(els.htInkSwatches, els.htInkPick, els.htInkVal, cfg.htInk, hd.ink);
+    syncHtColorRow(els.htPaperSwatches, els.htPaperPick, els.htPaperVal, cfg.htPaper, hd.paper);
+    els.htCell.value = cfg.htCell != null ? cfg.htCell : hd.cell;
+    els.htPx.value = cfg.htPx != null ? cfg.htPx : hd.px;
+    els.htAngle.value = cfg.htAngle != null ? cfg.htAngle : hd.angle;
+    els.htTone.value = cfg.htTone != null ? cfg.htTone : hd.tone;
+    els.htCellVal.textContent = cfg.htCell != null ? Math.round(cfg.htCell) + 'px' : T('frame.defaultReadout');
+    els.htPxVal.textContent = cfg.htPx != null ? Math.round(cfg.htPx) + '×' : T('frame.defaultReadout');
+    els.htAngleVal.textContent = cfg.htAngle != null ? Math.round(cfg.htAngle) + '°' : T('frame.defaultReadout');
+    els.htToneVal.textContent = cfg.htTone != null ? (Number(cfg.htTone) > 0 ? '+' : '') + Number(cfg.htTone).toFixed(2) : T('frame.defaultReadout');
+    const activeShape = cfg.htShape || hd.shape;
+    els.htShapeSeg.querySelectorAll('[data-val]').forEach(b => b.classList.toggle('on', b.dataset.val === activeShape));
+    els.htShapeVal.textContent = cfg.htShape != null ? T('frame.htShapeOpt.' + cfg.htShape) : T('frame.defaultReadout');
+  }
+  if (els.halftoneAdvanced) {
+    els.halftoneAdvanced.hidden = cfg.frame !== 'halftone';
+  }
+  // Frameless toggle state + .is-frameless dimming of the inert geometry /
+  // caption zones (CSS-only; the toggle itself sits outside the dimmed area).
+  if (els.framelessToggle) els.framelessToggle.checked = !!cfg.frameless;
+  document.body.classList.toggle('is-frameless', !!cfg.frameless);
+  // No-caption frames (halftone): surface the notation hint — the caption
+  // strip + template knobs are inert while such a frame is active.
+  if (els.notationNoCaptionHint) els.notationNoCaptionHint.hidden = !frame.noCaption;
   els.shadowBlur.value = cfg.shadowBlur;
   els.shadowOffset.value = cfg.shadowOffsetY;
   els.shadowOpacity.value = cfg.shadowOpacity;
@@ -1517,11 +1582,19 @@ const TEMPLATE_INCOMPAT = {
 
 function refreshTemplateCompatHint() {
   const cfg = activeCfg();
-  const map = TEMPLATE_INCOMPAT[cfg.frame];
-  const key = map && map[cfg.template];
   const el = document.getElementById('template-compat-hint');
   const text = document.getElementById('template-compat-hint-text');
   if (!el || !text) return;
+  // noCaption frames (halftone) render no caption at all — every template
+  // choice is inert, so the hint takes priority over per-combo warnings.
+  const frameDef = R.FRAMES[cfg.frame];
+  if (frameDef && frameDef.noCaption) {
+    text.textContent = T('caption.compat.noCaption');
+    el.hidden = false;
+    return;
+  }
+  const map = TEMPLATE_INCOMPAT[cfg.frame];
+  const key = map && map[cfg.template];
   if (key) {
     text.textContent = T('caption.compat.' + key);
     el.hidden = false;
@@ -1657,6 +1730,34 @@ function onFrameChange(frameName) {
     els.f35FrameNo.querySelectorAll('[data-val]').forEach(b => b.classList.toggle('on', b.dataset.val === fd.frameNo));
     els.film35Advanced.hidden = frameName !== 'film-35';
   }
+  // Halftone knobs — same reset semantic. NOTE: cfg.frameless deliberately
+  // does NOT reset here — it's a "what product do I want" choice (like
+  // aspect), not a frame-tuned parameter (like bg*/shadow*).
+  cfg.htInk = null;
+  cfg.htPaper = null;
+  cfg.htCell = null;
+  cfg.htPx = null;
+  cfg.htAngle = null;
+  cfg.htShape = null;
+  cfg.htTone = null;
+  if (els.halftoneAdvanced) {
+    const hd = frame.halftone || { ink: '#2b56a5', paper: '#f2ead6', cell: 8, px: 2, angle: 45, shape: 'cross', tone: 0 };
+    syncHtColorRow(els.htInkSwatches, els.htInkPick, els.htInkVal, null, hd.ink);
+    syncHtColorRow(els.htPaperSwatches, els.htPaperPick, els.htPaperVal, null, hd.paper);
+    els.htCell.value = hd.cell;
+    els.htPx.value = hd.px;
+    els.htAngle.value = hd.angle;
+    els.htTone.value = hd.tone;
+    els.htCellVal.textContent = T('frame.defaultReadout');
+    els.htPxVal.textContent = T('frame.defaultReadout');
+    els.htAngleVal.textContent = T('frame.defaultReadout');
+    els.htToneVal.textContent = T('frame.defaultReadout');
+    els.htShapeSeg.querySelectorAll('[data-val]').forEach(b => b.classList.toggle('on', b.dataset.val === hd.shape));
+    els.htShapeVal.textContent = T('frame.defaultReadout');
+    els.halftoneAdvanced.hidden = frameName !== 'halftone';
+  }
+  // No-caption frames (halftone): notation caption knobs are inert.
+  if (els.notationNoCaptionHint) els.notationNoCaptionHint.hidden = !frame.noCaption;
 
   const sd = frame.shadowDefault;
   cfg.shadowBlur = sd.blur;
@@ -1915,6 +2016,79 @@ if (els.resetSlideBtn) els.resetSlideBtn.addEventListener('click', () => {
   onFrameChange(activeCfg().frame);
   requestRender();
 });
+
+// ─── Halftone · 7 knobs ─────────────────────────────────────────────
+// ink/paper: swatch row (preset hexes) + free <input type=color> picker —
+// the frame.cfg harness's first `color` kind. A custom pick that matches
+// no swatch clears every .on so the picker reads as the active source.
+function wireHtColor(swRow, pick, valEl, cfgKey) {
+  if (swRow) swRow.addEventListener('click', (e) => {
+    const btn = e.target.closest('.ht-sw');
+    if (!btn) return;
+    const val = btn.dataset.val;
+    activeCfg()[cfgKey] = val;
+    swRow.querySelectorAll('.ht-sw').forEach(b => b.classList.toggle('on', b === btn));
+    if (pick) pick.value = val;
+    if (valEl) valEl.textContent = val;
+    requestRender();
+  });
+  if (pick) pick.addEventListener('input', () => {
+    const val = pick.value;
+    activeCfg()[cfgKey] = val;
+    if (swRow) swRow.querySelectorAll('.ht-sw').forEach(b => b.classList.toggle('on', b.dataset.val === val));
+    if (valEl) valEl.textContent = val;
+    requestRender();
+  });
+}
+wireHtColor(els.htInkSwatches, els.htInkPick, els.htInkVal, 'htInk');
+wireHtColor(els.htPaperSwatches, els.htPaperPick, els.htPaperVal, 'htPaper');
+if (els.htCell) els.htCell.addEventListener('input', () => {
+  const v = Number(els.htCell.value);
+  activeCfg().htCell = v;
+  els.htCellVal.textContent = Math.round(v) + 'px';
+  requestRender();
+});
+if (els.htPx) els.htPx.addEventListener('input', () => {
+  const v = Number(els.htPx.value);
+  activeCfg().htPx = v;
+  els.htPxVal.textContent = Math.round(v) + '×';
+  requestRender();
+});
+if (els.htAngle) els.htAngle.addEventListener('input', () => {
+  const v = Number(els.htAngle.value);
+  activeCfg().htAngle = v;
+  els.htAngleVal.textContent = Math.round(v) + '°';
+  requestRender();
+});
+if (els.htTone) els.htTone.addEventListener('input', () => {
+  const v = Number(els.htTone.value);
+  activeCfg().htTone = v;
+  els.htToneVal.textContent = (v > 0 ? '+' : '') + v.toFixed(2);
+  requestRender();
+});
+if (els.htShapeSeg) els.htShapeSeg.addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-val]');
+  if (!btn) return;
+  const val = btn.dataset.val;
+  activeCfg().htShape = val;
+  els.htShapeSeg.querySelectorAll('[data-val]').forEach(b => b.classList.toggle('on', b === btn));
+  els.htShapeVal.textContent = T('frame.htShapeOpt.' + val);
+  requestRender();
+});
+if (els.resetHalftoneBtn) els.resetHalftoneBtn.addEventListener('click', () => {
+  onFrameChange(activeCfg().frame);
+  requestRender();
+});
+
+// ─── Frameless mode toggle (Caliper · cfg.frameless) ─────────────────
+// Survives frame switches (see defaultCfg note); .is-frameless dims the
+// now-inert geometry / caption zones via CSS only.
+if (els.framelessToggle) els.framelessToggle.addEventListener('change', () => {
+  activeCfg().frameless = els.framelessToggle.checked;
+  document.body.classList.toggle('is-frameless', els.framelessToggle.checked);
+  requestRender();
+});
+
 function makeTornReadoutResetter(valueEl, sliderEl, fieldKey, frameDefaultGetter) {
   if (!valueEl) return;
   valueEl.addEventListener('dblclick', () => {
@@ -2852,7 +3026,7 @@ function buildConfigForFile(f) {
     const v = c[k];
     if (EXPORT_ALWAYS_SET.has(k)) {
       cfg[k] = v;
-    } else if (k === 'captionForceOverlay') {
+    } else if (k === 'captionForceOverlay' || k === 'frameless') {
       if (v) cfg[k] = true;
     } else if (k === 'topTemplate') {
       if (v && v !== 'none') cfg[k] = v;
@@ -3056,6 +3230,9 @@ const LOOK_KEYS = [
   // Top-of-frame badge + overlay text-lift (0.22+) — additive in v:1.
   // Old share-codes that don't carry these default to 'none' / 0.
   'topTemplate', 'captionOverlayTextLift',
+  // Frameless mode (1.12.0+) — additive in v:1. Old presets / share-codes
+  // that don't carry it leave the current value untouched on apply.
+  'frameless',
   // Frame-specific cfg keys (25 across 7 frames as of 1.7.0):
   //   bg*  · torn*  · filmMfAge  · gal*  · f35*  · instax*  · slide*
   // Each frame declares its keys via `def.cfg = { ... }`; the harness
@@ -3104,7 +3281,7 @@ function snapshotCfgForRender(c) {
     // eslint-disable-next-line no-console
     console.warn('[frame-cfg] harness produced only', harnessed.length, 'keys — expected ~25 across 7 frames');
   }
-  const FRAMES_WITH_KNOBS = ['frosted-noir', 'torn', 'film-mf', 'gallery-white', 'film-35', 'instax', 'slide-mount'];
+  const FRAMES_WITH_KNOBS = ['frosted-noir', 'torn', 'film-mf', 'gallery-white', 'film-35', 'instax', 'slide-mount', 'halftone'];
   for (const name of FRAMES_WITH_KNOBS) {
     const f = R.FRAMES[name];
     if (f && !f.cfg) {
@@ -3189,6 +3366,7 @@ const FACTORY_PRESETS = [
               bgBlur: 72, bgBrightness: 0.98, bgSaturation: 1.32,
               shadowBlur: 124, shadowOffsetY: 34, shadowOpacity: 0.64,
               radiusOverride: 44, captionForceOverlay: false,
+              frameless: false,
               captionOverlayTextLift: 0, topTemplate: 'none',
               tornJitter: null, tornStep: null, tornEdgeOpacity: null,
               filmMfAge: null,
@@ -3203,6 +3381,7 @@ const FACTORY_PRESETS = [
               bgBlur: null, bgBrightness: null, bgSaturation: null,
               shadowBlur: 50, shadowOffsetY: 16, shadowOpacity: 0.20,
               radiusOverride: 0, captionForceOverlay: false,
+              frameless: false,
               captionOverlayTextLift: 0, topTemplate: 'brand-model',
               tornJitter: 9.5, tornStep: 6.5, tornEdgeOpacity: 0.28,
               filmMfAge: null,
@@ -3217,6 +3396,7 @@ const FACTORY_PRESETS = [
               bgBlur: null, bgBrightness: null, bgSaturation: null,
               shadowBlur: 0, shadowOffsetY: 0, shadowOpacity: 0,
               radiusOverride: 0, captionForceOverlay: true,
+              frameless: false,
               captionOverlayTextLift: 32, topTemplate: 'none',
               tornJitter: null, tornStep: null, tornEdgeOpacity: null,
               filmMfAge: null,
@@ -3231,6 +3411,7 @@ const FACTORY_PRESETS = [
               bgBlur: null, bgBrightness: null, bgSaturation: null,
               shadowBlur: 40, shadowOffsetY: 12, shadowOpacity: 0.14,
               radiusOverride: 0, captionForceOverlay: false,
+              frameless: false,
               captionOverlayTextLift: 0, topTemplate: 'none',
               tornJitter: null, tornStep: null, tornEdgeOpacity: null,
               filmMfAge: null,
@@ -3246,11 +3427,31 @@ const FACTORY_PRESETS = [
               bgBlur: null, bgBrightness: null, bgSaturation: null,
               shadowBlur: 0, shadowOffsetY: 0, shadowOpacity: 0,
               radiusOverride: 0, captionForceOverlay: false,
+              frameless: false,
               captionOverlayTextLift: 0, topTemplate: 'none',
               tornJitter: null, tornStep: null, tornEdgeOpacity: null,
               filmMfAge: null,
               paddingTop: null, paddingRight: null, paddingBottom: null, paddingLeft: null,
-              showFields: { brand: false, model: false, focal: true, aperture: true, shutter: true, iso: true, lens: true, date: true, gps: false, author: true, flash: false } } }
+              showFields: { brand: false, model: false, focal: true, aperture: true, shutter: true, iso: true, lens: true, date: true, gps: false, author: true, flash: false } } },
+  // Riso halftone — two-ink screen print of the photo itself, FRAMELESS by
+  // design ruling (1.12.0): this seed outputs just the screened image; every
+  // other seed explicitly sets frameless: false so applying one exits the
+  // mode. Caption fields are inert (frame.noCaption) but showFields kept
+  // uniform for a clean fork-and-save.
+  { id: 'riso-halftone',      nameKey: 'preset.factory.risoHalftone',     iconEmoji: '🖨',
+    preset: { v: 1, frame: 'halftone', template: 'minimal-text',
+              aspect: '3:4', padding: 70, captionHeight: null,
+              bgBlur: null, bgBrightness: null, bgSaturation: null,
+              shadowBlur: 0, shadowOffsetY: 0, shadowOpacity: 0,
+              radiusOverride: 0, captionForceOverlay: false,
+              frameless: true,
+              captionOverlayTextLift: 0, topTemplate: 'none',
+              tornJitter: null, tornStep: null, tornEdgeOpacity: null,
+              filmMfAge: null,
+              htInk: '#2b56a5', htPaper: '#f2ead6', htCell: 8, htPx: 2,
+              htAngle: 45, htShape: 'cross', htTone: 0,
+              paddingTop: null, paddingRight: null, paddingBottom: null, paddingLeft: null,
+              showFields: { brand: true, model: true, focal: true, aperture: true, shutter: true, iso: true, lens: false, date: false, gps: false, author: true, flash: false } } }
 ];
 
 function presetFromCfg(cfg, opts) {
@@ -3801,6 +4002,7 @@ checkChangelogBadge();
     'gallery-white': 'gallery',
     instax: 'instant', torn: 'instant',
     'film-35': 'film', 'film-mf': 'film', 'slide-mount': 'film',
+    halftone: 'print',
   };
   const ALL_FRAMES = Object.keys(FRAME_FAMILIES);
   const ALL_TEMPLATES = ['minimal-text', 'tech-stack', 'brand-logo', 'brand-right', 'wordmark', 'headline', 'date-lens', 'slate', 'passport'];
@@ -5836,28 +6038,24 @@ function showUpdateBanner(waitingSw) {
       if (pendingPreview) { pendingPreview = false; requestComposeRender(); }
     }
   }
-  // Mirror of doRender's cfg projection
+  // Mirror of doRender's cfg projection — LOOK_KEYS-driven since 1.12.0
+  // (was a hand-maintained field list that had silently drifted: gal* /
+  // f35* / instax* / slide* knobs were missing, so Compose previews
+  // ignored them — the exact drift class 1.10.5 retired for doRender /
+  // buildConfigForFile). One deliberate override: Compose always renders
+  // FRAMED, because it's the instrument for editing margins/crop — a
+  // frameless preview would hide the very geometry being dialed.
   function composeProjection(c) {
-    return {
-      aspect: c.aspect, frame: c.frame, template: c.template,
-      padding: c.padding,
-      paddingTop: c.paddingTop, paddingRight: c.paddingRight,
-      paddingBottom: c.paddingBottom, paddingLeft: c.paddingLeft,
-      captionHeight: c.captionHeight,
-      bgBlur: c.bgBlur, bgBrightness: c.bgBrightness, bgSaturation: c.bgSaturation,
-      shadowBlur: c.shadowBlur, shadowOffsetY: c.shadowOffsetY, shadowOpacity: c.shadowOpacity,
-      radiusOverride: c.radiusOverride,
-      captionForceOverlay: c.captionForceOverlay,
-      captionOverlayTextLift: c.captionOverlayTextLift,
-      topTemplate: c.topTemplate,
-      tornJitter: c.tornJitter, tornStep: c.tornStep, tornEdgeOpacity: c.tornEdgeOpacity,
-      filmMfAge: c.filmMfAge,
-      showFields: c.showFields,
-      customLogo: c.customLogo, customBg: c.customBg,
-      collage: c.collage,
-      rotation: c.rotation || 0,
-      crop: c.crop || null
-    };
+    const out = {};
+    for (const k of LOOK_KEYS) out[k] = c[k];
+    out.frameless = false;
+    out.showFields = c.showFields;
+    out.customLogo = c.customLogo;
+    out.customBg = c.customBg;
+    out.collage = c.collage;
+    out.rotation = c.rotation || 0;
+    out.crop = c.crop || null;
+    return out;
   }
 
   // ── bench (state readouts + editable inputs) ───────────────────────
