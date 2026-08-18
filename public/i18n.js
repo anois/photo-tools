@@ -208,7 +208,9 @@
         framelessHint: '只导出（风格化后的）照片本体 —— 无边距 / 说明文字 / 装饰；印章仍然生效',
         toggleOn: '开',
         toggleOff: '关',
-        defaultReadout: '默认',
+        // 1.12.1 darkroom discipline — untouched knobs stay quiet: the
+        // readout shows a dim em-dash instead of the word "默认".
+        defaultReadout: '—',
         resetDefault: '恢复默认',
         radius: '圆角',
         captionOverlay: '水印嵌入图片',
@@ -776,7 +778,8 @@
         framelessHint: 'export just the (styled) photo — no margins, caption, or decorations; the seal still applies',
         toggleOn: 'ON',
         toggleOff: 'OFF',
-        defaultReadout: 'preset',
+        // 1.12.1 darkroom discipline — untouched knobs read as a dim dash.
+        defaultReadout: '—',
         resetDefault: 'Reset to default',
         radius: 'Corner radius',
         captionOverlay: 'Caption inside photo',
