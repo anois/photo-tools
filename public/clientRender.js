@@ -616,6 +616,9 @@
     const built = buildLayoutAndCaption(bitmap, cfg, normExif, {
       customScale: useScale, fontFaceCss, logos, cacheCaption: true
     });
+    // Lights-down proofing C: the workshop's region-hairline overlay maps
+    // knobs to on-canvas rects using the most recent preview layout.
+    lastPreviewLayout = built.layout || null;
     let bitmaps = null;
     if (built.collage && Array.isArray(partnerFiles) && partnerFiles.length) {
       const partnerBms = await Promise.all(partnerFiles.map((f) =>
@@ -661,7 +664,10 @@
     return { logos: lj, fontFaceCss: fc };
   }
 
+  let lastPreviewLayout = null;
+
   window.ClientRender = {
-    renderPreview, renderFinal, loadBitmap, loadAssets
+    renderPreview, renderFinal, loadBitmap, loadAssets,
+    getLastPreviewLayout: () => lastPreviewLayout
   };
 })();
