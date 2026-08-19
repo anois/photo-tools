@@ -87,6 +87,11 @@
           sealHint: '可拖放到画面任意位置的蜡印水印'
         },
         topBadgeRow: '顶部标记 ▸',
+        // 灯下看样 (1.15.0) — ◐ 试印对比
+        proof: {
+          btn: '按住对比开台样张 · 双击重新取样',
+          hudKey: '开台样张'
+        },
         // 灯下看样 (1.14.0) — 区域描边标签：握住旋钮时画布上亮起的
         // amber 虚线圈，告诉眼睛该看哪里。
         region: {
@@ -403,6 +408,7 @@
       },
       status: {
         ready: '就绪',
+        proofRepinned: '已把当前画面重新取样为对比样张',
         loadingAssets: '加载资源中…',
         bundleFail: '资源加载失败：{msg}',
         previewFail: '预览失败：{msg}',
@@ -671,6 +677,11 @@
           sealHint: 'Wax-stamped mark — drag it anywhere on the composition'
         },
         topBadgeRow: 'Top badge ▸',
+        // Lights-down proofing (1.15.0) — ◐ hold-to-compare proof
+        proof: {
+          btn: 'Hold to compare against the bench-open proof · double-click to re-pin',
+          hudKey: 'Bench-open proof'
+        },
         // Lights-down proofing (1.14.0) — region hairline labels: the amber
         // dashed outline that tells the eye where a knob lands on canvas.
         region: {
@@ -987,6 +998,7 @@
       status: {
         ready: 'ready',
         loadingAssets: 'loading assets…',
+        proofRepinned: 'Re-pinned the current render as the comparison proof',
         bundleFail: 'bundle load failed: {msg}',
         previewFail: 'preview failed: {msg}',
         readingExif: 'reading EXIF…',
