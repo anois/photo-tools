@@ -65,6 +65,17 @@
 <main class="workspace">
 
   <!-- LEFT LOOK BAR — vertical chip rail, pinned to canvas left edge -->
+  <!-- Lights-down proofing C (1.14.0) — bench HUD: param name + live value
+       floating over the canvas while a workshop knob is held. Reuses the
+       .compose-hud class family (position:fixed, z-99 — same precedent as
+       .seal-hud). Sits outside the workshop overlay so it never dims. -->
+  <div class="compose-hud bench-hud" id="bench-hud" aria-hidden="true">
+    <div class="compose-hud-card">
+      <div class="compose-hud-key" id="bench-hud-key"></div>
+      <div class="compose-hud-val"><span id="bench-hud-val"></span></div>
+    </div>
+  </div>
+
   <aside class="lookbar" id="lookbar" aria-label="Look bar">
     <div class="lookbar-import-group">
       <button id="import-btn" class="lookbar-import" type="button" data-i18n-aria-label="source.importTitle" data-i18n-title="source.importTitle">
@@ -193,6 +204,14 @@
       <div id="preview-loading" class="preview-loading" hidden>
         <span class="pulse-dot" aria-hidden="true"></span>
         <span data-i18n="canvas.rendering">rendering</span>
+      </div>
+      <!-- Lights-down proofing C (1.14.0) — amber region hairline: while a
+           workshop knob is held, the canvas area it affects gets outlined
+           so the eye knows where to look. Positioned by JS from the last
+           preview layout. Class toggle (.is-on), never the hidden attr —
+           see the [hidden]-vs-class pitfall in CLAUDE.md. -->
+      <div class="bench-region" id="bench-region" aria-hidden="true">
+        <span class="bench-region-label" id="bench-region-label"></span>
       </div>
       <div id="empty" class="empty">
         <div class="empty-aperture" aria-hidden="true">

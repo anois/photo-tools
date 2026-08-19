@@ -87,6 +87,20 @@
           sealHint: '可拖放到画面任意位置的蜡印水印'
         },
         topBadgeRow: '顶部标记 ▸',
+        // 灯下看样 (1.14.0) — 区域描边标签：握住旋钮时画布上亮起的
+        // amber 虚线圈，告诉眼睛该看哪里。
+        region: {
+          bg: '背景区',
+          margin: '边框区',
+          fg: '照片',
+          edge: '照片边缘',
+          corners: '四角',
+          shadow: '阴影圈',
+          top: '顶部标记区',
+          bottom: '底部厚边',
+          caption: '字幕区',
+          seal: '印记'
+        },
         instrument: {
           lighting: '▾ 光影 · shadow'
         },
@@ -657,6 +671,20 @@
           sealHint: 'Wax-stamped mark — drag it anywhere on the composition'
         },
         topBadgeRow: 'Top badge ▸',
+        // Lights-down proofing (1.14.0) — region hairline labels: the amber
+        // dashed outline that tells the eye where a knob lands on canvas.
+        region: {
+          bg: 'Background',
+          margin: 'Frame margin',
+          fg: 'Photo',
+          edge: 'Photo edge',
+          corners: 'Corners',
+          shadow: 'Shadow ring',
+          top: 'Top badge zone',
+          bottom: 'Bottom slab',
+          caption: 'Caption zone',
+          seal: 'Seal'
+        },
         instrument: {
           lighting: '▾ LIGHTING · shadow'
         },
