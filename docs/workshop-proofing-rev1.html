@@ -1,0 +1,836 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>灯下看样 rev.1 — photo-tools</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..800;1,9..144,300..800&family=Hanken+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    /* darkroom palette — 与 workshop-darkroom-rev2 / compose-mode-design 同族 */
+    --ink-0:#0a0907;
+    --ink-1:#14120f;
+    --ink-2:#1d1a16;
+    --ink-3:#2a2520;
+    --ink-4:#3a322a;
+    --cream:#efe8db;
+    --cream-mid:#a89c8b;
+    --cream-mute:#6b6259;
+    --cream-faint:#453f38;
+    --amber:#d4a574;
+    --amber-hot:#e8b97f;
+    --amber-glow:rgba(212,165,116,.4);
+    --amber-dim:#7a5f43;
+    --red:#e5493a;
+    --red-soft:rgba(229,73,58,.14);
+
+    --f-display:"Fraunces",ui-serif,Georgia,serif;
+    --f-body:"Hanken Grotesk","PingFang SC",system-ui,sans-serif;
+    --f-mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+  }
+  *,*::before,*::after{box-sizing:border-box}
+  html,body{margin:0;background:var(--ink-0);color:var(--cream);font-family:var(--f-body);-webkit-font-smoothing:antialiased}
+  button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+  code{font-family:var(--f-mono);font-size:.86em;color:var(--amber-hot);background:rgba(212,165,116,.08);padding:1px 5px;border-radius:3px;word-break:break-all}
+  body::before{
+    content:"";position:fixed;inset:0;pointer-events:none;z-index:1;opacity:.04;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 .92  0 0 0 0 .8  0 0 0 .6 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+    mix-blend-mode:overlay;
+  }
+  .page{max-width:1080px;margin:0 auto;padding:88px 48px 180px;position:relative;z-index:2}
+  @media (max-width:700px){ .page{padding:56px 20px 120px} }
+
+  /* ───────── hero ───────── */
+  .eyebrow{
+    font-family:var(--f-mono);font-size:10.5px;letter-spacing:.3em;text-transform:uppercase;
+    color:var(--amber);display:flex;align-items:center;gap:14px;margin-bottom:30px;
+  }
+  .eyebrow::before{content:"";width:34px;height:1px;background:var(--amber)}
+  h1{
+    font-family:var(--f-display);font-weight:300;font-variation-settings:"opsz" 144;
+    font-size:clamp(46px,7vw,92px);line-height:.98;letter-spacing:-.02em;margin:0 0 34px;
+  }
+  h1 em{font-style:italic;color:var(--amber-hot)}
+  .thesis{
+    max-width:56ch;font-size:17px;line-height:1.85;color:var(--cream-mid);font-weight:300;margin:0 0 10px;
+  }
+  .thesis strong{color:var(--cream);font-weight:500}
+  .hero{margin-bottom:110px}
+
+  /* ───────── sections ───────── */
+  .sec{margin-bottom:120px}
+  .sec-head{display:flex;align-items:baseline;gap:18px;margin-bottom:14px}
+  .sec-no{font-family:var(--f-mono);font-size:11px;color:var(--amber-dim);letter-spacing:.2em}
+  h2{
+    font-family:var(--f-display);font-weight:340;font-size:clamp(26px,3.4vw,38px);
+    letter-spacing:-.01em;margin:0;
+  }
+  h2 em{font-style:italic;color:var(--amber-hot)}
+  .sec-lede{max-width:60ch;font-size:15px;line-height:1.9;color:var(--cream-mid);font-weight:300;margin:0 0 40px}
+  .sec-lede strong{color:var(--cream);font-weight:500}
+  h3{
+    font-family:var(--f-body);font-weight:600;font-size:15px;letter-spacing:.02em;
+    margin:52px 0 14px;color:var(--cream);
+  }
+  p{max-width:62ch;font-size:14.5px;line-height:1.9;color:var(--cream-mid);font-weight:300}
+  p strong{color:var(--cream);font-weight:500}
+
+  /* ───────── evidence cards ───────── */
+  .ev-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px}
+  .ev{
+    background:var(--ink-1);border:1px solid var(--ink-3);border-radius:6px;padding:22px 22px 20px;
+    position:relative;overflow:hidden;
+  }
+  .ev::before{content:"";position:absolute;left:0;top:0;bottom:0;width:2px;background:var(--red)}
+  .ev-tag{font-family:var(--f-mono);font-size:10px;letter-spacing:.22em;color:var(--red);margin-bottom:12px}
+  .ev-title{font-weight:600;font-size:14.5px;margin-bottom:10px;line-height:1.5}
+  .ev p{font-size:13px;line-height:1.8;margin:0;color:var(--cream-mute)}
+  .ev p + p{margin-top:8px}
+
+  /* occlusion diagrams */
+  .diag-row{display:flex;gap:28px;flex-wrap:wrap;margin:36px 0 6px;align-items:flex-end}
+  .diag{flex:1 1 300px;max-width:460px}
+  .diag-frame{position:relative;border:1px solid var(--ink-4);border-radius:4px;background:var(--ink-1);overflow:hidden}
+  .diag-desktop{aspect-ratio:16/9.4}
+  .diag-phone{aspect-ratio:9/17;max-width:220px;margin:0 auto}
+  .dg{position:absolute;font-family:var(--f-mono);font-size:9px;letter-spacing:.1em;color:var(--cream-mute);
+      display:flex;align-items:center;justify-content:center}
+  .dg-canvas{background:repeating-linear-gradient(45deg,var(--ink-2) 0 6px,var(--ink-1) 6px 12px);color:var(--cream-mid)}
+  .dg-scrim{background:rgba(5,6,8,.55);backdrop-filter:blur(2px);color:var(--red);border:1px dashed rgba(229,73,58,.4)}
+  .dg-drawer{background:var(--ink-3);border-left:1px solid var(--ink-4);color:var(--cream-mid)}
+  .dg-sheet{background:var(--ink-3);border-top:1px solid var(--ink-4);color:var(--cream-mid);border-radius:10px 10px 0 0}
+  .dg-sliver{background:var(--red-soft);border:1px dashed var(--red);color:var(--red)}
+  .diag-cap{font-family:var(--f-mono);font-size:10.5px;color:var(--cream-mute);letter-spacing:.06em;line-height:1.7;margin-top:12px;text-align:center}
+  .diag-cap b{color:var(--red);font-weight:500}
+
+  /* ───────── principles ───────── */
+  .prin-list{display:grid;gap:0;border-top:1px solid var(--ink-3)}
+  .prin{display:grid;grid-template-columns:56px 1fr;gap:20px;padding:30px 4px;border-bottom:1px solid var(--ink-3)}
+  .prin-no{font-family:var(--f-mono);font-size:11px;color:var(--amber);padding-top:6px}
+  .prin-title{font-family:var(--f-display);font-weight:400;font-size:21px;margin-bottom:10px}
+  .prin-title em{font-style:italic;color:var(--amber-hot)}
+  .prin p{margin:0;font-size:13.5px}
+
+  /* ───────── mechanism cards ───────── */
+  .mech-grid{display:grid;gap:14px}
+  .mech{
+    display:grid;grid-template-columns:110px 1fr;gap:26px;
+    background:var(--ink-1);border:1px solid var(--ink-3);border-radius:6px;padding:26px 28px;
+  }
+  @media (max-width:700px){ .mech{grid-template-columns:1fr;gap:10px} }
+  .mech-id{font-family:var(--f-mono);font-size:11px;color:var(--amber);letter-spacing:.12em;line-height:1.8}
+  .mech-id .mid-sub{display:block;color:var(--cream-faint);font-size:10px;margin-top:4px;letter-spacing:.06em}
+  .mech-body .mech-title{font-weight:600;font-size:15px;margin-bottom:10px}
+  .mech-body p{margin:0 0 8px;font-size:13.5px;max-width:none}
+  .mech--signature{border-color:var(--amber-dim);background:linear-gradient(180deg,rgba(212,165,116,.05),transparent 60%),var(--ink-1)}
+  .mech--signature .mech-title::after{
+    content:"签名交互";font-family:var(--f-mono);font-size:9px;letter-spacing:.2em;color:var(--amber);
+    border:1px solid var(--amber-dim);border-radius:3px;padding:2px 7px;margin-left:12px;vertical-align:2px;
+  }
+
+  /* ───────── mockups ───────── */
+  .mock-shell{margin:44px 0 10px}
+  .mock-bar{display:flex;align-items:center;gap:16px;margin-bottom:16px;flex-wrap:wrap}
+  .mock-label{font-family:var(--f-mono);font-size:10.5px;letter-spacing:.22em;color:var(--cream-mute);text-transform:uppercase}
+  .mode-seg{display:flex;border:1px solid var(--ink-4);border-radius:5px;overflow:hidden}
+  .mode-seg button{
+    font-family:var(--f-mono);font-size:11px;letter-spacing:.1em;padding:8px 18px;color:var(--cream-mute);
+    background:var(--ink-1);transition:all .15s;
+  }
+  .mode-seg button + button{border-left:1px solid var(--ink-4)}
+  .mode-seg button.on{background:var(--amber);color:var(--ink-0);font-weight:600}
+  .mock-hint{font-family:var(--f-mono);font-size:10.5px;color:var(--cream-faint);letter-spacing:.04em}
+
+  .mock{position:relative;border:1px solid var(--ink-4);border-radius:8px;background:#070605;overflow:hidden;user-select:none;touch-action:none}
+  .mock *{user-select:none}
+
+  /* desktop mock geometry */
+  .mock-desk{aspect-ratio:16/9.6}
+  .mkd-lookbar{position:absolute;left:0;top:0;bottom:0;width:44px;background:var(--ink-1);border-right:1px solid var(--ink-2);
+    display:flex;flex-direction:column;gap:8px;padding:12px 10px}
+  .mkd-lookbar i{display:block;height:22px;border:1px solid var(--ink-3);border-radius:3px}
+  .mk-canvas{position:absolute;display:flex;align-items:center;justify-content:center;overflow:hidden}
+  .mkd-canvas{left:44px;top:0;bottom:0;right:236px;transition:right .28s cubic-bezier(.3,.9,.3,1)}
+  .mk-photo{max-width:86%;max-height:88%;display:block;box-shadow:0 18px 60px rgba(0,0,0,.6);transition:filter .06s linear}
+  .mk-photo-fallback{width:70%;aspect-ratio:3/4;background:
+    linear-gradient(160deg,#3d3830 0%,#191713 55%,#24201a 100%);border-radius:2px;display:none}
+  .mk-scrim{position:absolute;inset:0;background:rgba(5,6,8,.5);backdrop-filter:blur(4px);
+    transition:opacity .3s;pointer-events:none}
+  .mk-drawer{
+    position:absolute;top:0;bottom:0;right:0;width:236px;background:var(--ink-1);border-left:1px solid var(--ink-3);
+    padding:16px 16px 14px;display:flex;flex-direction:column;gap:4px;
+    transition:opacity .2s ease-out;
+  }
+  .mk-drawer-head{font-family:var(--f-mono);font-size:9.5px;letter-spacing:.24em;color:var(--cream-mute);
+    padding-bottom:12px;border-bottom:1px solid var(--ink-3);margin-bottom:10px;display:flex;justify-content:space-between}
+  .mk-drawer-head span:last-child{color:var(--cream-faint)}
+  .mk-row{padding:11px 10px 12px;border-radius:5px;transition:opacity .18s ease-out,background .18s}
+  .mk-row-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:9px}
+  .mk-row-name{font-size:12px;font-weight:500;color:var(--cream-mid)}
+  .mk-row-val{font-family:var(--f-mono);font-size:11px;color:var(--amber);font-variant-numeric:tabular-nums}
+  .mk-row input[type=range]{
+    -webkit-appearance:none;appearance:none;width:100%;height:22px;background:transparent;margin:0;display:block;cursor:grab;
+  }
+  .mk-row input[type=range]::-webkit-slider-runnable-track{height:2px;background:var(--ink-4);border-radius:1px}
+  .mk-row input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:var(--amber);
+    margin-top:-6px;box-shadow:0 0 0 3px rgba(212,165,116,.15);
+  }
+  .mk-row input[type=range]::-moz-range-track{height:2px;background:var(--ink-4)}
+  .mk-row input[type=range]::-moz-range-thumb{width:14px;height:14px;border:0;border-radius:50%;background:var(--amber)}
+  .mk-note{margin-top:auto;font-family:var(--f-mono);font-size:9px;color:var(--cream-faint);letter-spacing:.06em;line-height:1.7}
+
+  /* proposal mode differences */
+  .mock[data-mode=plan] .mk-scrim{opacity:0}
+  .mock[data-mode=plan] .mkd-canvas{right:236px}
+  /* lights-down: drawer chrome retreats, active row stays */
+  .mock[data-live] .mk-drawer{background:transparent;border-color:transparent}
+  .mock[data-live] .mk-drawer > *{opacity:.05}
+  .mock[data-live] .mk-row.is-live{opacity:1;background:rgba(10,9,7,.72);backdrop-filter:blur(2px);
+    outline:1px solid var(--amber-dim)}
+  .mock[data-live] .mkm-sheet{background:rgba(10,9,7,.12);border-color:transparent;box-shadow:none}
+  .mock[data-live] .mkm-sheet > *{opacity:.04}
+  /* 活动行的祖先链必须整条保持可见 — opacity 不穿透父级上限 */
+  .mock[data-live] .mkm-sheet .mkm-card.is-live{opacity:1;background:rgba(10,9,7,.82);outline:1px solid var(--amber-dim);border-color:transparent}
+  .mock[data-live] .mkm-sheet .mkm-card.is-live .mkm-card-tag{color:var(--amber-dim)}
+
+  /* HUD */
+  .mk-hud{
+    position:absolute;top:14px;left:50%;transform:translateX(-50%);z-index:6;
+    display:flex;align-items:baseline;gap:10px;padding:8px 16px;border-radius:4px;
+    background:rgba(10,9,7,.82);border:1px solid var(--amber-dim);
+    font-family:var(--f-mono);opacity:0;transition:opacity .16s;pointer-events:none;white-space:nowrap;
+  }
+  .mk-hud.on{opacity:1}
+  .mk-hud-key{font-size:9.5px;letter-spacing:.2em;color:var(--cream-mute);text-transform:uppercase}
+  .mk-hud-val{font-size:16px;color:var(--amber-hot);font-variant-numeric:tabular-nums;font-weight:500}
+  .mk-hud-unit{font-size:10px;color:var(--amber-dim)}
+
+  /* region hairlines */
+  .mk-reg{position:absolute;z-index:5;border:1px dashed var(--amber);border-radius:3px;opacity:0;
+    transition:opacity .16s;pointer-events:none;box-shadow:0 0 22px rgba(212,165,116,.12)}
+  .mk-reg.on{opacity:.65}
+  .mk-reg-label{
+    position:absolute;top:-8px;left:10px;transform:translateY(-100%);
+    font-family:var(--f-mono);font-size:9px;letter-spacing:.18em;color:var(--amber);
+    background:rgba(10,9,7,.8);padding:3px 8px;border-radius:3px;
+  }
+  .mk-reg[data-flip] .mk-reg-label{top:auto;bottom:-8px;transform:translateY(100%)}
+
+  /* mobile mock geometry */
+  .mock-phone{width:min(320px,88vw);aspect-ratio:9/18.2;margin:0 auto;border-radius:18px}
+  .mkm-topbar{position:absolute;top:0;left:0;right:0;height:26px;background:var(--ink-1);border-bottom:1px solid var(--ink-2);
+    display:flex;align-items:center;padding:0 12px;font-family:var(--f-mono);font-size:8px;letter-spacing:.2em;color:var(--cream-faint)}
+  .mkm-canvas{left:0;right:0;top:26px;bottom:96px}
+  .mkm-lookbar{position:absolute;left:0;right:0;bottom:0;height:96px;background:var(--ink-1);border-top:1px solid var(--ink-2);
+    display:grid;grid-template-rows:1fr 1fr;gap:6px;padding:10px 12px}
+  .mkm-lookbar i{border:1px solid var(--ink-3);border-radius:4px}
+  .mkm-sheet{
+    position:absolute;left:0;right:0;bottom:0;top:7.5%;z-index:4;
+    background:var(--ink-2);border:1px solid var(--ink-3);border-bottom:0;border-radius:14px 14px 0 0;
+    padding:10px 14px 12px;display:flex;flex-direction:column;gap:6px;
+    box-shadow:0 -18px 50px rgba(0,0,0,.55);
+    transition:background .2s ease-out,box-shadow .2s;
+  }
+  .mkm-sheet > *{transition:opacity .18s ease-out}
+  .mkm-pill{width:34px;height:4px;border-radius:2px;background:var(--ink-4);margin:0 auto 8px;flex:none}
+  .mkm-dock{display:flex;gap:6px;margin-bottom:8px;flex:none}
+  .mkm-dock i{flex:1;height:30px;border:1px solid var(--ink-3);border-radius:5px;display:flex;align-items:center;justify-content:center;
+    font-family:var(--f-mono);font-size:8.5px;color:var(--cream-mute);font-style:normal}
+  .mkm-dock i.on{border-color:var(--amber-dim);color:var(--amber)}
+  .mkm-card{border:1px solid var(--ink-3);border-radius:6px;padding:4px 6px 6px;background:var(--ink-1)}
+  .mkm-card + .mkm-card{margin-top:2px}
+  .mkm-card-tag{font-family:var(--f-mono);font-size:8px;letter-spacing:.2em;color:var(--cream-faint);padding:6px 10px 2px}
+
+  /* shared scrim in phone */
+  .mkm-scrim{position:absolute;inset:0;z-index:3;background:rgba(5,6,8,.5);transition:opacity .3s;pointer-events:none}
+  .mock[data-mode=plan] .mkm-scrim{opacity:0}
+
+  /* ───────── spec tables ───────── */
+  table{width:100%;border-collapse:collapse;font-size:13px;margin:20px 0 8px}
+  th{font-family:var(--f-mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--amber-dim);
+    text-align:left;padding:10px 14px;border-bottom:1px solid var(--ink-4)}
+  td{padding:12px 14px;border-bottom:1px solid var(--ink-2);color:var(--cream-mid);line-height:1.7;vertical-align:top}
+  td:first-child{color:var(--cream);white-space:nowrap}
+  tr:hover td{background:rgba(212,165,116,.025)}
+  .tbl-wrap{overflow-x:auto}
+
+  /* state machine */
+  .sm{display:flex;gap:0;align-items:stretch;flex-wrap:wrap;margin:30px 0 10px}
+  .sm-state{
+    flex:1 1 150px;border:1px solid var(--ink-4);border-radius:6px;padding:16px 18px;background:var(--ink-1);
+    min-width:150px;
+  }
+  .sm-state.hot{border-color:var(--amber-dim);background:linear-gradient(180deg,rgba(212,165,116,.06),transparent),var(--ink-1)}
+  .sm-name{font-family:var(--f-mono);font-size:11px;letter-spacing:.18em;color:var(--amber);margin-bottom:8px}
+  .sm-desc{font-size:12px;line-height:1.75;color:var(--cream-mute)}
+  .sm-arrow{
+    flex:0 0 auto;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:0 8px;
+    font-family:var(--f-mono);font-size:9px;color:var(--cream-faint);letter-spacing:.06em;gap:4px;text-align:center;
+  }
+  .sm-arrow::before{content:"→";font-size:14px;color:var(--amber-dim)}
+  @media (max-width:700px){
+    .sm{flex-direction:column}
+    .sm-arrow{padding:8px 0}
+    .sm-arrow::before{content:"↓"}
+  }
+
+  /* phases */
+  .phase{display:grid;grid-template-columns:120px 1fr;gap:24px;padding:26px 4px;border-bottom:1px solid var(--ink-3)}
+  .phase:first-of-type{border-top:1px solid var(--ink-3)}
+  @media (max-width:700px){ .phase{grid-template-columns:1fr;gap:8px} }
+  .phase-id{font-family:var(--f-mono);font-size:11px;color:var(--amber);letter-spacing:.1em;line-height:1.9}
+  .phase-id small{display:block;color:var(--cream-faint);font-size:9.5px}
+  .phase-body p{margin:0 0 8px;font-size:13.5px;max-width:none}
+  .phase-title{font-weight:600;font-size:14.5px;margin-bottom:8px;color:var(--cream)}
+
+  /* decision cards */
+  .dec{border:1px solid var(--ink-3);border-left:2px solid var(--amber);border-radius:0 6px 6px 0;
+    padding:20px 24px;margin-bottom:12px;background:var(--ink-1)}
+  .dec-q{font-weight:600;font-size:14px;margin-bottom:8px;color:var(--cream)}
+  .dec-q::before{content:"Q" counter(dec) " · ";font-family:var(--f-mono);font-size:11px;color:var(--amber);letter-spacing:.08em}
+  .dec{counter-increment:dec}
+  .sec-decisions{counter-reset:dec}
+  .dec p{margin:0;font-size:13px;max-width:none}
+  .dec p + p{margin-top:6px}
+  .dec .rec{color:var(--amber-hot);font-weight:500}
+
+  ul{margin:0;padding-left:20px}
+  li{font-size:13.5px;line-height:1.9;color:var(--cream-mid);font-weight:300;margin-bottom:6px}
+  li strong{color:var(--cream);font-weight:500}
+  li::marker{color:var(--amber-dim)}
+
+  .foot{margin-top:80px;padding-top:28px;border-top:1px solid var(--ink-3);
+    font-family:var(--f-mono);font-size:10px;letter-spacing:.14em;color:var(--cream-faint);line-height:2}
+
+  @media (prefers-reduced-motion: reduce){
+    *,*::before,*::after{transition-duration:.01ms !important;animation-duration:.01ms !important}
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- ═══════════ HERO ═══════════ -->
+  <header class="hero">
+    <div class="eyebrow">photo-tools · workshop · interaction proposal · rev.1</div>
+    <h1>灯下<em>看样</em></h1>
+    <p class="thesis">
+      「调参数时图像变化不明显」的病根不在渲染管线 —— 管线是实时的。病根在于<strong>调参的那一刻，画面正被自己的工作台遮住</strong>：移动端的底部抽屉盖掉 92% 视口，预览只剩约 20px；桌面端画布虽然还在，却被一层 50% 黑 + 4px 模糊的全屏遮罩蒙着。
+    </p>
+    <p class="thesis">
+      暗房里没有人盯着旋钮打光 —— 调放大机的时候，眼睛始终在相纸上。这份草案提出一个原则和四个机制：<strong>印相期间，暗房让位给相纸。</strong>
+    </p>
+  </header>
+
+  <!-- ═══════════ 01 诊断 ═══════════ -->
+  <section class="sec">
+    <div class="sec-head"><span class="sec-no">§ 01</span><h2>诊断 — 反馈去哪儿了</h2></div>
+    <p class="sec-lede">先给证据。以下四条全部来自当前代码（行号为 2026-08-19 <code>refactor/workshop-darkroom</code> 分支），不是感觉。</p>
+
+    <div class="ev-grid">
+      <div class="ev">
+        <div class="ev-tag">证据 E1 · 移动端</div>
+        <div class="ev-title">调参时预览画布可见高度 ≈ 20px，等于不可见</div>
+        <p>工作台是 92dvh 的底部抽屉（<code>styles.css:4454</code>），顶边落在视口 8dvh 处；canvas pane 从 topbar 44px 以下开始。两者相减，露出来的画布约 20px——还压着全屏遮罩。</p>
+        <p>主力用户在手机上出片（CLAUDE.md 规则 13），这意味着<strong>主力场景下每一次滑杆调整都是盲调</strong>。</p>
+      </div>
+      <div class="ev">
+        <div class="ev-tag">证据 E2 · 桌面端</div>
+        <div class="ev-title">画布被 50% 黑 + 4px 模糊的遮罩压着</div>
+        <p><code>.workshop-overlay::before</code> 是 <code>inset:0</code> 全屏遮罩：<code>rgba(5,6,8,.5)</code> + <code>backdrop-filter:blur(4px)</code>（<code>styles.css:4118-4128</code>）。抽屉本体只占右侧 440px，画布还有约 800px 宽可见 —— 但被压暗又打糊。</p>
+        <p>阴影模糊 60→70、背景饱和 1.0→1.1 这类变化本来就微妙，隔着暗玻璃看，等于没变。</p>
+      </div>
+      <div class="ev">
+        <div class="ev-tag">证据 E3 · 渲染链路</div>
+        <div class="ev-title">26 个滑杆全部没有拖动态，每帧跑满清渲染</div>
+        <p>工作台全部 26 个滑杆都是裸链路：<code>input → cfg → readout → requestRender()</code>，每帧 <code>PREVIEW_SCALE=0.5</code> 满清渲染，约 50–80ms/帧（<code>app.js:5673</code> 注释自陈）。</p>
+        <p>而 Compose 模式早已解决过这个问题：拖动中降到 <code>customScale 0.2</code>（约 8–12ms/帧），松手 120ms 后 settle 一帧满清（<code>app.js:6143-6155</code>）。这套底座工作台一直没接。</p>
+      </div>
+      <div class="ev">
+        <div class="ev-tag">证据 E4 · 既有对比能力失效</div>
+        <div class="ev-title">「看原图」功能在工作台打开时恰好双双失效</div>
+        <p>项目已有 peek 机制（<code>enterPeek/exitPeek</code>，<code>app.js:2714-2740</code>）：桌面按住空格、移动端长按画布看原图。但工作台打开时——桌面端焦点在滑杆 INPUT 上被守卫拦掉（<code>app.js:2944</code>），移动端画布被遮罩盖住摸不到。</p>
+        <p>最需要对比的时刻，对比恰好不可用。</p>
+      </div>
+    </div>
+
+    <div class="diag-row">
+      <div class="diag">
+        <div class="diag-frame diag-desktop">
+          <span class="dg dg-canvas" style="left:4%;top:0;bottom:0;right:34%">canvas ~800px</span>
+          <span class="dg dg-drawer" style="right:0;top:0;bottom:0;width:34%">workshop 440px</span>
+          <span class="dg dg-scrim" style="left:4%;top:0;bottom:0;right:34%">rgba(5,6,8,.5) + blur(4px)</span>
+          <span class="dg" style="left:0;top:0;bottom:0;width:4%;background:var(--ink-2)"></span>
+        </div>
+        <div class="diag-cap">桌面端现状 · 画布可见但<b>整体压暗 + 模糊</b></div>
+      </div>
+      <div class="diag">
+        <div class="diag-frame diag-phone">
+          <span class="dg" style="left:0;right:0;top:0;height:5%;background:var(--ink-2)">topbar</span>
+          <span class="dg dg-sliver" style="left:0;right:0;top:5%;height:3.5%">canvas 残余 ≈ 20px</span>
+          <span class="dg dg-sheet" style="left:0;right:0;top:8.5%;bottom:0">workshop sheet 92dvh</span>
+        </div>
+        <div class="diag-cap">移动端现状 · 预览<b>完全不可见</b></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ 02 主张 ═══════════ -->
+  <section class="sec">
+    <div class="sec-head"><span class="sec-no">§ 02</span><h2>主张 — 印相期间，<em>暗房让位给相纸</em></h2></div>
+    <p class="sec-lede">
+      工作台 1.12.1 的设计语言已经立了一条规矩：<strong>amber = 用户的手</strong>。这次把它延伸到画布上——手握住旋钮的瞬间，光应该落在被调整的画面上，而不是留在工作台里。三条推论：
+    </p>
+    <div class="prin-list">
+      <div class="prin">
+        <span class="prin-no">P1</span>
+        <div>
+          <div class="prin-title">画布永远是<em>第一反馈面</em></div>
+          <p>任何时刻、任何交互状态，预览画面不被压暗、不被模糊、不被完全遮挡。遮罩可以承担「点击空白关闭」的职责，但不再有视觉存在。这是结构性修复，不是交互糖。</p>
+        </div>
+      </div>
+      <div class="prin">
+        <span class="prin-no">P2</span>
+        <div>
+          <div class="prin-title">手在哪，<em>光在哪</em></div>
+          <p>握住旋钮（pointerdown）的瞬间，工作台的 chrome 淡出退后，只留手指下的那一行控件；画面以全亮度呈现，读数以 HUD 形式浮在画布上。松手后工作台回场。调参的姿态从「在面板里改数字」变成「在灯下看着相纸拧旋钮」。</p>
+        </div>
+      </div>
+      <div class="prin">
+        <span class="prin-no">P3</span>
+        <div>
+          <div class="prin-title">变化要有<em>地址</em></div>
+          <p>每个旋钮声明它影响画面的哪个区域（背景 / 阴影圈 / 字幕区 / 四角……）。握住旋钮时，画布上对应区域亮起一圈 amber 虚线描边——视线有落点，微妙的变化才看得见。渲染管线的 layout 矩形本来就算好了，只是从来没给用户看过。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ 03 方案 ═══════════ -->
+  <section class="sec">
+    <div class="sec-head"><span class="sec-no">§ 03</span><h2>四个机制 + 一个底座</h2></div>
+    <p class="sec-lede">全部机制都建立在项目已有资产上——Compose 的低清拖动、HUD 气泡、peek 看原图都是现成范式，这次是把它们接进工作台，不是发明新轮子。</p>
+
+    <div class="mech-grid">
+      <div class="mech">
+        <div class="mech-id">S0<span class="mid-sub">底座 · 性能</span></div>
+        <div class="mech-body">
+          <div class="mech-title">低清拖动渲染 — 让反馈先「跟手」</div>
+          <p>给全部工作台滑杆接入 Compose 同款拖动生命周期：pointerdown 进入 drag 态 → <code>renderPreview</code> 走 <code>customScale 0.2</code>（每帧 ~10ms，60fps 跟手）→ pointerup 后 120ms settle 一帧 0.5 满清。用一个委托绑定器挂在 bench 容器上（<code>input[type=range]</code> 事件委托），26 个滑杆零散改动一处都不用碰，未来新增旋钮自动继承。</p>
+          <p>这不只是性能优化——<strong>拖动跟手本身就是最基础的「变化可感」</strong>：画面以 60fps 连续响应手指，比任何静态高亮都更能传达因果。</p>
+        </div>
+      </div>
+
+      <div class="mech">
+        <div class="mech-id">A<span class="mid-sub">结构修复</span></div>
+        <div class="mech-body">
+          <div class="mech-title">遮罩退场 — 工作台不再是模态</div>
+          <p>桌面端：<code>.workshop-overlay::before</code> 对画布区域不再压暗、不再模糊。点击空白关闭的行为保留（透明层照样接收点击），但视觉上工作台成为「并排的工作面」而非「弹出的对话框」。画布在剩余空间里重新居中（<code>canvas-stage</code> 加一个 translateX 过渡，抽屉 440px 宽的一半），照片不再被抽屉切掉半边。</p>
+          <p>移动端此阶段不动结构（92dvh 密度是刻意选择），可见性交给机制 B 解决。</p>
+        </div>
+      </div>
+
+      <div class="mech mech--signature">
+        <div class="mech-id">B<span class="mid-sub">拖动编排</span></div>
+        <div class="mech-body">
+          <div class="mech-title">关灯看样 — 握住旋钮，工作台退后</div>
+          <p>pointerdown 在任何滑杆上 60ms 后：工作台整体淡出到 ~5% 不透明度，<strong>只有手指下的那一行控件原地保持全亮</strong>（滑杆绝不能从手指下移走）；画布完整显现。松手后停留 240ms 再让工作台回场——留一拍让眼睛确认结果。</p>
+          <p>移动端是同一套编排的更强版本：sheet 背景转为近乎透明，画布从抽屉<strong>后面</strong>透出来（canvas pane 本来就在 sheet 下层原位渲染着，只是被盖住了——不需要移动任何东西）。这是移动端「盲调」问题的解，也是整个方案的签名交互。</p>
+          <p>键盘同理：焦点在滑杆上按方向键，首次 keydown 进入看样态，最后一次 keydown 600ms 后回场。</p>
+        </div>
+      </div>
+
+      <div class="mech">
+        <div class="mech-id">C<span class="mid-sub">视线引导</span></div>
+        <div class="mech-body">
+          <div class="mech-title">读数上画布 + 区域描边 — 变化有地址</div>
+          <p>看样态下，画布顶部浮出 HUD（复用 <code>.compose-hud</code> 的类族，seal-hud 已有先例）：参数名 + 当前值，amber 等宽字。同时，该旋钮声明的影响区域亮起一圈 1px amber 虚线（矩形来自渲染管线现成的 layout：<code>fgRect</code> / caption zone / canvas 边距……只需从 <code>renderPreview</code> 暴露最近一次 layout）。</p>
+          <p>「阴影模糊」描出照片下缘外圈，「字幕高度」描出字幕带，「背景饱和」描出照片以外的整个边框区——即使像素变化只有 3%，眼睛也知道往哪看。完整映射表见 § 05。</p>
+        </div>
+      </div>
+
+      <div class="mech">
+        <div class="mech-id">D<span class="mid-sub">对比</span></div>
+        <div class="mech-body">
+          <div class="mech-title">试印对比 ◐ — 「改完之后 vs 进门之前」</div>
+          <p>打开工作台时把当前预览画布拍一张「开台样张」（一个 ImageBitmap，成本可忽略）。bench 顶栏加一个 ◐ 钮：<strong>按住</strong>显示样张，松手回到当前状态——与既有 peek 完全同构（peek 对比的是<em>原始照片</em>，◐ 对比的是<em>本次进工作台之前的成品</em>，两者互补，都保留）。</p>
+          <p>顺手修两个既有 peek 的失效：桌面端焦点守卫放行 <code>input[type=range]</code>（空格对滑杆本无语义）；移动端在看样态下画布可触，长按 peek 恢复可用。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ 04 MOCKUPS ═══════════ -->
+  <section class="sec">
+    <div class="sec-head"><span class="sec-no">§ 04</span><h2>可交互示意 — <em>现状 vs 提案</em></h2></div>
+    <p class="sec-lede">
+      两个 mockup 都可以直接拖动滑杆。切到「提案」再拖，体验关灯看样 + HUD + 区域描边的编排。<strong>画面像素变化是 CSS 近似示意</strong>（真实实现走实时渲染管线），编排时序是 1:1 的。
+    </p>
+
+    <!-- desktop mock -->
+    <div class="mock-shell">
+      <div class="mock-bar">
+        <span class="mock-label">Desktop · 1440</span>
+        <div class="mode-seg" data-for="mock-desk">
+          <button data-mode="now" class="on">现状</button>
+          <button data-mode="plan">提案</button>
+        </div>
+        <span class="mock-hint">拖动右侧任一滑杆 · 观察画布与抽屉的行为差异</span>
+      </div>
+      <div class="mock mock-desk" id="mock-desk" data-mode="now">
+        <div class="mkd-lookbar"><i></i><i></i><i></i><i></i><i style="margin-top:auto"></i></div>
+        <div class="mk-canvas mkd-canvas">
+          <img class="mk-photo" src="../data/samples/05-frosted-noir_preview.jpg" alt=""
+               onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
+          <div class="mk-photo-fallback"></div>
+          <!-- region hairlines · data-box = 相对照片盒的 l,t,w,h 百分比，JS 换算到画布坐标 -->
+          <div class="mk-reg" data-region="bg" data-flip data-box="2.5,2,95,96"><span class="mk-reg-label">背景区</span></div>
+          <div class="mk-reg" data-region="shadow" data-flip data-box="21,78,58,12"><span class="mk-reg-label">阴影圈</span></div>
+          <div class="mk-reg" data-region="caption" data-flip data-box="26,90,48,8"><span class="mk-reg-label">字幕区</span></div>
+          <!-- HUD -->
+          <div class="mk-hud"><span class="mk-hud-key"></span><span class="mk-hud-val"></span><span class="mk-hud-unit"></span></div>
+          <div class="mk-scrim"></div>
+        </div>
+        <div class="mk-drawer">
+          <div class="mk-drawer-head"><span>◉ 仪器 INSTRUMENT</span><span>ESC 关闭</span></div>
+          <div class="mk-row" data-region="bg" data-key="背景 · 亮度" data-unit="×" data-fx="brightness">
+            <div class="mk-row-top"><span class="mk-row-name">背景 · 亮度</span><span class="mk-row-val">1.00×</span></div>
+            <input type="range" min="85" max="115" value="100">
+          </div>
+          <div class="mk-row" data-region="shadow" data-key="光照 · 模糊" data-unit="px" data-fx="contrast">
+            <div class="mk-row-top"><span class="mk-row-name">光照 · 模糊</span><span class="mk-row-val">90px</span></div>
+            <input type="range" min="0" max="160" value="90">
+          </div>
+          <div class="mk-row" data-region="caption" data-key="字幕 · 高度" data-unit="px" data-fx="none">
+            <div class="mk-row-top"><span class="mk-row-name">字幕 · 高度</span><span class="mk-row-val">120px</span></div>
+            <input type="range" min="90" max="200" value="120">
+          </div>
+          <div class="mk-note">现状：遮罩把画布压暗打糊，拖动毫无编排<br>提案：握住滑杆 → 抽屉退后 · HUD + 描边浮现</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- mobile mock -->
+    <div class="mock-shell">
+      <div class="mock-bar">
+        <span class="mock-label">Mobile · 390</span>
+        <div class="mode-seg" data-for="mock-phone">
+          <button data-mode="now" class="on">现状</button>
+          <button data-mode="plan">提案</button>
+        </div>
+        <span class="mock-hint">现状模式下你根本看不到照片 —— 这就是问题本身</span>
+      </div>
+      <div class="mock mock-phone" id="mock-phone" data-mode="now">
+        <div class="mkm-topbar">PHOTO-TOOLS</div>
+        <div class="mk-canvas mkm-canvas">
+          <img class="mk-photo" src="../data/samples/05-frosted-noir_preview.jpg" alt=""
+               onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
+          <div class="mk-photo-fallback"></div>
+          <div class="mk-reg" data-region="bg" data-flip data-box="2.5,2,95,96"><span class="mk-reg-label">背景区</span></div>
+          <div class="mk-reg" data-region="shadow" data-flip data-box="21,78,58,12"><span class="mk-reg-label">阴影圈</span></div>
+          <div class="mk-hud"><span class="mk-hud-key"></span><span class="mk-hud-val"></span><span class="mk-hud-unit"></span></div>
+        </div>
+        <div class="mkm-lookbar"><i></i><i></i></div>
+        <div class="mkm-scrim"></div>
+        <div class="mkm-sheet">
+          <div class="mkm-pill"></div>
+          <div class="mkm-dock"><i class="on">◉ 仪器</i><i>┃ 测量</i><i>✎ 笔记</i><i>❖ 印记</i></div>
+          <div class="mkm-card">
+            <div class="mkm-card-tag">FROSTED-NOIR · BG RACK</div>
+            <div class="mk-row" data-region="bg" data-key="背景 · 亮度" data-unit="×" data-fx="brightness">
+              <div class="mk-row-top"><span class="mk-row-name">背景 · 亮度</span><span class="mk-row-val">1.00×</span></div>
+              <input type="range" min="85" max="115" value="100">
+            </div>
+          </div>
+          <div class="mkm-card">
+            <div class="mkm-card-tag">LIGHTING</div>
+            <div class="mk-row" data-region="shadow" data-key="光照 · 深度" data-unit="" data-fx="contrast">
+              <div class="mk-row-top"><span class="mk-row-name">光照 · 深度</span><span class="mk-row-val">0.45</span></div>
+              <input type="range" min="0" max="80" value="45">
+            </div>
+          </div>
+          <div class="mk-note" style="margin-top:auto;padding:0 4px">提案模式下握住滑杆：sheet 透明化，照片从抽屉后面透出来 —— canvas 本来就在那里渲染着，只是被盖住了</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ 05 规格 ═══════════ -->
+  <section class="sec">
+    <div class="sec-head"><span class="sec-no">§ 05</span><h2>交互规格</h2></div>
+
+    <h3>状态机（每个滑杆共用，委托绑定）</h3>
+    <div class="sm">
+      <div class="sm-state">
+        <div class="sm-name">IDLE 常态</div>
+        <div class="sm-desc">工作台正常呈现；渲染走 0.5 满清；HUD / 描边隐藏。</div>
+      </div>
+      <div class="sm-arrow">pointerdown<br>+60ms 起手</div>
+      <div class="sm-state hot">
+        <div class="sm-name">LIVE 看样</div>
+        <div class="sm-desc">工作台 chrome 淡出至 5%（180ms ease-out），活动行原地保持；渲染降 0.2 低清逐帧跟手；HUD + 区域描边浮现。</div>
+      </div>
+      <div class="sm-arrow">pointerup /<br>pointercancel</div>
+      <div class="sm-state">
+        <div class="sm-name">SETTLE 定影</div>
+        <div class="sm-desc">120ms 后补渲染一帧 0.5 满清（Compose 同款）；HUD 保持显示最终值。</div>
+      </div>
+      <div class="sm-arrow">+240ms<br>停一拍</div>
+      <div class="sm-state">
+        <div class="sm-name">RESTORE 回场</div>
+        <div class="sm-desc">工作台 260ms 淡入回场；HUD / 描边随之淡出。期间再次 pointerdown 直接打断回到 LIVE。</div>
+      </div>
+    </div>
+
+    <h3>时序参数</h3>
+    <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>事件</th><th>参数</th><th>依据</th></tr></thead>
+      <tbody>
+        <tr><td>关灯起手延迟</td><td>pointerdown + 60ms</td><td>轻点轨道（单次 input）不触发整场编排，避免闪烁</td></tr>
+        <tr><td>工作台淡出 / 回场</td><td>180ms ease-out / 停 240ms 后 260ms 淡入</td><td>松手后留一拍给眼睛确认结果</td></tr>
+        <tr><td>拖动中渲染</td><td><code>customScale 0.2</code>，rAF 合流</td><td>Compose 实测 ~8–12ms/帧（<code>app.js:5673</code>）</td></tr>
+        <tr><td>settle 满清</td><td>pointerup + 120ms</td><td>Compose 同款（<code>app.js:6150</code>）</td></tr>
+        <tr><td>键盘看样</td><td>首次方向键进入 · 末次 keydown + 600ms 回场</td><td>方向键是离散步进，回场窗口放宽</td></tr>
+        <tr><td>reduced-motion</td><td>全部过渡改即时切换</td><td>质量底线，不牺牲功能</td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <h3>旋钮 → 画面落点映射（区域描边）</h3>
+    <p>矩形全部来自渲染管线已算好的 layout（需从 <code>renderPreview</code> 暴露最近一次结果，例如 <code>CR.lastPreviewLayout</code>）；canvas 像素坐标 → CSS 坐标的换算 Compose 已有先例。映射声明为一张静态表（<code>data-region</code> 或 JS map），新滑杆不声明则只出 HUD 不出描边——描边是渐进增强。</p>
+    <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>旋钮组</th><th>画面落点</th><th>矩形来源</th></tr></thead>
+      <tbody>
+        <tr><td>bg 五件套（模糊/亮度/饱和/压暗/颗粒）</td><td>背景区 — 画布减去照片包络</td><td>canvas − fgRect（描画布内缘一圈）</td></tr>
+        <tr><td>LIGHTING 三件套（shadow blur/drop/depth）</td><td>照片下缘外圈「阴影圈」</td><td>fgRect 底边向外扩 shadowBlur</td></tr>
+        <tr><td>torn 三件套 · f35 sprocket · slide pebble/bevel · gal 卡纸线</td><td>照片边缘 / 边框装饰带</td><td>fgRect 描边 / padding 带</td></tr>
+        <tr><td>ht 四件套 · f35 grain · film-mf age</td><td>照片全体</td><td>fgRect</td></tr>
+        <tr><td>padding / radius（Caliper）</td><td>四边留白 / 四角</td><td>canvas − fgRect / fgRect 四角短弧</td></tr>
+        <tr><td>caption-h / overlay-lift（Notation）</td><td>字幕区</td><td>caption zone（layout 现成）</td></tr>
+        <tr><td>instax slab</td><td>底部厚边</td><td>bottom band</td></tr>
+        <tr><td>seal opacity（Seal）</td><td>印记矩形</td><td><code>customLogoRect</code>（现成）</td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <h3>◐ 试印对比（机制 D）</h3>
+    <ul>
+      <li><strong>取样时机</strong>：<code>openWorkshop()</code> 时把预览画布拍成 ImageBitmap（「开台样张」）。切 tool 面板不重拍；双击 ◐ 手动重钉（见 § 07 决策点 Q4）。</li>
+      <li><strong>交互</strong>：按住 ◐ → 画布直接绘制样张（与 <code>enterPeek</code> 同构，画布像素级替换，无 DOM 叠层）；松手 → <code>requestRender()</code> 回到当前状态。HUD 显示「开台样张」标签避免误读。</li>
+      <li><strong>与既有 peek 的关系</strong>：空格/长按 peek 对比的是<em>原始照片</em>，◐ 对比的是<em>进工作台前的成品</em>。两者并存，语义互补。</li>
+      <li><strong>守卫修复</strong>：<code>app.js:2944</code> 的焦点守卫放行 <code>input[type=range]</code>；看样态下移动端画布恢复可触，长按 peek 可用。</li>
+    </ul>
+
+    <h3>离散控件（seg / toggle / 色板）</h3>
+    <p>v1 只对滑杆做完整编排。离散控件点击后做<strong>轻量版</strong>：对应区域描边闪现 900ms（桌面可见）；移动端暂不处理——离散变化通常幅度大（换 frame、开关字幕），本来就容易感知。若 review 后认为不够，再议「点击后短暂关灯 1s」方案（有误触风险，见 Q3）。</p>
+  </section>
+
+  <!-- ═══════════ 06 实施 ═══════════ -->
+  <section class="sec">
+    <div class="sec-head"><span class="sec-no">§ 06</span><h2>实施注记 — 三个 PR，一次一个</h2></div>
+    <p class="sec-lede">沿用 rev2 的节奏：每个 Phase 独立可验收、独立进 CHANGELOG。全部复用既有范式，无新依赖、无 schema 变化（不触碰 cfg / preset / share-code）。</p>
+
+    <div class="phase">
+      <div class="phase-id">PR-1<span>→ 1.13.0</span><small>底座 + 退幕</small></div>
+      <div class="phase-body">
+        <div class="phase-title">S0 低清拖动 + A 遮罩退场</div>
+        <p><strong>S0</strong>：bench 容器上委托绑定 <code>pointerdown/up/cancel</code>（range 输入），全局 <code>benchDrag</code> 状态 + settle timer 照抄 <code>beginDrag/endDrag</code>（<code>app.js:6143-6155</code>）；<code>doRender</code> 在 drag 态传 <code>customScale: 0.2</code>（<code>renderPreview</code> 的 clamp 入口现成，<code>clientRender.js:613</code>）。<code>setPointerCapture</code> 包 try/catch（既有 pitfall）。</p>
+        <p><strong>A</strong>：<code>.workshop-overlay::before</code> 桌面端去掉 dim + blur（保留透明点击层）；<code>body[data-workshop-open] .canvas-stage</code> 加 translateX 重心过渡。纯 CSS + 一个 body class。</p>
+        <p>CHANGELOG：⚡ 性能（拖动 60fps）+ 🎨 工作台不再遮蔽预览。</p>
+      </div>
+    </div>
+    <div class="phase">
+      <div class="phase-id">PR-2<span>→ 1.14.0</span><small>关灯看样</small></div>
+      <div class="phase-body">
+        <div class="phase-title">B 拖动编排 + C HUD / 区域描边</div>
+        <p><strong>B</strong>：drag 态给 workshop 根挂 <code>data-live</code>，CSS 完成全部淡出编排（活动行 <code>.is-live</code> 原地保持）；移动端同一套规则外加 sheet 背景透明化 + lookbar/topbar 同步压暗（body class）。键盘路径挂 keydown 计时器。</p>
+        <p><strong>C</strong>：canvas-pane 内新增 <code>#bench-hud</code>（复用 <code>.compose-hud</code> 类族，seal-hud 先例）+ <code>#bench-region</code> 描边层；<code>renderPreview</code> 暴露 <code>lastPreviewLayout</code>；映射表一张。</p>
+      </div>
+    </div>
+    <div class="phase">
+      <div class="phase-id">PR-3<span>→ 1.15.0</span><small>试印</small></div>
+      <div class="phase-body">
+        <div class="phase-title">D ◐ 试印对比 + peek 守卫修复</div>
+        <p>开台样张快照 + ◐ 按住对比（<code>enterPeek</code> 同构）；<code>app.js:2944</code> 守卫放行 range；看样态画布恢复可触。i18n 补 ◐ 的 label / hint 两个 locale。</p>
+      </div>
+    </div>
+
+    <h3>风险与既有坑位对照</h3>
+    <ul>
+      <li><strong>pointercancel 必须与 pointerup 同权处理</strong>（iOS 手势打断），否则工作台卡在 5% 透明度——Compose 的 <code>bindDrag</code> 已处理，照抄。</li>
+      <li><strong>活动行绝不能在 LIVE 态移动</strong>：所有编排只做 opacity / background，不做 transform / 布局变化——滑杆从手指下移走是死罪。</li>
+      <li><strong>opacity 不穿透父级上限</strong>：活动行嵌在仪器卡片等容器里时，给容器整体降 opacity 会连活动行一起压暗，子级设 opacity:1 也救不回来（本文档 mock 制作时实测踩中）。淡出必须结构化施加——活动行的<em>祖先链整条保持可见</em>，只淡出祖先链之外的兄弟节点（一次 <code>closest()</code> 链遍历即可）。</li>
+      <li><strong>遮罩退场后点击空白关闭的命中区不变</strong>：只改视觉，不改事件（overlay 点击处理在 <code>app.js:4317</code>）。</li>
+      <li><strong>描边层坐标换算</strong>要在 canvas CSS 尺寸变化（窗口 resize、低清/满清切换）时重算——低清态 canvas 像素数变了但 CSS 盒不变，换算基准用 CSS 盒。</li>
+      <li><strong>移动端 sheet 透明化后 lookbar 会透出来</strong>：LIVE 态 body class 顺带压暗 lookbar / topbar，视觉只留照片 + 活动行 + HUD。</li>
+      <li>工作台滑杆样式选择器已有专门的特异性规则（<code>.workshop--bench .x-slider</code> 前缀，1.12.1 教训）——新增 <code>.is-live</code> 规则同样从组件根起链。</li>
+    </ul>
+  </section>
+
+  <!-- ═══════════ 07 决策点 ═══════════ -->
+  <section class="sec sec-decisions">
+    <div class="sec-head"><span class="sec-no">§ 07</span><h2>留给 review 的决策点</h2></div>
+    <p class="sec-lede">以下问题不阻塞 PR-1（底座 + 退幕没有争议面），但影响 PR-2 / PR-3 的形态。每题附建议。</p>
+
+    <div class="dec">
+      <div class="dec-q">桌面遮罩要「彻底退场」还是留一层极轻的着色？</div>
+      <p>彻底退场 = 工作台从「模态对话框」降格为「并排工作面」，与 role="dialog" 的语义有轻微出入（可同步调整 aria）。留 8% 着色则保留一点「工作台在前」的层次感。</p>
+      <p class="rec">建议：彻底退场。画布是第一反馈面，8% 也是税。层次感由抽屉自身的边线和投影承担。</p>
+    </div>
+    <div class="dec">
+      <div class="dec-q">移动端 LIVE 态：sheet 整体透明化，还是下滑让位？</div>
+      <p>下滑让位（sheet 滑到只剩活动行）画面更完整，但滑杆会从手指下移走，拖动直接断掉——已否。透明化方案活动行原地不动，照片从 sheet 后面透出，代价是活动行会压住照片一角。</p>
+      <p class="rec">建议：透明化。活动行本身带半透明底 + 模糊，压住的一角仍隐约可见；真实照片区域受损极小。</p>
+    </div>
+    <div class="dec">
+      <div class="dec-q">离散控件（frame seg / toggle / 色板）要不要也「关灯」？</div>
+      <p>点击后自动关灯 1s 能让换 frame 的效果直接呈现，但误触成本高（每次点击都闪一场）。v1 草案只给离散控件做区域描边闪现（桌面），移动端不处理。</p>
+      <p class="rec">建议：v1 按草案收窄；上线后若「换色板看不到效果」被实际抱怨，再加可选的点击关灯。</p>
+    </div>
+    <div class="dec">
+      <div class="dec-q">◐ 试印样张的基线什么时候重拍？</div>
+      <p>候选：只在开台时拍（语义最清晰）/ 每次切 tool 重拍（粒度细但语义模糊）/ 手动重钉（双击 ◐）。</p>
+      <p class="rec">建议：开台拍 + 双击 ◐ 重钉，HUD 标注取样时间。切 tool 不重拍——「本次进工作台改了什么」是最自然的对比单位。</p>
+    </div>
+    <div class="dec">
+      <div class="dec-q">要不要做「试印条 test strip」？（远期）</div>
+      <p>暗房原教旨的对比方式：把当前参数扫出 N 档，在画布上分条并排渲染（如阴影模糊 0 / 40 / 80 / 120 四竖条），一眼选档。渲染成本 = N 次低清渲染，技术上可行，但 UI 面积、交互入口、与 LOOK 系统的关系都需要单独设计。</p>
+      <p class="rec">建议：不进本次三个 PR，作为远期概念挂起——先让「看得见」落地，再谈「看得多」。</p>
+    </div>
+  </section>
+
+  <div class="foot">
+    photo-tools · docs/workshop-proofing-rev1.html · 2026-08-19<br>
+    诊断依据：refactor/workshop-darkroom 分支代码调研（styles.css:4118/4454 · app.js:2714/2944/5673/6143 · clientRender.js:613）<br>
+    同族文档：workshop-darkroom-rev2 · compose-mode-design · halftone-frame-design
+  </div>
+</div>
+
+<script>
+(function(){
+  'use strict';
+
+  function wireMock(mockId){
+    var mock = document.getElementById(mockId);
+    if (!mock) return;
+    var seg = document.querySelector('.mode-seg[data-for="' + mockId + '"]');
+    var hud = mock.querySelector('.mk-hud');
+    var hudKey = hud.querySelector('.mk-hud-key');
+    var hudVal = hud.querySelector('.mk-hud-val');
+    var hudUnit = hud.querySelector('.mk-hud-unit');
+    var photo = mock.querySelector('.mk-photo');
+    var canvas = mock.querySelector('.mk-canvas');
+    var restoreTimer = 0, engageTimer = 0;
+
+    // 区域描边贴住照片实际渲染盒 — 与真实实现的 layout→CSS 坐标换算同构
+    function positionRegions(){
+      var src = (photo && photo.style.display !== 'none' && photo.naturalWidth)
+        ? photo : mock.querySelector('.mk-photo-fallback');
+      if (!src) return;
+      var pr = src.getBoundingClientRect();
+      var cr = canvas.getBoundingClientRect();
+      if (!pr.width || !cr.width) return;
+      mock.querySelectorAll('.mk-reg').forEach(function(reg){
+        var box = (reg.dataset.box || '').split(',').map(Number);
+        if (box.length !== 4) return;
+        reg.style.left   = (pr.left - cr.left + pr.width  * box[0] / 100) + 'px';
+        reg.style.top    = (pr.top  - cr.top  + pr.height * box[1] / 100) + 'px';
+        reg.style.width  = (pr.width  * box[2] / 100) + 'px';
+        reg.style.height = (pr.height * box[3] / 100) + 'px';
+      });
+    }
+    if (photo){
+      if (photo.complete) positionRegions();
+      photo.addEventListener('load', positionRegions);
+      photo.addEventListener('error', function(){ setTimeout(positionRegions, 0); });
+    }
+    window.addEventListener('resize', positionRegions);
+
+    // mode toggle
+    seg.addEventListener('click', function(e){
+      var btn = e.target.closest('button[data-mode]');
+      if (!btn) return;
+      seg.querySelectorAll('button').forEach(function(b){ b.classList.toggle('on', b === btn); });
+      mock.dataset.mode = btn.dataset.mode;
+      endLive(true);
+    });
+
+    function fmt(row, raw){
+      var fx = row.dataset.fx;
+      if (fx === 'brightness') return (raw / 100).toFixed(2);
+      if (row.dataset.unit === '' ) return (raw / 100).toFixed(2);
+      return String(Math.round(raw));
+    }
+
+    function applyFx(row, raw){
+      // CSS 近似示意 — 真实实现走渲染管线
+      var fx = row.dataset.fx;
+      if (!photo || photo.style.display === 'none') return;
+      if (fx === 'brightness') photo.style.filter = 'brightness(' + (raw / 100) + ')';
+      else if (fx === 'contrast') photo.style.filter = 'contrast(' + (0.92 + (raw / (row.querySelector('input').max)) * 0.16) + ')';
+    }
+
+    function beginLive(row){
+      if (mock.dataset.mode !== 'plan') return;
+      clearTimeout(restoreTimer);
+      clearTimeout(engageTimer);
+      engageTimer = setTimeout(function(){
+        mock.setAttribute('data-live', '');
+        row.classList.add('is-live');
+        var card = row.closest('.mkm-card');
+        if (card) card.classList.add('is-live');
+        hudKey.textContent = row.dataset.key;
+        hudUnit.textContent = row.dataset.unit;
+        hud.classList.add('on');
+        mock.querySelectorAll('.mk-reg').forEach(function(r){
+          r.classList.toggle('on', r.dataset.region === row.dataset.region);
+        });
+      }, 60);
+    }
+
+    function endLive(immediate){
+      clearTimeout(engageTimer);
+      clearTimeout(restoreTimer);
+      restoreTimer = setTimeout(function(){
+        mock.removeAttribute('data-live');
+        mock.querySelectorAll('.is-live').forEach(function(r){ r.classList.remove('is-live'); });
+        mock.querySelectorAll('.mk-reg.on').forEach(function(r){ r.classList.remove('on'); });
+        hud.classList.remove('on');
+      }, immediate ? 0 : 240);
+    }
+
+    mock.querySelectorAll('.mk-row').forEach(function(row){
+      var input = row.querySelector('input[type=range]');
+      var val = row.querySelector('.mk-row-val');
+      if (!input) return;
+
+      function refresh(){
+        var raw = Number(input.value);
+        var text = fmt(row, raw) + (row.dataset.unit || '');
+        val.textContent = text;
+        hudVal.textContent = fmt(row, raw);
+        applyFx(row, raw);
+      }
+
+      input.addEventListener('pointerdown', function(e){
+        try { input.setPointerCapture(e.pointerId); } catch(_) {}
+        beginLive(row);
+      });
+      input.addEventListener('pointerup', function(){ endLive(false); });
+      input.addEventListener('pointercancel', function(){ endLive(false); });
+      input.addEventListener('input', refresh);
+      refresh();
+    });
+  }
+
+  wireMock('mock-desk');
+  wireMock('mock-phone');
+})();
+</script>
+</body>
+</html>

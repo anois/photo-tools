@@ -567,7 +567,9 @@ async function doRender() {
   if (!active || !state.logos) return;
   if (state.rendering) { state.pendingRender = true; return; }
   state.rendering = true;
-  els.previewLoading.hidden = false;
+  // Suppress the rendering dot during bench drags — low-res frames land in
+  // ~10ms and the indicator would just flicker as noise at 60fps.
+  if (!benchDrag.live) els.previewLoading.hidden = false;
   updateFrameBadge(active.cfg);
   try {
     // cfg snapshot for the preview render. snapshotCfgForRender (defined
@@ -582,7 +584,9 @@ async function doRender() {
       cfg: snapshotCfgForRender(active.cfg),
       normExif: buildCurrentExif(),
       logos: state.logos,
-      fontFaceCss: state.fontFaceCss
+      fontFaceCss: state.fontFaceCss,
+      // Lights-down proofing S0: low-res while a bench slider is held.
+      customScale: benchDrag.live ? BENCH_SCALE_DRAG : undefined
     });
     els.empty.hidden = true;
   } catch (err) {
@@ -591,6 +595,8 @@ async function doRender() {
   } finally {
     state.rendering = false;
     els.previewLoading.hidden = true;
+    // Full-res frame painted → release the CSS box lock (see lockCanvasBox).
+    if (!benchDrag.live) unlockCanvasBox();
     if (state.pendingRender) {
       state.pendingRender = false;
       requestRender();
@@ -610,6 +616,72 @@ function requestRender() {
   if (renderRAF) return;
   renderRAF = requestAnimationFrame(() => { renderRAF = 0; doRender(); });
 }
+
+// ─── Lights-down proofing · S0 bench-slider drag state ──────────────────
+// Every workshop slider gets the Compose-mode drag lifecycle: while a
+// pointer is down on any range input inside the bench, preview renders at
+// BENCH_SCALE_DRAG (~1/6 the pixel area, ~10ms/frame instead of 50-80ms)
+// so the canvas tracks the finger at 60fps; on release a settle timer
+// fires one full-scale render. Bound once, delegated on #bench-stage —
+// individual slider handlers stay untouched and future harness knobs
+// inherit the behavior for free.
+const BENCH_SCALE_DRAG = 0.2;
+const BENCH_SETTLE_MS = 120;   // Compose precedent (app.js bindDrag)
+const benchDrag = { live: false, settleTimer: 0, lastInput: null };
+
+// While dragging, the canvas's *pixel* dims shrink to the low-res layout,
+// but #preview-canvas is CSS-sized by its intrinsic dims (width:auto +
+// max-width) — without a lock the on-screen box would visibly shrink
+// during every drag. Freeze the CSS box at drag start; object-fit:contain
+// absorbs any aspect change mid-drag (padding slider); unlock happens in
+// doRender's finally once a full-res frame has been painted.
+function lockCanvasBox() {
+  const c = els.canvas;
+  if (!c || c.classList.contains('empty')) return;
+  const r = c.getBoundingClientRect();
+  if (!r.width || !r.height) return;
+  c.style.width = r.width + 'px';
+  c.style.height = r.height + 'px';
+}
+function unlockCanvasBox() {
+  els.canvas.style.width = '';
+  els.canvas.style.height = '';
+}
+
+function benchBeginDrag(input) {
+  benchDrag.lastInput = input;
+  if (benchDrag.live) return;
+  benchDrag.live = true;
+  if (benchDrag.settleTimer) { clearTimeout(benchDrag.settleTimer); benchDrag.settleTimer = 0; }
+  lockCanvasBox();
+}
+function benchEndDrag() {
+  if (!benchDrag.live) return;
+  benchDrag.live = false;
+  if (benchDrag.settleTimer) clearTimeout(benchDrag.settleTimer);
+  // One full-res settle frame after release — without it the canvas would
+  // sit at low-res until the next unrelated render.
+  benchDrag.settleTimer = setTimeout(() => {
+    benchDrag.settleTimer = 0;
+    requestRender();
+  }, BENCH_SETTLE_MS);
+}
+
+(function wireBenchDrag() {
+  const stage = document.getElementById('bench-stage');
+  if (!stage) return;
+  stage.addEventListener('pointerdown', (e) => {
+    const input = e.target.closest && e.target.closest('input[type="range"]');
+    if (!input) return;
+    benchBeginDrag(input);
+  });
+  // Release can land anywhere (implicit pointer capture retargets to the
+  // input but the event still bubbles to window). pointercancel must be
+  // handled with the same weight as pointerup — iOS gesture interruptions
+  // would otherwise leave the preview stuck at low-res.
+  window.addEventListener('pointerup', benchEndDrag);
+  window.addEventListener('pointercancel', benchEndDrag);
+})();
 
 // Reflect a per-photo cfg into all the DOM controls. Called whenever the
 // active photo changes (or apply-to-all rewrites the active photo's EXIF).
@@ -4255,6 +4327,9 @@ checkChangelogBadge();
   function openWorkshop(tab) {
     wsOverlay.dataset.open = 'true';
     wsOverlay.setAttribute('aria-hidden', 'false');
+    // Lights-down proofing A: body flag drives the desktop canvas re-center
+    // (wide viewports shift the photo into the space the drawer leaves).
+    document.body.dataset.workshopOpen = 'true';
     if (tab) setWorkshopTab(tab);
     // Refresh modified state in case cfg changed while workshop was closed.
     refreshWorkshopModifiedState();
@@ -4262,6 +4337,7 @@ checkChangelogBadge();
   function closeWorkshop() {
     wsOverlay.dataset.open = 'false';
     wsOverlay.setAttribute('aria-hidden', 'true');
+    document.body.dataset.workshopOpen = 'false';
   }
   // Phase 12 (1.9.0) — workshop redesign rev.2 「The Bench」: 5 sections
   // collapse into 4 tools (instrument / caliper / notation / seal). The

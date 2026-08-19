@@ -4119,13 +4119,26 @@ input[type="range"]::-moz-range-thumb {
   content: '';
   position: absolute;
   inset: 0;
-  background: rgba(5,6,8,0.5);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
+  /* Lights-down proofing (1.13.0) mechanism A — the canvas is the first
+     feedback surface: on desktop the scrim no longer dims or blurs the
+     preview while the drawer is open. The transparent layer still catches
+     click-outside-to-close (pointer-events on the overlay div, unchanged).
+     The phone media block below re-adds the dim for the bottom sheet. */
+  background: transparent;
   opacity: 0;
   transition: opacity 240ms ease;
 }
 .workshop-overlay[data-open="true"]::before { opacity: 1; }
+/* Mechanism A, part 2 — with the scrim gone, re-center the photo in the
+   space the drawer leaves. 440px drawer − 80px filmstrip = 360px overlap
+   on the canvas pane. Only on wide viewports: between 701-1099px the
+   drawer dominates the pane and shifting would push the photo under the
+   lookbar. Per-property cascade: this padding-right beats the media-query
+   `padding:` shorthands on .pane-canvas (attribute selector wins). */
+@media (min-width: 1100px) {
+  .pane-canvas { transition: padding 320ms cubic-bezier(0.2,0.8,0.2,1); }
+  body[data-workshop-open="true"] .pane-canvas { padding-right: 372px; }
+}
 .workshop {
   position: absolute;
   top: 0;
@@ -4468,6 +4481,14 @@ body {
     padding-top: 14px;
   }
   .workshop-overlay[data-open="true"] .workshop { transform: translateY(0); }
+
+  /* Phone keeps the scrim behind the bottom sheet (the desktop base rule
+     went transparent in 1.13.0 — lights-down proofing mechanism A). */
+  .workshop-overlay::before {
+    background: rgba(5,6,8,0.5);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+  }
 
   /* Cmdk overlay starts higher on phone (less wasted top space) */
   .cmdk-overlay { padding-top: 8vh; }
