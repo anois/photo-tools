@@ -11,11 +11,16 @@
  * hand-made / scrapbook / diary. Together the three cover the
  * "vintage personal" range.
  *
- * Determinism: the torn pattern is seeded from cell geometry (x,y,w,h),
- * so the same photo at the same dimensions always produces the same
- * silhouette. Without a stable seed the edge would shimmer on every
- * render — a slider drag would visibly re-tear the paper, which is a
- * nightmare UX.
+ * Determinism: sampling runs in BASE-1440 space (canvas px ÷ layout.scale)
+ * and the seed derives from the cell's scale-free identity (its position
+ * as a fraction of the canvas + the jitter knob) — NOT from pixel dims.
+ * Two consequences, both deliberate (1.16.1):
+ *   · the silhouette is identical at any render scale, so the 0.2×
+ *     lights-down drag frames, the 0.5× preview and the full-res export
+ *     all show the same tear;
+ *   · resizing the cell (padding drag) deforms the existing tear smoothly
+ *     instead of re-tearing every frame — the rng sequence per vertex
+ *     stays fixed while the sampling grid stretches.
  *
  * Renderer integration: relies on the optional `frame.clipPath` hook
  * shipped alongside this frame. compose() (main thread + worker) routes
@@ -27,56 +32,57 @@
   const root = (typeof self !== 'undefined' ? self : globalThis);
   const R = root.PhotoRender;
 
-  // Mulberry32 — small, high-quality, deterministic 32-bit PRNG.
-  // We need determinism (same seed → same sequence) so the torn edge
-  // doesn't shimmer between renders. Math.random() would be a disaster
-  // here — every slider tweak would re-tear the paper differently.
-  function mulberry32(seed) {
-    let a = seed >>> 0;
-    return function () {
-      a = (a + 0x6D2B79F5) >>> 0;
-      let t = a;
-      t = Math.imul(t ^ (t >>> 15), t | 1);
-      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-    };
+  // Stateless indexed hash → [0,1). Same mixing core as mulberry32 but
+  // addressed by (seed, edge, vertex-index) instead of consumed as a
+  // stream — determinism without order-sensitivity.
+  function h01(seed, a, b) {
+    let t = (seed ^ Math.imul(a, 0x9E3779B1) ^ Math.imul(b + 1, 0x85EBCA6B)) >>> 0;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   }
 
-  // Three classic large primes — the geometry hash is the same kind
-  // used in spatial-hashing schemes. Different cells in a collage get
-  // different seeds because their (x, y) origins differ; same cell at
-  // same dims always gets the same seed across renders.
-  function hashGeom(x, y, w, h) {
+  // Scale-free cell identity → seed. Position enters as a fraction of the
+  // canvas (×32 buckets) so collage cells get distinct seeds while the
+  // value is identical at any render scale (canvas-px inputs would make
+  // the 0.2× drag frames tear differently from the 0.5× rest frames —
+  // the exact bug this replaced). Pixel dims deliberately stay OUT of the
+  // seed: resizing deforms the tear instead of re-rolling it.
+  function seedFor(x, y, layout, t) {
+    const cw = Math.max(1, (layout.canvas && layout.canvas.W) || 1);
+    const ch = Math.max(1, (layout.canvas && layout.canvas.H) || 1);
+    const relX = Math.round((x / cw) * 32);
+    const relY = Math.round((y / ch) * 32);
     return (
-      ((x | 0) * 73856093) ^
-      ((y | 0) * 19349663) ^
-      ((w | 0) * 83492791) ^
-      ((h | 0) * 2654435761)
+      (relX * 73856093) ^
+      (relY * 19349663) ^
+      ((Math.round(t.jitter * 2) + 1) * 83492791)
     ) >>> 0;
   }
 
   function tornClip(ctx, x, y, w, h, layout, args) {
     const s = layout.scale || 1;
     // Defaults match the original hardcoded values; cfg overrides arrive
-    // via R.resolveRenderParams' `params.torn` block. Floored so that
-    // very-low-quality previews don't degenerate (step → 1 sample / side)
-    // and so jitter=0 reads as "clean cut" rather than NaN/-px.
+    // via R.resolveRenderParams' `params.torn` block.
     const t = (args && args.params && args.params.torn)
       ? args.params.torn
       : { jitter: 6, step: 7 };
-    // Sample point spacing along the edge, in canvas px. ~7 base-px reads
-    // as fibrous-not-noisy at 1× preview. Larger steps give chunkier,
-    // more irregular tears (think old paperback dog-eared corners);
-    // smaller is finer.
-    const step = Math.max(2, t.step * s);
-    // Inward jitter amplitude — how deep the tear can bite into the
-    // photo. 0 = scissors-cut clean; ~6 base-px reads as "torn paper";
-    // very large (>12) reads as chewed. Math.max with 0 (not 1) so the
-    // user can dial it to a perfectly straight edge if they want.
-    const jitter = Math.max(0, t.jitter * s);
+    // All sampling math runs in base-1440 units; only the emitted path
+    // coordinates multiply by `s`. Sample spacing ~7 base-px reads as
+    // fibrous-not-noisy; larger steps give chunkier tears. Jitter is the
+    // inward bite depth: 0 = scissors-clean, ~6 = torn paper, >12 = chewed.
+    const stepB = Math.max(1.5, t.step);
+    const jitterB = Math.max(0, t.jitter);
+    const xb = x / s, yb = y / s, wb = w / s, hb = h / s;
 
-    const rng = mulberry32(hashGeom(x, y, w, h));
-    const j = () => rng() * jitter;
+    // Jitter is hashed PER VERTEX INDEX, not drawn from a sequential rng:
+    // canvas-px rounding can add/drop one vertex near a corner between
+    // render scales, and a sequential stream would shift every subsequent
+    // draw — re-rolling the whole edge. Indexed hashing confines any
+    // count difference to that single corner-adjacent vertex.
+    const seed = seedFor(x, y, layout, t);
+    const j = (edge, i) => h01(seed, edge, i) * jitterB;
+    const P = (bx, by) => ctx.lineTo(bx * s, by * s);
 
     // Walk the rectangle clockwise: top L→R, right T→B, bottom R→L,
     // left B→T. Each sample point displaces inward by [0, jitter].
@@ -85,27 +91,31 @@
     ctx.beginPath();
 
     // Top edge L → R
-    ctx.moveTo(x, y + j());
-    for (let px = x + step; px < x + w; px += step) {
-      ctx.lineTo(px, y + j());
+    ctx.moveTo(xb * s, (yb + j(1, 0)) * s);
+    let i = 1;
+    for (let px = xb + stepB; px < xb + wb; px += stepB, i++) {
+      P(px, yb + j(1, i));
     }
-    ctx.lineTo(x + w, y + j());
+    P(xb + wb, yb + j(1, 9999));
 
     // Right edge T → B
-    for (let py = y + step; py < y + h; py += step) {
-      ctx.lineTo(x + w - j(), py);
+    i = 1;
+    for (let py = yb + stepB; py < yb + hb; py += stepB, i++) {
+      P(xb + wb - j(2, i), py);
     }
-    ctx.lineTo(x + w - j(), y + h);
+    P(xb + wb - j(2, 9999), yb + hb);
 
     // Bottom edge R → L
-    for (let px = x + w - step; px > x; px -= step) {
-      ctx.lineTo(px, y + h - j());
+    i = 1;
+    for (let px = xb + wb - stepB; px > xb; px -= stepB, i++) {
+      P(px, yb + hb - j(3, i));
     }
-    ctx.lineTo(x, y + h - j());
+    P(xb, yb + hb - j(3, 9999));
 
     // Left edge B → T
-    for (let py = y + h - step; py > y; py -= step) {
-      ctx.lineTo(x + j(), py);
+    i = 1;
+    for (let py = yb + hb - stepB; py > yb; py -= stepB, i++) {
+      P(xb + j(4, i), py);
     }
 
     ctx.closePath();

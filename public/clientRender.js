@@ -228,11 +228,20 @@
     return decodeDataUrlToBitmap(dataURL, customBgCache, CUSTOM_BG_CACHE_MAX);
   }
 
-  function drawGrain(ctx, W, H, opacity) {
+  function drawGrain(ctx, W, H, opacity, scale) {
     if (opacity <= 0) return;
     const tile = ensureGrainTile();
     const pattern = ctx.createPattern(tile, 'repeat');
     if (!pattern) return;
+    // Below the at-rest preview scale (lights-down 0.2× drag frames) the
+    // canvas-px tile would upscale into visibly coarser specks than the
+    // 0.5× rest frame shows — compensate so drag and rest grain match.
+    // At ≥ PREVIEW_SCALE the tile renders as before (export look unchanged).
+    if (scale && scale < PREVIEW_SCALE && pattern.setTransform) {
+      try {
+        pattern.setTransform(new DOMMatrix().scale(scale / PREVIEW_SCALE));
+      } catch (_) { /* older engines: keep untransformed tile */ }
+    }
     ctx.save();
     ctx.globalAlpha = opacity;
     ctx.fillStyle = pattern;
@@ -367,7 +376,7 @@
         ctx.fillStyle = `rgba(0,0,0,${params.bg.darken})`;
         ctx.fillRect(0, 0, W, H);
       }
-      drawGrain(ctx, W, H, params.bg.grainOpacity);
+      drawGrain(ctx, W, H, params.bg.grainOpacity, layout.scale);
     } else {
       ctx.fillStyle = params.bg.color;
       ctx.fillRect(0, 0, W, H);
