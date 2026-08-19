@@ -92,6 +92,11 @@
           btn: '按住对比开台样张 · 双击重新取样',
           hudKey: '开台样张'
         },
+        // 灯下看样 (1.16.0) — ◫ 试印条
+        strip: {
+          btn: '试印条 · 把最近调过的旋钮扫成 4 档并排比较',
+          hint: '点条采用 · ◫ 退出'
+        },
         // 灯下看样 (1.14.0) — 区域描边标签：握住旋钮时画布上亮起的
         // amber 虚线圈，告诉眼睛该看哪里。
         region: {
@@ -681,6 +686,11 @@
         proof: {
           btn: 'Hold to compare against the bench-open proof · double-click to re-pin',
           hudKey: 'Bench-open proof'
+        },
+        // Lights-down proofing (1.16.0) — ◫ test strip
+        strip: {
+          btn: 'Test strip · sweep the last-touched knob into 4 side-by-side stops',
+          hint: 'tap to adopt · ◫ exits'
         },
         // Lights-down proofing (1.14.0) — region hairline labels: the amber
         // dashed outline that tells the eye where a knob lands on canvas.

@@ -4201,6 +4201,21 @@ input[type="range"]::-moz-range-thumb {
    region label own the annotation layer. */
 .canvas-frame-badge { transition: opacity 200ms ease; }
 body[data-bench-live="true"] .canvas-frame-badge { opacity: 0.08; }
+
+/* ── ◫ test-strip mode (1.16.0) ──
+   While the strip is on canvas the workshop yields the pointer: taps land
+   on the canvas bands. The identity row (◫ exit) and the lit row stay
+   interactive — pointer-events:none on an ancestor can be re-enabled per
+   descendant. */
+body[data-bench-strip="true"] .workshop-overlay[data-open="true"] { pointer-events: none; }
+body[data-bench-strip="true"] #workshop .bench-identity { pointer-events: auto; opacity: 1; }
+body[data-bench-strip="true"] #workshop .bench-live-row { pointer-events: auto; }
+body[data-bench-strip="true"] #preview-canvas { cursor: pointer; }
+.workshop--bench .bench-idbtn.is-active {
+  color: var(--wk-amber-hi);
+  border-color: var(--wk-amber);
+  background: rgba(212, 165, 116, 0.12);
+}
 .workshop {
   position: absolute;
   top: 0;
