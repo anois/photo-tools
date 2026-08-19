@@ -72,9 +72,16 @@
     if (rw < 8 || rh < 8) return;
 
     // Chunk = the on-canvas pixel size of one working-buffer pixel.
-    // p.px is in base-1440 units; scale it like everything else. Floor at
-    // 1 so low preview scales never upsample into the "downscale" pass.
-    const chunk = Math.max(1, p.px * layout.scale);
+    // p.px is in base-1440 units; scale it like everything else. Chunk may
+    // legitimately drop below 1 at low render scales — the work buffer then
+    // UPSAMPLES the soft source region so the screen lattice stays defined
+    // in base units. Do NOT re-add a Math.max(1, …) floor here (1.16.1):
+    // that floor made workW scale-dependent whenever px·scale < 1 — the
+    // 0.2× lights-down drag frames screened at a 2.5× smaller working
+    // resolution (≈40% of pixels flipped against the 0.5× rest frame), and
+    // even the 0.5× preview disagreed with export for htPx = 1. The work
+    // buffer is capped by fgW_base/px regardless of scale, so cost is flat.
+    const chunk = p.px * layout.scale;
     const workW = Math.max(8, Math.round(rw / chunk));
     const workH = Math.max(8, Math.round(rh / chunk));
 
@@ -121,7 +128,17 @@
     wctx.putImageData(img, 0, 0);
 
     ctx.save();
-    ctx.imageSmoothingEnabled = false;   // PS「邻近（硬边缘）」resample
+    // chunk ≥ 1 → the canvas can resolve every work pixel: nearest-neighbor
+    // upscale gives the PS「邻近（硬边缘）」chunky-dot identity.
+    // chunk < 1 → the canvas CANNOT resolve the base-unit lattice (0.2×
+    // lights-down drag frames; 0.5× preview with htPx=1). Nearest-neighbor
+    // DOWNSCALING a binary lattice below Nyquist shreds it into aliasing
+    // debris that looks nothing like the print (1.16.1 bug: ~36% of pixels
+    // differed vs the rest frame). Smooth downscaling instead shows the
+    // screen's true local average — exactly what the print looks like from
+    // farther away — so release/settle only sharpens, never restructures.
+    ctx.imageSmoothingEnabled = chunk >= 1 ? false : true;
+    if (chunk < 1) ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(work, 0, 0, workW, workH, rx, ry, rw, rh);
     ctx.restore();
   }

@@ -588,8 +588,9 @@ async function doRender() {
       normExif: buildCurrentExif(),
       logos: state.logos,
       fontFaceCss: state.fontFaceCss,
-      // Lights-down proofing S0: low-res while a bench slider is held.
-      customScale: benchDrag.live ? BENCH_SCALE_DRAG : undefined
+      // Lights-down proofing S0: low-res while a bench slider is held —
+      // except during a mid-drag hold (pause-to-crisp renders full-res).
+      customScale: benchDrag.live && !benchDrag.crisp ? BENCH_SCALE_DRAG : undefined
     });
     els.empty.hidden = true;
   } catch (err) {
@@ -634,7 +635,12 @@ function requestRender() {
 // inherit the behavior for free.
 const BENCH_SCALE_DRAG = 0.2;
 const BENCH_SETTLE_MS = 120;   // Compose precedent (app.js bindDrag)
-const benchDrag = { live: false, settleTimer: 0, lastInput: null };
+// Pause-to-crisp (1.16.1): low-res frames track the finger, but the moment
+// you HOLD STILL is exactly when you're judging the result — after this
+// many ms without an input event, one full-res frame renders mid-drag.
+// The next movement drops back to low-res.
+const BENCH_PAUSE_CRISP_MS = 200;
+const benchDrag = { live: false, settleTimer: 0, pauseTimer: 0, crisp: false, lastInput: null };
 
 // Shared flags for the ◫ test-strip mode (PR-4) — declared up here so the
 // bench modules and doRender can consult them without ordering hazards.
@@ -673,6 +679,8 @@ function benchBeginDrag(input) {
 function benchEndDrag() {
   if (!benchDrag.live) return;
   benchDrag.live = false;
+  if (benchDrag.pauseTimer) { clearTimeout(benchDrag.pauseTimer); benchDrag.pauseTimer = 0; }
+  benchDrag.crisp = false;
   if (benchDrag.settleTimer) clearTimeout(benchDrag.settleTimer);
   // One full-res settle frame after release — without it the canvas would
   // sit at low-res until the next unrelated render.
@@ -966,6 +974,16 @@ const benchLive = (() => {
       if (benchStrip.busy) return;   // programmatic ladder dispatches
       benchDrag.lastInput = input;
       if (benchDrag.live) {
+        // Pause-to-crisp: movement keeps low-res; 200ms of stillness while
+        // still holding renders one full-res frame for honest judgment.
+        benchDrag.crisp = false;
+        if (benchDrag.pauseTimer) clearTimeout(benchDrag.pauseTimer);
+        benchDrag.pauseTimer = setTimeout(() => {
+          benchDrag.pauseTimer = 0;
+          if (!benchDrag.live) return;
+          benchDrag.crisp = true;
+          requestRender();
+        }, BENCH_PAUSE_CRISP_MS);
         updateHudVal(input);
         if (activeRegion) positionRegion(activeRegion);
       } else {

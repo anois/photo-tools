@@ -181,15 +181,14 @@
     return _tileCache.get(key);
   }
 
-  function mulberry32(seed) {
-    let a = seed >>> 0;
-    return function () {
-      a = (a + 0x6D2B79F5) >>> 0;
-      let t = a;
-      t = Math.imul(t ^ (t >>> 15), t | 1);
-      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-    };
+  // Indexed hash → [0,1), addressed by (seed, channel, candidate-index) —
+  // determinism without order-sensitivity. Same core as torn / film-mf;
+  // see the unevenness-patch block for why a sequential stream won't do.
+  function h01(seed, a, b) {
+    let t = (seed ^ Math.imul(a, 0x9E3779B1) ^ Math.imul(b + 1, 0x85EBCA6B)) >>> 0;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   }
   function hashGeom(x, y, w, h) {
     return (
@@ -248,25 +247,28 @@
     // Light/dark patches both painted with mount-aware alphas. On dark
     // mounts the dark patches are nearly invisible (good) and light
     // patches add subtle reflection (also good).
-    const rng = mulberry32(hashGeom(fgL, fgT, fgW, fgH));
+    // Scale-free + index-hashed (1.16.1, same treatment as torn/film-mf):
+    // canvas-px seeds + a sequential rng stream made the 0.2× lights-down
+    // drag frames place these patches differently from the 0.5× rest frame.
+    const patchSeed = hashGeom(
+      Math.round((fgL / W) * 32), Math.round((fgT / H) * 32), 32, 32);
     {
-      let placed = 0, tries = 0;
-      while (placed < 15 && tries < 80) {
-        tries++;
-        const x = rng() * W;
-        const y = rng() * H;
-        const r = (60 + rng() * 140) * s;
+      let placed = 0;
+      for (let k = 0; k < 80 && placed < 15; k++) {
+        const x = h01(patchSeed, 1, k) * W;
+        const y = h01(patchSeed, 2, k) * H;
+        const r = (60 + h01(patchSeed, 3, k) * 140) * s;
         const dx = Math.max(0, Math.max(fgL - x, x - (fgL + fgW)));
         const dy = Math.max(0, Math.max(fgT - y, y - (fgT + fgH)));
         if (dx * dx + dy * dy < (r * 0.6) * (r * 0.6)) continue;
         placed++;
-        const isDark = rng() < 0.5;
+        const isDark = h01(patchSeed, 4, k) < 0.5;
         const grad = ctx.createRadialGradient(x, y, 0, x, y, r);
         if (isDark) {
-          grad.addColorStop(0, 'rgba(50, 35, 18, ' + (0.07 + rng() * 0.05).toFixed(3) + ')');
+          grad.addColorStop(0, 'rgba(50, 35, 18, ' + (0.07 + h01(patchSeed, 5, k) * 0.05).toFixed(3) + ')');
           grad.addColorStop(1, 'rgba(50, 35, 18, 0)');
         } else {
-          grad.addColorStop(0, 'rgba(255, 246, 215, ' + (0.08 + rng() * 0.05).toFixed(3) + ')');
+          grad.addColorStop(0, 'rgba(255, 246, 215, ' + (0.08 + h01(patchSeed, 5, k) * 0.05).toFixed(3) + ')');
           grad.addColorStop(1, 'rgba(255, 246, 215, 0)');
         }
         ctx.fillStyle = grad;

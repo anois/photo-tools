@@ -14,12 +14,12 @@
  * edits) and means every render parameter the user dials still composes
  * cleanly on top.
  *
- * Determinism: foxing spots are seeded from photo geometry, so the
- * same photo at the same dimensions always produces the same speck
- * pattern. Without a seed the specks would shimmer on every render —
- * a slider drag would re-spawn the entire foxing field, which is a
- * nightmare UX (and ruins the "this is an artifact frozen in time"
- * illusion).
+ * Determinism: foxing spots derive from a SCALE-FREE seed (photo position
+ * as a fraction of the canvas) with per-candidate indexed hashing, so the
+ * same composition shows the same speck pattern at any render scale —
+ * 0.2× lights-down drag frames, 0.5× preview and full-res export all
+ * agree (1.16.1). Without determinism the specks would shimmer on every
+ * render; without scale-freedom they'd jump between drag and rest.
  */
 (function () {
   'use strict';
@@ -38,17 +38,14 @@
   // suggesting silver oxidation at the emulsion boundary.
   const DECKLE = 'rgba(48, 32, 18, 0.32)';
 
-  // Mulberry32 + geometry-hash, same pattern as torn-paper. Lets every
-  // unique photo geometry get a stable foxing pattern across renders.
-  function mulberry32(seed) {
-    let a = seed >>> 0;
-    return function () {
-      a = (a + 0x6D2B79F5) >>> 0;
-      let t = a;
-      t = Math.imul(t ^ (t >>> 15), t | 1);
-      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-    };
+  // Indexed hash → [0,1), same mixing core as torn-paper's. Addressed by
+  // (seed, channel, candidate-index) instead of consumed as a stream —
+  // determinism without order-sensitivity (see the foxing block below).
+  function h01(seed, a, b) {
+    let t = (seed ^ Math.imul(a, 0x9E3779B1) ^ Math.imul(b + 1, 0x85EBCA6B)) >>> 0;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   }
   function hashGeom(x, y, w, h) {
     return (
@@ -148,14 +145,22 @@
     // (where airflow and humidity reach), avoiding the photo's emulsion
     // layer. We seed by photo geometry so the same photo keeps the
     // same spot pattern across renders.
-    const rng = mulberry32(hashGeom(fgL, fgT, fgW, fgH));
+    // Scale-free foxing (1.16.1). Seed = position as a fraction of the
+    // canvas (×32 buckets) — canvas-px inputs gave the 0.2× lights-down
+    // drag frames a different pattern from the 0.5× rest frames. Every
+    // per-spot value is hashed BY CANDIDATE INDEX, not drawn from a
+    // sequential stream: with a stream, one borderline rejection flipping
+    // between scales (rounded fg bounds differ by sub-px ratios) shifts
+    // every subsequent draw and scatters the whole field. Indexed hashing
+    // confines a borderline flip to that single spot.
+    const seed = hashGeom(
+      Math.round((fgL / W) * 32), Math.round((fgT / H) * 32), 32, 32);
     const cap = layout.caption;
     const numSpots = 18;
-    let placed = 0, attempts = 0;
-    while (placed < numSpots && attempts < numSpots * 6) {
-      attempts++;
-      const x = rng() * W;
-      const y = rng() * H;
+    let placed = 0;
+    for (let k = 0; k < numSpots * 6 && placed < numSpots; k++) {
+      const x = h01(seed, 1, k) * W;
+      const y = h01(seed, 2, k) * H;
       // Reject if inside the photo (foxing only on paper, not on the
       // image — emulsion protects from foxing).
       if (x > fgL - 8 * s && x < fgL + fgW + 8 * s &&
@@ -166,13 +171,13 @@
           y > cap.y - 6 * s && y < cap.y + cap.height + 6 * s) continue;
       placed++;
 
-      const baseR = (3 + rng() * 7) * s;        // 3..10 base-px
-      const aspectR = baseR * (0.55 + rng() * 0.6);   // not always round
-      const rot = rng() * Math.PI * 2;
-      const alpha = (0.10 + rng() * 0.16) * age;
+      const baseR = (3 + h01(seed, 3, k) * 7) * s;        // 3..10 base-px
+      const aspectR = baseR * (0.55 + h01(seed, 4, k) * 0.6);   // not always round
+      const rot = h01(seed, 5, k) * Math.PI * 2;
+      const alpha = (0.10 + h01(seed, 6, k) * 0.16) * age;
       // Pick a brown hue in the 20°-40° HSL range — warm sepia browns.
-      const hue = 24 + rng() * 14;
-      const lum = 28 + rng() * 10;
+      const hue = 24 + h01(seed, 7, k) * 14;
+      const lum = 28 + h01(seed, 8, k) * 10;
       const grad = ctx.createRadialGradient(x, y, 0, x, y, baseR);
       grad.addColorStop(0,    'hsla(' + hue + ', 55%, ' + lum + '%, ' + alpha.toFixed(3) + ')');
       grad.addColorStop(0.55, 'hsla(' + hue + ', 50%, ' + (lum + 8) + '%, ' + (alpha * 0.45).toFixed(3) + ')');

@@ -46,11 +46,20 @@ function ensureGrainTile() {
   return c;
 }
 
-function drawGrain(ctx, W, H, opacity) {
+function drawGrain(ctx, W, H, opacity, scale) {
   if (opacity <= 0) return;
   const tile = ensureGrainTile();
   const pattern = ctx.createPattern(tile, 'repeat');
   if (!pattern) return;
+  // Mirror of clientRender.js drawGrain: below 0.5 the tile is scaled so
+  // low-res frames match the at-rest preview's speck size. Export renders
+  // are always ≥ 0.5, so this branch never fires here — kept byte-similar
+  // for the compose-mirror discipline.
+  if (scale && scale < 0.5 && pattern.setTransform) {
+    try {
+      pattern.setTransform(new DOMMatrix().scale(scale / 0.5));
+    } catch (_) { /* older engines: keep untransformed tile */ }
+  }
   ctx.save();
   ctx.globalAlpha = opacity;
   ctx.fillStyle = pattern;
@@ -145,7 +154,7 @@ async function compose(canvas, args) {
       ctx.fillStyle = `rgba(0,0,0,${params.bg.darken})`;
       ctx.fillRect(0, 0, W, H);
     }
-    drawGrain(ctx, W, H, params.bg.grainOpacity);
+    drawGrain(ctx, W, H, params.bg.grainOpacity, layout.scale);
   } else {
     ctx.fillStyle = params.bg.color;
     ctx.fillRect(0, 0, W, H);
