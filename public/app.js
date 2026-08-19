@@ -968,6 +968,82 @@ const benchLive = (() => {
   return { engage, release, exit: () => exitChoreo(true), isOn: () => choreoOn };
 })();
 
+// ─── Lights-down proofing · D「试印对比 ◐」──────────────────────────────
+// Opening the workshop pins a proof — an ImageBitmap of the preview canvas
+// as it looked when you walked up to the bench. Hold ◐ to see it; release
+// to come back to the current state; double-click ◐ to re-pin. Complements
+// the existing peek (space / long-press = the RAW photo): the proof is the
+// *framed render before this bench session*. Photo switches while the
+// workshop is open re-pin automatically (comparing against another photo's
+// render would be meaningless).
+const benchProof = (() => {
+  const btn = document.getElementById('bench-proof-btn');
+  if (!btn) return { capture: () => {} };
+  let bitmap = null;
+  let holding = false;
+
+  async function capture() {
+    bitmap = null;
+    btn.disabled = true;
+    const c = els.canvas;
+    if (state.activeIdx < 0 || !c || c.classList.contains('empty') || c.width <= 1) return;
+    try {
+      bitmap = await createImageBitmap(c);
+      btn.disabled = false;
+    } catch (_) { /* keep disabled */ }
+  }
+
+  function show() {
+    if (!bitmap || holding) return;
+    holding = true;
+    btn.classList.add('is-holding');
+    const c = els.canvas;
+    const ctx = c.getContext('2d');
+    ctx.save();
+    ctx.fillStyle = getComputedStyle(c).backgroundColor || '#101115';
+    ctx.fillRect(0, 0, c.width, c.height);
+    const s = Math.min(c.width / bitmap.width, c.height / bitmap.height);
+    const dw = bitmap.width * s, dh = bitmap.height * s;
+    ctx.drawImage(bitmap, (c.width - dw) / 2, (c.height - dh) / 2, dw, dh);
+    ctx.restore();
+    const hud = document.getElementById('bench-hud');
+    const r = c.getBoundingClientRect();
+    hud.style.left = (r.left + r.width / 2) + 'px';
+    hud.style.top = Math.max(70, r.top + 10) + 'px';
+    document.getElementById('bench-hud-key').textContent = '◐';
+    document.getElementById('bench-hud-val').textContent = T('workshop.proof.hudKey');
+    hud.classList.add('is-on');
+  }
+  function hide() {
+    if (!holding) return;
+    holding = false;
+    btn.classList.remove('is-holding');
+    document.getElementById('bench-hud').classList.remove('is-on');
+    if (state.activeIdx >= 0) requestRender();
+  }
+
+  btn.addEventListener('pointerdown', (e) => { e.preventDefault(); show(); });
+  btn.addEventListener('pointerup', hide);
+  btn.addEventListener('pointercancel', hide);
+  btn.addEventListener('pointerleave', hide);
+  btn.addEventListener('dblclick', async () => {
+    hide();
+    await capture();
+    if (bitmap) setStatus('status.proofRepinned', 'ok');
+  });
+  document.addEventListener('phototools:photo-switched', () => {
+    hide();
+    // Re-pin only while the bench is open; openWorkshop handles the rest.
+    const overlay = document.getElementById('workshop-overlay');
+    if (overlay && overlay.dataset.open === 'true') {
+      // Let the switched photo's first render land before capturing.
+      setTimeout(capture, 350);
+    }
+  });
+
+  return { capture };
+})();
+
 // Reflect a per-photo cfg into all the DOM controls. Called whenever the
 // active photo changes (or apply-to-all rewrites the active photo's EXIF).
 // Swatch-row + free-picker sync for the halftone color knobs (harness kind
@@ -3298,6 +3374,10 @@ function __resetZoom(animated) {
   function isInteractiveTarget(t) {
     if (!t || !t.tagName) return false;
     if (t.isContentEditable) return true;
+    // Range sliders don't use Space — letting it through means peek stays
+    // available right after dragging a workshop knob (the knob keeps focus,
+    // which used to dead-end the gesture exactly when comparison matters).
+    if (t.tagName === 'INPUT' && t.type === 'range') return false;
     return t.tagName === 'INPUT' || t.tagName === 'TEXTAREA'
         || t.tagName === 'SELECT' || t.tagName === 'BUTTON';
   }
@@ -4615,6 +4695,8 @@ checkChangelogBadge();
     // Lights-down proofing A: body flag drives the desktop canvas re-center
     // (wide viewports shift the photo into the space the drawer leaves).
     document.body.dataset.workshopOpen = 'true';
+    // Lights-down proofing D: pin the bench-open proof (◐ hold-to-compare).
+    benchProof.capture();
     if (tab) setWorkshopTab(tab);
     // Refresh modified state in case cfg changed while workshop was closed.
     refreshWorkshopModifiedState();

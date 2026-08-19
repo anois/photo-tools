@@ -6497,6 +6497,40 @@ input.compose-vnum, .compose-vnum {
   border-color: var(--wk-amber);
   transform: rotate(90deg);
 }
+/* ◐ proof / ◫ test-strip — bench identity-row tools (lights-down proofing).
+   Graphite ghost circles; amber while armed/held. */
+.workshop--bench .bench-idbtn {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: transparent;
+  color: var(--wk-mute);
+  font: 500 13px/1 var(--f-mono);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: color 200ms, border-color 200ms;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+}
+.workshop--bench .bench-idbtn:not(:disabled):hover {
+  color: var(--wk-amber);
+  border-color: var(--wk-amber-dim);
+}
+.workshop--bench .bench-idbtn.is-holding {
+  color: var(--wk-amber-hi);
+  border-color: var(--wk-amber);
+}
+.workshop--bench .bench-idbtn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+@media (pointer: coarse) {
+  .workshop--bench .bench-idbtn { width: 34px; height: 34px; font-size: 15px; }
+}
 /* ─── Body · dock + stage layout ─── */
 .workshop--bench .bench-body {
   position: relative;
