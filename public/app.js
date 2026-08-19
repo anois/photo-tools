@@ -566,6 +566,9 @@ async function doRender() {
   const active = state.files[state.activeIdx];
   if (!active || !state.logos) return;
   if (state.rendering) { state.pendingRender = true; return; }
+  // Any external render repaints the canvas and destroys the strip pixels —
+  // the strip state self-heals by exiting silently before the paint.
+  if (benchStrip.active && !benchStrip.rendering && benchStrip.exitSilent) benchStrip.exitSilent();
   state.rendering = true;
   // Suppress the rendering dot during bench drags — low-res frames land in
   // ~10ms and the indicator would just flicker as noise at 60fps.
@@ -613,6 +616,10 @@ function requestRender() {
   // we still want the chip's draft-cfg state to update).
   if (typeof syncLookValueDisplay === 'function') syncLookValueDisplay();
   if (state.activeIdx < 0 || !state.logos) return;
+  // Test-strip build window: the ladder drives the real sliders (their
+  // handlers write cfg + call here), but those frames must never race the
+  // strip composite — the strip IS the render for this interaction.
+  if (benchStrip.busy) return;
   if (renderRAF) return;
   renderRAF = requestAnimationFrame(() => { renderRAF = 0; doRender(); });
 }
@@ -628,6 +635,13 @@ function requestRender() {
 const BENCH_SCALE_DRAG = 0.2;
 const BENCH_SETTLE_MS = 120;   // Compose precedent (app.js bindDrag)
 const benchDrag = { live: false, settleTimer: 0, lastInput: null };
+
+// Shared flags for the ◫ test-strip mode (PR-4) — declared up here so the
+// bench modules and doRender can consult them without ordering hazards.
+// busy = the strip is mid-build (programmatic ladder dispatches must not
+// trigger the live choreography); active = strip pixels are on canvas.
+// exitSilent is assigned by the TESTSTRIP module below.
+const benchStrip = { busy: false, active: false, rendering: false, exitSilent: null };
 
 // While dragging, the canvas's *pixel* dims shrink to the low-res layout,
 // but #preview-canvas is CSS-sized by its intrinsic dims (width:auto +
@@ -932,6 +946,9 @@ const benchLive = (() => {
     stage.addEventListener('pointerdown', (e) => {
       const input = e.target.closest && e.target.closest('input[type="range"]');
       if (!input) return;
+      // Grabbing a knob while a test strip is up dissolves the strip first
+      // (the drag's own renders will repaint the canvas anyway).
+      if (benchStrip.active && benchStrip.exitSilent) benchStrip.exitSilent();
       benchBeginDrag(input);
     });
     // Release can land anywhere (implicit pointer capture retargets to the
@@ -946,6 +963,7 @@ const benchLive = (() => {
     stage.addEventListener('input', (e) => {
       const input = e.target;
       if (!input || input.type !== 'range') return;
+      if (benchStrip.busy) return;   // programmatic ladder dispatches
       benchDrag.lastInput = input;
       if (benchDrag.live) {
         updateHudVal(input);
@@ -965,7 +983,29 @@ const benchLive = (() => {
     });
   })();
 
-  return { engage, release, exit: () => exitChoreo(true), isOn: () => choreoOn };
+  // Test-strip mode borrows the choreography, held open without a pointer:
+  // enter immediately (no engage delay), keep the identity row usable so
+  // ◫ stays reachable as the exit affordance.
+  function stripEnter(input) {
+    if (engageTimer) { clearTimeout(engageTimer); engageTimer = 0; }
+    if (restoreTimer) { clearTimeout(restoreTimer); restoreTimer = 0; }
+    if (kbTimer) { clearTimeout(kbTimer); kbTimer = 0; }
+    if (choreoOn) exitChoreo(true);
+    enterChoreo(input);
+    hideRegion();   // the strip owns the whole canvas — no single region
+    const identity = workshopEl.querySelector('.bench-identity');
+    if (identity) identity.classList.remove('bench-dim');
+  }
+  // Strip mode: keep the param-name key set by stripEnter, override only
+  // the value line with the "tap a band" hint.
+  function stripHud(val) {
+    hudVal.textContent = val;
+  }
+
+  return {
+    engage, release, exit: () => exitChoreo(true), isOn: () => choreoOn,
+    stripEnter, stripHud
+  };
 })();
 
 // ─── Lights-down proofing · D「试印对比 ◐」──────────────────────────────
@@ -1042,6 +1082,188 @@ const benchProof = (() => {
   });
 
   return { capture };
+})();
+
+// ─── Lights-down proofing ·「◫ 试印条 test strip」────────────────────────
+// The darkroom-orthodox comparison: sweep the last-touched knob across its
+// range in 4 evenly-spaced stops and render them as vertical bands of ONE
+// composition — exactly how a printer strips exposures on a single sheet.
+// Tap a band to adopt its value; ◫ again / Esc / grabbing any knob exits.
+//
+// Values are laddered by driving the real slider (set value + dispatch
+// 'input' with benchStrip.busy raised): the knob's own handler writes cfg
+// and formats the readout, so the strip needs no per-knob field map and
+// its band labels always match the row's formatting.
+const TESTSTRIP = (() => {
+  const N = 4;
+  const STRIP_SCALE = 0.25;
+  const btn = document.getElementById('bench-strip-btn');
+  if (!btn) return null;
+  let values = [];
+  let labels = [];
+  let input = null;
+  let origIdx = 0;
+
+  function enableIfArmed() {
+    btn.disabled = !(benchDrag.lastInput && state.activeIdx >= 0);
+  }
+  document.getElementById('bench-stage').addEventListener('pointerdown', () => {
+    setTimeout(enableIfArmed, 0);
+  });
+  document.getElementById('bench-stage').addEventListener('input', () => {
+    setTimeout(enableIfArmed, 0);
+  });
+  document.addEventListener('phototools:photo-switched', () => {
+    if (benchStrip.active) exit(false);
+    enableIfArmed();
+  });
+
+  function ladder(el) {
+    const min = Number(el.min), max = Number(el.max);
+    const orig = el.value;
+    const vals = [], labs = [], cfgs = [];
+    benchStrip.busy = true;
+    try {
+      for (let i = 0; i < N; i++) {
+        el.value = String(min + ((max - min) * i) / (N - 1));
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        vals.push(el.value);   // browser has snapped to step
+        const ro = document.getElementById(el.id + '-val');
+        labs.push(ro ? ro.textContent.trim() : el.value);
+        cfgs.push(snapshotCfgForRender(activeCfg()));
+      }
+      // Which band carries (or is nearest to) the value we walked in with?
+      const on = Number(orig);
+      origIdx = vals.reduce((best, v, i) =>
+        Math.abs(Number(v) - on) < Math.abs(Number(vals[best]) - on) ? i : best, 0);
+      el.value = orig;
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+    } finally {
+      benchStrip.busy = false;
+    }
+    return { vals, labs, cfgs };
+  }
+
+  async function enter() {
+    if (benchStrip.busy || benchStrip.active) return;
+    input = benchDrag.lastInput;
+    if (!input || state.activeIdx < 0) return;
+    const active = state.files[state.activeIdx];
+    if (!active || !state.logos) return;
+    // A pending drag-settle render would race the composite — absorb it.
+    if (benchDrag.settleTimer) { clearTimeout(benchDrag.settleTimer); benchDrag.settleTimer = 0; }
+    // busy stays raised from ladder through composite: requestRender is
+    // suppressed for the whole build (the strip IS this interaction's
+    // render), so no late full-res frame can overwrite the bands.
+    const { vals, labs, cfgs } = ladder(input);
+    values = vals; labels = labs;
+
+    // Render the 4 variants off-screen, sequentially (shares the preview
+    // bitmap caches; ~4 × low-res renders ≈ one at-rest render).
+    benchStrip.busy = true;
+    btn.classList.add('is-active');
+    let boards;
+    try {
+      boards = [];
+      for (const cfg of cfgs) {
+        const cv = document.createElement('canvas');
+        await CR.renderPreview(cv, {
+          file: active.file,
+          partnerFiles: active.partnerFiles || [],
+          cfg,
+          normExif: buildCurrentExif(),
+          logos: state.logos,
+          fontFaceCss: state.fontFaceCss,
+          customScale: STRIP_SCALE
+        });
+        boards.push(cv);
+      }
+    } catch (err) {
+      console.error('[teststrip]', err);
+      btn.classList.remove('is-active');
+      benchStrip.busy = false;
+      requestRender();   // repaint the normal preview — bands never landed
+      return;
+    }
+
+    // Composite the bands onto the visible canvas.
+    lockCanvasBox();
+    const c = els.canvas;
+    const W = boards[0].width, H = boards[0].height;
+    c.width = W; c.height = H;
+    const ctx = c.getContext('2d');
+    const band = W / N;
+    for (let i = 0; i < N; i++) {
+      ctx.drawImage(boards[i], i * band, 0, band, H, i * band, 0, band, H);
+    }
+    ctx.save();
+    ctx.fillStyle = 'rgba(212,165,116,0.85)';
+    for (let i = 1; i < N; i++) ctx.fillRect(Math.round(i * band) - 0.5, 0, 1, H);
+    // Band labels — dark chip + amber mono value, darkroom grease pencil.
+    // Drawn at the TOP of each band: on phones the transparent sheet's lit
+    // row covers the canvas's lower half, so bottom labels would be hidden.
+    ctx.font = '600 11px "JetBrains Mono", ui-monospace, monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    for (let i = 0; i < N; i++) {
+      const cx = i * band + band / 2;
+      const tw = ctx.measureText(labels[i]).width;
+      ctx.fillStyle = 'rgba(10,9,7,0.78)';
+      ctx.fillRect(cx - tw / 2 - 7, 10, tw + 14, 18);
+      ctx.fillStyle = i === origIdx ? '#e8b97f' : '#d4a574';
+      ctx.fillText(labels[i], cx, 19);
+    }
+    // The walked-in band gets a solid amber outline (this is where you are).
+    ctx.strokeStyle = 'rgba(212,165,116,0.9)';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(origIdx * band + 1, 1, band - 2, H - 2);
+    ctx.restore();
+
+    benchStrip.active = true;
+    document.body.dataset.benchStrip = 'true';
+    benchLive.stripEnter(input);
+    benchLive.stripHud(T('workshop.strip.hint'));
+    benchStrip.busy = false;   // composite landed — renders may flow again
+  }
+
+  // silent = a repaint is already on its way; don't request another.
+  function exit(silent) {
+    if (!benchStrip.active) return;
+    benchStrip.active = false;
+    delete document.body.dataset.benchStrip;
+    btn.classList.remove('is-active');
+    benchLive.exit();
+    if (!silent && state.activeIdx >= 0) requestRender();
+  }
+  benchStrip.exitSilent = () => exit(true);
+
+  btn.addEventListener('click', () => {
+    if (benchStrip.active) { exit(false); return; }
+    enter();
+  });
+
+  // Tap a band → adopt its value through the knob's own handler (cfg write
+  // + render + a brief lights-down beat as the adoption receipt).
+  els.canvas.addEventListener('click', (e) => {
+    if (!benchStrip.active || benchStrip.busy || !input) return;
+    const r = els.canvas.getBoundingClientRect();
+    const idx = Math.max(0, Math.min(N - 1, Math.floor(((e.clientX - r.left) / r.width) * N)));
+    exit(true);
+    input.value = values[idx];
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+
+  // Esc exits the strip without closing the workshop (capture phase beats
+  // the global workshop-close handler).
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape' || !benchStrip.active) return;
+    e.stopImmediatePropagation();
+    e.preventDefault();
+    exit(false);
+  }, true);
+
+  enableIfArmed();
+  return { exit };
 })();
 
 // Reflect a per-photo cfg into all the DOM controls. Called whenever the

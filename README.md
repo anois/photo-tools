@@ -69,6 +69,8 @@ These are not skins. Each one is a tuned starting point — every render paramet
 
 The product model is **engine + community look library**, not "fixed frames + a few sliders". When a seed isn't quite your photo's vibe, the workshop opens with every knob the engine exposes: corner radius, caption-inside-photo with sub-pixel lift, torn-paper jitter/density/edge, vintage-print age scalar, top-of-frame badge picker, custom background image, drop-shadow tuple, and a freely-placed seal/signature you drag anywhere on the composition (onto the photo or into the frame margin) with rotation, horizontal flip and blend modes. Every change becomes a new LOOK you can save, share by URL, or apply to the whole rail.
 
+And adjusting is proofing, darkroom-style: grip any knob and the workshop itself dims away so the photo takes the light — the value floats over the canvas, an amber hairline outlines the exact region you're changing, and the drag renders at 60fps. Hold ◐ to flip back to how the photo looked when you opened the bench; press ◫ to sweep the last knob into a four-stop test strip on a single sheet and tap the band you like.
+
 <table>
   <tr>
     <td width="50%"><img src="docs/screenshots/03-desktop-workshop.png" alt="Workshop drawer open" /></td>
