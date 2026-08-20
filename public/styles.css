@@ -4151,17 +4151,54 @@ input[type="range"]::-moz-range-thumb {
    the fade-back so restore animates too), the bare class carries the
    faded state. #workshop id keeps specificity above any component rule. */
 #workshop .bench-dim-t { transition: opacity 220ms ease; }
-#workshop .bench-dim { opacity: 0.05; pointer-events: none; }
+/* Fully transparent (1.16.2 user ruling): while a knob is held, nothing of
+   the bench may veil the photo — no residual ghost. */
+#workshop .bench-dim { opacity: 0; pointer-events: none; }
 
-/* The one row that stays lit under the finger. Layout must NOT move —
-   outline + backdrop only, never transform/size (the slider must stay
-   under the pointer). */
+/* The bench surface itself clears too — on BOTH surfaces (was phone-only
+   until 1.16.2): below 1100px the drawer overlaps the canvas pane, and
+   even above it a bare floating row reads cleaner than an empty panel. */
+.workshop--bench {
+  transition:
+    transform 320ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    background-color 200ms ease,
+    border-color 200ms ease,
+    box-shadow 200ms ease;
+}
+.workshop--bench[data-live="true"] {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+/* The active row's ancestor chain stays at opacity 1 (the row shows
+   through it) but must shed its own surfaces — instrument-card graphite,
+   frame accent bars, panel borders. body+id keeps this above any
+   component rule. */
+body[data-bench-live="true"] #workshop .bench-live-path {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+body[data-bench-live="true"] #workshop .bench-live-path::before,
+body[data-bench-live="true"] #workshop .bench-live-path::after {
+  opacity: 0;
+}
+
+/* The one row that stays under the finger — SEMI-transparent (1.16.2 user
+   ruling: the photo must show through even beneath the active bar). Its
+   own translucent backdrop rides along via box-shadow spread (padding
+   without layout shift). Layout must NOT move — opacity/backdrop only,
+   never transform/size (the slider must stay under the pointer). */
 #workshop .bench-live-row {
   position: relative;
   z-index: 2;
-  outline: 1px solid rgba(212, 165, 116, 0.4);
-  outline-offset: 7px;
-  border-radius: 3px;
+  opacity: 0.55;
+  background: rgba(10, 9, 7, 0.55);
+  box-shadow: 0 0 0 10px rgba(10, 9, 7, 0.55);
+  outline: 1px solid rgba(212, 165, 116, 0.5);
+  outline-offset: 12px;
+  border-radius: 2px;
+  transition: opacity 180ms ease;
 }
 
 /* Region hairline — absolutely positioned inside .canvas-stage by JS,
@@ -4208,7 +4245,14 @@ body[data-bench-live="true"] .canvas-frame-badge { opacity: 0.08; }
    interactive — pointer-events:none on an ancestor can be re-enabled per
    descendant. */
 body[data-bench-strip="true"] .workshop-overlay[data-open="true"] { pointer-events: none; }
-body[data-bench-strip="true"] #workshop .bench-identity { pointer-events: auto; opacity: 1; }
+body[data-bench-strip="true"] #workshop .bench-identity {
+  pointer-events: auto;
+  /* Same 1.16.2 ruling as the live row: stay reachable (◫ is the exit),
+     but float translucent so the strip underneath stays readable. */
+  opacity: 0.75;
+  background: rgba(10, 9, 7, 0.55);
+  border-radius: 4px;
+}
 body[data-bench-strip="true"] #workshop .bench-live-row { pointer-events: auto; }
 body[data-bench-strip="true"] #preview-canvas { cursor: pointer; }
 .workshop--bench .bench-idbtn.is-active {
@@ -4567,39 +4611,16 @@ body {
     -webkit-backdrop-filter: blur(4px);
   }
 
-  /* ── Lights-down proofing (1.14.0) · mobile「关灯看样」──
-     While a bench slider is held, the sheet's own surface clears and the
-     canvas — which has been rendering in place underneath all along —
-     shows through at full brightness. The active row keeps its own
-     backdrop (see .bench-live-row below); everything else is already
-     faded by the structural dim classes. */
-  .workshop--bench {
-    transition:
-      transform 320ms cubic-bezier(0.2, 0.8, 0.2, 1),
-      background-color 200ms ease,
-      border-color 200ms ease,
-      box-shadow 200ms ease;
-  }
-  .workshop--bench[data-live="true"] {
-    background: transparent;
-    border-color: transparent;
-    box-shadow: none;
-  }
+  /* ── Lights-down proofing · mobile extras ──
+     The bench-surface clearing + live-row backdrop are base rules since
+     1.16.2 (both surfaces). Phone only adds: hide the drag pill and dim
+     the chrome outside the sheet — the photo, the semi-transparent row
+     and the HUD are the only things left on stage. */
   .workshop--bench[data-live="true"]::before { opacity: 0; }  /* drag pill */
   body[data-bench-live="true"] .workshop-overlay::before { opacity: 0; }
-  /* Chrome outside the sheet dims too — the photo, the lit row and the
-     HUD are the only things left on stage. */
   .topbar, .lookbar { transition: opacity 200ms ease; }
   body[data-bench-live="true"] .topbar,
   body[data-bench-live="true"] .lookbar { opacity: 0.15; }
-  /* The lit row floats on the now-transparent sheet: give it its own
-     backdrop via box-shadow spread (padding without layout shift). */
-  body[data-bench-live="true"] #workshop .bench-live-row {
-    background: rgba(10, 9, 7, 0.85);
-    box-shadow: 0 0 0 10px rgba(10, 9, 7, 0.85);
-    border-radius: 2px;
-    outline-offset: 12px;
-  }
 
   /* Cmdk overlay starts higher on phone (less wasted top space) */
   .cmdk-overlay { padding-top: 8vh; }
