@@ -74,11 +74,11 @@ photo-tools 是一台完全跑在浏览器里的照片成片引擎。拖入一�
 <table>
   <tr>
     <td width="50%"><img src="docs/screenshots/03-desktop-workshop.png" alt="工作台" /></td>
-    <td width="50%"><img src="docs/screenshots/04-desktop-crop.png" alt="裁剪 & 旋转" /></td>
+    <td width="50%"><img src="docs/screenshots/04-desktop-lightsdown.png" alt="灯下看样 — 拖动旋钮时工作台退后" /></td>
   </tr>
   <tr>
     <td align="center"><sub>工作台 — 引擎每一个旋钮都在</sub></td>
-    <td align="center"><sub>裁剪 & 旋转 — 渲染时应用，源图不动</sub></td>
+    <td align="center"><sub>灯下看样 — 握住旋钮，工作台退后让光落在照片上</sub></td>
   </tr>
 </table>
 
