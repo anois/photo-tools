@@ -691,12 +691,13 @@ function benchEndDrag() {
   benchLive.release();
 }
 
-// ─── Lights-down proofing · B「关灯看样」+ C HUD / region hairline ───────
-// Grip a knob and the bench recedes: 60ms after pointerdown the workshop
-// chrome fades to ~5% opacity — only the row under the finger stays lit —
-// while the canvas shows the change at full brightness with a floating
-// value HUD and an amber hairline around the region the knob affects.
-// Release → one settle beat (240ms) → the bench fades back in.
+// ─── Lights-down proofing · B「关灯看样」+ C HUD ─────────────────────────
+// Grip a knob and the bench disappears entirely: 60ms after pointerdown
+// only the row under the finger remains, itself semi-transparent, while
+// the canvas shows the change at full brightness with a floating value
+// HUD. Release → one settle beat (240ms) → the bench fades back in.
+// (1.16.3: the amber region hairline was removed — user ruling: the
+// dashed box is meaningless noise on the very picture being judged.)
 //
 // Opacity does NOT punch through a faded ancestor (a child at opacity:1
 // inside an opacity:.05 parent stays dark), so the fade is applied
@@ -709,80 +710,16 @@ const benchLive = (() => {
   const KB_EXIT_MS = 600;   // keyboard steps are discrete — wider window
   const HUD_LINGER_MS = 600;
 
-  // knob id → region kind. Unmapped sliders get HUD only (region is a
-  // progressive enhancement). Kinds resolve to canvas-space rects below.
-  const SLIDER_REGION = {
-    'bg-blur': 'bg', 'bg-brightness': 'bg', 'bg-saturation': 'bg',
-    'bg-darken': 'bg', 'bg-grain': 'bg',
-    'shadow-blur': 'shadow', 'shadow-offset': 'shadow', 'shadow-opacity': 'shadow',
-    'torn-jitter': 'edge', 'torn-step': 'edge', 'torn-edge-opacity': 'edge',
-    'ht-cell': 'fg', 'ht-px': 'fg', 'ht-angle': 'fg', 'ht-tone': 'fg',
-    'film-mf-age': 'fg',
-    'gal-mat-width': 'margin', 'gal-line-spacing': 'margin', 'gal-line-weight': 'margin',
-    'f35-sprocket': 'margin', 'f35-grain': 'fg',
-    'instax-slab': 'bottom',
-    'slide-pebble': 'margin', 'slide-bevel': 'margin',
-    'padding': 'margin', 'radius': 'corners',
-    'caption-h': 'caption', 'caption-overlay-lift': 'caption',
-    'signature-opacity': 'seal'
-  };
-  // Discrete workshop controls (Q3 ruling: no lights-down for clicks — just
-  // flash the affected region for 900ms so the eye still gets an address).
-  const CONTROL_REGION = [
-    ['#top-template-seg', 'top'],
-    ['#caption-overlay-toggle', 'caption'],
-    ['#caption-overlay-lift-row', 'caption'],
-    ['#show-fields', 'caption'],
-    ['#frameless-toggle', 'fg']
-  ];
-
-  const REGION_RESOLVERS = {
-    bg:      (L) => insetRing(L),
-    margin:  (L) => insetRing(L),
-    fg:      (L) => ({ x: L.fgLeft, y: L.fgTop, w: L.fgW, h: L.fgH }),
-    edge:    (L) => ({ x: L.fgLeft, y: L.fgTop, w: L.fgW, h: L.fgH }),
-    corners: (L) => ({ x: L.fgLeft, y: L.fgTop, w: L.fgW, h: L.fgH }),
-    shadow:  (L) => ({
-      x: L.fgLeft - 14 * L.scale, y: L.fgTop + L.fgH * 0.7,
-      w: L.fgW + 28 * L.scale, h: L.fgH * 0.3 + 30 * L.scale
-    }),
-    top:     (L) => ({ x: 0, y: 0, w: L.canvas.W, h: Math.max(L.fgTop, L.canvas.H * 0.04) }),
-    bottom:  (L) => ({ x: 0, y: L.fgTop + L.fgH, w: L.canvas.W, h: Math.max(4, L.canvas.H - L.fgTop - L.fgH) }),
-    caption: (L) => {
-      const c = L.caption;
-      if (!c) return null;
-      // Rotated placements (right/left rails) report width/height in the
-      // rotated frame — swap back to the on-canvas box.
-      return c.rotation
-        ? { x: c.x, y: c.y, w: c.height, h: c.width }
-        : { x: c.x, y: c.y, w: c.width, h: c.height };
-    },
-    seal:    (L) => {
-      const cl = state.activeIdx >= 0 && state.files[state.activeIdx]
-        ? state.files[state.activeIdx].cfg.customLogo : null;
-      if (!cl || !cl.data) return null;
-      const r = R.customLogoRect(L, cl, 1);
-      return r ? { x: r.x, y: r.y, w: r.w, h: r.h } : null;
-    }
-  };
-  function insetRing(L) {
-    const ix = L.canvas.W * 0.015, iy = L.canvas.H * 0.015;
-    return { x: ix, y: iy, w: L.canvas.W - ix * 2, h: L.canvas.H - iy * 2 };
-  }
-
   const hud = document.getElementById('bench-hud');
   const hudKey = document.getElementById('bench-hud-key');
   const hudVal = document.getElementById('bench-hud-val');
-  const regionEl = document.getElementById('bench-region');
-  const regionLabel = document.getElementById('bench-region-label');
   const workshopEl = document.getElementById('workshop');
 
   let activeRow = null;
   let activeInput = null;
-  let activeRegion = null;
   let dimmed = [];
   let pathEls = [];
-  let engageTimer = 0, restoreTimer = 0, hudTimer = 0, kbTimer = 0, flashTimer = 0;
+  let engageTimer = 0, restoreTimer = 0, hudTimer = 0, kbTimer = 0;
   let choreoOn = false;
 
   // The "row" is the smallest container holding the knob's label + readout:
@@ -858,41 +795,6 @@ const benchLive = (() => {
       linger ? HUD_LINGER_MS : 0);
   }
 
-  function positionRegion(kind) {
-    const L = CR.getLastPreviewLayout && CR.getLastPreviewLayout();
-    if (!L || !L.canvas) return false;
-    const resolve = REGION_RESOLVERS[kind];
-    const rect = resolve ? resolve(L) : null;
-    if (!rect || !(rect.w > 0) || !(rect.h > 0)) return false;
-    const stage = document.getElementById('canvas-stage');
-    const cRect = els.canvas.getBoundingClientRect();
-    const sRect = stage.getBoundingClientRect();
-    if (!cRect.width) return false;
-    const sx = cRect.width / L.canvas.W;
-    const sy = cRect.height / L.canvas.H;
-    regionEl.style.left = (cRect.left - sRect.left + rect.x * sx) + 'px';
-    regionEl.style.top = (cRect.top - sRect.top + rect.y * sy) + 'px';
-    regionEl.style.width = (rect.w * sx) + 'px';
-    regionEl.style.height = (rect.h * sy) + 'px';
-    // Label flips inside when the rect hugs the canvas top edge.
-    regionEl.classList.toggle('label-inside', rect.y * sy < 26);
-    regionLabel.textContent = T('workshop.region.' + kind);
-    return true;
-  }
-  function showRegion(kind) {
-    if (!kind) { hideRegion(); return; }
-    if (positionRegion(kind)) {
-      activeRegion = kind;
-      regionEl.classList.add('is-on');
-    } else {
-      hideRegion();
-    }
-  }
-  function hideRegion() {
-    activeRegion = null;
-    regionEl.classList.remove('is-on');
-  }
-
   function enterChoreo(input) {
     const row = rowOf(input);
     if (!row) return;
@@ -905,7 +807,6 @@ const benchLive = (() => {
     document.body.dataset.benchLive = 'true';
     showHud(labelOf(row, input));
     updateHudVal(input);
-    showRegion(SLIDER_REGION[input.id] || null);
   }
   function exitChoreo(immediate) {
     if (restoreTimer) { clearTimeout(restoreTimer); restoreTimer = 0; }
@@ -918,7 +819,6 @@ const benchLive = (() => {
       delete workshopEl.dataset.live;
       delete document.body.dataset.benchLive;
       hideHud(!immediate);
-      hideRegion();
     };
     if (immediate) doExit();
     else restoreTimer = setTimeout(() => { restoreTimer = 0; doExit(); }, RESTORE_MS);
@@ -947,17 +847,8 @@ const benchLive = (() => {
       enterChoreo(input);
     }
     updateHudVal(input);
-    if (activeRegion) positionRegion(activeRegion);
     if (kbTimer) clearTimeout(kbTimer);
     kbTimer = setTimeout(() => { kbTimer = 0; exitChoreo(false); }, KB_EXIT_MS);
-  }
-
-  // Discrete-control region flash (no dim, no HUD).
-  function flashRegion(kind) {
-    if (choreoOn) return;
-    if (flashTimer) clearTimeout(flashTimer);
-    showRegion(kind);
-    flashTimer = setTimeout(() => { flashTimer = 0; if (!choreoOn) hideRegion(); }, 900);
   }
 
   (function wire() {
@@ -997,14 +888,8 @@ const benchLive = (() => {
           requestRender();
         }, BENCH_PAUSE_CRISP_MS);
         updateHudVal(input);
-        if (activeRegion) positionRegion(activeRegion);
       } else {
         keyboardStep(input);
-      }
-    });
-    stage.addEventListener('click', (e) => {
-      for (const [sel, kind] of CONTROL_REGION) {
-        if (e.target.closest && e.target.closest(sel)) { flashRegion(kind); return; }
       }
     });
     // Leaving the workshop mid-anything must never strand live state.
@@ -1022,7 +907,6 @@ const benchLive = (() => {
     if (kbTimer) { clearTimeout(kbTimer); kbTimer = 0; }
     if (choreoOn) exitChoreo(true);
     enterChoreo(input);
-    hideRegion();   // the strip owns the whole canvas — no single region
     const identity = workshopEl.querySelector('.bench-identity');
     if (identity) identity.classList.remove('bench-dim');
   }

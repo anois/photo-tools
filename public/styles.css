@@ -4201,41 +4201,8 @@ body[data-bench-live="true"] #workshop .bench-live-path::after {
   transition: opacity 180ms ease;
 }
 
-/* Region hairline — absolutely positioned inside .canvas-stage by JS,
-   in canvas coordinates mapped to CSS px. Class toggle only (never the
-   hidden attribute — see the [hidden] cascade pitfall). */
-.bench-region {
-  position: absolute;
-  z-index: 6;
-  pointer-events: none;
-  border: 1px dashed var(--wk-amber);
-  border-radius: 3px;
-  box-shadow: 0 0 24px rgba(212, 165, 116, 0.14);
-  opacity: 0;
-  transition: opacity 160ms ease;
-}
-.bench-region.is-on { opacity: 0.7; }
-.bench-region-label {
-  position: absolute;
-  top: -7px;
-  left: 10px;
-  transform: translateY(-100%);
-  font: 500 10px/1 var(--f-mono);
-  letter-spacing: 0.16em;
-  color: var(--wk-amber);
-  background: rgba(10, 9, 7, 0.82);
-  padding: 4px 8px;
-  border-radius: 3px;
-  white-space: nowrap;
-}
-/* Rect hugging the canvas top edge → label moves inside the outline. */
-.bench-region.label-inside .bench-region-label {
-  top: 7px;
-  transform: none;
-}
-
-/* During lights-down the canvas frame badge is stage noise — the HUD and
-   region label own the annotation layer. */
+/* During lights-down the canvas frame badge is stage noise — the HUD
+   owns the annotation layer. */
 .canvas-frame-badge { transition: opacity 200ms ease; }
 body[data-bench-live="true"] .canvas-frame-badge { opacity: 0.08; }
 
