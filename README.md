@@ -74,11 +74,11 @@ And adjusting is proofing, darkroom-style: grip any knob and the workshop itself
 <table>
   <tr>
     <td width="50%"><img src="docs/screenshots/03-desktop-workshop.png" alt="Workshop drawer open" /></td>
-    <td width="50%"><img src="docs/screenshots/04-desktop-crop.png" alt="Crop & rotate modal" /></td>
+    <td width="50%"><img src="docs/screenshots/04-desktop-lightsdown.png" alt="Lights-down proofing while dragging a knob" /></td>
   </tr>
   <tr>
     <td align="center"><sub>Workshop — every render knob exposed</sub></td>
-    <td align="center"><sub>Crop & rotate — per-photo, render-time only</sub></td>
+    <td align="center"><sub>Lights-down proofing — grip a knob and the bench recedes</sub></td>
   </tr>
 </table>
 
