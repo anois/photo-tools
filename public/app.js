@@ -781,6 +781,7 @@ const benchLive = (() => {
   let activeInput = null;
   let activeRegion = null;
   let dimmed = [];
+  let pathEls = [];
   let engageTimer = 0, restoreTimer = 0, hudTimer = 0, kbTimer = 0, flashTimer = 0;
   let choreoOn = false;
 
@@ -811,10 +812,21 @@ const benchLive = (() => {
         }
       }
       node = node.parentElement;
+      // The ancestors themselves stay at opacity 1 (the row must remain
+      // visible through them), but their own surfaces — instrument-card
+      // graphite, accent bars, panel chrome — would otherwise be the one
+      // thing still veiling the photo now that everything else clears
+      // (1.16.2 user ruling: ONLY the semi-transparent row may remain).
+      if (node && node !== workshopEl) {
+        node.classList.add('bench-live-path');
+        pathEls.push(node);
+      }
     }
   }
   function clearDim() {
     for (const el of dimmed) el.classList.remove('bench-dim');
+    for (const el of pathEls) el.classList.remove('bench-live-path');
+    pathEls = [];
     // Keep the transition class until the fade-back completes, then drop it
     // so future non-live opacity changes aren't accidentally animated.
     const batch = dimmed;
